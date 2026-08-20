@@ -1,5 +1,6 @@
 .PHONY: help install install-backend install-frontend \
 	dev backend frontend \
+	db-up db-down db-logs \
 	migrate makemigrations superuser shell \
 	lint lint-backend lint-frontend \
 	format format-backend format-frontend \
@@ -33,6 +34,17 @@ backend: ## Run the Django dev server
 
 frontend: ## Run the Next.js dev server
 	cd frontend && bun run dev
+
+## Database (Postgres via Docker Compose)
+
+db-up: ## Start the local Postgres container
+	docker compose up -d postgres
+
+db-down: ## Stop the local Postgres container
+	docker compose down
+
+db-logs: ## Tail the Postgres container logs
+	docker compose logs -f postgres
 
 ## Django management
 

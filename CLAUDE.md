@@ -51,6 +51,7 @@ github actions
 - [Interface Language & Localization](docs/core/languages.md)
 - [Lesson Lifecycle and Statuses](docs/core/lessons.md)
 - [Student Progress & "Ahead" Mode](docs/core/progress.md)
+- [Academic Dates and Schedule Planning](docs/core/schedule_planning.md)
 
 ## Student Interface
 
@@ -63,3 +64,14 @@ github actions
 
 - [Tutor Main Screen ("Rapid Response Dashboard")](docs/interfaces/tutor/main.md)
 
+## Architecture
+
+- [Overview](docs/architecture/00-overview.md)
+- [Backend Apps](docs/architecture/01-backend-apps.md)
+- [Data Model](docs/architecture/02-data-model.md)
+- [Lesson Lifecycle](docs/architecture/03-lesson-lifecycle.md)
+- [API Design](docs/architecture/04-api-design.md)
+- [Auth Flow](docs/architecture/05-auth-flow.md)
+- [Frontend Architecture](docs/architecture/06-frontend-architecture.md)
+- [Open Questions](docs/architecture/07-open-questions.md)
+- [Calendar Generation](docs/architecture/08-calendar-generation.md)

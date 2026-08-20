@@ -54,9 +54,52 @@ Outcome: The lesson is verified and credited, the final grade or pass status is 
 Ось професійний опис розділу «Система оцінювання» англійською мовою (з урахуванням попередньої заміни терміна task на lesson), який ідеально доповнить твою технічну документацію:
 
 # Grading System
-
     Once a lesson transitions into the Completed status, the final result is recorded depending on the lesson's configuration and type:
 
-    Point-Based Grading System: A traditional academic scale ranging from 1 to 12 points.
+ ## Lesson Structure and Content
+    Multi-page Architecture: A lesson can consist of one or more pages within the wizard.
 
-    Binary Grading System: A format consisting of "Pass / Fail"
+    Final Interaction: The completion logic depends on the specific type of lesson, which is defined at the end of the final page: quiz or posibility to upload a file and write the comment to that file.
+    
+    Comment: both tutor and student can write comment to the lesson.    
+
+## Grading and Status Transition Logic
+   The system supports three distinct evaluation paths. The transition of the LessonStatus depends on the selected LessonType.
+
+### Path A: Auto-graded Test (Quiz)
+Mechanism: The student completes a multiple-choice quiz.
+
+Automated Logic:
+
+Score > 60%: LessonStatus updates to Completed. A grade is assigned on a 1–12 scale based on the result.
+
+Score ≤ 60%: LessonStatus remains active (or updates to Failed), allowing the student to either retake the test or trigger a "Help Request".
+
+### Path B: Standard Theory / Reading Lesson
+Mechanism: The final page presents a self-assessment question: "Do you understand everything?"
+
+Automated Logic:
+
+"Yes" selected: LessonStatus updates to Completed. A grade is recorded as "Pass".
+
+"No" selected: LessonStatus updates to Need Help, signaling the tutor to intervene.
+
+### Path C: Manual Submission / Practical Lesson
+Mechanism: The student reaches the submission page, uploads materials (files, photos, etc.), and clicks "Submit".
+
+Automated Logic:
+
+Submission: LessonStatus transitions to Pending Review.
+
+Locking: The lesson becomes read-only, preventing the student from further editing until the tutor reviews the submission.
+
+### Tutor Review Workflow
+   Selective Intervention: Only lessons following Path C (Manual Submission) inherently require tutor manual review.
+
+Exception Cases: Tutor intervention is also triggered if a student explicitly requests help (e.g., via Path A retake requests or Path B "No" response).
+
+
+# Core Domain Components
+Template Content (`Lesson`): Stores static lesson data, multi-page materials, wizard configurations, and quiz questions.
+
+Per-Student Instances (`StudentLesson`): Manages the dynamic execution state for individual students

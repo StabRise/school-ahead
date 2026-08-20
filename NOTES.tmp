@@ -12,4 +12,7 @@ https://github.com/CodeAtCode/oss-ai-skills/blob/master/frameworks/django-ninja/
 
  Please design architecture of the project please use documentation from /docs. Need to split functionality by apps, design models. Use technologies from CLAUDE.md.
   next.js frontend should use JWT token for auth backen
- d
+
+
+
+ https://docs.orbstack.dev/quick-start - docker replacement

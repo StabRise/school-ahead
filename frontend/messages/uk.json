@@ -1,0 +1,32 @@
+{
+  "Login": {
+    "title": "Увійти до Ahead",
+    "subtitle": "Увійдіть за допомогою облікового запису Google, щоб продовжити.",
+    "signingIn": "Виконується вхід...",
+    "error": "Не вдалося увійти. Спробуйте ще раз."
+  },
+  "Header": {
+    "brand": "Ahead",
+    "login": "Увійти",
+    "logout": "Вийти",
+    "userMenu": "Меню користувача"
+  },
+  "Home": {
+    "welcomeBack": "З поверненням, {name}!",
+    "guestTitle": "Ласкаво просимо до Ahead",
+    "guestSubtitle": "Гейміфікована платформа для домашнього навчання.",
+    "cta": "Увійти"
+  },
+  "StudentDashboard": {
+    "title": "Сьогоднішні уроки",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити уроки. Спробуйте ще раз.",
+    "empty": "На сьогодні уроків немає.",
+    "statusAssigned": "Призначено",
+    "statusInProgress": "У процесі",
+    "statusNeedHelp": "Потрібна допомога",
+    "statusPendingReview": "На перевірці",
+    "statusRevisionRequired": "Потрібно виправити",
+    "statusCompleted": "Завершено"
+  }
+}

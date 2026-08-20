@@ -8,6 +8,13 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "django>=6.1",
+    "django-cors-headers>=4.9.0",
+    "django-environ>=0.14.0",
+    "django-ninja>=1.6.3",
+    "django-ninja-jwt>=5.4.5",
+    "google-auth>=2.56.3",
+    "psycopg[binary]>=3.3.4",
+    "requests>=2.34.2",
 ]
 
 [project.scripts]
@@ -16,3 +23,14 @@ school-ahead = "school_ahead:main"
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "core.settings"
+pythonpath = ["backend"]
+testpaths = ["backend"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-django>=4.14.0",
+]
