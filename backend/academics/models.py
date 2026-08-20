@@ -102,6 +102,13 @@ class Topic(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     order_index = models.PositiveSmallIntegerField()
+    # Auto-assigned by academics.services.assign_topics_to_blocks (even split
+    # across the subject's blocks, in order_index order) — every Lesson under
+    # a Topic inherits this same block, so block membership lives here rather
+    # than per-StudentLesson. See docs/interfaces/student/subjects.md.
+    subject_block = models.ForeignKey(
+        SubjectBlock, on_delete=models.SET_NULL, null=True, blank=True, related_name='topics'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

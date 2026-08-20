@@ -75,16 +75,20 @@
     "statusCompleted": "Завершено"
   },
   "LessonWizard": {
-    "back": "← До сьогоднішніх уроків",
     "loading": "Завантаження уроку...",
     "error": "Не вдалося завантажити урок.",
     "goToTaskButton": "Перейти до завдання",
     "needHelpWaiting": "Ви позначили урок як «Потрібна допомога». Тьютор скоро зв'яжеться з вами.",
     "pendingReviewWaiting": "Вашу роботу надіслано на перевірку тьютору.",
     "completedTitle": "Урок завершено!",
-    "gradePoints": "Оцінка: {points}/12",
-    "gradePass": "Залік",
-    "gradeFail": "Незалік"
+    "teacherFeedbackTitle": "Відгук тьютора",
+    "breadcrumbLessons": "Уроки",
+    "breadcrumbMaterials": "Матеріали",
+    "breadcrumbAssessment": "Завдання",
+    "scoreValue": "{points}/12",
+    "scorePass": "Залік",
+    "scoreFail": "Незалік",
+    "scoreNotGraded": "Ще не оцінено"
   },
   "QuizStep": {
     "title": "Тест",
@@ -128,6 +132,32 @@
     "error": "Не вдалося завантажити предмети. Спробуйте ще раз.",
     "empty": "Предметів ще немає.",
     "blocksCount": "{count, plural, one {# семестр} few {# семестри} many {# семестрів} other {# семестра}}"
+  },
+  "SubjectDetail": {
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити предмет. Спробуйте ще раз.",
+    "tabOverview": "Огляд",
+    "tabResources": "Рекомендовані матеріали",
+    "tabTopics": "Теми",
+    "progressLabel": "Прогрес завершення",
+    "noDescription": "Опис ще не додано.",
+    "noResources": "Рекомендованих матеріалів ще немає.",
+    "noTopics": "Тем ще немає.",
+    "lessonsCount": "{count, plural, one {# урок} few {# уроки} many {# уроків} other {# уроку}}"
+  },
+  "TopicDetail": {
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити тему. Спробуйте ще раз.",
+    "breadcrumbSubjects": "Мої предмети",
+    "progressLabel": "Прогрес завершення",
+    "noLessons": "Уроків у цій темі ще немає.",
+    "columnLesson": "Урок",
+    "columnBlock": "Семестр",
+    "columnStatus": "Статус",
+    "columnScore": "Бал",
+    "previousPage": "← Попередня",
+    "nextPage": "Наступна →",
+    "pageIndicator": "Сторінка {page} з {totalPages}"
   },
   "Calendar": {
     "title": "Календар",

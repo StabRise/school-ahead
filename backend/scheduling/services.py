@@ -2,6 +2,7 @@ import datetime
 
 from django.db.models import Prefetch
 
+from academics import services as academics_services
 from academics.models import Subject
 from accounts.models import StudentProfile
 from lessons import services as lesson_services
@@ -41,7 +42,11 @@ def generate_calendar_for_subject(subject: Subject) -> dict:
     StudentLesson per enrolled student per lesson via
     lessons.services.sync_scheduled_lesson (which silently skips
     completed/manually-scheduled rows). Runs synchronously — see
-    docs/architecture/08-calendar-generation.md."""
+    docs/architecture/08-calendar-generation.md. Also refreshes the
+    Topic->SubjectBlock assignment first (academics.services), in case blocks
+    or topics changed since the last time it ran."""
+    academics_services.assign_topics_to_blocks(subject)
+
     topics = subject.topics.order_by('order_index').prefetch_related(
         Prefetch('lessons', queryset=Lesson.objects.order_by('order_index'))
     )
@@ -54,20 +59,12 @@ def generate_calendar_for_subject(subject: Subject) -> dict:
     week_starts = _week_starts(subject.start_date, subject.due_date)
     lesson_groups_by_week = _split_evenly(all_lessons, len(week_starts))
 
-    blocks = list(subject.blocks.order_by('index'))
-    lesson_to_block = {}
-    if blocks:
-        for block, lessons_in_block in zip(blocks, _split_evenly(all_lessons, len(blocks))):
-            for lesson in lessons_in_block:
-                lesson_to_block[lesson.id] = block
-
     scheduled_count = 0
     for week_start, lessons_in_week in zip(week_starts, lesson_groups_by_week):
         for i, lesson in enumerate(lessons_in_week):
             scheduled_date = week_start + datetime.timedelta(days=i % WEEKDAYS_PER_SCHOOL_WEEK)
-            subject_block = lesson_to_block.get(lesson.id)
             for student in students:
-                lesson_services.sync_scheduled_lesson(student, lesson, scheduled_date, subject_block)
+                lesson_services.sync_scheduled_lesson(student, lesson, scheduled_date)
                 scheduled_count += 1
 
     return {'lessons_scheduled': scheduled_count, 'students_affected': len(students)}

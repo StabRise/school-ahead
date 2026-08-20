@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.db.models import QuerySet
 from django.utils import timezone
 
 from accounts.models import StudentProfile, User
@@ -256,6 +257,16 @@ def resubmit(student_lesson: StudentLesson, actor: User, *, file=None, comment: 
     return submission
 
 
+def compute_completion(student_lessons: QuerySet) -> tuple[int, int, float]:
+    """(completed_count, total_count, completed_percent) over the given
+    StudentLesson queryset — shared by the Subject/Topic detail pages'
+    progress bars (docs/interfaces/student/subjects.md)."""
+    total = student_lessons.count()
+    completed = student_lessons.filter(status=StudentLessonStatus.COMPLETED).count()
+    percent = round(completed / total * 100, 1) if total else 0.0
+    return completed, total, percent
+
+
 def reschedule(student_lesson: StudentLesson, new_date) -> None:
     """Manual single-lesson reschedule, called from scheduling's
     POST /student-lessons/{id}/reschedule. Not allowed once completed — see
@@ -267,18 +278,17 @@ def reschedule(student_lesson: StudentLesson, new_date) -> None:
     student_lesson.save(update_fields=['scheduled_date', 'is_manually_scheduled'])
 
 
-def sync_scheduled_lesson(
-    student: StudentProfile, lesson: Lesson, scheduled_date, subject_block=None
-) -> StudentLesson:
+def sync_scheduled_lesson(student: StudentProfile, lesson: Lesson, scheduled_date) -> StudentLesson:
     """Create-or-update a StudentLesson's scheduled_date for calendar
     generation/recalculation (scheduling.services). Skips existing rows that
-    are completed or manually scheduled, and never overwrites subject_block
-    once set (immutable — decision 4). See
-    docs/architecture/08-calendar-generation.md."""
+    are completed or manually scheduled. See
+    docs/architecture/08-calendar-generation.md. (Block membership is not
+    this function's concern — it's derived from lesson.topic.subject_block,
+    assigned by academics.services.assign_topics_to_blocks.)"""
     student_lesson, created = StudentLesson.objects.get_or_create(
         student=student,
         lesson=lesson,
-        defaults={'scheduled_date': scheduled_date, 'subject_block': subject_block},
+        defaults={'scheduled_date': scheduled_date},
     )
     if created:
         return student_lesson
@@ -287,7 +297,5 @@ def sync_scheduled_lesson(
         return student_lesson
 
     student_lesson.scheduled_date = scheduled_date
-    if subject_block is not None and student_lesson.subject_block_id is None:
-        student_lesson.subject_block = subject_block
-    student_lesson.save(update_fields=['scheduled_date', 'subject_block'])
+    student_lesson.save(update_fields=['scheduled_date'])
     return student_lesson

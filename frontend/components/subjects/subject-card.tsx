@@ -1,5 +1,6 @@
 import { useTranslations } from "next-intl";
 import type { SubjectOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
+import { Link } from "@/i18n/navigation";
 import { Card } from "@/components/card";
 import { Markdown } from "@/components/markdown";
 
@@ -9,7 +10,12 @@ export function SubjectCard({ subject }: { subject: SubjectOut }) {
 
   return (
     <Card>
-      <p className="font-medium">{subject.name}</p>
+      {/* Only the name links out — the description below can itself contain
+          markdown links, and nesting an <a> inside the card's own <a> would
+          be invalid HTML (see Card's href mode). */}
+      <Link href={`/subjects/${subject.id}`} className="font-medium hover:underline">
+        {subject.name}
+      </Link>
 
       {subject.description && <Markdown content={subject.description} />}
 

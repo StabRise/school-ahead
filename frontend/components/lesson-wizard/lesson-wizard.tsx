@@ -5,7 +5,10 @@ import { useTranslations } from "next-intl";
 import { useGetStudentLesson } from "@/lib/api/browser/student-lessons/student-lessons";
 import type { StudentLessonOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { StatusBadge } from "@/components/status-badge";
+import { ScoreBadge } from "@/components/score-badge";
+import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { SubmissionThread } from "@/components/submission-thread";
+import { Card } from "@/components/card";
 import { LessonContent } from "./lesson-content";
 import { QuizStep } from "./quiz-step";
 import { TheoryStep } from "./theory-step";
@@ -13,8 +16,13 @@ import { TaskStep } from "./task-step";
 import { LessonComments } from "./lesson-comments";
 import { NeedHelpButton } from "./need-help-button";
 import { ResolveNeedHelpButton } from "./resolve-need-help-button";
+import { StepSwitcher, type WizardStep } from "./step-switcher";
 
-function AssignmentStep({
+// The wizard's second page — feedback from the tutor, the task/quiz
+// interaction (only shown while actionable; otherwise a read-only status
+// message), and the persistent comment thread. See docs/interfaces/student/
+// lesson.md, "Assignment Step" & "Submission & Review Step".
+function AssessmentStep({
   studentLesson,
   onChanged,
 }: {
@@ -22,9 +30,9 @@ function AssignmentStep({
   onChanged: () => void;
 }) {
   const t = useTranslations("LessonWizard");
-  const { status, lesson, grade_points, grade_result, submissions } = studentLesson;
+  const { status, lesson, tutor_feedback, submissions } = studentLesson;
 
-  const content = (() => {
+  const interactiveContent = (() => {
     if (status === "revision_required") {
       return (
         <TaskStep
@@ -50,19 +58,7 @@ function AssignmentStep({
     }
 
     if (status === "completed") {
-      return (
-        <div className="flex flex-col gap-1">
-          <p className="text-lg font-semibold text-green-700">{t("completedTitle")}</p>
-          {grade_points !== null && (
-            <p className="text-sm text-gray-700">{t("gradePoints", { points: grade_points })}</p>
-          )}
-          {grade_result && (
-            <p className="text-sm text-gray-700">
-              {grade_result === "pass" ? t("gradePass") : t("gradeFail")}
-            </p>
-          )}
-        </div>
-      );
+      return <p className="text-sm font-medium text-green-700">{t("completedTitle")}</p>;
     }
 
     // assigned or in_progress
@@ -92,18 +88,29 @@ function AssignmentStep({
   })();
 
   return (
-    <div className="flex flex-col gap-4">
-      {lesson.lesson_type === "with_task" && submissions.length > 0 && (
-        <SubmissionThread submissions={submissions} />
+    <div className="flex flex-col gap-5">
+      {tutor_feedback && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3">
+          <h2 className="text-sm font-semibold text-blue-900">{t("teacherFeedbackTitle")}</h2>
+          <p className="mt-1 text-sm whitespace-pre-wrap text-blue-900">{tutor_feedback}</p>
+        </div>
       )}
-      {content}
+
+      <Card className="flex flex-col gap-4">
+        {lesson.lesson_type === "with_task" && submissions.length > 0 && (
+          <SubmissionThread submissions={submissions} />
+        )}
+        {interactiveContent}
+      </Card>
+
+      <LessonComments studentLessonId={studentLesson.id} />
     </div>
   );
 }
 
 export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   const t = useTranslations("LessonWizard");
-  const [showContent, setShowContent] = useState(true);
+  const [step, setStep] = useState<WizardStep>("materials");
   // The backend auto-transitions Assigned -> InProgress the moment this GET
   // resolves (see lessons/services.ensure_started), so there is no explicit
   // "Start Lesson" action here anymore — see the "State Transition & UI
@@ -117,43 +124,44 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
     return <p className="p-6 text-sm text-red-600">{t("error")}</p>;
   }
 
+  const breadcrumbItems: BreadcrumbItem[] = [
+    { label: t("breadcrumbLessons"), href: "/" },
+    { label: data.lesson.subject_name, href: `/subjects/${data.lesson.subject_id}` },
+    ...(data.lesson.subject_block_label ? [{ label: data.lesson.subject_block_label }] : []),
+    { label: data.lesson.title },
+  ];
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold">{data.lesson.title}</h1>
-        <div className="flex items-center gap-2">
-          {data.status === "in_progress" && (
-            <NeedHelpButton studentLessonId={studentLessonId} onRequested={refetch} />
-          )}
-          <StatusBadge status={data.status} />
+      <div className="flex flex-col gap-3 border-b border-gray-200 pb-4">
+        <Breadcrumbs items={breadcrumbItems} />
+        <StepSwitcher step={step} onChange={setStep} />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold text-gray-900">{data.lesson.title}</h1>
+          <div className="flex items-center gap-2">
+            {data.status === "in_progress" && (
+              <NeedHelpButton studentLessonId={studentLessonId} onRequested={refetch} />
+            )}
+            <StatusBadge status={data.status} />
+            <ScoreBadge gradePoints={data.grade_points} gradeResult={data.grade_result} />
+          </div>
         </div>
       </div>
 
-      {showContent ? (
+      {step === "materials" ? (
         <div className="flex flex-col gap-4">
           <LessonContent content={data.lesson.content} materials={data.lesson.materials} />
           <button
             type="button"
-            onClick={() => setShowContent(false)}
-            className="self-start rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white"
+            onClick={() => setStep("assessment")}
+            className="self-start rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
           >
             {t("goToTaskButton")}
           </button>
         </div>
       ) : (
-        <div className="flex flex-col gap-4">
-          <button
-            type="button"
-            onClick={() => setShowContent(true)}
-            className="self-start text-sm text-blue-600 underline hover:no-underline"
-          >
-            {t("back")}
-          </button>
-          <AssignmentStep studentLesson={data} onChanged={refetch} />
-        </div>
+        <AssessmentStep studentLesson={data} onChanged={refetch} />
       )}
-
-      <LessonComments studentLessonId={studentLessonId} />
     </div>
   );
 }

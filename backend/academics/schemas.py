@@ -50,10 +50,15 @@ class TopicOut(Schema):
     description: str
     order_index: int
     lesson_count: int
+    subject_block_label: str | None
 
     @staticmethod
     def resolve_lesson_count(obj):
         return obj.lessons.count()
+
+    @staticmethod
+    def resolve_subject_block_label(obj):
+        return obj.subject_block.label if obj.subject_block else None
 
 
 class SubjectPatchIn(Schema):

@@ -48,6 +48,11 @@ def test_get_lesson_as_owner(api_client, auth_header, student, student_lesson):
     # GET auto-transitions Assigned -> InProgress on access (spec 2.1).
     assert response.data['status'] == 'in_progress'
     assert response.data['lesson']['title'] == 'Understanding fractions'
+    # Breadcrumb fields (Subject / SubjectBlock / Lesson) for the wizard header.
+    assert response.data['lesson']['subject_id'] == student_lesson.lesson.topic.subject_id
+    assert response.data['lesson']['subject_name'] == 'Math'
+    assert response.data['lesson']['topic_title'] == 'Fractions'
+    assert response.data['lesson']['subject_block_label'] is None
 
 
 def test_get_lesson_exposes_submissions_with_threaded_feedback(api_client, auth_header, topic, student):
@@ -72,6 +77,25 @@ def test_get_lesson_exposes_submissions_with_threaded_feedback(api_client, auth_
     assert submissions[0]['tutor_feedback'] == 'fix the second step'
     assert submissions[0]['feedback_at'] is not None
     assert submissions[1]['tutor_feedback'] == ''
+
+
+def test_get_lesson_exposes_subject_block_label_when_scheduled(api_client, auth_header, topic, student):
+    from academics.models import SubjectBlock
+
+    block = SubjectBlock.objects.create(subject=topic.subject, index=1, label='Semester 1')
+    topic.subject_block = block
+    topic.save()
+    lesson = Lesson.objects.create(
+        topic=topic, order_index=3, title='Practical work',
+        lesson_type=LessonType.WITH_TASK, grading_type='points',
+    )
+    sl = StudentLesson.objects.create(
+        student=student, lesson=lesson, scheduled_date=datetime.date.today()
+    )
+
+    response = api_client.get(f'/student-lessons/{sl.id}', headers=auth_header(student.user))
+    assert response.status_code == 200
+    assert response.data['lesson']['subject_block_label'] == 'Semester 1'
 
 
 def test_get_lesson_does_not_re_transition_once_progressed(
@@ -180,3 +204,74 @@ def test_resolve_own_need_help_rejects_wrong_status(api_client, auth_header, stu
         f'/student-lessons/{student_lesson.id}/resolve-need-help', headers=headers
     )
     assert response.status_code == 409
+
+
+def test_get_subject_progress(api_client, auth_header, topic, student, student_lesson):
+    from lessons import services
+
+    lesson2 = Lesson.objects.create(
+        topic=topic, order_index=2, title='Second lesson',
+        lesson_type=LessonType.THEORY, grading_type='binary',
+    )
+    sl2 = StudentLesson.objects.create(
+        student=student, lesson=lesson2, scheduled_date=datetime.date.today()
+    )
+    services.start(sl2, student.user)
+    services.confirm_understanding(sl2, student.user, understood=True)  # -> completed
+
+    response = api_client.get(
+        f'/student-lessons/subjects/{topic.subject_id}/progress', headers=auth_header(student.user)
+    )
+    assert response.status_code == 200
+    assert response.data == {'completed_count': 1, 'total_count': 2, 'completed_percent': 50.0}
+
+
+def test_get_subject_progress_requires_student(api_client, auth_header, topic):
+    user = User.objects.create_user(email='not-a-student@example.com', role=Role.STUDENT)
+    response = api_client.get(
+        f'/student-lessons/subjects/{topic.subject_id}/progress', headers=auth_header(user)
+    )
+    assert response.status_code == 403
+
+
+def test_get_topic_progress(api_client, auth_header, topic, student, student_lesson):
+    response = api_client.get(
+        f'/student-lessons/topics/{topic.id}/progress', headers=auth_header(student.user)
+    )
+    assert response.status_code == 200
+    assert response.data == {'completed_count': 0, 'total_count': 1, 'completed_percent': 0.0}
+
+
+def test_list_topic_lessons_paginated_and_scoped_to_own_student(
+    api_client, auth_header, topic, student, other_student, student_lesson
+):
+    lesson2 = Lesson.objects.create(
+        topic=topic, order_index=2, title='Second lesson',
+        lesson_type=LessonType.THEORY, grading_type='binary',
+    )
+    StudentLesson.objects.create(student=student, lesson=lesson2, scheduled_date=datetime.date.today())
+    # Another student's row must never leak into the response.
+    StudentLesson.objects.create(student=other_student, lesson=lesson2, scheduled_date=datetime.date.today())
+
+    response = api_client.get(
+        f'/student-lessons/topics/{topic.id}/lessons?limit=1', headers=auth_header(student.user)
+    )
+    assert response.status_code == 200
+    assert response.data['count'] == 2
+    assert len(response.data['items']) == 1
+    assert response.data['items'][0]['title'] == 'Understanding fractions'
+    assert response.data['items'][0]['status'] == 'assigned'
+
+
+def test_list_topic_lessons_includes_subject_block_label(api_client, auth_header, topic, student, student_lesson):
+    from academics.models import SubjectBlock
+
+    block = SubjectBlock.objects.create(subject=topic.subject, index=1, label='Semester 1')
+    topic.subject_block = block
+    topic.save()
+
+    response = api_client.get(
+        f'/student-lessons/topics/{topic.id}/lessons', headers=auth_header(student.user)
+    )
+    assert response.status_code == 200
+    assert response.data['items'][0]['subject_block_label'] == 'Semester 1'

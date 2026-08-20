@@ -117,6 +117,16 @@ def test_patch_subject_as_admin(api_client, auth_header, admin_user, subject):
     assert subject.blocks.count() == 4
 
 
+def test_get_topic(api_client, auth_header, student_user, subject):
+    topic = Topic.objects.create(subject=subject, title='Fractions', description='Numerators & co', order_index=1)
+
+    response = api_client.get(f'/academics/topics/{topic.id}', headers=auth_header(student_user))
+    assert response.status_code == 200
+    assert response.data['title'] == 'Fractions'
+    assert response.data['description'] == 'Numerators & co'
+    assert response.data['subject_id'] == subject.id
+
+
 def test_reorder_topics_as_admin(api_client, auth_header, admin_user, subject):
     t1 = Topic.objects.create(subject=subject, title='Intro', order_index=1)
     t2 = Topic.objects.create(subject=subject, title='Advanced', order_index=2)
@@ -151,3 +161,85 @@ def test_ensure_subject_blocks_matches_block_count(subject):
 def test_subject_block_default_label(subject):
     block = SubjectBlock.objects.create(subject=subject, index=1)
     assert block.label == 'Semester 1'
+
+
+def test_assign_topics_to_blocks_even_split(subject):
+    from academics import services
+
+    subject.block_count = 2
+    subject.save()
+    services.ensure_subject_blocks(subject)
+    topics = [Topic.objects.create(subject=subject, title=f'T{i}', order_index=i) for i in range(1, 5)]
+
+    services.assign_topics_to_blocks(subject)
+
+    blocks_by_index = {b.index: b for b in subject.blocks.all()}
+    for topic in topics:
+        topic.refresh_from_db()
+    assert [t.subject_block_id for t in topics] == [
+        blocks_by_index[1].id, blocks_by_index[1].id, blocks_by_index[2].id, blocks_by_index[2].id,
+    ]
+
+
+def test_assign_topics_to_blocks_remainder_goes_to_first_block(subject):
+    from academics import services
+
+    subject.block_count = 2
+    subject.save()
+    services.ensure_subject_blocks(subject)
+    topics = [Topic.objects.create(subject=subject, title=f'T{i}', order_index=i) for i in range(1, 4)]
+
+    services.assign_topics_to_blocks(subject)
+
+    blocks_by_index = {b.index: b for b in subject.blocks.all()}
+    for topic in topics:
+        topic.refresh_from_db()
+    assert [t.subject_block_id for t in topics] == [
+        blocks_by_index[1].id, blocks_by_index[1].id, blocks_by_index[2].id,
+    ]
+
+
+def test_assign_topics_to_blocks_noop_without_blocks(subject):
+    from academics import services
+
+    topic = Topic.objects.create(subject=subject, title='Solo', order_index=1)
+    services.assign_topics_to_blocks(subject)
+    topic.refresh_from_db()
+    assert topic.subject_block_id is None
+
+
+def test_create_topic_via_api_gets_assigned_a_block(api_client, auth_header, admin_user, subject):
+    from academics import services
+
+    subject.block_count = 1
+    subject.save()
+    services.ensure_subject_blocks(subject)
+
+    response = api_client.post(
+        '/academics/topics',
+        json={'subject_id': subject.id, 'title': 'Intro', 'order_index': 1},
+        headers=auth_header(admin_user),
+    )
+    assert response.status_code == 200
+    assert response.data['subject_block_label'] == 'Semester 1'
+
+
+def test_delete_topic_reassigns_remaining_topics(api_client, auth_header, admin_user, subject):
+    from academics import services
+
+    subject.block_count = 2
+    subject.save()
+    services.ensure_subject_blocks(subject)
+    t1 = Topic.objects.create(subject=subject, title='T1', order_index=1)
+    t2 = Topic.objects.create(subject=subject, title='T2', order_index=2)
+    services.assign_topics_to_blocks(subject)
+    # Pre-condition: with 2 topics across 2 blocks, t2 starts in the second block.
+    t2.refresh_from_db()
+    assert t2.subject_block_id == subject.blocks.get(index=2).id
+
+    response = api_client.delete(f'/academics/topics/{t1.id}', headers=auth_header(admin_user))
+    assert response.status_code == 204
+
+    t2.refresh_from_db()
+    # With only one topic left and two blocks, it lands in the first block.
+    assert t2.subject_block_id == subject.blocks.get(index=1).id

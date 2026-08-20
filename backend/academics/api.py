@@ -53,14 +53,19 @@ def my_subjects(request: HttpRequest):
     return Subject.objects.filter(school_class_id=student.school_class_id)
 
 
-@router.get('/subjects/{subject_id}', response=SubjectOut)
+@router.get('/subjects/{subject_id}', response=SubjectOut, operation_id='get_subject')
 def get_subject(request: HttpRequest, subject_id: int):
     return get_object_or_404(Subject, id=subject_id)
 
 
-@router.get('/subjects/{subject_id}/topics', response=list[TopicOut])
+@router.get('/subjects/{subject_id}/topics', response=list[TopicOut], operation_id='list_subject_topics')
 def list_subject_topics(request: HttpRequest, subject_id: int):
-    return Topic.objects.filter(subject_id=subject_id)
+    return Topic.objects.filter(subject_id=subject_id).select_related('subject_block')
+
+
+@router.get('/topics/{topic_id}', response=TopicOut, operation_id='get_topic')
+def get_topic(request: HttpRequest, topic_id: int):
+    return get_object_or_404(Topic.objects.select_related('subject_block'), id=topic_id)
 
 
 @router.patch('/subjects/{subject_id}', response=SubjectOut)
@@ -77,12 +82,14 @@ def patch_subject(request: HttpRequest, subject_id: int, payload: SubjectPatchIn
 
     subject.save()
     services.ensure_subject_blocks(subject)
+    services.assign_topics_to_blocks(subject)
     return subject
 
 
 @router.patch('/subjects/{subject_id}/topics/reorder')
 def reorder_topics(request: HttpRequest, subject_id: int, payload: TopicsReorderIn):
     _ensure_staff(request)
+    subject = get_object_or_404(Subject, id=subject_id)
     topics_by_id = {t.id: t for t in Topic.objects.filter(subject_id=subject_id)}
 
     updated = []
@@ -94,6 +101,7 @@ def reorder_topics(request: HttpRequest, subject_id: int, payload: TopicsReorder
         updated.append(topic)
 
     Topic.objects.bulk_update(updated, ['order_index'])
+    services.assign_topics_to_blocks(subject)
     return {'updated': len(updated)}
 
 
@@ -150,6 +158,7 @@ def create_subject(request: HttpRequest, payload: SubjectIn):
     _ensure_staff(request)
     subject = Subject.objects.create(**payload.dict())
     services.ensure_subject_blocks(subject)
+    services.assign_topics_to_blocks(subject)
     return subject
 
 
@@ -161,6 +170,7 @@ def update_subject(request: HttpRequest, subject_id: int, payload: SubjectIn):
         setattr(subject, field, value)
     subject.save()
     services.ensure_subject_blocks(subject)
+    services.assign_topics_to_blocks(subject)
     return subject
 
 
@@ -175,7 +185,11 @@ def delete_subject(request: HttpRequest, subject_id: int, response: HttpResponse
 @router.post('/topics', response=TopicOut)
 def create_topic(request: HttpRequest, payload: TopicIn):
     _ensure_staff(request)
-    return Topic.objects.create(**payload.dict())
+    subject = get_object_or_404(Subject, id=payload.subject_id)
+    topic = Topic.objects.create(**payload.dict())
+    services.assign_topics_to_blocks(subject)
+    topic.refresh_from_db()
+    return topic
 
 
 @router.put('/topics/{topic_id}', response=TopicOut)
@@ -185,12 +199,17 @@ def update_topic(request: HttpRequest, topic_id: int, payload: TopicIn):
     for field, value in payload.dict().items():
         setattr(topic, field, value)
     topic.save()
+    services.assign_topics_to_blocks(topic.subject)
+    topic.refresh_from_db()
     return topic
 
 
 @router.delete('/topics/{topic_id}')
 def delete_topic(request: HttpRequest, topic_id: int, response: HttpResponse):
     _ensure_staff(request)
-    get_object_or_404(Topic, id=topic_id).delete()
+    topic = get_object_or_404(Topic, id=topic_id)
+    subject = topic.subject
+    topic.delete()
+    services.assign_topics_to_blocks(subject)
     response.status_code = 204
     return response

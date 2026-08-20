@@ -12,7 +12,7 @@ These go beyond — or in one case, are now directly confirmed by — what `/doc
 
 3. **Diamonds are an append-only ledger (`DiamondLedgerEntry`), not a running counter.** Needs an audit trail, needs to support negative correction entries (e.g. a tutor downgrades a grade post-award), and per-subject/per-block balances are derivable via `SUM(...)`. A `StudentProfile.diamond_balance_cache` may exist purely as a perf-optimization cache refreshed by a `django-q` task, but the ledger is the source of truth.
 
-4. **`StudentLesson.subject_block` is immutable once assigned**, even if `Subject.block_count` changes later or lessons are reordered — preserves historical correctness of closed-semester aggregates.
+4. **`Topic.subject_block` is the source of truth for block membership, not a per-`StudentLesson` field.** A Topic belongs to exactly one `SubjectBlock` (even split across the subject's blocks, in `order_index` order — same rule as `SubjectBlock` count itself), and every `Lesson` under it — and so every student's `StudentLesson` for that lesson — inherits that block. `academics.services.assign_topics_to_blocks` recomputes the assignment from scratch (no override concept) whenever topics or blocks change: topic create/update/delete/reorder, or `block_count` changing via `ensure_subject_blocks`. This superseded an earlier design where `StudentLesson` carried its own immutable `subject_block` FK, assigned per-lesson during calendar generation — moving it onto `Topic` keeps it structural (owned by `academics`, no per-student state) and guarantees every lesson in a topic reports the same block consistently.
 
 5. **`StudentLesson.scheduled_date` is mutable, not immutable.** It's set by calendar generation, can be overwritten by forced recalculation, and can be moved for a single lesson via manual tutor reschedule (`docs/core/schedule_planning.md`). To keep recalculation from silently clobbering a tutor's deliberate manual move — or a student's completed history — `StudentLesson` carries `is_manually_scheduled` (boolean, default `False`, set `True` by the manual-reschedule endpoint), and the recalculation algorithm skips any `StudentLesson` that is `status == completed` or has `is_manually_scheduled == True`. This is a design decision beyond what the doc states literally — see `08-calendar-generation.md` — and the doc's own ambiguity (does forced recalculation intend to override manual moves too?) is listed in `07-open-questions.md`.
 
@@ -28,11 +28,11 @@ erDiagram
     Class ||--o{ Subject : has
     Subject ||--o{ SubjectBlock : "divided into"
     Subject ||--o{ Topic : has
+    SubjectBlock ||--o{ Topic : "assigned topics in"
     Topic ||--o{ Lesson : has
     Lesson ||--o{ LessonAttachment : has
     Lesson ||--o{ QuizQuestion : has
     QuizQuestion ||--o{ QuizChoice : has
-    SubjectBlock ||--o{ StudentLesson : "assigned lessons in"
     Class ||--o{ StudentProfile : enrolls
 ```
 
@@ -105,7 +105,7 @@ erDiagram
 `subject` (FK) · `index` (PositiveSmallInt, 1-based) · `label` (CharField(100), blank — auto `"Semester {index}"` or custom) · `status` (choices: active/closed, default active) · `starts_on` / `ends_on` (Date, null) · `closed_at` (DateTime, null). `unique_together(subject, index)`. The even-split-with-remainder-to-first-block logic (per `docs/core/data.md`) lives in a domain service, not the model.
 
 ### `academics.Topic`
-`subject` (FK) · `title` · `description` (TextField, markdown, blank) · `order_index` (PositiveSmallInt — tutor-editable via drag-and-drop, drives calendar generation, see `08-calendar-generation.md`) · `created_at`.
+`subject` (FK) · `title` · `description` (TextField, markdown, blank) · `order_index` (PositiveSmallInt — tutor-editable via drag-and-drop, drives calendar generation, see `08-calendar-generation.md`) · `subject_block` (FK → `SubjectBlock`, null — auto-assigned by `assign_topics_to_blocks`, not hand-edited, see decision 4) · `created_at`.
 
 ### `lessons.Lesson` (template)
 `topic` (FK) · `order_index` (PositiveSmallInt) · `title` · `lesson_type` (choices: `with_quiz`/`theory`/`with_task` — see `03-lesson-lifecycle.md` for what each drives) · `grading_type` (choices: points/binary) · `content` (TextField, markdown) · `default_day_offset` (PositiveSmallInt, null — optional default scheduling hint) · `created_at` / `updated_at`. `unique_together(topic, order_index)`.
@@ -121,8 +121,7 @@ Minimal MVP quiz modeling (see `07-open-questions.md` for depth caveats). `QuizQ
 | Field | Type | Notes |
 |---|---|---|
 | student | FK → `accounts.StudentProfile` | related_name `student_lessons` |
-| lesson | FK → `lessons.Lesson` | related_name `student_lessons` |
-| subject_block | FK → `academics.SubjectBlock`, null | immutable once set (decision 4) |
+| lesson | FK → `lessons.Lesson` | related_name `student_lessons`; block membership is read via `lesson.topic.subject_block`, not stored here (decision 4) |
 | status | choices: assigned/in_progress/need_help/pending_review/revision_required/completed, default assigned | indexed |
 | scheduled_date | DateField | indexed; mutable via generation/recalculation/manual reschedule, but never once `status == completed` (decision 5) |
 | is_manually_scheduled | Boolean, default False | set True by the manual-reschedule endpoint; checked by recalculation to avoid overwriting a deliberate tutor move |

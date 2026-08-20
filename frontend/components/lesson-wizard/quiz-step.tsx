@@ -23,6 +23,7 @@ export function QuizStep({
   const submitQuiz = useSubmitQuiz();
 
   const allAnswered = questions.every((q) => answers[q.id] !== undefined);
+  const isAnswered = lastScore !== null;
 
   const handleSubmit = () => {
     submitQuiz.mutate(
@@ -48,11 +49,15 @@ export function QuizStep({
             <Markdown content={question.prompt} />
           </legend>
           {question.choices.map((choice) => (
-            <label key={choice.id} className="flex items-start gap-2 text-sm">
+            <label
+              key={choice.id}
+              className={`flex items-start gap-2 text-sm ${isAnswered ? "text-gray-500" : ""}`}
+            >
               <input
                 type="radio"
                 name={`question-${question.id}`}
                 checked={answers[question.id] === choice.id}
+                disabled={isAnswered}
                 onChange={() => setAnswers((prev) => ({ ...prev, [question.id]: choice.id }))}
                 className="mt-1"
               />
@@ -62,14 +67,16 @@ export function QuizStep({
         </fieldset>
       ))}
 
-      <button
-        type="button"
-        disabled={!allAnswered || submitQuiz.isPending}
-        onClick={handleSubmit}
-        className="self-start rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
-        {t("submitButton")}
-      </button>
+      {!isAnswered && (
+        <button
+          type="button"
+          disabled={!allAnswered || submitQuiz.isPending}
+          onClick={handleSubmit}
+          className="self-start rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        >
+          {t("submitButton")}
+        </button>
+      )}
 
       {lastScore !== null && (
         <div className="flex flex-col gap-2">

@@ -57,6 +57,10 @@ class LessonOut(Schema):
     task_content: str
     materials: list[LessonAttachmentOut]
     quiz_questions: list[QuizQuestionOut]
+    subject_id: int
+    subject_name: str
+    topic_title: str
+    subject_block_label: str | None
 
     @staticmethod
     def resolve_materials(obj):
@@ -65,6 +69,24 @@ class LessonOut(Schema):
     @staticmethod
     def resolve_quiz_questions(obj):
         return list(obj.quiz_questions.all())
+
+    @staticmethod
+    def resolve_subject_id(obj):
+        return obj.topic.subject_id
+
+    @staticmethod
+    def resolve_subject_name(obj):
+        return obj.topic.subject.name
+
+    @staticmethod
+    def resolve_topic_title(obj):
+        return obj.topic.title
+
+    @staticmethod
+    def resolve_subject_block_label(obj):
+        # Every Lesson in a Topic shares that Topic's block — see
+        # academics.services.assign_topics_to_blocks.
+        return obj.topic.subject_block.label if obj.topic.subject_block else None
 
 
 class LessonSubmissionOut(Schema):
@@ -146,3 +168,46 @@ class LessonCommentOut(Schema):
 
 class AddCommentIn(Schema):
     body: str
+
+
+class CompletionProgressOut(Schema):
+    """Curriculum-wide completion, not just what's been scheduled so far —
+    see lessons.services.compute_completion. Powers the Subject/Topic detail
+    pages' progress bars (docs/interfaces/student/subjects.md)."""
+
+    completed_count: int
+    total_count: int
+    completed_percent: float
+
+
+class TopicLessonOut(Schema):
+    """One row of the Topic detail page's paginated lessons table — `id` is
+    the StudentLesson id (what the row links to), not the Lesson id.
+    subject_block_label is constant across every row (a Topic belongs to
+    exactly one SubjectBlock), included per-row for a "Subject block" table
+    column per docs/interfaces/student/subjects.md."""
+
+    id: int
+    lesson_id: int
+    title: str
+    order_index: int
+    status: str
+    grade_points: int | None
+    grade_result: str | None
+    subject_block_label: str | None
+
+    @staticmethod
+    def resolve_lesson_id(obj):
+        return obj.lesson_id
+
+    @staticmethod
+    def resolve_title(obj):
+        return obj.lesson.title
+
+    @staticmethod
+    def resolve_order_index(obj):
+        return obj.lesson.order_index
+
+    @staticmethod
+    def resolve_subject_block_label(obj):
+        return obj.lesson.topic.subject_block.label if obj.lesson.topic.subject_block else None

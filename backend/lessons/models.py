@@ -1,6 +1,6 @@
 from django.db import models
 
-from academics.models import SubjectBlock, Topic
+from academics.models import Topic
 from accounts.models import StudentProfile, User
 from common.models import TimeStampedModel
 from common.storage import lesson_attachment_upload_to, lesson_submission_upload_to
@@ -89,9 +89,6 @@ class StudentLesson(TimeStampedModel):
         StudentProfile, on_delete=models.CASCADE, related_name='student_lessons'
     )
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='student_lessons')
-    subject_block = models.ForeignKey(
-        SubjectBlock, on_delete=models.SET_NULL, null=True, blank=True, related_name='student_lessons'
-    )
     status = models.CharField(
         max_length=20, choices=StudentLessonStatus.choices, default=StudentLessonStatus.ASSIGNED,
         db_index=True,

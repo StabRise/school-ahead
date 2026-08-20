@@ -3,28 +3,34 @@ from django.shortcuts import get_object_or_404
 from ninja import File, Form, Router
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
+from ninja.pagination import LimitOffsetPagination, paginate
 
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
-from common.permissions import ensure_is_owner_student
+from common.permissions import ensure_is_owner_student, get_own_student_profile
 
 from . import services
 from .models import StudentLesson
 from .schemas import (
     AddCommentIn,
+    CompletionProgressOut,
     ConfirmUnderstandingIn,
     LessonCommentOut,
     RequestHelpIn,
     StudentLessonOut,
     SubmitQuizIn,
     SubmitQuizOut,
+    TopicLessonOut,
 )
 
 router = Router(tags=['student-lessons'], auth=CookieOrBearerJWTAuth())
 
 
 def _get_owned(request: HttpRequest, student_lesson_id: int) -> StudentLesson:
-    student_lesson = get_object_or_404(StudentLesson, id=student_lesson_id)
+    student_lesson = get_object_or_404(
+        StudentLesson.objects.select_related('lesson__topic__subject', 'lesson__topic__subject_block'),
+        id=student_lesson_id,
+    )
     ensure_is_owner_student(request, student_lesson)
     return student_lesson
 
@@ -150,3 +156,46 @@ def add_comment(request: HttpRequest, student_lesson_id: int, payload: AddCommen
     require_csrf(request)
     student_lesson = _get_owned(request, student_lesson_id)
     return services.add_comment(student_lesson, request.auth, payload.body)
+
+
+@router.get(
+    '/subjects/{subject_id}/progress',
+    response=CompletionProgressOut,
+    operation_id='get_subject_progress',
+)
+def get_subject_progress(request: HttpRequest, subject_id: int):
+    """Curriculum-wide, not just what's been scheduled so far — see
+    docs/interfaces/student/subjects.md."""
+    student = get_own_student_profile(request)
+    qs = StudentLesson.objects.filter(student=student, lesson__topic__subject_id=subject_id)
+    completed, total, percent = services.compute_completion(qs)
+    return CompletionProgressOut(completed_count=completed, total_count=total, completed_percent=percent)
+
+
+@router.get(
+    '/topics/{topic_id}/progress',
+    response=CompletionProgressOut,
+    operation_id='get_topic_progress',
+)
+def get_topic_progress(request: HttpRequest, topic_id: int):
+    student = get_own_student_profile(request)
+    qs = StudentLesson.objects.filter(student=student, lesson__topic_id=topic_id)
+    completed, total, percent = services.compute_completion(qs)
+    return CompletionProgressOut(completed_count=completed, total_count=total, completed_percent=percent)
+
+
+@router.get(
+    '/topics/{topic_id}/lessons',
+    response=list[TopicLessonOut],
+    operation_id='list_topic_lessons',
+)
+@paginate(LimitOffsetPagination, page_size=10)
+def list_topic_lessons(request: HttpRequest, topic_id: int):
+    """Powers the Topic detail page's paginated lessons table. See
+    docs/interfaces/student/subjects.md."""
+    student = get_own_student_profile(request)
+    return (
+        StudentLesson.objects.filter(student=student, lesson__topic_id=topic_id)
+        .select_related('lesson__topic__subject_block')
+        .order_by('lesson__order_index')
+    )

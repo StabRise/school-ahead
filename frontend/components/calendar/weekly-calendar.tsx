@@ -107,6 +107,7 @@ export function WeeklyCalendar() {
     () => Array.from({ length: WEEK_LENGTH }, (_, index) => addDays(weekStart, index)),
     [weekStart],
   );
+  const todayKey = useMemo(() => toLocalIsoDate(new Date()), []);
 
   const calendarQuery = useSchedulingApiCalendar({ week_start: toLocalIsoDate(weekStart) });
   const backlogQuery = useSchedulingApiBacklog();
@@ -162,12 +163,24 @@ export function WeeklyCalendar() {
 
       {!calendarQuery.isLoading && !calendarQuery.isError && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
-          {weekDays.map((day) => {
+          {weekDays.map((day, index) => {
             const dateKey = toLocalIsoDate(day);
             const dayItems = itemsByDate.get(dateKey) ?? [];
+            const isToday = dateKey === todayKey;
+            const columnClasses = [
+              "flex flex-col gap-2 rounded-md lg:px-3 lg:py-2",
+              index > 0 && "lg:border-l lg:border-gray-200",
+              isToday && "bg-blue-50/60",
+            ]
+              .filter(Boolean)
+              .join(" ");
             return (
-              <div key={dateKey} className="flex flex-col gap-2">
-                <div className="text-xs font-medium text-gray-500 capitalize">
+              <div key={dateKey} className={columnClasses}>
+                <div
+                  className={`inline-block w-fit rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                    isToday ? "bg-blue-600 text-white" : "text-gray-500"
+                  }`}
+                >
                   {DAY_LABEL_FORMAT.format(day)}
                 </div>
                 <div className="flex flex-col gap-2">

@@ -63,8 +63,11 @@ class SubjectBlockAdmin(admin.ModelAdmin):
 
 @admin.register(Topic)
 class TopicAdmin(admin.ModelAdmin):
-    """Admin configuration for standalone Topic management."""
-    list_display = ("title", "subject", "order_index", "created_at")
-    list_filter = ("subject__school_class", "subject")
+    """Admin configuration for standalone Topic management. subject_block is
+    read-only here — it's auto-assigned by academics.services.
+    assign_topics_to_blocks, not hand-edited."""
+    list_display = ("title", "subject", "order_index", "subject_block", "created_at")
+    list_filter = ("subject__school_class", "subject", "subject_block")
     search_fields = ("title", "description", "subject__name")
+    readonly_fields = ("subject_block",)
     ordering = ("subject", "order_index")

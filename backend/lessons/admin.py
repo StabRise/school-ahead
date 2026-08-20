@@ -111,7 +111,7 @@ class StudentLessonAdmin(admin.ModelAdmin):
         "student__user__last_name",
         "lesson__title",
     )
-    autocomplete_fields = ("student", "lesson", "subject_block")
+    autocomplete_fields = ("student", "lesson")
     readonly_fields = ("started_at", "completed_at", "attempt_count")
     inlines = [LessonSubmissionInline]
 
