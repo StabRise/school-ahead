@@ -3,6 +3,15 @@ import datetime
 from ninja import Schema
 
 
+def _absolute_file_url(file_field, context: dict) -> str | None:
+    """See lessons/schemas.py's identical helper — file URLs are
+    host-relative and the frontend is a separate origin (no BFF)."""
+    if not file_field:
+        return None
+    request = context.get('request')
+    return request.build_absolute_uri(file_field.url) if request else file_field.url
+
+
 class SchoolOut(Schema):
     id: int
     name: str
@@ -37,10 +46,15 @@ class SubjectOut(Schema):
     start_date: datetime.date
     due_date: datetime.date
     blocks: list[SubjectBlockOut]
+    icon: str | None
 
     @staticmethod
     def resolve_blocks(obj):
         return list(obj.blocks.all())
+
+    @staticmethod
+    def resolve_icon(obj, context):
+        return _absolute_file_url(obj.icon, context)
 
 
 class TopicOut(Schema):

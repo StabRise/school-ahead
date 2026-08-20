@@ -61,10 +61,15 @@ class LessonOut(Schema):
     subject_name: str
     topic_title: str
     subject_block_label: str | None
+    icon: str | None
 
     @staticmethod
     def resolve_materials(obj):
         return list(obj.materials.all())
+
+    @staticmethod
+    def resolve_icon(obj, context):
+        return _absolute_file_url(obj.icon, context)
 
     @staticmethod
     def resolve_quiz_questions(obj):

@@ -5,15 +5,18 @@ from ninja.errors import HttpError
 
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
+from common.permissions import get_own_student_profile
 
 from . import services
 from .cookies import clear_auth_cookies, set_auth_cookies
-from .schemas import GoogleLoginIn, GoogleLoginOut, MeOut, UserOut
+from .models import InterfaceMode
+from .schemas import GoogleLoginIn, GoogleLoginOut, MeOut, UpdateInterfaceModeIn, UserOut
 
 router = Router(tags=['auth'])
 
 
 def _user_out(user) -> UserOut:
+    student_profile = getattr(user, 'student_profile', None)
     return UserOut(
         id=user.id,
         email=user.email,
@@ -22,6 +25,7 @@ def _user_out(user) -> UserOut:
         role=user.role,
         locale=user.locale,
         avatar_url=user.avatar_url,
+        interface_mode=student_profile.interface_mode if student_profile else None,
     )
 
 
@@ -81,4 +85,23 @@ def logout(request: HttpRequest, response: HttpResponse):
 
 @router.get('/me', response=MeOut, auth=CookieOrBearerJWTAuth(), operation_id='me')
 def me(request: HttpRequest):
+    return MeOut(user=_user_out(request.auth))
+
+
+@router.patch(
+    '/me/interface-mode',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='update_interface_mode',
+)
+def update_interface_mode(request: HttpRequest, payload: UpdateInterfaceModeIn):
+    """Toggles the Default/Preschool view switch — see
+    docs/interfaces/preschool.md."""
+    require_csrf(request)
+    if payload.interface_mode not in InterfaceMode.values:
+        raise HttpError(400, 'Invalid interface_mode')
+
+    student = get_own_student_profile(request)
+    student.interface_mode = payload.interface_mode
+    student.save(update_fields=['interface_mode'])
     return MeOut(user=_user_out(request.auth))

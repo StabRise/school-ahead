@@ -44,6 +44,11 @@ class User(AbstractBaseUser, PermissionsMixin):
         return f'{self.first_name} {self.last_name}'.strip()
 
 
+class InterfaceMode(models.TextChoices):
+    DEFAULT = 'default', 'Default'
+    PRESCHOOL = 'preschool', 'Preschool'
+
+
 class StudentProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
     school_class = models.ForeignKey(
@@ -51,6 +56,11 @@ class StudentProfile(models.Model):
     )
     enrolled_at = models.DateField(null=True, blank=True)
     diamond_balance_cache = models.PositiveIntegerField(default=0)
+    # Toggled from a settings switch (docs/interfaces/preschool.md) — persisted
+    # here so it follows the student across sessions and devices.
+    interface_mode = models.CharField(
+        max_length=10, choices=InterfaceMode.choices, default=InterfaceMode.DEFAULT
+    )
 
     def __str__(self):
         return f'StudentProfile({self.user.email})'

@@ -13,6 +13,8 @@ class UserOut(Schema):
     role: str
     locale: str
     avatar_url: str
+    # Only set for role=student — see docs/interfaces/preschool.md.
+    interface_mode: str | None = None
 
 
 class MeOut(Schema):
@@ -21,3 +23,7 @@ class MeOut(Schema):
 
 class GoogleLoginOut(Schema):
     user: UserOut
+
+
+class UpdateInterfaceModeIn(Schema):
+    interface_mode: str

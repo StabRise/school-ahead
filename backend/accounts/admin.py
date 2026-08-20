@@ -37,8 +37,8 @@ class UserAdmin(DjangoUserAdmin):
 class StudentProfileAdmin(admin.ModelAdmin):
     """Admin configuration for StudentProfile model."""
 
-    list_display = ("user", "school_class", "enrolled_at", "diamond_balance_cache")
-    list_filter = ("school_class", "enrolled_at")
+    list_display = ("user", "school_class", "enrolled_at", "diamond_balance_cache", "interface_mode")
+    list_filter = ("school_class", "enrolled_at", "interface_mode")
     search_fields = ("user__email", "user__first_name", "user__last_name")
     autocomplete_fields = ("user", "school_class")
 

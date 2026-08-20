@@ -7,6 +7,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLogout, getMeQueryKey } from "@/lib/api/browser/auth/auth";
 import { MainMenu } from "@/components/main-menu";
+import { PreschoolModeToggle } from "@/components/preschool-mode-toggle";
 
 function getInitials(name: string, email: string): string {
   const source = name.trim() || email;
@@ -105,14 +106,18 @@ export function Header() {
               </div>
               <DropdownMenu.Separator className="my-1 h-px bg-gray-200" />
               {user.role === "student" && (
-                <DropdownMenu.Item asChild>
-                  <Link
-                    href="/subjects"
-                    className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
-                  >
-                    {t("mySubjects")}
-                  </Link>
-                </DropdownMenu.Item>
+                <>
+                  <DropdownMenu.Item asChild>
+                    <Link
+                      href="/subjects"
+                      className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
+                    >
+                      {t("mySubjects")}
+                    </Link>
+                  </DropdownMenu.Item>
+                  <PreschoolModeToggle />
+                  <DropdownMenu.Separator className="my-1 h-px bg-gray-200" />
+                </>
               )}
               <DropdownMenu.Item
                 onSelect={handleLogout}

@@ -12,13 +12,25 @@
     "userMenu": "Меню користувача",
     "mySubjects": "Мої предмети",
     "todayLessons": "Уроки сьогодні",
-    "calendar": "Календар"
+    "calendar": "Календар",
+    "preschoolMode": "Дитячий режим"
   },
   "Home": {
     "welcomeBack": "З поверненням, {name}!",
     "guestTitle": "Ласкаво просимо до Ahead",
     "guestSubtitle": "Гейміфікована платформа для домашнього навчання.",
     "cta": "Увійти"
+  },
+  "PreschoolGameMap": {
+    "title": "Пригодницька стежка",
+    "empty": "На сьогодні уроків немає. Час для гри!",
+    "done": "Зроблено!"
+  },
+  "BalloonPopGame": {
+    "title": "Усі уроки зроблено!",
+    "subtitle": "Лопай кульки, поки не набридне 🎈",
+    "score": "{count, plural, one {Лопнуто # кульку} few {Лопнуто # кульки} many {Лопнуто # кульок} other {Лопнуто # кульки}}",
+    "balloon": "Кулька"
   },
   "StudentDashboard": {
     "title": "Сьогоднішні уроки",

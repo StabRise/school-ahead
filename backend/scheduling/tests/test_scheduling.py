@@ -202,3 +202,35 @@ class TestApiEndpoints:
         [item] = response.data
         assert item['id'] == sl.id
         assert item['grade_points'] == 9
+
+    def test_calendar_item_icon_falls_back_from_lesson_to_subject(
+        self, api_client, auth_header, subject, student, settings, tmp_path
+    ):
+        """Preschool game map step-node icon: lesson icon wins when set,
+        otherwise the subject's icon is used. See
+        docs/interfaces/preschool.md."""
+        from django.core.files.base import ContentFile
+
+        settings.MEDIA_ROOT = tmp_path
+        subject.icon.save('subject.png', ContentFile(b'subject-bytes'), save=True)
+        lessons = _make_lessons(subject, 2)
+        lessons[0].icon.save('lesson.png', ContentFile(b'lesson-bytes'), save=True)
+        today = datetime.date.today()
+        StudentLesson.objects.create(student=student, lesson=lessons[0], scheduled_date=today)
+        StudentLesson.objects.create(student=student, lesson=lessons[1], scheduled_date=today)
+
+        week_start = today - datetime.timedelta(days=today.weekday())
+        response = api_client.get(
+            f'/schedule/calendar?week_start={week_start.isoformat()}',
+            headers=auth_header(student.user),
+        )
+        assert response.status_code == 200
+        items_by_lesson = {item['lesson_title']: item for item in response.data}
+
+        with_own_icon = items_by_lesson['Lesson 1']
+        assert with_own_icon['lesson_icon'] is not None
+        assert with_own_icon['lesson_icon'] != with_own_icon['subject_icon']
+
+        without_own_icon = items_by_lesson['Lesson 2']
+        assert without_own_icon['lesson_icon'] is None
+        assert without_own_icon['subject_icon'] is not None

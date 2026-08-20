@@ -15,3 +15,11 @@ def lesson_attachment_upload_to(instance, filename: str) -> str:
 
 def lesson_submission_upload_to(instance, filename: str) -> str:
     return _unique_path('lesson_submissions', filename)
+
+
+def lesson_icon_upload_to(instance, filename: str) -> str:
+    return _unique_path('lesson_icons', filename)
+
+
+def subject_icon_upload_to(instance, filename: str) -> str:
+    return _unique_path('subject_icons', filename)

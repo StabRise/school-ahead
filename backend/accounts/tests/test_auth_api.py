@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from accounts.models import RefreshToken, Role, User
+from accounts.models import InterfaceMode, RefreshToken, Role, StudentProfile, User
 
 pytestmark = pytest.mark.django_db
 
@@ -133,6 +133,66 @@ def test_logout_revokes_and_clears_cookies(mock_verify, api_client):
 
     me_without_cookie = api_client.get('/auth/me')
     assert me_without_cookie.status_code == 401
+
+
+def test_me_interface_mode_defaults_to_default_for_students(api_client, auth_header):
+    user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
+    StudentProfile.objects.create(user=user)
+
+    response = api_client.get('/auth/me', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['interface_mode'] == InterfaceMode.DEFAULT
+
+
+def test_me_interface_mode_is_null_for_non_students(api_client, auth_header):
+    user = User.objects.create_user(email='tutor@example.com', role=Role.TUTOR)
+
+    response = api_client.get('/auth/me', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['interface_mode'] is None
+
+
+def test_update_interface_mode_persists_and_returns_updated_user(api_client, auth_header):
+    user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
+    student = StudentProfile.objects.create(user=user)
+
+    response = api_client.patch(
+        '/auth/me/interface-mode',
+        json={'interface_mode': InterfaceMode.PRESCHOOL},
+        headers=auth_header(user),
+    )
+
+    assert response.status_code == 200
+    assert response.data['user']['interface_mode'] == InterfaceMode.PRESCHOOL
+    student.refresh_from_db()
+    assert student.interface_mode == InterfaceMode.PRESCHOOL
+
+
+def test_update_interface_mode_rejects_invalid_value(api_client, auth_header):
+    user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
+    StudentProfile.objects.create(user=user)
+
+    response = api_client.patch(
+        '/auth/me/interface-mode',
+        json={'interface_mode': 'space-adventure'},
+        headers=auth_header(user),
+    )
+
+    assert response.status_code == 400
+
+
+def test_update_interface_mode_requires_student_profile(api_client, auth_header):
+    user = User.objects.create_user(email='tutor@example.com', role=Role.TUTOR)
+
+    response = api_client.patch(
+        '/auth/me/interface-mode',
+        json={'interface_mode': InterfaceMode.PRESCHOOL},
+        headers=auth_header(user),
+    )
+
+    assert response.status_code == 403
 
 
 @patch('accounts.services.verify_google_id_token', return_value=GOOGLE_CLAIMS)

@@ -7,6 +7,9 @@ import { StatusBadge } from "@/components/status-badge";
 import { GradePoints } from "@/components/grade-points";
 import { Card } from "@/components/card";
 import { PageContainer } from "@/components/page-container";
+import { PreschoolGameMap } from "@/components/preschool/game-map";
+import { BalloonPopGame } from "@/components/preschool/balloon-pop-game";
+import { useAuthStore } from "@/stores/auth-store";
 
 // Local (not UTC) YYYY-MM-DD — avoids toISOString() shifting the date near
 // midnight in timezones behind UTC.
@@ -62,10 +65,29 @@ function BacklogRow({ item }: { item: BacklogItemOut }) {
 
 export function StudentDashboard() {
   const t = useTranslations("StudentDashboard");
+  const isPreschool = useAuthStore((state) => state.user?.interfaceMode === "preschool");
   const { data, isLoading, isError } = useGetToday({ date: toLocalIsoDate(new Date()) });
 
   const lessons = data?.today ?? [];
   const backlog = data?.backlog ?? [];
+
+  if (isPreschool) {
+    // Trigger condition evaluated on dashboard load — see
+    // docs/interfaces/preschool.md section 2.4.
+    const allTodayCompleted = lessons.length > 0 && lessons.every((item) => item.status === "completed");
+
+    // Full-bleed gradient — fills the whole viewport below the header, not
+    // just a boxed card, matching the "adventure map" theme.
+    return (
+      <div className="relative flex flex-1 flex-col bg-gradient-to-b from-sky-100 via-emerald-50 to-amber-50">
+        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col p-6">
+          {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
+          {isError && <p className="text-sm text-red-600">{t("error")}</p>}
+          {!isLoading && !isError && (allTodayCompleted ? <BalloonPopGame /> : <PreschoolGameMap items={lessons} />)}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <PageContainer title={t("title")}>

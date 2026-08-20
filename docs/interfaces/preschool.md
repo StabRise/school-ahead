@@ -25,6 +25,14 @@ need to make unactive steps-lessons, which are already completed.
 * **Step Nodes:** Each node on the road represents an lesson, featuring:
     * A cute icon: take it from lesson icon (add img field) if empty from subject icon (add img field), if empty from cute default icon.
     * A friendly,  lesson title.
-* **Action Trigger:** Clicking a node launches the lesson workspace directly.
-If today all lessons are completed, it triggers delightful game 2 минуты (воздушные шары спускаются, а когда ученик нажимает на них мышкой они лопаются и издают прикольныйй звук и исчезают) 
-ведется счетчик, который показывает сколько всего шариков лопнул ученик.
+* **Action Trigger:** Clicking a node launches the lesson  directly.
+
+### 2.4. Celebration Event & Balloon Pop Minigame (All Lessons Completed)
+When all scheduled lessons for the day reach the **`Completed`** state, the adventure map dynamically transitions into a celebratory reward minigame designed to reinforce positive reinforcement and make finishing daily tasks fun.
+
+* **Trigger Condition:** Evaluated on dashboard load when all todays lessons are completed.
+* **Minigame Mechanics ("Balloon Pop"):**
+    * Colorful balloons slowly drift down across the screen from top to bottom.
+    * When the student clicks a balloon with their mouse or tap device, it instantly pops with a playful sound effect and disappears with a particle burst animation.
+    * **Score Tracker:** A friendly, floating counter tracks how many total balloons the student has popped during the celebration session, encouraging playful interaction and rewarding their hard work.
+  

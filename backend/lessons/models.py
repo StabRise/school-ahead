@@ -3,7 +3,7 @@ from django.db import models
 from academics.models import Topic
 from accounts.models import StudentProfile, User
 from common.models import TimeStampedModel
-from common.storage import lesson_attachment_upload_to, lesson_submission_upload_to
+from common.storage import lesson_attachment_upload_to, lesson_icon_upload_to, lesson_submission_upload_to
 
 
 class LessonType(models.TextChoices):
@@ -43,6 +43,10 @@ class Lesson(TimeStampedModel):
     # the first-screen theory/materials page.
     task_content = models.TextField(blank=True)
     default_day_offset = models.PositiveSmallIntegerField(null=True, blank=True)
+    # Step-node icon for the preschool game map — falls back to the
+    # subject's icon, then a frontend default, when empty. See
+    # docs/interfaces/preschool.md.
+    icon = models.FileField(upload_to=lesson_icon_upload_to, blank=True)
 
     class Meta:
         unique_together = [('topic', 'order_index')]

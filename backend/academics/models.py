@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from common.models import TimeStampedModel
+from common.storage import subject_icon_upload_to
 
 
 class School(models.Model):
@@ -39,6 +40,10 @@ class Subject(TimeStampedModel):
     block_count = models.PositiveSmallIntegerField(default=2)
     start_date = models.DateField()
     due_date = models.DateField()
+    # Fallback chain for the preschool game map's step-node icon: lesson
+    # icon -> subject icon -> a frontend-side default. See
+    # docs/interfaces/preschool.md.
+    icon = models.FileField(upload_to=subject_icon_upload_to, blank=True)
 
     def clean(self):
         if self.start_date and self.due_date and self.start_date >= self.due_date:

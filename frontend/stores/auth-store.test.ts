@@ -18,6 +18,7 @@ describe("useAuthStore", () => {
       name: "Ada Lovelace",
       locale: "uk",
       avatarUrl: "",
+      interfaceMode: "default" as const,
     };
 
     useAuthStore.getState().setUser(user);
