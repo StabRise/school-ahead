@@ -9,3 +9,5 @@ Parents: Families practicing homeschooling who need reliable oversight of their 
 
 ## Key Value Proposition
 school-ahead empowers students to take control of their learning tempo while giving tutors and parents the tools they need to monitor progress, catch up on academic "tails," and celebrate milestones—all wrapped in a clean, motivating environment.
+
+

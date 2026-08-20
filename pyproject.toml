@@ -1,0 +1,18 @@
+[project]
+name = "school-ahead"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "olchikd", email = "olchikd@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "django>=6.1",
+]
+
+[project.scripts]
+school-ahead = "school_ahead:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"

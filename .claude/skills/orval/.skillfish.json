@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "orval",
+  "owner": "orval-labs",
+  "repo": "orval",
+  "path": "skills/orval",
+  "branch": "master",
+  "sha": "af8219a0e6f4fd5d890c12ab293a4136137018db",
+  "source": "manual"
+}
