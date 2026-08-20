@@ -8,6 +8,7 @@ from ninja.errors import HttpError
 from academics.models import Subject
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
+from common.permissions import get_own_student_profile
 from lessons import services as lesson_services
 from lessons.models import StudentLesson
 from tutoring.services import ensure_is_tutor_for_subject
@@ -22,13 +23,6 @@ from .schemas import (
 )
 
 router = Router(tags=['schedule'], auth=CookieOrBearerJWTAuth())
-
-
-def _own_student_profile(request: HttpRequest):
-    student_profile = getattr(request.auth, 'student_profile', None)
-    if student_profile is None:
-        raise HttpError(403, 'Not a student')
-    return student_profile
 
 
 def _calendar_item(student_lesson: StudentLesson) -> CalendarItemOut:
@@ -54,14 +48,14 @@ def _backlog_item(student_lesson: StudentLesson) -> BacklogItemOut:
 
 @router.get('/calendar', response=list[CalendarItemOut])
 def calendar(request: HttpRequest, week_start: datetime.date):
-    student = _own_student_profile(request)
+    student = get_own_student_profile(request)
     items = services.get_week_calendar(student, week_start)
     return [_calendar_item(sl) for sl in items]
 
 
 @router.get('/today', response=TodayOut, operation_id='get_today')
 def today(request: HttpRequest, date: datetime.date):
-    student = _own_student_profile(request)
+    student = get_own_student_profile(request)
     today_lessons, backlog_lessons = services.get_today(student, date)
     return TodayOut(
         today=[_calendar_item(sl) for sl in today_lessons],
@@ -71,7 +65,7 @@ def today(request: HttpRequest, date: datetime.date):
 
 @router.get('/backlog', response=list[BacklogItemOut])
 def backlog(request: HttpRequest):
-    student = _own_student_profile(request)
+    student = get_own_student_profile(request)
     items = services.get_backlog(student, datetime.date.today())
     return [_backlog_item(sl) for sl in items]
 

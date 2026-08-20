@@ -7,6 +7,8 @@ from accounts.models import StudentProfile, User
 from .models import (
     GradeResult,
     Lesson,
+    LessonComment,
+    LessonCommentKind,
     LessonSubmission,
     QuizChoice,
     StudentLesson,
@@ -73,6 +75,15 @@ def start(student_lesson: StudentLesson, actor: User) -> None:
     student_lesson.save()
 
 
+def ensure_started(student_lesson: StudentLesson, actor: User) -> None:
+    """Auto-transition Assigned -> InProgress on lesson access. No-op once
+    the lesson has already progressed. Called from GET /{id} so the
+    frontend no longer needs an explicit "Start Lesson" action — see the
+    lesson wizard's "State Transition & UI Rules" spec, section 2.1."""
+    if student_lesson.status == StudentLessonStatus.ASSIGNED:
+        start(student_lesson, actor)
+
+
 def submit_quiz(student_lesson: StudentLesson, actor: User, answers: dict[int, int]) -> Decimal:
     """answers: {question_id: choice_id}. Returns the score percentage.
     Score > 60% -> Completed (Path A). Otherwise the lesson stays
@@ -125,6 +136,37 @@ def request_help(student_lesson: StudentLesson, actor: User, note: str = '') -> 
     student_lesson.help_note = note
     _transition(student_lesson, actor, StudentLessonStatus.NEED_HELP)
     student_lesson.save()
+    LessonComment.objects.create(
+        student_lesson=student_lesson, author=actor, body=note, kind=LessonCommentKind.HELP_REQUEST
+    )
+
+
+def resolve_own_help_request(student_lesson: StudentLesson, actor: User) -> None:
+    """Student-initiated self-resolution: "I no longer need help" — NeedHelp
+    -> InProgress, and the originating help_request comment is marked
+    resolved. Distinct from tutoring's tutor-driven resolve_need_help. See
+    section 2.3 ("Resolution Workflow")."""
+    _guard_status(student_lesson, StudentLessonStatus.NEED_HELP)
+    _transition(student_lesson, actor, StudentLessonStatus.IN_PROGRESS)
+    student_lesson.save()
+    latest_help_request = (
+        student_lesson.comments.filter(kind=LessonCommentKind.HELP_REQUEST, is_resolved=False)
+        .order_by('-created_at')
+        .first()
+    )
+    if latest_help_request is not None:
+        latest_help_request.is_resolved = True
+        latest_help_request.resolved_at = timezone.now()
+        latest_help_request.save(update_fields=['is_resolved', 'resolved_at'])
+
+
+def add_comment(
+    student_lesson: StudentLesson, actor: User, body: str, *, kind: str = LessonCommentKind.GENERAL
+) -> LessonComment:
+    """Posts a general comment, available to both the owning student and any
+    tutor scoped to the lesson's subject, at any StudentLesson status —
+    never mutates `status`. See section 2.2."""
+    return LessonComment.objects.create(student_lesson=student_lesson, author=actor, body=body, kind=kind)
 
 
 def resolve_need_help(
@@ -137,16 +179,47 @@ def resolve_need_help(
     feedback: str = '',
 ) -> None:
     _guard_status(student_lesson, StudentLessonStatus.NEED_HELP)
-    if feedback:
-        student_lesson.tutor_feedback = feedback
 
     if to_status == StudentLessonStatus.IN_PROGRESS:
+        # The tutor's reply threads under the question it answers, rather
+        # than landing on StudentLesson.tutor_feedback (that field is for
+        # lesson-completion feedback — see the `completed` branch below).
+        question = (
+            student_lesson.comments.filter(kind=LessonCommentKind.HELP_REQUEST, is_resolved=False)
+            .order_by('-created_at')
+            .first()
+        )
+        if question is not None:
+            question.is_resolved = True
+            question.resolved_at = timezone.now()
+            question.save(update_fields=['is_resolved', 'resolved_at'])
+        if feedback:
+            LessonComment.objects.create(
+                student_lesson=student_lesson,
+                author=actor,
+                body=feedback,
+                kind=LessonCommentKind.GENERAL,
+                reply_to=question,
+            )
         _transition(student_lesson, actor, StudentLessonStatus.IN_PROGRESS)
         student_lesson.save()
     elif to_status == StudentLessonStatus.COMPLETED:
+        if feedback:
+            student_lesson.tutor_feedback = feedback
         mark_completed(student_lesson, actor, grade_points=grade_points, grade_result=grade_result)
     else:
         raise InvalidTransition(f'NeedHelp cannot resolve to {to_status!r}')
+
+
+def _attach_feedback_to_latest_submission(student_lesson: StudentLesson, feedback: str) -> None:
+    """Threads the tutor's reply under the specific submission it responds
+    to, rather than only on the StudentLesson as a whole — see
+    LessonSubmission.tutor_feedback."""
+    submission = student_lesson.submissions.filter(is_latest=True).order_by('-submitted_at').first()
+    if submission is not None:
+        submission.tutor_feedback = feedback
+        submission.feedback_at = timezone.now()
+        submission.save(update_fields=['tutor_feedback', 'feedback_at'])
 
 
 def grade_submission(
@@ -160,12 +233,14 @@ def grade_submission(
     _guard_status(student_lesson, StudentLessonStatus.PENDING_REVIEW)
     if feedback:
         student_lesson.tutor_feedback = feedback
+        _attach_feedback_to_latest_submission(student_lesson, feedback)
     mark_completed(student_lesson, actor, grade_points=grade_points, grade_result=grade_result)
 
 
 def request_revision(student_lesson: StudentLesson, actor: User, feedback: str) -> None:
     _guard_status(student_lesson, StudentLessonStatus.PENDING_REVIEW)
     student_lesson.tutor_feedback = feedback
+    _attach_feedback_to_latest_submission(student_lesson, feedback)
     _transition(student_lesson, actor, StudentLessonStatus.REVISION_REQUIRED)
     student_lesson.save()
 

@@ -44,3 +44,4 @@ next-env.d.ts
 # orval-generated API client (bun run orval:generate) — not committed
 lib/api/browser/
 lib/api/server/
+lib/api/zod/

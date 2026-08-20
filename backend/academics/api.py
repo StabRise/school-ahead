@@ -5,6 +5,7 @@ from ninja.errors import HttpError
 
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
+from common.permissions import get_own_student_profile
 
 from . import services
 from .models import Class, School, Subject, Topic
@@ -40,6 +41,16 @@ def list_classes(request: HttpRequest):
 @router.get('/classes/{class_id}/subjects', response=list[SubjectOut])
 def list_class_subjects(request: HttpRequest, class_id: int):
     return Subject.objects.filter(school_class_id=class_id)
+
+
+@router.get('/my-subjects', response=list[SubjectOut], operation_id='get_my_subjects')
+def my_subjects(request: HttpRequest):
+    """Subjects for the authenticated student's own class. See
+    docs/interfaces/student/progress.md."""
+    student = get_own_student_profile(request)
+    if student.school_class_id is None:
+        return []
+    return Subject.objects.filter(school_class_id=student.school_class_id)
 
 
 @router.get('/subjects/{subject_id}', response=SubjectOut)

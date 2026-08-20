@@ -3,6 +3,19 @@ import datetime
 from ninja import Schema
 
 
+def _absolute_file_url(file_field, context: dict) -> str | None:
+    """FieldFile.url is host-relative (e.g. '/media/...') — the frontend is
+    a separate origin from Django (no BFF, see
+    docs/architecture/06-frontend-architecture.md), so links need the
+    request's actual host to resolve. `context` is ninja's per-request
+    serialization context (see ninja.operation), available to any
+    resolve_* method that declares a `context` parameter."""
+    if not file_field:
+        return None
+    request = context.get('request')
+    return request.build_absolute_uri(file_field.url) if request else file_field.url
+
+
 class QuizChoiceOut(Schema):
     id: int
     text: str
@@ -29,8 +42,8 @@ class LessonAttachmentOut(Schema):
     order_index: int
 
     @staticmethod
-    def resolve_file(obj):
-        return obj.file.url if obj.file else None
+    def resolve_file(obj, context):
+        return _absolute_file_url(obj.file, context)
 
 
 class LessonOut(Schema):
@@ -41,6 +54,7 @@ class LessonOut(Schema):
     lesson_type: str
     grading_type: str
     content: str
+    task_content: str
     materials: list[LessonAttachmentOut]
     quiz_questions: list[QuizQuestionOut]
 
@@ -51,6 +65,20 @@ class LessonOut(Schema):
     @staticmethod
     def resolve_quiz_questions(obj):
         return list(obj.quiz_questions.all())
+
+
+class LessonSubmissionOut(Schema):
+    id: int
+    file: str | None
+    comment: str
+    submitted_at: datetime.datetime
+    is_latest: bool
+    tutor_feedback: str
+    feedback_at: datetime.datetime | None
+
+    @staticmethod
+    def resolve_file(obj, context):
+        return _absolute_file_url(obj.file, context)
 
 
 class StudentLessonOut(Schema):
@@ -67,6 +95,13 @@ class StudentLessonOut(Schema):
     attempt_count: int
     help_note: str
     tutor_feedback: str
+    submissions: list[LessonSubmissionOut]
+
+    @staticmethod
+    def resolve_submissions(obj):
+        # Oldest first — the frontend renders this as a chat-like thread of
+        # work + the tutor's reply threaded directly under it.
+        return list(obj.submissions.order_by('submitted_at'))
 
 
 class SubmitQuizIn(Schema):
@@ -84,3 +119,30 @@ class ConfirmUnderstandingIn(Schema):
 
 class RequestHelpIn(Schema):
     note: str = ''
+
+
+class LessonCommentOut(Schema):
+    id: int
+    author_id: int | None
+    author_name: str
+    author_role: str
+    kind: str
+    body: str
+    is_resolved: bool
+    resolved_at: datetime.datetime | None
+    reply_to_id: int | None
+    created_at: datetime.datetime
+
+    @staticmethod
+    def resolve_author_name(obj):
+        if obj.author is None:
+            return ''
+        return obj.author.full_name or obj.author.email
+
+    @staticmethod
+    def resolve_author_role(obj):
+        return obj.author.role if obj.author else ''
+
+
+class AddCommentIn(Schema):
+    body: str

@@ -8,6 +8,7 @@ from lessons import services
 from lessons.models import (
     GradeResult,
     Lesson,
+    LessonCommentKind,
     LessonType,
     QuizChoice,
     QuizQuestion,
@@ -137,12 +138,16 @@ class TestTaskPath:
     def test_tutor_grades_to_completed(self, topic, student, tutor_user):
         sl = _new_student_lesson(topic, LessonType.WITH_TASK, student)
         services.start(sl, student.user)
-        services.submit_task(sl, student.user)
+        submission = services.submit_task(sl, student.user)
 
         services.grade_submission(sl, tutor_user, grade_points=10, feedback='Great job')
         assert sl.status == StudentLessonStatus.COMPLETED
         assert sl.grade_points == 10
         assert sl.tutor_feedback == 'Great job'
+
+        submission.refresh_from_db()
+        assert submission.tutor_feedback == 'Great job'
+        assert submission.feedback_at is not None
 
     def test_tutor_requests_revision_then_resubmit_then_grade(self, topic, student, tutor_user):
         sl = _new_student_lesson(topic, LessonType.WITH_TASK, student)
@@ -152,15 +157,26 @@ class TestTaskPath:
         services.request_revision(sl, tutor_user, feedback='fix this')
         assert sl.status == StudentLessonStatus.REVISION_REQUIRED
 
+        # The revision feedback threads under the submission it responds to,
+        # not the one that comes after it.
+        first_submission.refresh_from_db()
+        assert first_submission.tutor_feedback == 'fix this'
+
         second_submission = services.resubmit(sl, student.user, comment='v2')
         assert sl.status == StudentLessonStatus.PENDING_REVIEW
+        assert second_submission.tutor_feedback == ''
 
         first_submission.refresh_from_db()
         assert first_submission.is_latest is False
         assert second_submission.is_latest is True
 
-        services.grade_submission(sl, tutor_user, grade_points=8)
+        services.grade_submission(sl, tutor_user, grade_points=8, feedback='Much better')
         assert sl.status == StudentLessonStatus.COMPLETED
+
+        second_submission.refresh_from_db()
+        assert second_submission.tutor_feedback == 'Much better'
+        first_submission.refresh_from_db()
+        assert first_submission.tutor_feedback == 'fix this'  # untouched by the later grade
 
 
 class TestAuditLog:
@@ -191,6 +207,102 @@ class TestReschedule:
         services.confirm_understanding(sl, student.user, True)
         with pytest.raises(services.InvalidTransition):
             services.reschedule(sl, datetime.date.today())
+
+
+class TestEnsureStarted:
+    def test_assigned_auto_transitions_to_in_progress(self, topic, student):
+        sl = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        services.ensure_started(sl, student.user)
+        assert sl.status == StudentLessonStatus.IN_PROGRESS
+        assert sl.started_at is not None
+
+    def test_already_progressed_is_a_no_op(self, topic, student):
+        sl = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        services.start(sl, student.user)
+        services.confirm_understanding(sl, student.user, False)
+        assert sl.status == StudentLessonStatus.NEED_HELP
+
+        services.ensure_started(sl, student.user)
+        assert sl.status == StudentLessonStatus.NEED_HELP
+
+
+class TestComments:
+    def test_add_comment_does_not_change_status(self, topic, student, tutor_user):
+        sl = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        services.start(sl, student.user)
+
+        comment = services.add_comment(sl, student.user, 'quick question')
+        assert comment.kind == LessonCommentKind.GENERAL
+        assert sl.status == StudentLessonStatus.IN_PROGRESS
+
+        services.add_comment(sl, tutor_user, 'quick answer')
+        assert sl.comments.count() == 2
+
+    def test_request_help_creates_help_request_comment(self, topic, student):
+        sl = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        services.start(sl, student.user)
+        services.request_help(sl, student.user, note='stuck on this')
+
+        comment = sl.comments.get(kind=LessonCommentKind.HELP_REQUEST)
+        assert comment.body == 'stuck on this'
+        assert comment.author == student.user
+        assert comment.is_resolved is False
+
+    def test_student_self_resolves_help_request(self, topic, student):
+        sl = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        services.start(sl, student.user)
+        services.request_help(sl, student.user, note='stuck')
+
+        services.resolve_own_help_request(sl, student.user)
+        assert sl.status == StudentLessonStatus.IN_PROGRESS
+
+        comment = sl.comments.get(kind=LessonCommentKind.HELP_REQUEST)
+        assert comment.is_resolved is True
+        assert comment.resolved_at is not None
+
+    def test_self_resolve_requires_need_help_status(self, topic, student):
+        sl = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        services.start(sl, student.user)
+        with pytest.raises(services.InvalidTransition):
+            services.resolve_own_help_request(sl, student.user)
+
+    def test_tutor_resolve_to_in_progress_replies_to_the_question(self, topic, student, tutor_user):
+        sl = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        services.start(sl, student.user)
+        services.request_help(sl, student.user, note='stuck on this')
+        question = sl.comments.get(kind=LessonCommentKind.HELP_REQUEST)
+
+        services.resolve_need_help(
+            sl, tutor_user, to_status=StudentLessonStatus.IN_PROGRESS, feedback='try step 2 again'
+        )
+        assert sl.status == StudentLessonStatus.IN_PROGRESS
+        # The tutor's reply threads under the specific question — not
+        # StudentLesson.tutor_feedback, which is reserved for
+        # lesson-completion feedback.
+        assert sl.tutor_feedback == ''
+
+        question.refresh_from_db()
+        assert question.is_resolved is True
+        assert question.resolved_at is not None
+
+        reply = sl.comments.get(kind=LessonCommentKind.GENERAL)
+        assert reply.body == 'try step 2 again'
+        assert reply.author == tutor_user
+        assert reply.reply_to_id == question.id
+
+    def test_tutor_resolve_to_in_progress_without_feedback_still_resolves_question(
+        self, topic, student, tutor_user
+    ):
+        sl = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        services.start(sl, student.user)
+        services.request_help(sl, student.user, note='stuck on this')
+        question = sl.comments.get(kind=LessonCommentKind.HELP_REQUEST)
+
+        services.resolve_need_help(sl, tutor_user, to_status=StudentLessonStatus.IN_PROGRESS)
+        assert sl.comments.filter(kind=LessonCommentKind.GENERAL).count() == 0
+
+        question.refresh_from_db()
+        assert question.is_resolved is True
 
 
 class TestSyncScheduledLesson:

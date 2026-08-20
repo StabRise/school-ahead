@@ -2,6 +2,8 @@ import datetime
 
 from ninja import Schema
 
+from lessons.schemas import LessonSubmissionOut
+
 
 class AssignmentOut(Schema):
     subject_id: int
@@ -21,23 +23,22 @@ class TutorFeedItemOut(Schema):
     scheduled_date: datetime.date
 
 
-class LessonSubmissionOut(Schema):
+class TutorStudentOut(Schema):
     id: int
-    file: str | None
-    comment: str
-    submitted_at: datetime.datetime
-    is_latest: bool
-
-    @staticmethod
-    def resolve_file(obj):
-        return obj.file.url if obj.file else None
+    name: str
+    class_id: int
+    class_name: str
 
 
 class SubmissionDetailOut(Schema):
     student_lesson_id: int
     student_name: str
+    class_name: str
+    subject_name: str
     lesson_title: str
     status: str
+    grading_type: str
+    help_note: str
     submissions: list[LessonSubmissionOut]
 
 

@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLogout, getMeQueryKey } from "@/lib/api/browser/auth/auth";
+import { MainMenu } from "@/components/main-menu";
 
 function getInitials(name: string, email: string): string {
   const source = name.trim() || email;
@@ -69,13 +70,17 @@ export function Header() {
 
   return (
     <header className="flex items-center justify-between border-b border-gray-200 px-6 py-3">
-      <Link
-        href="/"
-        className="flex items-center gap-2 rounded-md font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-      >
-        <BrandIcon />
-        <span>{t("brand")}</span>
-      </Link>
+      <div className="flex items-center gap-6">
+        <Link
+          href="/"
+          className="flex items-center gap-2 rounded-md font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        >
+          <BrandIcon />
+          <span>{t("brand")}</span>
+        </Link>
+
+        {user?.role === "student" && <MainMenu />}
+      </div>
 
       {user ? (
         <DropdownMenu.Root>
@@ -99,6 +104,16 @@ export function Header() {
                 <p className="text-xs text-gray-500">{user.email}</p>
               </div>
               <DropdownMenu.Separator className="my-1 h-px bg-gray-200" />
+              {user.role === "student" && (
+                <DropdownMenu.Item asChild>
+                  <Link
+                    href="/subjects"
+                    className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
+                  >
+                    {t("mySubjects")}
+                  </Link>
+                </DropdownMenu.Item>
+              )}
               <DropdownMenu.Item
                 onSelect={handleLogout}
                 className="cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"

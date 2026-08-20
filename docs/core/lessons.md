@@ -50,8 +50,46 @@ Transition: The student works on the corrections, adds a comment or uploads an u
 
 Outcome: The lesson is verified and credited, the final grade or pass status is locked, and the student's diamond balance is updated.
 
+-----
 
-Ось професійний опис розділу «Система оцінювання» англійською мовою (з урахуванням попередньої заміни терміна task на lesson), який ідеально доповнить твою технічну документацію:
+## State Transition & UI Rules
+   2.1. Lesson Initialization & Navigation
+   Opening State Transition: When a student accesses a lesson, the backend service layer automatically transitions the StudentLesson status from Assigned to In Progress (if not already progressed).
+
+Interface Layout:
+
+The main body displays the lesson material/content.
+
+The "Start Lesson" action button is completely removed.
+
+A primary navigation action button labeled "Go to task" ("Перейти до завдання") is positioned at the bottom of the content view.
+
+2.2. Persistent Commenting System
+General Messaging: Both students and tutors can post comments at any stage of the lesson workflow.
+
+State Preservation: Adding general comments does not alter the current StudentLesson status.
+
+2.3. "Need Help" Assistance Flow
+Trigger Element: A persistent action button featuring a chat/question icon is accessible across all steps of the lesson wizard.
+
+Activation Workflow:
+
+The student clicks the helper button and submits a question.
+
+The submission is logged in the comments section, visually distinguished with a unique color theme and a question icon.
+
+The StudentLesson status automatically updates to Need Help.
+
+Resolution Workflow:
+
+If the student resolves their difficulty independently, they can toggle an action indicating help is no longer required.
+
+The StudentLesson status reverts back to In Progress.
+
+The corresponding help question comment is visually marked as resolved (e.g., "Resolved — student understood").
+
+----
+
 
 # Grading System
     Once a lesson transitions into the Completed status, the final result is recorded depending on the lesson's configuration and type:

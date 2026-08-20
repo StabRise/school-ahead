@@ -9,7 +9,10 @@
     "brand": "Ahead",
     "login": "Увійти",
     "logout": "Вийти",
-    "userMenu": "Меню користувача"
+    "userMenu": "Меню користувача",
+    "mySubjects": "Мої предмети",
+    "todayLessons": "Уроки сьогодні",
+    "calendar": "Календар"
   },
   "Home": {
     "welcomeBack": "З поверненням, {name}!",
@@ -22,11 +25,121 @@
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити уроки. Спробуйте ще раз.",
     "empty": "На сьогодні уроків немає.",
+    "backlogTitle": "Хвости",
+    "backlogHint": "Уроки, які не завершено вчасно",
+    "backlogOrigin": "Мало бути виконано: {label}"
+  },
+  "TutorDashboard": {
+    "title": "Панель тьютора",
+    "allSubjects": "Усі предмети",
+    "allClasses": "Усі класи",
+    "allStudents": "Усі учні",
+    "needHelpTitle": "Потрібна допомога",
+    "needHelpEmpty": "Запитів на допомогу немає.",
+    "pendingReviewTitle": "На перевірці",
+    "pendingReviewEmpty": "Робіт на перевірку немає.",
+    "error": "Не вдалося завантажити дані. Спробуйте ще раз."
+  },
+  "SubmissionReview": {
+    "back": "← До панелі тьютора",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити дані. Спробуйте ще раз.",
+    "notActionable": "Цей урок наразі не очікує вашої перевірки.",
+    "resolveNeedHelpTitle": "Вирішення запиту допомоги",
+    "helpNoteTitle": "Опис проблеми",
+    "backToInProgressButton": "Повернути в роботу",
+    "markCompletedButton": "Завершити урок",
+    "resolveButton": "Підтвердити",
+    "gradeSectionTitle": "Оцінювання роботи",
+    "noSubmissions": "Робіт ще немає.",
+    "gradePointsLabel": "Оцінка (1–12)",
+    "gradeResultLabel": "Результат",
+    "passOption": "Залік",
+    "failOption": "Незалік",
+    "feedbackLabel": "Відгук тьютора",
+    "completeButton": "Завершити з оцінкою",
+    "requestRevisionButton": "Повернути на доопрацювання"
+  },
+  "SubmissionThread": {
+    "latestBadge": "Остання спроба",
+    "fileLabel": "Відкрити файл",
+    "noFile": "Без файлу",
+    "tutorReplyLabel": "Відповідь тьютора"
+  },
+  "LessonStatus": {
     "statusAssigned": "Призначено",
     "statusInProgress": "У процесі",
     "statusNeedHelp": "Потрібна допомога",
     "statusPendingReview": "На перевірці",
     "statusRevisionRequired": "Потрібно виправити",
     "statusCompleted": "Завершено"
+  },
+  "LessonWizard": {
+    "back": "← До сьогоднішніх уроків",
+    "loading": "Завантаження уроку...",
+    "error": "Не вдалося завантажити урок.",
+    "goToTaskButton": "Перейти до завдання",
+    "needHelpWaiting": "Ви позначили урок як «Потрібна допомога». Тьютор скоро зв'яжеться з вами.",
+    "pendingReviewWaiting": "Вашу роботу надіслано на перевірку тьютору.",
+    "completedTitle": "Урок завершено!",
+    "gradePoints": "Оцінка: {points}/12",
+    "gradePass": "Залік",
+    "gradeFail": "Незалік"
+  },
+  "QuizStep": {
+    "title": "Тест",
+    "submitButton": "Надіслати відповіді",
+    "scoreResult": "Результат: {score}%",
+    "passedMessage": "Чудово, тест складено!",
+    "failedMessage": "Спробуйте ще раз або зверніться по допомогу.",
+    "retryButton": "Спробувати ще раз"
+  },
+  "TheoryStep": {
+    "question": "Чи все зрозуміло?",
+    "yesButton": "Так, зрозуміло",
+    "noButton": "Ні, потрібна допомога"
+  },
+  "TaskStep": {
+    "commentLabel": "Коментар",
+    "fileLabel": "Файл (фото чи документ)",
+    "submitButton": "Надіслати на перевірку",
+    "resubmitButton": "Надіслати виправлення"
+  },
+  "NeedHelp": {
+    "button": "Потрібна допомога",
+    "noteLabel": "Опишіть, що незрозуміло",
+    "sendButton": "Надіслати",
+    "cancelButton": "Скасувати",
+    "resolveButton": "Я вже розібрався(лась)",
+    "resolvePending": "Скасовуємо..."
+  },
+  "Comments": {
+    "title": "Коментарі",
+    "empty": "Коментарів немає",
+    "placeholder": "Напишіть коментар...",
+    "sendButton": "Надіслати",
+    "helpRequestBadge": "Запит допомоги",
+    "resolvedBadge": "Вирішено",
+    "replyBadge": "Відповідь"
+  },
+  "MySubjects": {
+    "title": "Мої предмети",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити предмети. Спробуйте ще раз.",
+    "empty": "Предметів ще немає.",
+    "blocksCount": "{count, plural, one {# семестр} few {# семестри} many {# семестрів} other {# семестра}}"
+  },
+  "Calendar": {
+    "title": "Календар",
+    "previousWeek": "Попередній тиждень",
+    "nextWeek": "Наступний тиждень",
+    "today": "Сьогодні",
+    "progress": "{completed}/{total} уроків завершено",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити календар. Спробуйте ще раз.",
+    "noLessons": "Немає уроків",
+    "backlogTitle": "Хвости",
+    "backlogHint": "Уроки, які не завершено вчасно",
+    "backlogOrigin": "Мало бути виконано: {label}"
   }
 }

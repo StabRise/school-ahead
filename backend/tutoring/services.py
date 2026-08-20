@@ -2,7 +2,7 @@ from django.db.models import QuerySet
 from ninja.errors import HttpError
 
 from academics.models import Subject
-from accounts.models import Role, TutorProfile, User
+from accounts.models import Role, StudentProfile, TutorProfile, User
 
 from .models import TutorSubjectAssignment
 
@@ -16,6 +16,19 @@ def get_tutor_subject_ids(user: User) -> QuerySet:
     return TutorSubjectAssignment.objects.filter(
         tutor=tutor_profile, is_active=True
     ).values_list('subject_id', flat=True)
+
+
+def get_tutor_students(user: User) -> QuerySet:
+    """Students enrolled in any class the tutor has a subject assignment
+    in — powers the dashboard's student filter."""
+    class_ids = Subject.objects.filter(id__in=get_tutor_subject_ids(user)).values_list(
+        'school_class_id', flat=True
+    )
+    return (
+        StudentProfile.objects.filter(school_class_id__in=class_ids)
+        .select_related('user', 'school_class')
+        .order_by('user__first_name', 'user__last_name')
+    )
 
 
 def ensure_is_tutor_for_subject(request, subject_id: int) -> None:

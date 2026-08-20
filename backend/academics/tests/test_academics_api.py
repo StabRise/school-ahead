@@ -3,7 +3,7 @@ import datetime
 import pytest
 
 from academics.models import Class, School, Subject, SubjectBlock, Topic
-from accounts.models import Role, User
+from accounts.models import Role, StudentProfile, User
 
 pytestmark = pytest.mark.django_db
 
@@ -63,6 +63,35 @@ def test_list_classes_and_subjects(api_client, auth_header, student_user, school
     )
     assert subjects_response.status_code == 200
     assert subjects_response.data[0]['name'] == 'Math'
+
+
+def test_my_subjects_scoped_to_own_class(api_client, auth_header, school_class, subject, school):
+    other_class = Class.objects.create(
+        school=school, name='6', order_index=6, academic_year='2025/2026'
+    )
+    Subject.objects.create(school_class=other_class, name='History')
+
+    enrolled_user = User.objects.create_user(email='enrolled@example.com', role=Role.STUDENT)
+    StudentProfile.objects.create(user=enrolled_user, school_class=school_class)
+
+    response = api_client.get('/academics/my-subjects', headers=auth_header(enrolled_user))
+    assert response.status_code == 200
+    assert [s['name'] for s in response.data] == ['Math']
+
+
+def test_my_subjects_rejects_user_without_student_profile(api_client, auth_header, student_user):
+    # student_user has no StudentProfile row at all.
+    response = api_client.get('/academics/my-subjects', headers=auth_header(student_user))
+    assert response.status_code == 403
+
+
+def test_my_subjects_empty_when_profile_has_no_class(api_client, auth_header):
+    user = User.objects.create_user(email='unassigned@example.com', role=Role.STUDENT)
+    StudentProfile.objects.create(user=user, school_class=None)
+
+    response = api_client.get('/academics/my-subjects', headers=auth_header(user))
+    assert response.status_code == 200
+    assert response.data == []
 
 
 def test_patch_subject_requires_staff(api_client, auth_header, student_user, subject):

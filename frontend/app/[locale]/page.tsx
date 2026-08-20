@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { StudentDashboard } from "@/components/student-dashboard";
+import { TutorDashboard } from "@/components/tutor-dashboard";
 
 function GuestHome() {
   const t = useTranslations("Home");
@@ -39,6 +40,10 @@ export default function HomePage() {
 
   if (user.role === "student") {
     return <StudentDashboard />;
+  }
+
+  if (user.role === "tutor") {
+    return <TutorDashboard />;
   }
 
   return <WelcomeBack name={user.name || user.email} />;

@@ -34,9 +34,15 @@ def tutor():
 
 
 @pytest.fixture
-def student():
+def student(school_class):
     user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
-    return StudentProfile.objects.create(user=user)
+    return StudentProfile.objects.create(user=user, school_class=school_class)
+
+
+@pytest.fixture
+def other_student(school_class):
+    user = User.objects.create_user(email='other-student@example.com', role=Role.STUDENT)
+    return StudentProfile.objects.create(user=user, school_class=school_class)
 
 
 def _student_lesson_with_status(subject, student, status):
@@ -99,6 +105,40 @@ class TestScopeFiltering:
         assert len(items) == 1
         assert items[0]['subject_name'] == 'Math'
 
+    def test_need_help_feed_scoped_to_student(
+        self, api_client, auth_header, tutor, subject, student, other_student
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        _student_lesson_with_status(subject, student, StudentLessonStatus.NEED_HELP)
+        _student_lesson_with_status(subject, other_student, StudentLessonStatus.NEED_HELP)
+
+        response = api_client.get(
+            f'/tutor/need-help?student={student.id}', headers=auth_header(tutor.user)
+        )
+        assert response.status_code == 200
+        items = response.data['items']
+        assert len(items) == 1
+        assert items[0]['student_name'] == student.user.email
+
+
+class TestStudentsEndpoint:
+    def test_list_students_scoped_to_tutor_classes(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        # A student enrolled in an entirely different class — no subject
+        # assignment ties the tutor to that class at all.
+        other_school = School.objects.create(name='Other School')
+        other_class = Class.objects.create(
+            school=other_school, name='9', order_index=9, academic_year='2025/2026'
+        )
+        other_class_user = User.objects.create_user(email='elsewhere@example.com', role=Role.STUDENT)
+        StudentProfile.objects.create(user=other_class_user, school_class=other_class)
+
+        response = api_client.get('/tutor/students', headers=auth_header(tutor.user))
+        assert response.status_code == 200
+        emails = {item['name'] for item in response.data}
+        assert student.user.email in emails
+        assert other_class_user.email not in emails
+
 
 class TestGradingDelegation:
     def test_grade_pending_review_via_tutor_endpoint(
@@ -154,3 +194,62 @@ class TestGradingDelegation:
         assert response.status_code == 200
         sl.refresh_from_db()
         assert sl.status == StudentLessonStatus.IN_PROGRESS
+
+    def test_resolve_need_help_directly_to_completed_with_grade(
+        self, api_client, auth_header, tutor, subject, student
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        sl = _student_lesson_with_status(subject, student, StudentLessonStatus.NEED_HELP)
+
+        response = api_client.post(
+            f'/tutor/need-help/{sl.id}/resolve',
+            json={'to_status': 'completed', 'grade_points': 8, 'feedback': 'Got it eventually'},
+            headers=auth_header(tutor.user),
+        )
+        assert response.status_code == 200
+        sl.refresh_from_db()
+        assert sl.status == StudentLessonStatus.COMPLETED
+        assert sl.grade_points == 8
+        assert sl.tutor_feedback == 'Got it eventually'
+
+    def test_get_submission_includes_grading_context(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        sl = _student_lesson_with_status(subject, student, StudentLessonStatus.NEED_HELP)
+        sl.help_note = 'stuck on step 2'
+        sl.save(update_fields=['help_note'])
+
+        response = api_client.get(f'/tutor/submissions/{sl.id}', headers=auth_header(tutor.user))
+        assert response.status_code == 200
+        assert response.data['grading_type'] == 'points'
+        assert response.data['help_note'] == 'stuck on step 2'
+        assert response.data['subject_name'] == subject.name
+        assert response.data['class_name'] == subject.school_class.name
+
+
+class TestComments:
+    def test_tutor_can_post_and_list_comments(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        sl = _student_lesson_with_status(subject, student, StudentLessonStatus.IN_PROGRESS)
+
+        post_response = api_client.post(
+            f'/tutor/submissions/{sl.id}/comments', json={'body': 'how is it going?'},
+            headers=auth_header(tutor.user),
+        )
+        assert post_response.status_code == 200
+        assert post_response.data['kind'] == 'general'
+
+        list_response = api_client.get(
+            f'/tutor/submissions/{sl.id}/comments', headers=auth_header(tutor.user)
+        )
+        assert len(list_response.data) == 1
+
+        sl.refresh_from_db()
+        assert sl.status == StudentLessonStatus.IN_PROGRESS
+
+    def test_comments_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject, student):
+        sl = _student_lesson_with_status(subject, student, StudentLessonStatus.IN_PROGRESS)
+
+        response = api_client.post(
+            f'/tutor/submissions/{sl.id}/comments', json={'body': 'hi'}, headers=auth_header(tutor.user)
+        )
+        assert response.status_code == 403

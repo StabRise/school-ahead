@@ -142,6 +142,15 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 
+# Media (user uploads — lesson materials, student submissions). Served via
+# core/urls.py in DEBUG only; a real deployment fronts MEDIA_ROOT with
+# object storage / a CDN instead. See common/storage.py for the upload_to
+# functions that keep filenames unique on disk.
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 

@@ -3,6 +3,7 @@ from django.db import models
 from academics.models import SubjectBlock, Topic
 from accounts.models import StudentProfile, User
 from common.models import TimeStampedModel
+from common.storage import lesson_attachment_upload_to, lesson_submission_upload_to
 
 
 class LessonType(models.TextChoices):
@@ -37,6 +38,10 @@ class Lesson(TimeStampedModel):
     lesson_type = models.CharField(max_length=10, choices=LessonType.choices)
     grading_type = models.CharField(max_length=10, choices=GradingType.choices)
     content = models.TextField(blank=True)
+    # Only populated when lesson_type=WITH_TASK — shown on the wizard's
+    # second screen (the submission step), separate from `content` which is
+    # the first-screen theory/materials page.
+    task_content = models.TextField(blank=True)
     default_day_offset = models.PositiveSmallIntegerField(null=True, blank=True)
 
     class Meta:
@@ -54,7 +59,7 @@ class LessonAttachment(models.Model):
         LINK = 'link', 'Link'
 
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='materials')
-    file = models.FileField(upload_to='lesson_attachments/', blank=True)
+    file = models.FileField(upload_to=lesson_attachment_upload_to, blank=True)
     url = models.URLField(blank=True)
     kind = models.CharField(max_length=10, choices=Kind.choices)
     title = models.CharField(max_length=255, blank=True)
@@ -111,10 +116,16 @@ class StudentLesson(TimeStampedModel):
 
 class LessonSubmission(models.Model):
     student_lesson = models.ForeignKey(StudentLesson, on_delete=models.CASCADE, related_name='submissions')
-    file = models.FileField(upload_to='lesson_submissions/', blank=True)
+    file = models.FileField(upload_to=lesson_submission_upload_to, blank=True)
     comment = models.TextField(blank=True)
     submitted_at = models.DateTimeField(auto_now_add=True)
     is_latest = models.BooleanField(default=True)
+    # The tutor's reply to *this specific* submission (grade feedback or a
+    # revision request) — kept on the submission itself, not just on
+    # StudentLesson, so each round of the practical-lesson exchange threads
+    # unambiguously under the work it responds to.
+    tutor_feedback = models.TextField(blank=True)
+    feedback_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-submitted_at']
@@ -132,3 +143,34 @@ class StudentLessonStatusEvent(models.Model):
 
     class Meta:
         ordering = ['created_at']
+
+
+class LessonCommentKind(models.TextChoices):
+    GENERAL = 'general', 'General'
+    HELP_REQUEST = 'help_request', 'Help Request'
+
+
+class LessonComment(models.Model):
+    """Persistent comment thread on a StudentLesson — both students and
+    tutors can post at any stage, without affecting `status` (general
+    comments), except a `help_request` comment which is created alongside
+    the Need-Help status transition and can later be marked resolved when
+    the student self-resolves. See the "State Transition & UI Rules" spec
+    (sections 2.2, 2.3)."""
+
+    student_lesson = models.ForeignKey(StudentLesson, on_delete=models.CASCADE, related_name='comments')
+    author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='lesson_comments')
+    body = models.TextField()
+    kind = models.CharField(max_length=20, choices=LessonCommentKind.choices, default=LessonCommentKind.GENERAL)
+    is_resolved = models.BooleanField(default=False)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    reply_to = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, null=True, blank=True, related_name='replies'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.kind}: {self.body[:40]}'
