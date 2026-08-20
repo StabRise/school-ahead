@@ -102,6 +102,27 @@
     "scoreFail": "Незалік",
     "scoreNotGraded": "Ще не оцінено"
   },
+  "PreschoolLesson": {
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити урок.",
+    "exitLabel": "Вийти на стежку",
+    "continueButton": "Далі",
+    "needHelpWaiting": "Тьютор скоро допоможе!",
+    "resolveNeedHelp": "Я вже розібрався(лась)",
+    "pendingReviewWaiting": "Твою роботу перевіряють. Зачекай трохи!",
+    "completedTitle": "Урок завершено! Молодець!",
+    "teacherFeedbackTitle": "Відгук тьютора"
+  },
+  "PreschoolQuizGame": {
+    "progress": "Питання {current} із {total}",
+    "correctMessage": "Так тримати!",
+    "incorrectMessage": "Майже! Спробуй ще раз пізніше.",
+    "hintMessage": "Ось підказка!",
+    "scoreResult": "Результат: {score}%",
+    "passedMessage": "Ти впорався!",
+    "failedMessage": "Не сумуй, спробуй ще раз!",
+    "retryButton": "Спробувати ще раз"
+  },
   "QuizStep": {
     "title": "Тест",
     "progress": "Питання {current} із {total}",

@@ -1,4 +1,4 @@
-import { LessonWizard } from "@/components/lesson-wizard/lesson-wizard";
+import { StudentLessonView } from "@/components/lesson-wizard/student-lesson-view";
 
 export default async function StudentLessonPage({
   params,
@@ -6,5 +6,5 @@ export default async function StudentLessonPage({
   params: Promise<{ studentLessonId: string }>;
 }) {
   const { studentLessonId } = await params;
-  return <LessonWizard studentLessonId={Number(studentLessonId)} />;
+  return <StudentLessonView studentLessonId={Number(studentLessonId)} />;
 }

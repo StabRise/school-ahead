@@ -140,6 +140,16 @@ class SubmitQuizOut(Schema):
     student_lesson: StudentLessonOut
 
 
+class QuizHintOut(Schema):
+    """Reveals a single question's correct choice on demand — used by the
+    preschool quiz's raccoon mascot to nudge a stuck child toward the answer.
+    Deliberately a separate, per-question, on-demand endpoint rather than a
+    field on QuizQuestionOut, so the answer key is never shipped up front
+    (see QuizQuestionOut.resolve_choices)."""
+
+    correct_choice_id: int | None
+
+
 class ConfirmUnderstandingIn(Schema):
     understood: bool
 

@@ -3,7 +3,7 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, useRouter } from "@/i18n/navigation";
+import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { useLogout, getMeQueryKey } from "@/lib/api/browser/auth/auth";
 import { MainMenu } from "@/components/main-menu";
@@ -53,6 +53,7 @@ function BrandIcon() {
 export function Header() {
   const t = useTranslations("Header");
   const router = useRouter();
+  const pathname = usePathname();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const clearUser = useAuthStore((state) => state.clear);
@@ -68,6 +69,12 @@ export function Header() {
       },
     });
   };
+
+  // Preschool lessons take over the whole screen as a fullscreen "forest
+  // clearing" — see docs/interfaces/student/preschool/lesson.md.
+  if (user?.interfaceMode === "preschool" && /^\/lessons\//.test(pathname)) {
+    return null;
+  }
 
   return (
     <header className="flex items-center justify-between border-b border-gray-200 px-6 py-3">

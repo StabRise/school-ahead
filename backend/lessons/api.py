@@ -10,12 +10,13 @@ from common.csrf import require_csrf
 from common.permissions import ensure_is_owner_student, get_own_student_profile
 
 from . import services
-from .models import StudentLesson
+from .models import QuizQuestion, StudentLesson
 from .schemas import (
     AddCommentIn,
     CompletionProgressOut,
     ConfirmUnderstandingIn,
     LessonCommentOut,
+    QuizHintOut,
     RequestHelpIn,
     StudentLessonOut,
     SubmitQuizIn,
@@ -62,6 +63,26 @@ def submit_quiz(request: HttpRequest, student_lesson_id: int, payload: SubmitQui
     except services.InvalidTransition as exc:
         raise HttpError(409, str(exc)) from exc
     return SubmitQuizOut(score_percent=float(score), student_lesson=student_lesson)
+
+
+@router.get(
+    '/quiz-questions/{question_id}/hint',
+    response=QuizHintOut,
+    operation_id='get_quiz_question_hint',
+)
+def get_quiz_question_hint(request: HttpRequest, question_id: int):
+    """Powers the preschool quiz's raccoon-mascot hint — see
+    docs/interfaces/student/preschool/lesson.md. Scoped to questions on a
+    lesson the requesting student actually has assigned, same as any other
+    self-scoped student endpoint."""
+    question = get_object_or_404(QuizQuestion.objects.select_related('lesson'), id=question_id)
+    student = get_own_student_profile(request)
+    owns_lesson = StudentLesson.objects.filter(student=student, lesson=question.lesson).exists()
+    if not owns_lesson:
+        raise HttpError(403, 'Not your lesson')
+
+    correct_choice = question.choices.filter(is_correct=True).first()
+    return QuizHintOut(correct_choice_id=correct_choice.id if correct_choice else None)
 
 
 @router.post(

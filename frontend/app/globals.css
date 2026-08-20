@@ -109,3 +109,46 @@ body {
     transform: scaleX(0.55);
   }
 }
+
+/* Raccoon quiz mascot — docs/interfaces/student/preschool/lesson.md. */
+@keyframes raccoon-breathe {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+}
+
+@keyframes raccoon-bounce {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  30% {
+    transform: translateY(-14px) rotate(-6deg);
+  }
+  60% {
+    transform: translateY(0) rotate(6deg);
+  }
+}
+
+@keyframes raccoon-shake {
+  0%, 100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(-5px) rotate(-4deg);
+  }
+  75% {
+    transform: translateX(5px) rotate(4deg);
+  }
+}
+
+@keyframes card-correct-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgba(34, 197, 94, 0);
+  }
+}

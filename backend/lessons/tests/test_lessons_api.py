@@ -275,3 +275,38 @@ def test_list_topic_lessons_includes_subject_block_label(api_client, auth_header
     )
     assert response.status_code == 200
     assert response.data['items'][0]['subject_block_label'] == 'Semester 1'
+
+
+def test_get_quiz_hint_returns_correct_choice(api_client, auth_header, topic, student):
+    from lessons.models import LessonType, QuizChoice, QuizQuestion
+
+    lesson = Lesson.objects.create(
+        topic=topic, order_index=3, title='Quiz lesson',
+        lesson_type=LessonType.WITH_QUIZ, grading_type='points',
+    )
+    StudentLesson.objects.create(student=student, lesson=lesson, scheduled_date=datetime.date.today())
+    question = QuizQuestion.objects.create(lesson=lesson, prompt='2+2?')
+    correct = QuizChoice.objects.create(question=question, text='4', is_correct=True)
+    QuizChoice.objects.create(question=question, text='5', is_correct=False)
+
+    response = api_client.get(
+        f'/student-lessons/quiz-questions/{question.id}/hint', headers=auth_header(student.user)
+    )
+    assert response.status_code == 200
+    assert response.data['correct_choice_id'] == correct.id
+
+
+def test_get_quiz_hint_rejects_students_without_the_lesson(api_client, auth_header, topic, other_student):
+    from lessons.models import LessonType, QuizChoice, QuizQuestion
+
+    lesson = Lesson.objects.create(
+        topic=topic, order_index=4, title='Quiz lesson',
+        lesson_type=LessonType.WITH_QUIZ, grading_type='points',
+    )
+    question = QuizQuestion.objects.create(lesson=lesson, prompt='2+2?')
+    QuizChoice.objects.create(question=question, text='4', is_correct=True)
+
+    response = api_client.get(
+        f'/student-lessons/quiz-questions/{question.id}/hint', headers=auth_header(other_student.user)
+    )
+    assert response.status_code == 403
