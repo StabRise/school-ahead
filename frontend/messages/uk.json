@@ -214,5 +214,19 @@
     "backlogTitle": "Хвости",
     "backlogHint": "Уроки, які не завершено вчасно",
     "backlogOrigin": "Мало бути виконано: {label}"
+  },
+  "PreschoolCalendar": {
+    "title": "Мій тиждень",
+    "previousWeek": "Попередній тиждень",
+    "nextWeek": "Наступний тиждень",
+    "today": "Сьогодні",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити календар.",
+    "noLessons": "Вихідний!"
+  },
+  "PreschoolBacklog": {
+    "title": "Хвостики",
+    "hint": "Ці уроки чекають на тебе",
+    "origin": "Мало бути: {label}"
   }
 }

@@ -192,6 +192,24 @@ function CompletedCoin({ item }: { item: CalendarItemOut }) {
   );
 }
 
+// Waiting on the tutor to grade it — no longer tappable, but not a "done"
+// gold star either, so it gets its own paler, muted look.
+function PendingReviewNode({ item }: { item: CalendarItemOut }) {
+  return (
+    <div className="flex flex-col items-center gap-2" aria-disabled="true">
+      <div
+        className="relative flex items-center justify-center rounded-full border-[6px] border-gray-200 bg-gray-100 opacity-70 shadow-md grayscale"
+        style={{ width: CIRCLE_UPCOMING, height: CIRCLE_UPCOMING }}
+      >
+        <div className="h-[86%] w-[86%] overflow-hidden rounded-full">
+          <StepIcon item={item} />
+        </div>
+      </div>
+      <p className="max-w-32 text-center text-sm font-semibold text-gray-400">{item.lesson_title}</p>
+    </div>
+  );
+}
+
 function ActiveNode({ item, isCurrent }: { item: CalendarItemOut; isCurrent: boolean }) {
   const size = isCurrent ? CIRCLE_CURRENT : CIRCLE_UPCOMING;
 
@@ -245,6 +263,7 @@ function StepNode({
   isCurrent: boolean;
 }) {
   const isCompleted = item.status === "completed";
+  const isPendingReview = item.status === "pending_review";
   const size = isCompleted ? CIRCLE_COMPLETED : isCurrent ? CIRCLE_CURRENT : CIRCLE_UPCOMING;
 
   const wrapperStyle: React.CSSProperties = {
@@ -258,6 +277,14 @@ function StepNode({
     return (
       <div className="absolute" style={wrapperStyle}>
         <CompletedCoin item={item} />
+      </div>
+    );
+  }
+
+  if (isPendingReview) {
+    return (
+      <div className="absolute" style={wrapperStyle}>
+        <PendingReviewNode item={item} />
       </div>
     );
   }
@@ -301,7 +328,7 @@ export function PreschoolGameMap({ items }: { items: CalendarItemOut[] }) {
   });
   const segments = buildSegments(points);
   const pathD = segmentsToPathD(segments);
-  const currentIndex = items.findIndex((item) => item.status !== "completed");
+  const currentIndex = items.findIndex((item) => item.status !== "completed" && item.status !== "pending_review");
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden px-2 py-8">

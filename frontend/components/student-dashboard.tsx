@@ -9,6 +9,7 @@ import { Card } from "@/components/card";
 import { PageContainer } from "@/components/page-container";
 import { PreschoolGameMap } from "@/components/preschool/game-map";
 import { BalloonPopGame } from "@/components/preschool/balloon-pop-game";
+import { PreschoolBacklogSection } from "@/components/preschool/backlog-section";
 import { useAuthStore } from "@/stores/auth-store";
 
 // Local (not UTC) YYYY-MM-DD — avoids toISOString() shifting the date near
@@ -72,18 +73,31 @@ export function StudentDashboard() {
   const backlog = data?.backlog ?? [];
 
   if (isPreschool) {
-    // Trigger condition evaluated on dashboard load — see
-    // docs/interfaces/preschool.md section 2.4.
-    const allTodayCompleted = lessons.length > 0 && lessons.every((item) => item.status === "completed");
+    // The road walks through overdue "tails" first, then today's lessons —
+    // one continuous path instead of a separate list. See
+    // docs/interfaces/preschool.md.
+    const roadItems = [...backlog, ...lessons];
+
+    // Trigger condition evaluated on dashboard load — only once every tail
+    // is cleared too, not just today's lessons. See docs/interfaces/
+    // preschool.md section 2.4.
+    const hasAnyItems = lessons.length > 0 || backlog.length > 0;
+    const allTodayCompleted =
+      hasAnyItems && backlog.length === 0 && lessons.every((item) => item.status === "completed");
 
     // Full-bleed gradient — fills the whole viewport below the header, not
     // just a boxed card, matching the "adventure map" theme.
     return (
       <div className="relative flex flex-1 flex-col bg-gradient-to-b from-sky-200 via-emerald-100 to-lime-200">
-        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col p-6">
+        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-6">
           {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
           {isError && <p className="text-sm text-red-600">{t("error")}</p>}
-          {!isLoading && !isError && (allTodayCompleted ? <BalloonPopGame /> : <PreschoolGameMap items={lessons} />)}
+          {!isLoading && !isError && (
+            <>
+              {allTodayCompleted ? <BalloonPopGame /> : <PreschoolGameMap items={roadItems} />}
+              <PreschoolBacklogSection items={backlog} />
+            </>
+          )}
         </div>
       </div>
     );

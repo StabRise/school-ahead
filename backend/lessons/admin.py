@@ -1,4 +1,7 @@
 from django.contrib import admin
+from django.core.files.base import ContentFile
+
+from common.storage import random_sample_lesson_icon
 
 from .models import (
     Lesson,
@@ -50,6 +53,17 @@ class LessonAdmin(admin.ModelAdmin):
     search_fields = ("title", "content", "topic__title", "topic__subject__name")
     ordering = ("topic", "order_index")
     inlines = [LessonAttachmentInline, QuizQuestionInline]
+
+    def save_model(self, request, obj, form, change):
+        # A brand-new lesson with no icon set gets a random one from
+        # sample_media/lessons/ instead of shipping with none — see
+        # docs/interfaces/preschool.md.
+        if not change and not obj.icon:
+            sample = random_sample_lesson_icon()
+            if sample:
+                name, content = sample
+                obj.icon.save(name, ContentFile(content), save=False)
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(LessonAttachment)
