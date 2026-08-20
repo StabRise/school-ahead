@@ -79,8 +79,8 @@ export function StudentDashboard() {
     // Full-bleed gradient — fills the whole viewport below the header, not
     // just a boxed card, matching the "adventure map" theme.
     return (
-      <div className="relative flex flex-1 flex-col bg-gradient-to-b from-sky-100 via-emerald-50 to-amber-50">
-        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col p-6">
+      <div className="relative flex flex-1 flex-col bg-gradient-to-b from-sky-200 via-emerald-100 to-lime-200">
+        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col p-6">
           {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
           {isError && <p className="text-sm text-red-600">{t("error")}</p>}
           {!isLoading && !isError && (allTodayCompleted ? <BalloonPopGame /> : <PreschoolGameMap items={lessons} />)}

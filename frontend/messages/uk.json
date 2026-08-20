@@ -104,7 +104,7 @@
   },
   "QuizStep": {
     "title": "Тест",
-    "submitButton": "Надіслати відповіді",
+    "progress": "Питання {current} із {total}",
     "scoreResult": "Результат: {score}%",
     "passedMessage": "Чудово, тест складено!",
     "failedMessage": "Спробуйте ще раз або зверніться по допомогу.",
