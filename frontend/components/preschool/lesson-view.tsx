@@ -6,12 +6,12 @@ import { Link } from "@/i18n/navigation";
 import { useGetStudentLesson } from "@/lib/api/browser/student-lessons/student-lessons";
 import type { StudentLessonOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Markdown } from "@/components/markdown";
-import { TheoryStep } from "@/components/lesson-wizard/theory-step";
 import { TaskStep } from "@/components/lesson-wizard/task-step";
 import { ResolveNeedHelpButton } from "@/components/lesson-wizard/resolve-need-help-button";
 import { Cloud, Daisy, Sun, Tulip } from "@/components/preschool/decorations";
 import { Raccoon } from "@/components/preschool/raccoon";
 import { PreschoolQuizGame } from "@/components/preschool/quiz-game";
+import { PreschoolTheoryCheck } from "@/components/preschool/theory-check";
 
 type MagicStep = "theory" | "practice";
 
@@ -129,11 +129,7 @@ function PracticeClearing({ studentLesson, onChanged }: { studentLesson: Student
           <PreschoolQuizGame studentLessonId={studentLesson.id} questions={lesson.quiz_questions} onChanged={onChanged} />
         );
       case "theory":
-        return (
-          <div className="w-full max-w-xl rounded-3xl bg-white/90 p-5 shadow-xl">
-            <TheoryStep studentLessonId={studentLesson.id} onChanged={onChanged} />
-          </div>
-        );
+        return <PreschoolTheoryCheck studentLessonId={studentLesson.id} onChanged={onChanged} />;
       case "with_task":
         return (
           <div className="w-full max-w-xl rounded-3xl bg-white/90 p-5 shadow-xl">

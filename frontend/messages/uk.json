@@ -123,6 +123,13 @@
     "failedMessage": "Не сумуй, спробуй ще раз!",
     "retryButton": "Спробувати ще раз"
   },
+  "PreschoolTheoryCheck": {
+    "question": "Чи все зрозуміло?",
+    "yesButton": "Так, зрозуміло!",
+    "noButton": "Потрібна допомога",
+    "yesFeedback": "Чудово! Так тримати!",
+    "noFeedback": "Нічого страшного, покличемо тьютора!"
+  },
   "QuizStep": {
     "title": "Тест",
     "progress": "Питання {current} із {total}",
