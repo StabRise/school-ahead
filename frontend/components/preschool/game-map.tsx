@@ -17,6 +17,7 @@ import {
   Sun,
   Tulip,
 } from "@/components/preschool/decorations";
+import { pseudoRandom } from "@/components/preschool/random";
 
 // "Fairy-tale adventure path" design concept — see docs/interfaces/
 // preschool.md. A winding stone-tile trail (not a flat road) through a
@@ -31,13 +32,6 @@ function StepIcon({ item }: { item: CalendarItemOut }) {
     return <img src={src} alt="" className="h-full w-full rounded-full object-cover" />;
   }
   return <DefaultStepIcon />;
-}
-
-// Deterministic pseudo-random in [0, 1) — stable across server/client
-// render so decorations never shift on hydration.
-function pseudoRandom(seed: number): number {
-  const x = Math.sin(seed * 12.9898) * 43758.5453;
-  return x - Math.floor(x);
 }
 
 // ---- Layout: a fixed px coordinate system (both axes) so the stone trail

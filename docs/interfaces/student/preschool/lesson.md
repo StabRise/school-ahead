@@ -1,20 +1,23 @@
-Атмосфера и окружение
-Полноэкранный сказочный режим: Интерфейс дашборда исчезает. Ребенок попадает на уютную «лесную поляну»
+## Atmosphere and Environment
 
-Шаг 1: Магический экран (Теория с YouTube):
-Сверху название урока красочными большими буквами
-По центру экрана располагается большой плеер, оформленный как окошко домика.
-там располагается контент урока - обычно видеоурок с YouTube, который рассказывает о теме урока.
+* **Fullscreen Fairytale Mode:** The dashboard interface disappears. The child enters a cozy "forest clearing."
 
-Шаг 2: Игровая поляна (Квиз / Практика):
+---
 
-После видео поляна «оживает» и превращается в интерактивную игру.
+### Step 1: The Magic Screen (Theory via YouTube)
 
-появляется вопрос на большом ярком баннере
+* **Title:** At the top, the lesson title is displayed in large, colorful letters.
+* **Player:** In the center of the screen is a large video player styled like a little cabin window.
+* **Content:** This is where the lesson content lives—typically a YouTube video explaining the topic.
 
-и варианты ответа (QuizChoice.Text сделай markdown полем)
+---
 
-Вместо скучных вариантов ответов — яркие большие карточки-предметы, на которые приятно нажимать.
+### Step 2: The Playful Clearing (Quiz / Practice)
 
-ответив на вопрос, появляется анимация, в виде забавного энотика который радуется, когда ответ верный и расстраивается, когда ошибка.
-если ребенок долго не отвечает энотик подсказывает правильный ответ, показывая его на экране./
+* **Interactivity:** After the video, the clearing "comes to life" and turns into an interactive game.
+* **Question:** A question appears on a large, bright banner.
+* **Answer Options:** Render `QuizChoice.Text` as a markdown field. Instead of boring choices, the answers are large, vibrant object cards that are satisfying to click.
+* **Character Animation:** Once the question is answered, an animation plays featuring a funny little raccoon:
+    * Celebrates when the answer is correct.
+    * Gets sad when there is a mistake.
+    * If the child takes too long to answer, the raccoon gives a hint by revealing the correct answer on screen.

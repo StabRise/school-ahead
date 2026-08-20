@@ -8,10 +8,12 @@ import type { StudentLessonOut } from "@/lib/api/browser/schoolAheadAPI.schemas"
 import { Markdown } from "@/components/markdown";
 import { TaskStep } from "@/components/lesson-wizard/task-step";
 import { ResolveNeedHelpButton } from "@/components/lesson-wizard/resolve-need-help-button";
-import { Cloud, Daisy, Sun, Tulip } from "@/components/preschool/decorations";
+import { Cloud, Sun } from "@/components/preschool/decorations";
 import { Raccoon } from "@/components/preschool/raccoon";
+import { CelebrationScene } from "@/components/preschool/celebration-scene";
 import { PreschoolQuizGame } from "@/components/preschool/quiz-game";
 import { PreschoolTheoryCheck } from "@/components/preschool/theory-check";
+import { ScreenFrame } from "@/components/preschool/screen-frame";
 
 type MagicStep = "theory" | "practice";
 
@@ -49,18 +51,9 @@ function MagicScreen({ title, content, onContinue }: { title: string; content: s
         {title}
       </h1>
 
-      <div className="relative w-full max-w-2xl">
-        <svg viewBox="0 0 200 40" className="mx-auto -mb-1 w-40" aria-hidden="true">
-          <path d="M0 40L100 2L200 40Z" fill="#92400e" />
-        </svg>
-        <div className="rounded-[2rem] border-[10px] border-amber-800 bg-sky-50 p-4 shadow-2xl">
-          <div className="rounded-2xl bg-white p-3 [&_.prose]:max-w-none">
-            <Markdown content={content} embedYoutube />
-          </div>
-        </div>
-        <Tulip className="absolute -bottom-5 left-2 h-10 w-10" />
-        <Daisy className="absolute -bottom-5 right-2 h-8 w-8" color="#fca5a5" />
-      </div>
+      <ScreenFrame maxWidthClassName="max-w-2xl">
+        <Markdown content={content} embedYoutube />
+      </ScreenFrame>
 
       <button
         type="button"
@@ -101,12 +94,7 @@ function PracticeClearing({ studentLesson, onChanged }: { studentLesson: Student
     }
 
     if (status === "completed") {
-      return (
-        <div className="flex flex-col items-center gap-4 text-center">
-          <Raccoon mood="happy" className="h-28 w-28" />
-          <p className="text-2xl font-extrabold text-emerald-900">{t("completedTitle")}</p>
-        </div>
-      );
+      return <CelebrationScene title={t("completedTitle")} />;
     }
 
     if (status === "revision_required") {
@@ -147,7 +135,7 @@ function PracticeClearing({ studentLesson, onChanged }: { studentLesson: Student
   })();
 
   return (
-    <div className="flex flex-1 flex-col items-center gap-4 p-4">
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
       {tutor_feedback && (
         <div className="w-full max-w-xl rounded-2xl border-2 border-blue-200 bg-blue-50 px-4 py-3">
           <h2 className="text-sm font-bold text-blue-900">{t("teacherFeedbackTitle")}</h2>

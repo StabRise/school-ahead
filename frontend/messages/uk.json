@@ -113,6 +113,9 @@
     "completedTitle": "Урок завершено! Молодець!",
     "teacherFeedbackTitle": "Відгук тьютора"
   },
+  "CelebrationScene": {
+    "homeButton": "На стежку"
+  },
   "PreschoolQuizGame": {
     "progress": "Питання {current} із {total}",
     "correctMessage": "Так тримати!",

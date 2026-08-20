@@ -6,6 +6,8 @@ import { getQuizQuestionHint, useSubmitQuiz } from "@/lib/api/browser/student-le
 import type { QuizQuestionOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Markdown } from "@/components/markdown";
 import { Raccoon, type RaccoonMood } from "@/components/preschool/raccoon";
+import { CelebrationScene } from "@/components/preschool/celebration-scene";
+import { ScreenFrame } from "@/components/preschool/screen-frame";
 
 const PASS_THRESHOLD_PERCENT = 60;
 const HINT_DELAY_MS = 15000;
@@ -69,13 +71,13 @@ function QuestionRound({
 
   return (
     <>
-      <div className="w-full max-w-xl rounded-[2rem] bg-gradient-to-r from-fuchsia-400 via-pink-400 to-amber-300 px-6 py-5 text-center shadow-xl">
+      <div className="w-full rounded-[2rem] bg-gradient-to-r from-fuchsia-400 via-pink-400 to-amber-300 px-6 py-5 text-center shadow-xl">
         <div className="text-lg font-extrabold text-white [&_p]:m-0 [&_strong]:text-white">
           <Markdown content={question.prompt} />
         </div>
       </div>
 
-      <div className="grid w-full max-w-xl grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
         {question.choices.map((choice, index) => {
           const isSelected = selectedChoiceId === choice.id;
           const isRevealedCorrect = hintRevealed && choice.id === correctChoiceId && selectedChoiceId === null;
@@ -167,34 +169,35 @@ export function PreschoolQuizGame({
   const failed = isAnswered && lastScore! <= PASS_THRESHOLD_PERCENT;
 
   if (isAnswered) {
+    if (!failed) {
+      return <CelebrationScene title={t("scoreResult", { score: lastScore })} subtitle={t("passedMessage")} />;
+    }
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
-        <Raccoon mood={failed ? "sad" : "happy"} className="h-28 w-28" />
-        <p className="text-2xl font-extrabold text-emerald-900">{t("scoreResult", { score: lastScore })}</p>
-        {failed ? (
-          <>
-            <p className="text-base text-red-700">{t("failedMessage")}</p>
-            <button
-              type="button"
-              onClick={handleRetry}
-              className="rounded-full bg-amber-400 px-6 py-3 text-lg font-bold text-amber-950 shadow-lg transition-transform active:scale-95"
-            >
-              {t("retryButton")}
-            </button>
-          </>
-        ) : (
-          <p className="text-base text-emerald-700">{t("passedMessage")}</p>
-        )}
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
+        <ScreenFrame>
+          <Raccoon mood="sad" className="h-28 w-28" />
+          <p className="text-2xl font-extrabold text-emerald-900">{t("scoreResult", { score: lastScore })}</p>
+          <p className="text-base text-red-700">{t("failedMessage")}</p>
+          <button
+            type="button"
+            onClick={handleRetry}
+            className="rounded-full bg-amber-400 px-6 py-3 text-lg font-bold text-amber-950 shadow-lg transition-transform active:scale-95"
+          >
+            {t("retryButton")}
+          </button>
+        </ScreenFrame>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center gap-6 p-4">
-      <span className="text-sm font-bold text-emerald-900/70">
-        {t("progress", { current: currentIndex + 1, total: questions.length })}
-      </span>
-      <QuestionRound key={currentQuestion.id} question={currentQuestion} onAnswered={handleAnswered} />
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
+      <ScreenFrame>
+        <span className="text-sm font-bold text-emerald-900/70">
+          {t("progress", { current: currentIndex + 1, total: questions.length })}
+        </span>
+        <QuestionRound key={currentQuestion.id} question={currentQuestion} onAnswered={handleAnswered} />
+      </ScreenFrame>
     </div>
   );
 }
