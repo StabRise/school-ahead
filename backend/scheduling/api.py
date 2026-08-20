@@ -38,6 +38,7 @@ def _calendar_item(student_lesson: StudentLesson) -> CalendarItemOut:
         scheduled_date=student_lesson.scheduled_date,
         completed_at=student_lesson.completed_at,
         is_completed_ahead=is_ahead,
+        grade_points=student_lesson.grade_points,
     )
 
 

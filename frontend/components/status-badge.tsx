@@ -11,11 +11,21 @@ const STATUS_LABEL_KEY: Record<string, string> = {
   completed: "statusCompleted",
 };
 
+const STATUS_COLOR_CLASSES: Record<string, string> = {
+  assigned: "bg-gray-100 text-gray-700",
+  in_progress: "bg-blue-100 text-blue-700",
+  need_help: "bg-amber-100 text-amber-800",
+  pending_review: "bg-purple-100 text-purple-700",
+  revision_required: "bg-red-100 text-red-700",
+  completed: "bg-green-100 text-green-700",
+};
+
 export function StatusBadge({ status }: { status: string }) {
   const t = useTranslations("LessonStatus");
   const key = STATUS_LABEL_KEY[status] ?? "statusAssigned";
+  const colorClasses = STATUS_COLOR_CLASSES[status] ?? STATUS_COLOR_CLASSES.assigned;
   return (
-    <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${colorClasses}`}>
       {t(key)}
     </span>
   );

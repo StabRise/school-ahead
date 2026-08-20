@@ -11,6 +11,7 @@ class CalendarItemOut(Schema):
     scheduled_date: datetime.date
     completed_at: datetime.datetime | None
     is_completed_ahead: bool
+    grade_points: int | None
 
 
 class BacklogItemOut(CalendarItemOut):

@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useGetToday } from "@/lib/api/browser/schedule/schedule";
 import type { BacklogItemOut, CalendarItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { StatusBadge } from "@/components/status-badge";
+import { GradePoints } from "@/components/grade-points";
 import { Card } from "@/components/card";
 import { PageContainer } from "@/components/page-container";
 
@@ -24,7 +25,10 @@ function LessonRow({ item }: { item: CalendarItemOut }) {
           <p className="truncate font-medium">{item.lesson_title}</p>
           <p className="truncate text-sm text-gray-500">{item.subject_name}</p>
         </div>
-        <StatusBadge status={item.status} />
+        <div className="flex shrink-0 items-center gap-2">
+          {item.grade_points != null && <GradePoints points={item.grade_points} />}
+          <StatusBadge status={item.status} />
+        </div>
       </Card>
     </li>
   );
@@ -47,7 +51,10 @@ function BacklogRow({ item }: { item: BacklogItemOut }) {
             {t("backlogOrigin", { label: item.origin_label })}
           </p>
         </div>
-        <StatusBadge status={item.status} />
+        <div className="flex shrink-0 items-center gap-2">
+          {item.grade_points != null && <GradePoints points={item.grade_points} />}
+          <StatusBadge status={item.status} />
+        </div>
       </Card>
     </li>
   );

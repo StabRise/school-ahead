@@ -9,6 +9,7 @@ import {
 import type { BacklogItemOut, CalendarItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Card } from "@/components/card";
 import { StatusBadge } from "@/components/status-badge";
+import { GradePoints } from "@/components/grade-points";
 import { PageContainer } from "@/components/page-container";
 
 const WEEK_LENGTH = 7;
@@ -51,7 +52,10 @@ function LessonCard({ item }: { item: CalendarItemOut }) {
     <Card href={`/lessons/${item.id}`} className="flex flex-col gap-1">
       <p className="truncate text-sm font-medium">{item.lesson_title}</p>
       <p className="truncate text-xs text-gray-500">{item.subject_name}</p>
-      <StatusBadge status={item.status} />
+      <div className="flex items-center gap-2">
+        <StatusBadge status={item.status} />
+        {item.grade_points != null && <GradePoints points={item.grade_points} />}
+      </div>
     </Card>
   );
 }
@@ -66,7 +70,10 @@ function BacklogCard({ item }: { item: BacklogItemOut }) {
         <p className="truncate text-xs text-gray-500">{item.subject_name}</p>
         <p className="truncate text-xs text-amber-700">{t("backlogOrigin", { label: item.origin_label })}</p>
       </div>
-      <StatusBadge status={item.status} />
+      <div className="flex shrink-0 items-center gap-2">
+        {item.grade_points != null && <GradePoints points={item.grade_points} />}
+        <StatusBadge status={item.status} />
+      </div>
     </Card>
   );
 }

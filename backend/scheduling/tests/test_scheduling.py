@@ -181,3 +181,24 @@ class TestApiEndpoints:
         )
         assert response.status_code == 200
         assert len(response.data) == 1
+
+    def test_calendar_item_includes_grade_points(self, api_client, auth_header, subject, student):
+        lessons = _make_lessons(subject, 1)
+        today = datetime.date.today()
+        sl = StudentLesson.objects.create(
+            student=student,
+            lesson=lessons[0],
+            scheduled_date=today,
+            status=StudentLessonStatus.COMPLETED,
+            grade_points=9,
+        )
+
+        week_start = today - datetime.timedelta(days=today.weekday())
+        response = api_client.get(
+            f'/schedule/calendar?week_start={week_start.isoformat()}',
+            headers=auth_header(student.user),
+        )
+        assert response.status_code == 200
+        [item] = response.data
+        assert item['id'] == sl.id
+        assert item['grade_points'] == 9
