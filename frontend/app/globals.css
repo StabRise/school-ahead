@@ -58,3 +58,54 @@ body {
     transform: scale(1);
   }
 }
+
+/* Adventure road (docs/interfaces/preschool.md, "Fairy-tale path" concept):
+   the current step gently sways to invite a tap, and butterflies/bees flutter
+   around it in a small loop. */
+@keyframes node-sway {
+  0%, 100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
+}
+
+@keyframes flutter-a {
+  0%, 100% {
+    transform: translate(0, 0) rotate(-8deg);
+  }
+  25% {
+    transform: translate(6px, -8px) rotate(6deg);
+  }
+  50% {
+    transform: translate(-2px, -14px) rotate(-4deg);
+  }
+  75% {
+    transform: translate(-8px, -4px) rotate(8deg);
+  }
+}
+
+@keyframes flutter-b {
+  0%, 100% {
+    transform: translate(0, 0) rotate(6deg);
+  }
+  30% {
+    transform: translate(-7px, -6px) rotate(-8deg);
+  }
+  60% {
+    transform: translate(3px, -12px) rotate(4deg);
+  }
+  85% {
+    transform: translate(8px, -2px) rotate(-6deg);
+  }
+}
+
+@keyframes wing-flap {
+  0%, 100% {
+    transform: scaleX(1);
+  }
+  50% {
+    transform: scaleX(0.55);
+  }
+}
