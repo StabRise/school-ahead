@@ -12,10 +12,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Log in to registry.stabrise.com
+      - name: Log in to forgejo.stabrise.com
         uses: docker/login-action@v3
         with:
-          registry: registry.stabrise.com
+          registry: forgejo.stabrise.com
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
@@ -26,7 +26,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: registry.stabrise.com/school-ahead-backend
+          images: forgejo.stabrise.com/school-ahead-backend
           tags: |
             type=raw,value=latest
             type=sha,format=short
@@ -48,10 +48,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Log in to registry.stabrise.com
+      - name: Log in to forgejo.stabrise.com
         uses: docker/login-action@v3
         with:
-          registry: registry.stabrise.com
+          registry: forgejo.stabrise.com
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
@@ -62,7 +62,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: registry.stabrise.com/school-ahead-frontend
+          images: forgejo.stabrise.com/school-ahead-frontend
           tags: |
             type=raw,value=latest
             type=sha,format=short
