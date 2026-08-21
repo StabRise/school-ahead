@@ -1,0 +1,18 @@
+# Build context for backend/Dockerfile is the repo root.
+.git
+.github
+.venv
+.idea
+.claude
+node_modules
+frontend
+docs
+*.md
+
+backend/media
+backend/db.sqlite3
+backend/staticfiles
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
