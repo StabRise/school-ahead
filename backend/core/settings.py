@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'ninja',
     'ninja_jwt',
     'ninja_jwt.token_blacklist',
+    'ninja_apikey',
     'common',
     'accounts',
     'academics',

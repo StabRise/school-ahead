@@ -438,6 +438,19 @@ wheels = [
 ]
 
 [[package]]
+name = "ninja-api-key"
+version = "2.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+    { name = "django-ninja" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b5/75/2b453e2055beef8bd1e3b9a66513b4487325736db4f5d85b03e474cdc9a0/ninja_api_key-2.0.0.tar.gz", hash = "sha256:3dbc2390d13671ff336377068e83504fa1819a2fe6acbc58ce8afe00a290527c", size = 8177, upload-time = "2026-01-06T14:41:19.811Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/65/26/8a9982dc656e2c905bda8438299ccfd75c7f1957c78758f7f602f0a7e23a/ninja_api_key-2.0.0-py3-none-any.whl", hash = "sha256:6da7d4900953747d2b8f7cca7de1d005eb3996cd2d9a2032d5eaaddd5eed267b", size = 10951, upload-time = "2026-01-06T14:41:18.403Z" },
+]
+
+[[package]]
 name = "packaging"
 version = "26.3"
 source = { registry = "https://pypi.org/simple" }
@@ -733,6 +746,7 @@ dependencies = [
     { name = "django-ninja" },
     { name = "django-ninja-jwt" },
     { name = "google-auth" },
+    { name = "ninja-api-key" },
     { name = "psycopg", extra = ["binary"] },
     { name = "requests" },
 ]
@@ -751,6 +765,7 @@ requires-dist = [
     { name = "django-ninja", specifier = ">=1.6.3" },
     { name = "django-ninja-jwt", specifier = ">=5.4.5" },
     { name = "google-auth", specifier = ">=2.56.3" },
+    { name = "ninja-api-key", specifier = ">=2.0.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.4" },
     { name = "requests", specifier = ">=2.34.2" },
 ]
