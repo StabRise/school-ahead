@@ -7,7 +7,7 @@ The `urlpatterns` list routes URLs to views. For more information please see:
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 from ninja import NinjaAPI
 
 from academics.api import router as academics_router
@@ -26,6 +26,7 @@ api.add_router('/schedule', scheduling_router)
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', api.urls),
+    path('api/', include('mcp_server.urls')),  # -> /api/mcp
 ]
 
 if settings.DEBUG:

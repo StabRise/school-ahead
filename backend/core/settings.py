@@ -47,6 +47,8 @@ INSTALLED_APPS = [
     'ninja_jwt',
     'ninja_jwt.token_blacklist',
     'ninja_apikey',
+    'rest_framework',
+    'mcp_server',
     'common',
     'accounts',
     'academics',
@@ -212,3 +214,17 @@ GOOGLE_CLIENT_ID = env('GOOGLE_CLIENT_ID', default='')
 
 NINJA_PAGINATION_PER_PAGE = 20
 NINJA_PAGINATION_MAX_LIMIT = 50
+
+
+# django-mcp-server — exposes curriculum models (Subject, Topic, Lesson,
+# LessonAttachment, QuizQuestion, QuizChoice) as MCP query tools, authenticated
+# with the same ninja-api-key X-API-Key header used by the rest of the API.
+# See common/mcp_auth.py, academics/mcp.py, lessons/mcp.py.
+
+DJANGO_MCP_AUTHENTICATION_CLASSES = [
+    'common.mcp_auth.NinjaAPIKeyAuthentication',
+]
+DJANGO_MCP_GLOBAL_SERVER_CONFIG = {
+    'name': 'school-ahead',
+    'stateless': True,
+}
