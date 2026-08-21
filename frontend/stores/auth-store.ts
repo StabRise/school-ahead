@@ -6,6 +6,16 @@ import { create } from "zustand";
 
 export type InterfaceMode = "default" | "preschool";
 
+// The chosen companion character (Raccoon, Fox, ...) — see
+// docs/core/avatar.md. Distinct from `avatarUrl` below, which is the
+// Google-account profile picture.
+export interface EquippedAvatar {
+  id: number;
+  key: string;
+  name: string;
+  image: string | null;
+}
+
 export interface AuthUser {
   id: number;
   email: string;
@@ -15,6 +25,9 @@ export interface AuthUser {
   avatarUrl: string;
   // Only meaningful for role="student" — see docs/interfaces/preschool.md.
   interfaceMode: InterfaceMode | null;
+  // Only meaningful for role="student", and only once one is chosen — see
+  // docs/core/avatar.md.
+  equippedAvatar: EquippedAvatar | null;
 }
 
 interface AuthState {

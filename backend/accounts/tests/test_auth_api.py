@@ -2,7 +2,14 @@ from unittest.mock import patch
 
 import pytest
 
-from accounts.models import InterfaceMode, RefreshToken, Role, StudentProfile, User
+from accounts.models import (
+    Avatar,
+    InterfaceMode,
+    RefreshToken,
+    Role,
+    StudentProfile,
+    User,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -190,6 +197,71 @@ def test_update_interface_mode_requires_student_profile(api_client, auth_header)
         '/auth/me/interface-mode',
         json={'interface_mode': InterfaceMode.PRESCHOOL},
         headers=auth_header(user),
+    )
+
+    assert response.status_code == 403
+
+
+def test_list_avatars_returns_only_active_ones(api_client, auth_header):
+    # Note: the seed migration (0005_seed_avatars) already ships a handful
+    # of active avatars, so this only asserts on the two rows it adds.
+    user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
+    StudentProfile.objects.create(user=user)
+    active = Avatar.objects.create(key='test-active-avatar', name='Active')
+    Avatar.objects.create(key='test-inactive-avatar', name='Inactive', is_active=False)
+
+    response = api_client.get('/auth/avatars', headers=auth_header(user))
+
+    assert response.status_code == 200
+    keys = [a['key'] for a in response.data]
+    assert 'test-active-avatar' in keys
+    assert 'test-inactive-avatar' not in keys
+    assert next(a for a in response.data if a['key'] == 'test-active-avatar')['id'] == active.id
+
+
+def test_me_equipped_avatar_is_null_until_chosen(api_client, auth_header):
+    user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
+    StudentProfile.objects.create(user=user)
+
+    response = api_client.get('/auth/me', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['equipped_avatar'] is None
+
+
+def test_update_avatar_persists_and_returns_it(api_client, auth_header):
+    user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
+    student = StudentProfile.objects.create(user=user)
+    avatar = Avatar.objects.create(key='test-fox', name='Fox')
+
+    response = api_client.patch(
+        '/auth/me/avatar', json={'avatar_id': avatar.id}, headers=auth_header(user),
+    )
+
+    assert response.status_code == 200
+    assert response.data['user']['equipped_avatar']['key'] == 'test-fox'
+    student.refresh_from_db()
+    assert student.equipped_avatar_id == avatar.id
+
+
+def test_update_avatar_rejects_inactive_avatar(api_client, auth_header):
+    user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
+    StudentProfile.objects.create(user=user)
+    avatar = Avatar.objects.create(key='retired', name='Retired', is_active=False)
+
+    response = api_client.patch(
+        '/auth/me/avatar', json={'avatar_id': avatar.id}, headers=auth_header(user),
+    )
+
+    assert response.status_code == 404
+
+
+def test_update_avatar_requires_student_profile(api_client, auth_header):
+    user = User.objects.create_user(email='tutor@example.com', role=Role.TUTOR)
+    avatar = Avatar.objects.create(key='test-fox-2', name='Fox')
+
+    response = api_client.patch(
+        '/auth/me/avatar', json={'avatar_id': avatar.id}, headers=auth_header(user),
     )
 
     assert response.status_code == 403

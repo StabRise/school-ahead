@@ -3,6 +3,8 @@ import uuid
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db import models
 
+from common.storage import avatar_image_upload_to
+
 from .managers import UserManager
 
 
@@ -49,6 +51,27 @@ class InterfaceMode(models.TextChoices):
     PRESCHOOL = 'preschool', 'Preschool'
 
 
+class Avatar(models.Model):
+    """A selectable companion character — see docs/core/avatar.md. That doc
+    also specs a wardrobe/shop (cosmetics, Diamonds) and a home-decoration
+    system; neither is built yet. `key`/`is_active` exist now so those can
+    layer on later (e.g. an `AvatarUnlock` per-student table) without
+    reshaping this catalog. For now every active Avatar is available to
+    every student, unlocked or not."""
+
+    key = models.SlugField(max_length=50, unique=True)
+    name = models.CharField(max_length=100)
+    image = models.FileField(upload_to=avatar_image_upload_to)
+    order_index = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['order_index', 'id']
+
+    def __str__(self):
+        return self.name
+
+
 class StudentProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
     school_class = models.ForeignKey(
@@ -60,6 +83,12 @@ class StudentProfile(models.Model):
     # here so it follows the student across sessions and devices.
     interface_mode = models.CharField(
         max_length=10, choices=InterfaceMode.choices, default=InterfaceMode.DEFAULT
+    )
+    # The character companion chosen on the Student Profile page — see
+    # docs/core/avatar.md section 2.1. Nullable: existing/new students start
+    # with none picked and the frontend falls back to a default look.
+    equipped_avatar = models.ForeignKey(
+        Avatar, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipped_by'
     )
 
     def __str__(self):

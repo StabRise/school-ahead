@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
 from .models import (
+    Avatar,
     ParentProfile,
     ParentStudentLink,
     RefreshToken,
@@ -37,10 +38,23 @@ class UserAdmin(DjangoUserAdmin):
 class StudentProfileAdmin(admin.ModelAdmin):
     """Admin configuration for StudentProfile model."""
 
-    list_display = ("user", "school_class", "enrolled_at", "diamond_balance_cache", "interface_mode")
-    list_filter = ("school_class", "enrolled_at", "interface_mode")
+    list_display = (
+        "user", "school_class", "enrolled_at", "diamond_balance_cache", "interface_mode", "equipped_avatar",
+    )
+    list_filter = ("school_class", "enrolled_at", "interface_mode", "equipped_avatar")
     search_fields = ("user__email", "user__first_name", "user__last_name")
     autocomplete_fields = ("user", "school_class")
+
+
+@admin.register(Avatar)
+class AvatarAdmin(admin.ModelAdmin):
+    """Admin configuration for the selectable companion-character catalog.
+    See docs/core/avatar.md."""
+
+    list_display = ("name", "key", "order_index", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("name", "key")
+    ordering = ("order_index", "id")
 
 
 @admin.register(TutorProfile)

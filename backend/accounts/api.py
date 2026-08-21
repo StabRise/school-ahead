@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
+from django.shortcuts import get_object_or_404
 from ninja import Router
 from ninja.errors import HttpError
 
@@ -9,13 +10,28 @@ from common.permissions import get_own_student_profile
 
 from . import services
 from .cookies import clear_auth_cookies, set_auth_cookies
-from .models import InterfaceMode
-from .schemas import GoogleLoginIn, GoogleLoginOut, MeOut, UpdateInterfaceModeIn, UserOut
+from .models import Avatar, InterfaceMode
+from .schemas import (
+    AvatarOut,
+    GoogleLoginIn,
+    GoogleLoginOut,
+    MeOut,
+    UpdateAvatarIn,
+    UpdateInterfaceModeIn,
+    UserOut,
+)
 
 router = Router(tags=['auth'])
 
 
-def _user_out(user) -> UserOut:
+def _avatar_out(avatar: Avatar | None, request: HttpRequest) -> AvatarOut | None:
+    if avatar is None:
+        return None
+    image_url = request.build_absolute_uri(avatar.image.url) if avatar.image else None
+    return AvatarOut(id=avatar.id, key=avatar.key, name=avatar.name, image=image_url)
+
+
+def _user_out(request: HttpRequest, user) -> UserOut:
     student_profile = getattr(user, 'student_profile', None)
     return UserOut(
         id=user.id,
@@ -26,6 +42,7 @@ def _user_out(user) -> UserOut:
         locale=user.locale,
         avatar_url=user.avatar_url,
         interface_mode=student_profile.interface_mode if student_profile else None,
+        equipped_avatar=_avatar_out(student_profile.equipped_avatar, request) if student_profile else None,
     )
 
 
@@ -44,7 +61,7 @@ def google_login(request: HttpRequest, response: HttpResponse, payload: GoogleLo
     access_token, refresh_token = services.issue_token_pair(user)
     set_auth_cookies(response, access_token, refresh_token)
 
-    return GoogleLoginOut(user=_user_out(user))
+    return GoogleLoginOut(user=_user_out(request, user))
 
 
 @router.post('/refresh', auth=None, operation_id='refresh')
@@ -85,7 +102,7 @@ def logout(request: HttpRequest, response: HttpResponse):
 
 @router.get('/me', response=MeOut, auth=CookieOrBearerJWTAuth(), operation_id='me')
 def me(request: HttpRequest):
-    return MeOut(user=_user_out(request.auth))
+    return MeOut(user=_user_out(request, request.auth))
 
 
 @router.patch(
@@ -104,4 +121,28 @@ def update_interface_mode(request: HttpRequest, payload: UpdateInterfaceModeIn):
     student = get_own_student_profile(request)
     student.interface_mode = payload.interface_mode
     student.save(update_fields=['interface_mode'])
-    return MeOut(user=_user_out(request.auth))
+    return MeOut(user=_user_out(request, request.auth))
+
+
+@router.get('/avatars', response=list[AvatarOut], auth=CookieOrBearerJWTAuth(), operation_id='list_avatars')
+def list_avatars(request: HttpRequest):
+    """The companion-character catalog a student can pick from — see
+    docs/core/avatar.md. Every active Avatar is available to everyone for
+    now; a future per-student unlock table would filter this."""
+    return [_avatar_out(a, request) for a in Avatar.objects.filter(is_active=True)]
+
+
+@router.patch(
+    '/me/avatar',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='update_avatar',
+)
+def update_avatar(request: HttpRequest, payload: UpdateAvatarIn):
+    """Equips a companion character — see docs/core/avatar.md section 2.1."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    avatar = get_object_or_404(Avatar, id=payload.avatar_id, is_active=True)
+    student.equipped_avatar = avatar
+    student.save(update_fields=['equipped_avatar'])
+    return MeOut(user=_user_out(request, request.auth))

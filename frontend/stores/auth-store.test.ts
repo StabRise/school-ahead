@@ -19,6 +19,7 @@ describe("useAuthStore", () => {
       locale: "uk",
       avatarUrl: "",
       interfaceMode: "default" as const,
+      equippedAvatar: null,
     };
 
     useAuthStore.getState().setUser(user);
