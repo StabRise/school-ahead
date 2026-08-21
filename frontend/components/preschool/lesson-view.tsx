@@ -50,9 +50,9 @@ function MagicScreen({ title, content, onContinue }: { title: string; content: s
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 p-3">
-      <h1 className="bg-gradient-to-r from-red-500 via-amber-400 to-sky-500 bg-clip-text text-center text-4xl font-extrabold text-transparent drop-shadow-sm sm:text-5xl">
+      <h2 className="bg-gradient-to-r from-red-500 via-amber-400 to-sky-500 bg-clip-text text-center text-4xl font-extrabold text-transparent drop-shadow-sm sm:text-5xl">
         {title}
-      </h1>
+      </h2>
 
       {/* The video is pulled out of the markdown flow and rendered as its
           own full-width block — embedding it inline would tie its size to
