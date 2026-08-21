@@ -9,7 +9,6 @@ import { Card } from "@/components/card";
 import { PageContainer } from "@/components/page-container";
 import { PreschoolGameMap } from "@/components/preschool/game-map";
 import { BalloonPopGame } from "@/components/preschool/balloon-pop-game";
-import { PreschoolBacklogSection } from "@/components/preschool/backlog-section";
 import { useAuthStore } from "@/stores/auth-store";
 
 // Local (not UTC) YYYY-MM-DD — avoids toISOString() shifting the date near
@@ -92,12 +91,10 @@ export function StudentDashboard() {
         <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-6">
           {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
           {isError && <p className="text-sm text-red-600">{t("error")}</p>}
-          {!isLoading && !isError && (
-            <>
-              {allTodayCompleted ? <BalloonPopGame /> : <PreschoolGameMap items={roadItems} />}
-              <PreschoolBacklogSection items={backlog} />
-            </>
-          )}
+          {/* No separate backlog section here — tails are already walked
+              into `roadItems` above, so listing them again would just
+              duplicate what's on the road. See docs/interfaces/preschool.md. */}
+          {!isLoading && !isError && (allTodayCompleted ? <BalloonPopGame /> : <PreschoolGameMap items={roadItems} />)}
         </div>
       </div>
     );

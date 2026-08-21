@@ -130,7 +130,14 @@ export function QuizStep({
                 onChange={() => handleSelect(choice.id)}
                 className="mt-1"
               />
-              <Markdown content={choice.text} />
+              {choice.image ? (
+                <div className="flex flex-col gap-1">
+                  <img src={choice.image} alt="" className="h-16 w-16 object-contain" />
+                  <Markdown content={choice.text} />
+                </div>
+              ) : (
+                <Markdown content={choice.text} />
+              )}
             </label>
           );
         })}

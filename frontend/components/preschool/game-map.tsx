@@ -11,13 +11,27 @@ import {
   Cloud,
   Daisy,
   DefaultStepIcon,
-  Hedgehog,
   Ladybug,
   Mushroom,
   Sun,
   Tulip,
 } from "@/components/preschool/decorations";
 import { pseudoRandom } from "@/components/preschool/random";
+import { Raccoon } from "@/components/preschool/raccoon";
+import { useAuthStore } from "@/stores/auth-store";
+
+// The student's chosen companion (docs/core/avatar.md) if they've picked
+// one — falls back to the raccoon mascot otherwise. Stands next to the
+// current node, the next lesson the child needs to do. `className` is
+// positioning/sizing only — the circular frame only makes sense around a
+// photo, not around the raccoon's own shape.
+function CompanionAvatar({ image, className }: { image: string | null | undefined; className: string }) {
+  if (image) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={image} alt="" className={`rounded-full border-[3px] border-white object-cover shadow-md ${className}`} />;
+  }
+  return <Raccoon mood="idle" className={className} />;
+}
 
 // "Fairy-tale adventure path" design concept — see docs/interfaces/
 // preschool.md. A winding stone-tile trail (not a flat road) through a
@@ -210,7 +224,15 @@ function PendingReviewNode({ item }: { item: CalendarItemOut }) {
   );
 }
 
-function ActiveNode({ item, isCurrent }: { item: CalendarItemOut; isCurrent: boolean }) {
+function ActiveNode({
+  item,
+  isCurrent,
+  companionAvatarImage,
+}: {
+  item: CalendarItemOut;
+  isCurrent: boolean;
+  companionAvatarImage: string | null | undefined;
+}) {
   const size = isCurrent ? CIRCLE_CURRENT : CIRCLE_UPCOMING;
 
   return (
@@ -227,6 +249,10 @@ function ActiveNode({ item, isCurrent }: { item: CalendarItemOut; isCurrent: boo
               color="#38bdf8"
               className="absolute -right-6 -top-2 h-6 w-6"
               style={{ animation: "flutter-b 2.8s ease-in-out infinite 0.4s" }}
+            />
+            <CompanionAvatar
+              image={companionAvatarImage}
+              className="absolute -right-4 bottom-0 z-10 h-14 w-14"
             />
           </>
         )}
@@ -257,10 +283,12 @@ function StepNode({
   item,
   point,
   isCurrent,
+  companionAvatarImage,
 }: {
   item: CalendarItemOut;
   point: Point;
   isCurrent: boolean;
+  companionAvatarImage: string | null | undefined;
 }) {
   const isCompleted = item.status === "completed";
   const isPendingReview = item.status === "pending_review";
@@ -295,13 +323,14 @@ function StepNode({
       className="absolute rounded-3xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
       style={wrapperStyle}
     >
-      <ActiveNode item={item} isCurrent={isCurrent} />
+      <ActiveNode item={item} isCurrent={isCurrent} companionAvatarImage={companionAvatarImage} />
     </Link>
   );
 }
 
 export function PreschoolGameMap({ items }: { items: CalendarItemOut[] }) {
   const t = useTranslations("PreschoolGameMap");
+  const equippedAvatarImage = useAuthStore((state) => state.user?.equippedAvatar?.image);
   const [roadRef, width] = useMeasuredWidth(360);
 
   if (items.length === 0) {
@@ -337,7 +366,6 @@ export function PreschoolGameMap({ items }: { items: CalendarItemOut[] }) {
         <Cloud className="right-6 top-10 h-6 w-12 opacity-70" />
         <Sun className="left-1/3 top-6 h-5 w-5" />
         <Sun className="right-1/4 top-20 h-4 w-4" />
-        <Hedgehog className="left-6 top-24 h-10 w-14 opacity-90" />
       </div>
 
       <p className="relative mb-4 text-center text-lg font-bold text-emerald-900">{t("title")}</p>
@@ -365,7 +393,13 @@ export function PreschoolGameMap({ items }: { items: CalendarItemOut[] }) {
         <TrailDecorations segments={segments} />
 
         {items.map((item, index) => (
-          <StepNode key={item.id} item={item} point={points[index]} isCurrent={index === currentIndex} />
+          <StepNode
+            key={item.id}
+            item={item}
+            point={points[index]}
+            isCurrent={index === currentIndex}
+            companionAvatarImage={equippedAvatarImage}
+          />
         ))}
       </div>
     </div>

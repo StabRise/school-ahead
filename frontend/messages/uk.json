@@ -121,7 +121,6 @@
     "progress": "Питання {current} із {total}",
     "correctMessage": "Так тримати!",
     "incorrectMessage": "Майже! Спробуй ще раз пізніше.",
-    "hintMessage": "Ось підказка!",
     "scoreResult": "Результат: {score}%",
     "passedMessage": "Ти впорався!",
     "failedMessage": "Не сумуй, спробуй ще раз!",
@@ -227,7 +226,8 @@
     "title": "Мій тиждень",
     "previousWeek": "Попередній тиждень",
     "nextWeek": "Наступний тиждень",
-    "today": "Сьогодні",
+    "today": "Поточний тиждень",
+    "goToToday": "Мої уроки сьогодні",
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити календар.",
     "noLessons": "Вихідний!"

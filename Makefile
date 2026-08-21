@@ -1,6 +1,7 @@
 .PHONY: help install install-backend install-frontend \
 	dev backend frontend \
 	db-up db-down db-logs \
+	docker-build docker-up docker-down docker-logs \
 	migrate makemigrations superuser shell \
 	lint lint-backend lint-frontend \
 	format format-backend format-frontend \
@@ -45,6 +46,20 @@ db-down: ## Stop the local Postgres container
 
 db-logs: ## Tail the Postgres container logs
 	docker compose logs -f postgres
+
+## Docker Compose (full stack)
+
+docker-build: ## Build the backend and frontend images
+	docker compose build
+
+docker-up: ## Build and start the full stack (postgres, backend, frontend)
+	docker compose up -d --build
+
+docker-down: ## Stop the full stack
+	docker compose down
+
+docker-logs: ## Tail logs for the backend and frontend containers
+	docker compose logs -f backend frontend
 
 ## Django management
 

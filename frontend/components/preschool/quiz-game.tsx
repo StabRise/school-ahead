@@ -5,17 +5,41 @@ import { useTranslations } from "next-intl";
 import { getQuizQuestionHint, useSubmitQuiz } from "@/lib/api/browser/student-lessons/student-lessons";
 import type { QuizQuestionOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Markdown } from "@/components/markdown";
-import { Raccoon, type RaccoonMood } from "@/components/preschool/raccoon";
-import { CelebrationScene } from "@/components/preschool/celebration-scene";
-import { ScreenFrame } from "@/components/preschool/screen-frame";
+import { Raccoon } from "@/components/preschool/raccoon";
 
 const PASS_THRESHOLD_PERCENT = 60;
 const HINT_DELAY_MS = 15000;
 const FEEDBACK_DELAY_MS = 1600;
 
-const CARD_COLORS = ["#f87171", "#fb923c", "#facc15", "#4ade80", "#38bdf8", "#a78bfa", "#f472b6"];
+// Pastel fill + a darker border of the same hue, per answer card.
+const CARD_STYLES = [
+  { bg: "#86efac", border: "#16a34a" },
+  { bg: "#fdba74", border: "#c2410c" },
+  { bg: "#fde047", border: "#ca8a04" },
+  { bg: "#bbf7d0", border: "#15803d" },
+  { bg: "#7dd3fc", border: "#0284c7" },
+  { bg: "#d8b4fe", border: "#7e22ce" },
+  { bg: "#f9a8d4", border: "#db2777" },
+];
 
 type Feedback = "correct" | "incorrect" | null;
+
+// The white, rounded "quiz card" every screen of the game lives inside — the
+// question banner, the pass/fail result — so the whole game reads as one
+// consistent surface. It's near the full width of the screen so a row of
+// answers fits on one line on a wide screen and wraps on a narrow one. See
+// docs/interfaces/student/preschool/lesson.md.
+function QuizCard({ children }: { children: React.ReactNode }) {
+  return <div className="w-full overflow-hidden rounded-[2rem] bg-white shadow-2xl">{children}</div>;
+}
+
+function QuizBanner({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="bg-gradient-to-r from-fuchsia-400 via-pink-400 to-amber-300 px-6 py-7 text-center sm:py-9">
+      {children}
+    </div>
+  );
+}
 
 // One question "round" — owns its own tap/hint/feedback state, keyed by
 // question id in the parent so switching questions remounts (and so
@@ -33,7 +57,7 @@ function QuestionRound({
   const [hintRevealed, setHintRevealed] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
 
-  // "Stuck for too long" hint — the raccoon points at the right card.
+  // "Stuck for too long" hint — the correct card starts pulsing.
   useEffect(() => {
     const hintTimer = window.setTimeout(async () => {
       try {
@@ -66,62 +90,71 @@ function QuestionRound({
     window.setTimeout(() => onAnswered(choiceId), FEEDBACK_DELAY_MS);
   };
 
-  const raccoonMood: RaccoonMood =
-    feedback === "correct" ? "happy" : feedback === "incorrect" ? "sad" : hintRevealed ? "hint" : "idle";
-
   return (
     <>
-      <div className="w-full rounded-[2rem] bg-gradient-to-r from-fuchsia-400 via-pink-400 to-amber-300 px-6 py-5 text-center shadow-xl">
-        <div className="text-lg font-extrabold text-white [&_p]:m-0 [&_strong]:text-white">
+      <QuizBanner>
+        <div className="text-xl font-extrabold uppercase text-gray-900 [&_p]:m-0 [&_p]:text-xl sm:[&_p]:text-2xl md:[&_p]:text-3xl lg:[&_p]:text-4xl">
           <Markdown content={question.prompt} />
         </div>
-      </div>
+      </QuizBanner>
 
-      <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
-        {question.choices.map((choice, index) => {
-          const isSelected = selectedChoiceId === choice.id;
-          const isRevealedCorrect = hintRevealed && choice.id === correctChoiceId && selectedChoiceId === null;
-          const isWrongPick = feedback === "incorrect" && isSelected;
-          const isRightPick = feedback === "correct" && isSelected;
-          const showAsCorrect = isRightPick || (feedback === "incorrect" && choice.id === correctChoiceId);
+      {/* `relative` so the post-answer raccoon can overlay this area instead
+          of adding height below it — an added block there used to make the
+          whole card grow/shrink as the child answered each question. */}
+      <div className="relative">
+        <div className="flex flex-wrap justify-center gap-4 p-6">
+          {question.choices.map((choice, index) => {
+            const style = CARD_STYLES[index % CARD_STYLES.length];
+            const isSelected = selectedChoiceId === choice.id;
+            const isRevealedCorrect = hintRevealed && choice.id === correctChoiceId && selectedChoiceId === null;
+            const isWrongPick = feedback === "incorrect" && isSelected;
+            const isRightPick = feedback === "correct" && isSelected;
+            const showAsCorrect = isRightPick || (feedback === "incorrect" && choice.id === correctChoiceId);
 
-          return (
-            <button
-              key={choice.id}
-              type="button"
-              disabled={selectedChoiceId !== null}
-              onClick={() => handleSelect(choice.id)}
-              className={`flex min-h-24 items-center justify-center rounded-3xl p-4 text-center text-lg font-bold text-white shadow-lg transition-transform disabled:cursor-default ${
-                selectedChoiceId === null ? "active:scale-95" : ""
-              } ${isWrongPick ? "opacity-90" : ""} ${!isSelected && selectedChoiceId !== null && !showAsCorrect ? "opacity-50" : ""}`}
-              style={{
-                backgroundColor: CARD_COLORS[index % CARD_COLORS.length],
-                outline: showAsCorrect ? "4px solid #22c55e" : isWrongPick ? "4px solid #ef4444" : undefined,
-                animation: isRevealedCorrect ? "card-correct-pulse 1s ease-in-out infinite" : undefined,
-              }}
-            >
-              <div className="[&_p]:m-0">
-                <Markdown content={choice.text} />
-              </div>
-            </button>
-          );
-        })}
-      </div>
+            return (
+              <button
+                key={choice.id}
+                type="button"
+                disabled={selectedChoiceId !== null}
+                onClick={() => handleSelect(choice.id)}
+                className={`flex min-w-40 flex-none flex-col items-center justify-center gap-2 rounded-2xl border-4 px-6 py-4 text-center text-lg font-extrabold uppercase text-gray-900 shadow-md transition-transform disabled:cursor-default sm:min-w-48 sm:px-8 sm:py-5 sm:text-xl md:px-10 md:py-6 md:text-2xl lg:text-3xl ${
+                  selectedChoiceId === null ? "active:scale-95" : ""
+                } ${isWrongPick ? "opacity-90" : ""} ${!isSelected && selectedChoiceId !== null && !showAsCorrect ? "opacity-50" : ""}`}
+                style={{
+                  backgroundColor: style.bg,
+                  borderColor: showAsCorrect ? "#16a34a" : isWrongPick ? "#dc2626" : style.border,
+                  animation: isRevealedCorrect ? "card-correct-pulse 1s ease-in-out infinite" : undefined,
+                }}
+              >
+                {choice.image && (
+                  <img src={choice.image} alt="" className="h-16 w-16 object-contain sm:h-20 sm:w-20 md:h-24 md:w-24" />
+                )}
+                <div className="[&_p]:m-0 [&_p]:text-lg sm:[&_p]:text-xl md:[&_p]:text-2xl lg:[&_p]:text-3xl">
+                  <Markdown content={choice.text} />
+                </div>
+              </button>
+            );
+          })}
+        </div>
 
-      <div className="mt-2 flex flex-col items-center gap-1">
-        <Raccoon mood={raccoonMood} className="h-24 w-24" />
-        {feedback === "correct" && <p className="text-sm font-bold text-emerald-700">{t("correctMessage")}</p>}
-        {feedback === "incorrect" && <p className="text-sm font-bold text-red-600">{t("incorrectMessage")}</p>}
-        {hintRevealed && feedback === null && <p className="text-sm font-bold text-amber-700">{t("hintMessage")}</p>}
+        {/* The raccoon only shows up once the child has actually tapped an
+            answer — cheering or drooping, on top of the grid, never while
+            they're still deciding. */}
+        {feedback && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-b-[2rem] bg-white/85 backdrop-blur-sm">
+            <Raccoon mood={feedback === "correct" ? "happy" : "sad"} className="h-24 w-24" />
+            {feedback === "correct" && <p className="text-sm font-bold text-emerald-700">{t("correctMessage")}</p>}
+            {feedback === "incorrect" && <p className="text-sm font-bold text-red-600">{t("incorrectMessage")}</p>}
+          </div>
+        )}
       </div>
     </>
   );
 }
 
 // Step 2, "Игровая поляна" — one big banner question at a time with large
-// tappable answer cards, a raccoon that cheers/droops after each tap, and a
-// hint (pointing at the right card) if the child is stuck for too long. See
-// docs/interfaces/student/preschool/lesson.md.
+// tappable answer cards, and a raccoon that cheers/droops once the child
+// taps an answer. See docs/interfaces/student/preschool/lesson.md.
 export function PreschoolQuizGame({
   studentLessonId,
   questions,
@@ -171,44 +204,51 @@ export function PreschoolQuizGame({
   const failed = isAnswered && lastScore! <= PASS_THRESHOLD_PERCENT;
 
   if (isAnswered) {
-    if (!failed) {
-      return <CelebrationScene title={t("scoreResult", { score: lastScore })} subtitle={t("passedMessage")} />;
-    }
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 p-3">
-        <ScreenFrame>
-          <Raccoon mood="sad" className="h-28 w-28" />
-          <p className="text-2xl font-extrabold text-emerald-900">{t("scoreResult", { score: lastScore })}</p>
-          <p className="text-base text-red-700">{t("failedMessage")}</p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={onBackToMaterials}
-              className="rounded-full bg-white px-6 py-3 text-lg font-bold text-emerald-800 shadow-lg ring-2 ring-inset ring-emerald-300 transition-transform active:scale-95"
-            >
-              {t("backToMaterialsButton")}
-            </button>
-            <button
-              type="button"
-              onClick={handleRetry}
-              className="rounded-full bg-amber-400 px-6 py-3 text-lg font-bold text-amber-950 shadow-lg transition-transform active:scale-95"
-            >
-              {t("retryButton")}
-            </button>
+        <QuizCard>
+          <QuizBanner>
+            <p className="text-xl font-extrabold uppercase text-gray-900 sm:text-2xl md:text-3xl lg:text-4xl">
+              {t("scoreResult", { score: lastScore })}
+            </p>
+          </QuizBanner>
+          <div className="flex flex-col items-center gap-3 px-6 py-8">
+            <Raccoon mood={failed ? "sad" : "happy"} className="h-28 w-28" />
+            <p className={failed ? "text-base text-red-700" : "text-lg font-bold text-emerald-700"}>
+              {failed ? t("failedMessage") : t("passedMessage")}
+            </p>
+            {failed && (
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={onBackToMaterials}
+                  className="rounded-full bg-white px-6 py-3 text-lg font-bold text-emerald-800 shadow-lg ring-2 ring-inset ring-emerald-300 transition-transform active:scale-95"
+                >
+                  {t("backToMaterialsButton")}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  className="rounded-full bg-amber-400 px-6 py-3 text-lg font-bold text-amber-950 shadow-lg transition-transform active:scale-95"
+                >
+                  {t("retryButton")}
+                </button>
+              </div>
+            )}
           </div>
-        </ScreenFrame>
+        </QuizCard>
       </div>
     );
   }
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 p-3">
-      <ScreenFrame>
-        <span className="text-sm font-bold text-emerald-900/70">
+      <QuizCard>
+        <p className="px-6 pt-6 pb-2 text-center text-sm font-bold text-emerald-900 sm:text-base md:text-lg">
           {t("progress", { current: currentIndex + 1, total: questions.length })}
-        </span>
+        </p>
         <QuestionRound key={currentQuestion.id} question={currentQuestion} onAnswered={handleAnswered} />
-      </ScreenFrame>
+      </QuizCard>
     </div>
   );
 }

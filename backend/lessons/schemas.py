@@ -19,6 +19,11 @@ def _absolute_file_url(file_field, context: dict) -> str | None:
 class QuizChoiceOut(Schema):
     id: int
     text: str
+    image: str | None
+
+    @staticmethod
+    def resolve_image(obj, context):
+        return _absolute_file_url(obj.image, context)
 
 
 class QuizQuestionOut(Schema):

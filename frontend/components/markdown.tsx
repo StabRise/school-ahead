@@ -1,14 +1,31 @@
 import { Children, isValidElement } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import { getYoutubeVideoId } from "@/lib/youtube";
 import { YoutubeEmbed } from "@/components/youtube-embed";
 
 function YoutubeAwareLink({ href, children }: { href?: string; children?: React.ReactNode }) {
   const videoId = href ? getYoutubeVideoId(href) : null;
+
   if (videoId) {
-    return <YoutubeEmbed videoId={videoId} />;
+    // Construct the strict embed URL with parameters to restrict external videos
+    const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&iv_load_policy=3`;
+
+    return (
+      <div className="relative w-full overflow-hidden rounded-2xl shadow-md aspect-video">
+        <iframe
+          src={embedUrl}
+          title="Lesson Video"
+          className="absolute top-0 left-0 h-full w-full border-0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    );
   }
+
   return (
     <a href={href} target="_blank" rel="noreferrer" className="text-blue-600 underline hover:no-underline">
       {children}
@@ -49,6 +66,12 @@ export function Markdown({
     <div className="prose prose-sm max-w-none w-full">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        // rehype-raw parses HTML tags written inline in the markdown source
+        // (tutors sometimes need e.g. <br>, <sup>, <span> for formatting
+        // markdown alone can't do); rehype-sanitize (GitHub's default
+        // allow-list) runs right after so no script/style/event-handler
+        // content ever reaches the DOM.
+        rehypePlugins={[rehypeRaw, rehypeSanitize]}
         components={embedYoutube ? youtubeAwareComponents : undefined}
       >
         {content}

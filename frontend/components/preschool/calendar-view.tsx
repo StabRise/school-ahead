@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import {
   useSchedulingApiBacklog,
   useSchedulingApiCalendar,
@@ -11,6 +12,7 @@ import { Cloud } from "@/components/preschool/decorations";
 import { Raccoon } from "@/components/preschool/raccoon";
 import { LessonBubble } from "@/components/preschool/lesson-bubble";
 import { PreschoolBacklogSection } from "@/components/preschool/backlog-section";
+import { useAuthStore } from "@/stores/auth-store";
 
 // Cloud/Sun from decorations.tsx are hard-coded `position: absolute` (meant
 // for background decoration) — these are plain in-flow versions for use
@@ -91,12 +93,12 @@ function DayCard({ date, isToday, items }: { date: Date; isToday: boolean; items
   const colorIndex = (date.getDay() + 6) % 7;
   const color = DAY_COLORS[colorIndex];
 
-  return (
-    <div
-      className={`flex flex-col items-center gap-3 rounded-[1.75rem] bg-gradient-to-b p-3 shadow-lg ${color.bg} ${
-        isToday ? `ring-4 ring-offset-2 ${color.ring}` : ""
-      }`}
-    >
+  const className = `flex flex-col items-center gap-3 rounded-[1.75rem] bg-gradient-to-b p-3 shadow-lg ${color.bg} ${
+    isToday ? `ring-4 ring-offset-2 ${color.ring} transition-transform hover:scale-[1.03] active:scale-95` : ""
+  }`;
+
+  const content = (
+    <>
       <div className="flex flex-col items-center">
         <span className="text-base font-extrabold capitalize text-white drop-shadow-sm">
           {WEEKDAY_FORMAT.format(date)}
@@ -116,8 +118,29 @@ function DayCard({ date, isToday, items }: { date: Date; isToday: boolean; items
           items.map((item) => <LessonBubble key={item.id} item={item} />)
         )}
       </div>
-    </div>
+    </>
   );
+
+  // Today's card doubles as a shortcut back to "My lessons today" (`/`).
+  if (isToday) {
+    return (
+      <Link href="/" aria-label={t("goToToday")} className={className}>
+        {content}
+      </Link>
+    );
+  }
+
+  return <div className={className}>{content}</div>;
+}
+
+// The student's chosen companion (docs/core/avatar.md) if they've picked
+// one — falls back to the raccoon mascot otherwise.
+function HeaderAvatar({ image }: { image: string | null | undefined }) {
+  if (image) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={image} alt="" className="h-16 w-16 rounded-full object-cover" />;
+  }
+  return <Raccoon mood="idle" className="h-16 w-16" />;
 }
 
 function NavButton({ onClick, label, children }: { onClick: () => void; label: string; children: React.ReactNode }) {
@@ -135,6 +158,7 @@ function NavButton({ onClick, label, children }: { onClick: () => void; label: s
 
 export function PreschoolCalendar() {
   const t = useTranslations("PreschoolCalendar");
+  const equippedAvatarImage = useAuthStore((state) => state.user?.equippedAvatar?.image);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
 
   const weekDays = useMemo(
@@ -142,6 +166,7 @@ export function PreschoolCalendar() {
     [weekStart],
   );
   const todayKey = useMemo(() => toLocalIsoDate(new Date()), []);
+  const isCurrentWeek = toLocalIsoDate(weekStart) === toLocalIsoDate(startOfWeek(new Date()));
 
   const calendarQuery = useSchedulingApiCalendar({ week_start: toLocalIsoDate(weekStart) });
   const backlogQuery = useSchedulingApiBacklog();
@@ -167,7 +192,7 @@ export function PreschoolCalendar() {
 
       <div className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 p-4 sm:p-6">
         <div className="flex flex-col items-center gap-2 text-center">
-          <Raccoon mood="idle" className="h-16 w-16" />
+          <HeaderAvatar image={equippedAvatarImage} />
           <h1 className="text-2xl font-extrabold text-emerald-900">{t("title")}</h1>
         </div>
 
@@ -181,20 +206,22 @@ export function PreschoolCalendar() {
           <NavButton onClick={() => setWeekStart((prev) => addDays(prev, 7))} label={t("nextWeek")}>
             →
           </NavButton>
-          <button
-            type="button"
-            onClick={() => setWeekStart(startOfWeek(new Date()))}
-            className="rounded-full bg-amber-400 px-4 py-2 text-sm font-extrabold text-amber-950 shadow-lg transition-transform hover:scale-105 active:scale-95"
-          >
-            {t("today")}
-          </button>
+          {!isCurrentWeek && (
+            <button
+              type="button"
+              onClick={() => setWeekStart(startOfWeek(new Date()))}
+              className="rounded-full bg-amber-400 px-4 py-2 text-sm font-extrabold text-amber-950 shadow-lg transition-transform hover:scale-105 active:scale-95"
+            >
+              {t("today")}
+            </button>
+          )}
         </div>
 
         {calendarQuery.isLoading && <p className="text-center text-sm font-medium text-emerald-800">{t("loading")}</p>}
         {calendarQuery.isError && <p className="text-center text-sm font-medium text-red-700">{t("error")}</p>}
 
         {!calendarQuery.isLoading && !calendarQuery.isError && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {weekDays.map((day) => {
               const dateKey = toLocalIsoDate(day);
               return (

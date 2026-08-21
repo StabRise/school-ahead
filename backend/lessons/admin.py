@@ -26,7 +26,7 @@ class QuizChoiceInline(admin.TabularInline):
     """Inline manager for quiz choices associated with a quiz question."""
     model = QuizChoice
     extra = 2
-    fields = ("text", "is_correct")
+    fields = ("text", "image", "is_correct")
 
 
 class QuizQuestionInline(admin.StackedInline):

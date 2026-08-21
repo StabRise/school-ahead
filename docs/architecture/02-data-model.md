@@ -114,7 +114,7 @@ erDiagram
 `lesson` (FK) · `file` / `url` · `kind` (choices: file/video/link) · `title` · `order_index`.
 
 ### `lessons.QuizQuestion` / `lessons.QuizChoice`
-Minimal MVP quiz modeling (see `07-open-questions.md` for depth caveats). `QuizQuestion`: `lesson` (FK) · `prompt` (TextField, markdown) · `order_index`. `QuizChoice`: `question` (FK) · `text` · `is_correct` (Boolean).
+Minimal MVP quiz modeling (see `07-open-questions.md` for depth caveats). `QuizQuestion`: `lesson` (FK) · `prompt` (TextField, markdown) · `order_index`. `QuizChoice`: `question` (FK) · `text` (TextField, markdown) · `image` (FileField, blank — shown instead of `text` when set) · `is_correct` (Boolean).
 
 ### `lessons.StudentLesson` (the core per-student entity)
 

@@ -12,7 +12,7 @@ Gaps and assumptions this architecture makes beyond what `/docs` specifies. Each
 
 - **Quiz engine depth.** Only "multiple-choice quiz, >60% threshold" is specified. `QuizQuestion`/`QuizChoice` are intentionally minimal — no weighting, multi-select, or partial credit.
 
-- **File storage backend.** Attachment/submission `FileField` storage (local disk vs. S3-compatible) isn't specified — a deployment-time decision, explicitly out of scope per the docker/CI exclusion for this pass.
+- **File storage backend.** ~~Attachment/submission `FileField` storage (local disk vs. S3-compatible) isn't specified~~ — resolved: `django-storages` is wired up behind `DJANGO_STORAGE_BACKEND` (`core/settings.py`), defaulting to the local filesystem (`MEDIA_ROOT`) with an opt-in `s3` mode (also covers S3-compatible services via `AWS_S3_ENDPOINT_URL`). Which backend a given deployment actually uses is still that deployment's choice.
 
 - **Timezone handling.** `StudentLesson.scheduled_date` is a plain `DateField`; `School.timezone` exists but isn't enforced anywhere in scheduling logic yet — "today" boundary computation across timezones is unresolved.
 

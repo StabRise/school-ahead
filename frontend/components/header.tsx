@@ -17,10 +17,23 @@ function getInitials(name: string, email: string): string {
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
-function Avatar({ name, email, avatarUrl }: { name: string; email: string; avatarUrl: string }) {
-  if (avatarUrl) {
+function Avatar({
+  name,
+  email,
+  avatarUrl,
+  equippedAvatarImage,
+}: {
+  name: string;
+  email: string;
+  avatarUrl: string;
+  equippedAvatarImage?: string | null;
+}) {
+  // The chosen companion (docs/core/avatar.md) takes priority over the
+  // Google account picture once a student has picked one.
+  const image = equippedAvatarImage || avatarUrl;
+  if (image) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />;
+    return <img src={image} alt="" className="h-8 w-8 rounded-full object-cover" />;
   }
   return (
     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-700 text-xs font-medium text-white">
@@ -98,7 +111,12 @@ export function Header() {
               aria-label={t("userMenu")}
               className="rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
             >
-              <Avatar name={user.name} email={user.email} avatarUrl={user.avatarUrl} />
+              <Avatar
+                name={user.name}
+                email={user.email}
+                avatarUrl={user.avatarUrl}
+                equippedAvatarImage={user.equippedAvatar?.image}
+              />
             </button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>

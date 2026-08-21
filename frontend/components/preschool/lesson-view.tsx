@@ -25,19 +25,43 @@ function ExitButton() {
     <Link
       href="/"
       aria-label={t("exitLabel")}
-      className="absolute left-4 top-4 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-emerald-800 shadow-lg transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      className="absolute left-6 top-6 z-20 flex h-16 w-16 items-center justify-center rounded-full bg-white text-orange-600 shadow-xl ring-4 ring-orange-400/50 transition-all duration-200 hover:scale-110 hover:bg-orange-50 hover:ring-orange-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
     >
-      <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">
+      <svg viewBox="0 0 24 24" className="h-8 w-8 stroke-[2.5]" aria-hidden="true">
         <path
           d="M4 12L12 5l8 7M6 10.5V19h4v-5h4v5h4v-8.5"
           stroke="currentColor"
-          strokeWidth="2"
           fill="none"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
       </svg>
     </Link>
+  );
+}
+
+// Mirrors ExitButton on the opposite corner — lets a kid who's already
+// looked over the lesson content skip ahead without scrolling down to the
+// button below the screen frame.
+function NextButton({ onClick }: { onClick: () => void }) {
+  const t = useTranslations("PreschoolLesson");
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={t("continueButton")}
+      className="absolute right-6 top-6 z-20 flex h-16 w-16 items-center justify-center rounded-full bg-white text-emerald-600 shadow-xl ring-4 ring-emerald-400/50 transition-all duration-200 hover:scale-110 hover:bg-emerald-50 hover:ring-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+    >
+      <svg viewBox="0 0 24 24" className="h-8 w-8 stroke-[2.5]" aria-hidden="true">
+        <path
+          d="M5 12h14M13 5l7 7-7 7"
+          stroke="currentColor"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </button>
   );
 }
 
@@ -50,6 +74,8 @@ function MagicScreen({ title, content, onContinue }: { title: string; content: s
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 p-3">
+      <NextButton onClick={onContinue} />
+
       <h2 className="bg-gradient-to-r from-red-500 via-amber-400 to-sky-500 bg-clip-text text-center text-4xl font-extrabold text-transparent drop-shadow-sm sm:text-5xl">
         {title}
       </h2>
@@ -129,7 +155,12 @@ function PracticeClearing({
     switch (lesson.lesson_type) {
       case "with_quiz":
         return (
-          <PreschoolQuizGame studentLessonId={studentLesson.id} questions={lesson.quiz_questions} onChanged={onChanged} />
+          <PreschoolQuizGame
+            studentLessonId={studentLesson.id}
+            questions={lesson.quiz_questions}
+            onChanged={onChanged}
+            onBackToMaterials={onBackToMaterials}
+          />
         );
       case "theory":
         return <PreschoolTheoryCheck studentLessonId={studentLesson.id} onChanged={onChanged} />;
@@ -188,7 +219,7 @@ export function PreschoolLessonView({ studentLessonId }: { studentLessonId: numb
             onContinue={() => setStep("practice")}
           />
         ) : (
-          <PracticeClearing studentLesson={data} onChanged={refetch} />
+          <PracticeClearing studentLesson={data} onChanged={refetch} onBackToMaterials={() => setStep("theory")} />
         ))}
     </div>
   );

@@ -3,7 +3,12 @@ from django.db import models
 from academics.models import Topic
 from accounts.models import StudentProfile, User
 from common.models import TimeStampedModel
-from common.storage import lesson_attachment_upload_to, lesson_icon_upload_to, lesson_submission_upload_to
+from common.storage import (
+    lesson_attachment_upload_to,
+    lesson_icon_upload_to,
+    lesson_submission_upload_to,
+    quiz_choice_image_upload_to,
+)
 
 
 class LessonType(models.TextChoices):
@@ -84,7 +89,12 @@ class QuizQuestion(models.Model):
 
 class QuizChoice(models.Model):
     question = models.ForeignKey(QuizQuestion, on_delete=models.CASCADE, related_name='choices')
-    text = models.CharField(max_length=500)
+    # Markdown, like prompt and every other tutor-authored text field — the
+    # student-facing renderer embeds it via <Markdown>.
+    text = models.TextField()
+    # When set, the student-facing card shows this image instead of `text`
+    # (e.g. a picture of a mitten instead of the word "mitten").
+    image = models.FileField(upload_to=quiz_choice_image_upload_to, blank=True)
     is_correct = models.BooleanField(default=False)
 
 

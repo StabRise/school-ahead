@@ -59,6 +59,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -143,15 +144,60 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 
-# Media (user uploads — lesson materials, student submissions). Served via
-# core/urls.py in DEBUG only; a real deployment fronts MEDIA_ROOT with
-# object storage / a CDN instead. See common/storage.py for the upload_to
-# functions that keep filenames unique on disk.
+# Media (user uploads — lesson materials, student submissions, icons,
+# avatars, quiz choice images). MEDIA_ROOT is only used by the local
+# filesystem backend below; served via core/urls.py in DEBUG only. See
+# common/storage.py for the upload_to functions that keep filenames unique.
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+
+# File storage backend — 'filesystem' (default, MEDIA_ROOT above) or 's3'.
+# Set DJANGO_STORAGE_BACKEND=s3 to store uploads in S3 (or an S3-compatible
+# service — MinIO, DigitalOcean Spaces, Cloudflare R2, ... — via
+# AWS_S3_ENDPOINT_URL) instead of on local disk. Only FileField/ImageField
+# uploads move; STATIC_URL/staticfiles is untouched.
+DJANGO_STORAGE_BACKEND = env('DJANGO_STORAGE_BACKEND', default='filesystem')
+
+if DJANGO_STORAGE_BACKEND == 's3':
+    _s3_storage_options = {
+        'bucket_name': env('AWS_STORAGE_BUCKET_NAME'),
+        'region_name': env('AWS_S3_REGION_NAME', default=''),
+        # Point at an S3-compatible provider instead of AWS.
+        'endpoint_url': env('AWS_S3_ENDPOINT_URL', default=''),
+        # CDN / custom domain to serve files from instead of the bucket's
+        # own endpoint (e.g. a CloudFront distribution).
+        'custom_domain': env('AWS_S3_CUSTOM_DOMAIN', default=''),
+        'access_key': env('AWS_ACCESS_KEY_ID', default=''),
+        'secret_key': env('AWS_SECRET_ACCESS_KEY', default=''),
+        'file_overwrite': False,
+        'querystring_auth': env.bool('AWS_S3_QUERYSTRING_AUTH', default=False),
+    }
+    _default_storage = {
+        'BACKEND': 'storages.backends.s3.S3Storage',
+        # Blank optional values are dropped rather than passed through, so
+        # boto3's own credential/region resolution (IAM role, ~/.aws/config,
+        # AWS_*  env vars) applies instead of being overridden with "".
+        'OPTIONS': {key: value for key, value in _s3_storage_options.items() if value != ''},
+    }
+else:
+    _default_storage = {'BACKEND': 'django.core.files.storage.FileSystemStorage'}
+
+STORAGES = {
+    'default': _default_storage,
+    # Manifest storage requires collectstatic to have been run, so it's only
+    # used outside DEBUG (production/Docker) — local `runserver` keeps serving
+    # static files directly without a build step.
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'
+        if DEBUG
+        else 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    },
+}
 
 
 # Email
