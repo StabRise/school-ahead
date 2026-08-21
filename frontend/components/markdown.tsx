@@ -46,7 +46,7 @@ export function Markdown({
   embedYoutube?: boolean;
 }) {
   return (
-    <div className="prose prose-sm max-w-none">
+    <div className="prose prose-sm max-w-none w-full">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={embedYoutube ? youtubeAwareComponents : undefined}

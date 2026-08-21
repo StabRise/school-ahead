@@ -36,7 +36,7 @@ export function PreschoolTheoryCheck({
   };
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-3">
       <ScreenFrame>
         <div className="w-full rounded-[2rem] bg-gradient-to-r from-sky-400 via-emerald-400 to-amber-300 px-6 py-5 text-center shadow-xl">
           <p className="text-lg font-extrabold text-white">{t("question")}</p>

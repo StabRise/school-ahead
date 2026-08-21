@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { extractYoutubeVideo } from "@/lib/youtube";
 import { useGetStudentLesson } from "@/lib/api/browser/student-lessons/student-lessons";
 import type { StudentLessonOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Markdown } from "@/components/markdown";
+import { YoutubeEmbed } from "@/components/youtube-embed";
 import { TaskStep } from "@/components/lesson-wizard/task-step";
 import { ResolveNeedHelpButton } from "@/components/lesson-wizard/resolve-need-help-button";
 import { Cloud, Sun } from "@/components/preschool/decorations";
@@ -44,15 +46,20 @@ function ExitButton() {
 // docs/interfaces/student/preschool/lesson.md.
 function MagicScreen({ title, content, onContinue }: { title: string; content: string; onContinue: () => void }) {
   const t = useTranslations("PreschoolLesson");
+  const { videoId, content: textContent } = extractYoutubeVideo(content);
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 p-4">
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 p-3">
       <h1 className="bg-gradient-to-r from-red-500 via-amber-400 to-sky-500 bg-clip-text text-center text-4xl font-extrabold text-transparent drop-shadow-sm sm:text-5xl">
         {title}
       </h1>
 
-      <ScreenFrame maxWidthClassName="max-w-2xl">
-        <Markdown content={content} embedYoutube />
+      {/* The video is pulled out of the markdown flow and rendered as its
+          own full-width block — embedding it inline would tie its size to
+          the (narrower, text-reading) prose column instead of the frame. */}
+      <ScreenFrame maxWidthClassName={videoId ? "max-w-6xl" : "max-w-5xl"}>
+        {videoId && <YoutubeEmbed videoId={videoId} />}
+        {textContent && <Markdown content={textContent} embedYoutube />}
       </ScreenFrame>
 
       <button
@@ -69,7 +76,15 @@ function MagicScreen({ title, content, onContinue }: { title: string; content: s
 // Step 2, "Игровая поляна" — the interactive practice step. Quiz lessons get
 // the full raccoon-mascot game; other lesson types (and non-actionable
 // statuses) get a simpler themed panel around the existing components.
-function PracticeClearing({ studentLesson, onChanged }: { studentLesson: StudentLessonOut; onChanged: () => void }) {
+function PracticeClearing({
+  studentLesson,
+  onChanged,
+  onBackToMaterials,
+}: {
+  studentLesson: StudentLessonOut;
+  onChanged: () => void;
+  onBackToMaterials: () => void;
+}) {
   const t = useTranslations("PreschoolLesson");
   const { status, lesson, tutor_feedback } = studentLesson;
 
@@ -99,7 +114,7 @@ function PracticeClearing({ studentLesson, onChanged }: { studentLesson: Student
 
     if (status === "revision_required") {
       return (
-        <div className="w-full max-w-xl rounded-3xl bg-white/90 p-5 shadow-xl">
+        <div className="w-full max-w-4xl rounded-3xl bg-white/90 p-5 shadow-xl">
           <TaskStep
             studentLessonId={studentLesson.id}
             taskContent={lesson.task_content}
@@ -120,7 +135,7 @@ function PracticeClearing({ studentLesson, onChanged }: { studentLesson: Student
         return <PreschoolTheoryCheck studentLessonId={studentLesson.id} onChanged={onChanged} />;
       case "with_task":
         return (
-          <div className="w-full max-w-xl rounded-3xl bg-white/90 p-5 shadow-xl">
+          <div className="w-full max-w-4xl rounded-3xl bg-white/90 p-5 shadow-xl">
             <TaskStep
               studentLessonId={studentLesson.id}
               taskContent={lesson.task_content}
@@ -135,9 +150,9 @@ function PracticeClearing({ studentLesson, onChanged }: { studentLesson: Student
   })();
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-3">
       {tutor_feedback && (
-        <div className="w-full max-w-xl rounded-2xl border-2 border-blue-200 bg-blue-50 px-4 py-3">
+        <div className="w-full max-w-4xl rounded-2xl border-2 border-blue-200 bg-blue-50 px-4 py-3">
           <h2 className="text-sm font-bold text-blue-900">{t("teacherFeedbackTitle")}</h2>
           <p className="mt-1 whitespace-pre-wrap text-sm text-blue-900">{tutor_feedback}</p>
         </div>

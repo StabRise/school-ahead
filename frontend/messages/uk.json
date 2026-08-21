@@ -125,7 +125,8 @@
     "scoreResult": "Результат: {score}%",
     "passedMessage": "Ти впорався!",
     "failedMessage": "Не сумуй, спробуй ще раз!",
-    "retryButton": "Спробувати ще раз"
+    "retryButton": "Спробувати ще раз",
+    "backToMaterialsButton": "До матеріалів уроку"
   },
   "PreschoolTheoryCheck": {
     "question": "Чи все зрозуміло?",

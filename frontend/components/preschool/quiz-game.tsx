@@ -126,10 +126,12 @@ export function PreschoolQuizGame({
   studentLessonId,
   questions,
   onChanged,
+  onBackToMaterials,
 }: {
   studentLessonId: number;
   questions: QuizQuestionOut[];
   onChanged: () => void;
+  onBackToMaterials: () => void;
 }) {
   const t = useTranslations("PreschoolQuizGame");
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -173,25 +175,34 @@ export function PreschoolQuizGame({
       return <CelebrationScene title={t("scoreResult", { score: lastScore })} subtitle={t("passedMessage")} />;
     }
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-3">
         <ScreenFrame>
           <Raccoon mood="sad" className="h-28 w-28" />
           <p className="text-2xl font-extrabold text-emerald-900">{t("scoreResult", { score: lastScore })}</p>
           <p className="text-base text-red-700">{t("failedMessage")}</p>
-          <button
-            type="button"
-            onClick={handleRetry}
-            className="rounded-full bg-amber-400 px-6 py-3 text-lg font-bold text-amber-950 shadow-lg transition-transform active:scale-95"
-          >
-            {t("retryButton")}
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={onBackToMaterials}
+              className="rounded-full bg-white px-6 py-3 text-lg font-bold text-emerald-800 shadow-lg ring-2 ring-inset ring-emerald-300 transition-transform active:scale-95"
+            >
+              {t("backToMaterialsButton")}
+            </button>
+            <button
+              type="button"
+              onClick={handleRetry}
+              className="rounded-full bg-amber-400 px-6 py-3 text-lg font-bold text-amber-950 shadow-lg transition-transform active:scale-95"
+            >
+              {t("retryButton")}
+            </button>
+          </div>
         </ScreenFrame>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-3">
       <ScreenFrame>
         <span className="text-sm font-bold text-emerald-900/70">
           {t("progress", { current: currentIndex + 1, total: questions.length })}
