@@ -5,6 +5,15 @@
     "signingIn": "Виконується вхід...",
     "error": "Не вдалося увійти. Спробуйте ще раз."
   },
+  "PdfViewer": {
+    "loading": "Завантаження PDF…",
+    "loadError": "Не вдалося завантажити PDF-документ.",
+    "openInNewTab": "Відкрити PDF"
+  },
+  "PdfIframeViewer": {
+    "defaultTitle": "PDF документ",
+    "downloadButton": "Завантажити PDF"
+  },
   "Header": {
     "brand": "Ahead",
     "login": "Увійти",

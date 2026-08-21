@@ -85,7 +85,7 @@ function MagicScreen({ title, content, onContinue }: { title: string; content: s
           the (narrower, text-reading) prose column instead of the frame. */}
       <ScreenFrame maxWidthClassName={videoId ? "max-w-6xl" : "max-w-5xl"}>
         {videoId && <YoutubeEmbed videoId={videoId} />}
-        {textContent && <Markdown content={textContent} embedYoutube />}
+        {textContent && <Markdown content={textContent} embedYoutube embedPdf />}
       </ScreenFrame>
 
       <button

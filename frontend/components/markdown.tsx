@@ -1,10 +1,44 @@
 import { Children, isValidElement } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeRaw from "rehype-raw";
-import rehypeSanitize from "rehype-sanitize";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import { getYoutubeVideoId } from "@/lib/youtube";
 import { YoutubeEmbed } from "@/components/youtube-embed";
+import { PdfViewer } from "@/components/pdf-viewer";
+import { PdfIframeViewer } from "@/components/pdf-iframe-viewer";
+
+// Two flavors of PDF embed, both tutor-authored custom tags: <pdfviewer>
+// (pdfjs-dist, paginated canvas render) and <pdfiframe> (the browser's
+// native PDF viewer — works for cross-origin files that don't send CORS
+// headers, which <pdfviewer> can't load). rehype-sanitize's default
+// (GitHub's) allow-list has no notion of either, so it would otherwise strip
+// them before they ever reach `components` below.
+const PDF_TAG_NAMES = ["pdfviewer", "pdfiframe"];
+
+const schemaWithPdfTags = {
+  ...defaultSchema,
+  tagNames: [...(defaultSchema.tagNames ?? []), ...PDF_TAG_NAMES],
+  attributes: {
+    ...defaultSchema.attributes,
+    ...Object.fromEntries(PDF_TAG_NAMES.map((tag) => [tag, ["file", "title"]])),
+  },
+};
+
+// Tutors write the self-closing form (e.g. `<pdfviewer file="..." />`), but
+// HTML5 tree construction — which rehype-raw uses to parse the raw HTML
+// embedded in markdown — ignores "/>" on any tag it doesn't already know is
+// void, and would otherwise swallow the rest of the document as the tag's
+// children. Normalize to an explicit closing tag first so it round-trips
+// correctly. Matches any (double-quoted) attributes, in any order —
+// currently `file` and an optional `title`.
+function withExplicitPdfTagClosingTags(markdown: string): string {
+  const tagAlternation = PDF_TAG_NAMES.join("|");
+  return markdown.replace(
+    new RegExp(`<(${tagAlternation})((?:\\s+[a-zA-Z-]+="[^"]*")*)\\s*/>`, "gi"),
+    "<$1$2></$1>",
+  );
+}
 
 function YoutubeAwareLink({ href, children }: { href?: string; children?: React.ReactNode }) {
   const videoId = href ? getYoutubeVideoId(href) : null;
@@ -51,16 +85,29 @@ const youtubeAwareComponents: Components = {
   p: ({ children }) => <ParagraphOrEmbed>{children}</ParagraphOrEmbed>,
 };
 
+// Neither "pdfviewer" nor "pdfiframe" is part of JSX.IntrinsicElements, so
+// `Components` (keyed by `keyof JSX.IntrinsicElements`) doesn't accept them
+// without this cast.
+const pdfEmbedComponents = {
+  pdfviewer: ({ file }: { file?: string }) => (file ? <PdfViewer key={file} file={file} /> : null),
+  pdfiframe: ({ file, title }: { file?: string; title?: string }) =>
+    file ? <PdfIframeViewer key={file} file={file} title={title} /> : null,
+} as unknown as Components;
+
 // Shared renderer for every markdown field the backend serves (Lesson
 // content, Subject description, ...). See docs/architecture/02-data-model.md.
-// `embedYoutube` opts into rendering YouTube links as inline video players —
-// used for lesson content, not e.g. subject descriptions.
+// `embedYoutube` opts into rendering YouTube links as inline video players,
+// and `embedPdf` opts into rendering `<pdfviewer file="..." />` /
+// `<pdfiframe file="..." />` tags as an inline PDF viewer — both used for
+// lesson content, not e.g. subject descriptions.
 export function Markdown({
   content,
   embedYoutube = false,
+  embedPdf = false,
 }: {
   content: string;
   embedYoutube?: boolean;
+  embedPdf?: boolean;
 }) {
   return (
     <div className="prose prose-sm max-w-none w-full">
@@ -69,12 +116,15 @@ export function Markdown({
         // rehype-raw parses HTML tags written inline in the markdown source
         // (tutors sometimes need e.g. <br>, <sup>, <span> for formatting
         // markdown alone can't do); rehype-sanitize (GitHub's default
-        // allow-list) runs right after so no script/style/event-handler
-        // content ever reaches the DOM.
-        rehypePlugins={[rehypeRaw, rehypeSanitize]}
-        components={embedYoutube ? youtubeAwareComponents : undefined}
+        // allow-list, extended with our PDF tags above) runs right after so
+        // no script/style/event-handler content ever reaches the DOM.
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, schemaWithPdfTags]]}
+        components={{
+          ...(embedYoutube ? youtubeAwareComponents : {}),
+          ...(embedPdf ? pdfEmbedComponents : {}),
+        }}
       >
-        {content}
+        {embedPdf ? withExplicitPdfTagClosingTags(content) : content}
       </ReactMarkdown>
     </div>
   );

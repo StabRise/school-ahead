@@ -33,7 +33,7 @@ export function TaskStep({
 
   return (
     <div className="flex flex-col gap-4">
-      {taskContent && <Markdown content={taskContent} embedYoutube />}
+      {taskContent && <Markdown content={taskContent} embedYoutube embedPdf />}
 
       <div className="flex flex-col gap-1">
         <label htmlFor="task-comment" className="text-sm font-medium">

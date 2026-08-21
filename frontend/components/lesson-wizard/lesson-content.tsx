@@ -12,7 +12,7 @@ export function LessonContent({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <Markdown content={content} embedYoutube />
+      <Markdown content={content} embedYoutube embedPdf />
 
       {materials.length > 0 && (
         <ul className="flex flex-col gap-1 border-t border-gray-200 pt-3">
