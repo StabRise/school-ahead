@@ -176,6 +176,14 @@ if DJANGO_STORAGE_BACKEND == 's3':
         'secret_key': env('AWS_SECRET_ACCESS_KEY', default=''),
         'file_overwrite': False,
         'querystring_auth': env.bool('AWS_S3_QUERYSTRING_AUTH', default=False),
+        # Most self-hosted S3-compatible servers (Synology, MinIO, ...) don't
+        # have DNS/vhost routing for the default virtual-hosted-style
+        # addressing (bucket.endpoint/key) — requests end up signed against
+        # the wrong host and get rejected with a 403 on HeadObject/PutObject.
+        # Set AWS_S3_ADDRESSING_STYLE=path for those. Leave unset for AWS
+        # itself, where virtual-hosted-style is the (recommended) default.
+        'addressing_style': env('AWS_S3_ADDRESSING_STYLE', default=''),
+        'signature_version': env('AWS_S3_SIGNATURE_VERSION', default=''),
     }
     _default_storage = {
         'BACKEND': 'storages.backends.s3.S3Storage',
