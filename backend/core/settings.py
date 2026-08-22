@@ -216,6 +216,24 @@ MAILERS = {
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=['http://localhost:3000'])
 CORS_ALLOW_CREDENTIALS = True
 
+# Django's *built-in* CSRF middleware — distinct from the custom JWT
+# double-submit check below. Only exercised by session-authenticated,
+# same-origin form posts (the admin login form), but still needs the
+# admin's own origin trusted explicitly for HTTPS requests, or Django
+# rejects them with "Origin checking failed" regardless of any valid
+# session/cookie.
+CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[])
+
+# Behind a reverse proxy that terminates TLS and forwards over plain HTTP,
+# request.is_secure() is False unless told to trust the proxy's
+# X-Forwarded-Proto header — otherwise Django computes the request's origin
+# as http://..., which never matches the browser's actual https:// Origin
+# header, and CSRF_TRUSTED_ORIGINS above can't help either. Only enable this
+# if the proxy always sets/overwrites this header itself (never pass through
+# a client-supplied one) — see Django's SECURE_PROXY_SSL_HEADER docs.
+if env.bool('DJANGO_BEHIND_TLS_PROXY', default=False):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 
 # Auth cookies — httpOnly, cross-site, shared parent domain.
 # See docs/architecture/05-auth-flow.md's cookie attributes table.

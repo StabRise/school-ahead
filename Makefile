@@ -2,7 +2,7 @@
 	dev backend frontend \
 	db-up db-down db-logs \
 	docker-build docker-up docker-down docker-logs \
-	prod-login prod-pull prod-up prod-down prod-logs \
+	prod-login prod-pull prod-up prod-down prod-logs prod-superuser prod-shell \
 	migrate makemigrations superuser shell \
 	lint lint-backend lint-frontend \
 	format format-backend format-frontend \
@@ -73,6 +73,12 @@ prod-pull: prod-login ## Pull the latest backend/frontend images
 
 prod-up: prod-pull ## Pull and (re)start the production stack
 	docker compose -f docker-compose.prod.yml up -d
+
+prod-superuser: ## Create a Django superuser on the production backend container
+	docker compose -f docker-compose.prod.yml exec backend python manage.py createsuperuser
+
+prod-shell: ## Open the Django shell on the production backend container
+	docker compose -f docker-compose.prod.yml exec backend python manage.py shell
 
 prod-down: ## Stop the production stack
 	docker compose -f docker-compose.prod.yml down
