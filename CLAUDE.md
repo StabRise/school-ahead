@@ -5,6 +5,8 @@ github: https://github.com/StabRise/school-ahead
 
 @AGENTS.md
 
+Do not overrire, remove .env files
+
 # Technologies
 
 ## Frontend:

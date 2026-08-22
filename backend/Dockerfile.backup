@@ -1,13 +1,26 @@
-FROM postgres:16-alpine
+# postgres:16-alpine bundles the full Postgres *server*, compiled from
+# source (a ~285MB layer) — this image only ever runs psql/pg_dump against a
+# remote database, never the server itself, so a plain Alpine base plus just
+# the client package is equivalent and far smaller.
+FROM alpine:3.24
 
-# Install required packages
+# Install required packages. aws-cli (Python-based on Alpine, ~265MB) is
+# replaced by the mc (MinIO client) static binary below — mc talks to any
+# S3-compatible endpoint (AWS, MinIO, ...) in ~40MB with no Python runtime.
+# zstd was referenced by backup.sh's "zstd" compression option but never
+# actually installed — added so that option works.
 RUN apk add --no-cache \
+    postgresql16-client \
     dcron \
     pigz \
-    aws-cli \
+    zstd \
     curl \
     ca-certificates \
     bash
+
+ARG TARGETARCH
+RUN curl -fsSL "https://dl.min.io/client/mc/release/linux-${TARGETARCH}/mc" -o /usr/local/bin/mc \
+    && chmod +x /usr/local/bin/mc
 
 # Create app directory
 WORKDIR /app

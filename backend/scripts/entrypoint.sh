@@ -30,14 +30,13 @@ fi
 
 log "Environment variables validated successfully"
 
-# Export AWS credentials for AWS CLI
-export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
-export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
-
-# Configure AWS CLI defaults if endpoint is set
-if [ -n "${S3_ENDPOINT}" ]; then
-    log "Configuring AWS CLI with endpoint: ${S3_ENDPOINT}"
-fi
+# Configure the mc (MinIO client) alias "backup" that backup.sh/restore.sh
+# use for S3 access — persisted to /root/.mc/config.json, which both cron
+# jobs and `docker exec ... restore.sh` see for the life of the container.
+S3_URL="${S3_ENDPOINT:-https://s3.amazonaws.com}"
+log "Configuring mc alias 'backup' -> ${S3_URL}"
+mc alias set backup "${S3_URL}" "${AWS_ACCESS_KEY_ID}" "${AWS_SECRET_ACCESS_KEY}" --api S3v4 \
+    || error_exit "Failed to configure mc alias"
 
 # Create log file
 touch /var/log/backup.log

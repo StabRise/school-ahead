@@ -43,21 +43,14 @@ done
 
 # Detect if input is S3 path or local file
 if [[ "$1" == s3://* ]]; then
-    # S3 download
+    # S3 download — "backup" is the mc alias entrypoint.sh configures for
+    # S3_ENDPOINT (or AWS S3 if unset); translate the familiar s3://bucket/key
+    # argument into that alias's path form.
     log "Downloading backup from S3..."
     log "Source: ${S3_BACKUP_PATH}"
 
-    if [ -n "${S3_ENDPOINT}" ]; then
-        ENDPOINT_URL="--endpoint-url=${S3_ENDPOINT}"
-        log "Using S3 endpoint: ${S3_ENDPOINT}"
-    else
-        ENDPOINT_URL=""
-    fi
-
-    aws s3 cp "${S3_BACKUP_PATH}" "${LOCAL_BACKUP_PATH}" \
-        ${ENDPOINT_URL} \
-        --region "${S3_REGION:-us-east-1}" \
-        || error_exit "Failed to download backup from S3"
+    MC_SOURCE_PATH="backup/${S3_BACKUP_PATH#s3://}"
+    mc cp "${MC_SOURCE_PATH}" "${LOCAL_BACKUP_PATH}" || error_exit "Failed to download backup from S3"
 
     SOURCE_FILE="${LOCAL_BACKUP_PATH}"
 else
