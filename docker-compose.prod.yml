@@ -80,5 +80,48 @@ services:
       - "9005:8080"
     restart: unless-stopped
 
+  db-backup:
+    # Built/pushed manually via .github/workflows/docker-build-push-backup.yml
+    # (workflow_dispatch — trigger by hand when backend/scripts/{backup,
+    # restore,entrypoint}.sh change), not on every push like backend/frontend.
+    image: ${REGISTRY:-forgejo.stabrise.com}/mykola/school-ahead-backup:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+    env_file:
+      - .env.lago
+    environment:
+      "POSTGRES_HOST": ${POSTGRES_HOST:-postgres}
+      "POSTGRES_PORT": ${POSTGRES_PORT:-5432}
+      "POSTGRES_DB": ${POSTGRES_DB:-school_ahead}
+      "POSTGRES_USER": ${POSTGRES_USER:-school_ahead}
+      "POSTGRES_PASSWORD": ${POSTGRES_PASSWORD:-changeme}
+      "S3_BUCKET": ${POSTGRES_BACKUP_S3_BUCKET:-your-backup-bucket}
+      "S3_FOLDER": ${POSTGRES_BACKUP_S3_FOLDER:-school_ahead-backups}
+      "S3_ENDPOINT": ${POSTGRES_BACKUP_S3_ENDPOINT}
+      "S3_REGION": ${POSTGRES_BACKUP_S3_REGION:-us-east-1}
+      "AWS_ACCESS_KEY_ID": ${POSTGRES_BACKUP_AWS_ACCESS_KEY_ID}
+      "AWS_SECRET_ACCESS_KEY": ${POSTGRES_BACKUP_AWS_SECRET_ACCESS_KEY}
+      "SCHEDULE": ${POSTGRES_BACKUP_SCHEDULE:-0 2 * * *}
+      "COMPRESSION": ${POSTGRES_BACKUP_COMPRESSION:-pigz}
+      "RUN_ON_STARTUP": ${POSTGRES_BACKUP_RUN_ON_STARTUP:-false}
+      "BACKUP_INCLUDE_HOSTNAME": ${POSTGRES_BACKUP_INCLUDE_HOSTNAME:-false}
+      "BACKUP_KEEP_DAYS": ${POSTGRES_BACKUP_KEEP_DAYS:-30}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "sh",
+          "-c",
+          "test -f /tmp/health_status && grep -q healthy /tmp/health_status",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+
 volumes:
   postgres_data:
