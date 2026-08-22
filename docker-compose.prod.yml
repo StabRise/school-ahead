@@ -38,6 +38,11 @@ services:
     ports:
       - "8005:8000"
     restart: unless-stopped
+    labels:
+      # Scopes watchtower (below) to just this stack's containers — this
+      # host runs several unrelated Compose projects, and watchtower with
+      # no label filter manages every running container on the host.
+      - "com.centurylinklabs.watchtower.enable=true"
 
   frontend:
     # NEXT_PUBLIC_* vars are baked in at image build time (see
@@ -51,6 +56,28 @@ services:
       - backend
     ports:
       - "3005:3000"
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  # Pulls and restarts backend/frontend when a new image is pushed, but only
+  # on demand via its HTTP API — no periodic polling loop (no --interval /
+  # WATCHTOWER_POLL_INTERVAL set) — trigger it after CI pushes a new image:
+  #   curl -H "Authorization: Bearer $WATCHTOWER_HTTP_API_TOKEN" \
+  #     http://<this-host>:9002/v1/update
+  watchtower:
+    image: containrrr/watchtower
+    environment:
+      WATCHTOWER_HTTP_API_UPDATE: "true"
+      WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_HTTP_API_TOKEN:?WATCHTOWER_HTTP_API_TOKEN must be set in .env}
+      # Only touch containers carrying the label above, and clean up the
+      # old image after a successful update.
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_CLEANUP: "true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "9005:8080"
     restart: unless-stopped
 
 volumes:
