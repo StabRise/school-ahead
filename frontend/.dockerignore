@@ -1,3 +1,19 @@
+# Build context for this Dockerfile is frontend/ (not the repo root) — see
+# the Dockerfile's own header comment.
 node_modules
 .next
-.env.local
+.git
+.idea
+.vscode
+.DS_Store
+
+# Never send local secrets into the build context — the builder stage does
+# `COPY . .`, so anything not excluded here actually ends up in the image.
+.env
+.env.*
+!.env.local.example
+
+# Not needed to build/run the app.
+*.md
+coverage
+.turbo

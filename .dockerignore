@@ -3,11 +3,22 @@
 .github
 .venv
 .idea
+.vscode
 .claude
+.DS_Store
 node_modules
 frontend
 docs
 *.md
+NOTES.tmp
+LICENSE
+docker-compose.yml
+
+# Never send local secrets to the build daemon, even though the backend
+# Dockerfile doesn't COPY them into the image (see .env.example instead).
+.env
+.env.*
+!.env.example
 
 backend/media
 backend/db.sqlite3
@@ -16,3 +27,4 @@ backend/staticfiles
 **/*.pyc
 .pytest_cache
 .ruff_cache
+.mypy_cache

@@ -35,8 +35,13 @@ ENV HOME=/app
 
 WORKDIR /app
 
-COPY --from=builder /app/.venv /app/.venv
-COPY --from=builder /app/backend ./backend
+# --chown here (not a separate `RUN chown -R` after) — chown-ing already
+# a copy of large content over ownership boundaries in its own layer
+# makes overlayfs copy-up the entire tree again, roughly doubling image
+# size for no reason.
+COPY --from=builder --chown=app:app /app/.venv /app/.venv
+COPY --from=builder --chown=app:app /app/backend ./backend
+COPY --chown=app:app --chmod=755 backend/entrypoint.sh /app/entrypoint.sh
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
@@ -44,13 +49,12 @@ ENV PATH="/app/.venv/bin:$PATH" \
 
 WORKDIR /app/backend
 
-# Safe at build time — no DB access, just gathers static files into STATIC_ROOT.
-RUN DJANGO_SECRET_KEY=build-time-placeholder python manage.py collectstatic --noinput
-
-COPY backend/entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh && chown -R app:app /app
-
 USER app
+
+# Safe at build time — no DB access, just gathers static files into
+# STATIC_ROOT. Runs as `app` (post-USER) so the collected files come out
+# app-owned already, instead of needing another chown pass.
+RUN DJANGO_SECRET_KEY=build-time-placeholder python manage.py collectstatic --noinput
 
 EXPOSE 8000
 
