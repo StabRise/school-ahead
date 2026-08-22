@@ -3,8 +3,13 @@ import { cookies } from "next/headers";
 
 // Bearer-authenticated instance for Server Components / Route Handlers /
 // Server Actions — see docs/architecture/05-auth-flow.md, Diagram E.
+// API_URL (not NEXT_PUBLIC_API_URL) — the Next.js server calls Django over
+// the internal Docker network (e.g. http://backend:8000), while the browser
+// uses the host-facing NEXT_PUBLIC_API_URL. Falls back to
+// NEXT_PUBLIC_API_URL for local dev outside Docker, where there's only one
+// origin for both. See frontend/Dockerfile and docker-compose.yml.
 export const AXIOS_INSTANCE = Axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL,
 });
 
 export const serverMutator = async <T>(

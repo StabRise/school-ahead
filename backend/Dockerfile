@@ -1,7 +1,7 @@
 # Build context is the repo root (pyproject.toml/uv.lock live there, not under
 # backend/) — build with: docker build -f backend/Dockerfile .
 
-FROM python:3.12-slim AS builder
+FROM python:3.12-alpine AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
@@ -9,6 +9,11 @@ WORKDIR /app
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
+
+# gcc/musl-dev/postgresql-dev cover the case where psycopg-binary has no
+# musllinux wheel for the target arch and uv falls back to building it (and
+# its transitive C deps) from source against musl libc.
+RUN apk add --no-cache gcc musl-dev postgresql-dev
 
 # Dependencies first, isolated from source, for layer caching.
 COPY pyproject.toml uv.lock ./
@@ -19,9 +24,13 @@ COPY src ./src
 COPY backend ./backend
 RUN uv sync --frozen --no-dev
 
-FROM python:3.12-slim AS runtime
+FROM python:3.12-alpine AS runtime
 
-RUN groupadd --system app && useradd --system --gid app --home-dir /app --no-create-home app
+# libpq is only needed if psycopg ended up dynamically linked against it
+# (source build fallback above); harmless no-op if the binary wheel
+# (statically linked) was used instead.
+RUN apk add --no-cache libpq && \
+    addgroup -S app && adduser -S -G app -H -h /app app
 ENV HOME=/app
 
 WORKDIR /app

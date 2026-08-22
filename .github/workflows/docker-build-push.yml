@@ -50,9 +50,64 @@ jobs:
 
   build-frontend:
     runs-on: ubuntu-latest
+    # frontend/lib/api/{browser,server,zod} are Orval-generated from Django's
+    # OpenAPI schema and deliberately gitignored (not committed) — see
+    # frontend/orval.config.ts and docs/architecture/06-frontend-architecture.md.
+    # They must exist in the build context before `docker build`, so this job
+    # runs a throwaway Django+Postgres instance just to generate them.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: school_ahead
+          POSTGRES_USER: school_ahead
+          POSTGRES_PASSWORD: school_ahead
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U school_ahead"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://school_ahead:school_ahead@localhost:5432/school_ahead
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install backend dependencies
+        run: uv sync
+
+      - name: Run backend migrations
+        run: uv run backend/manage.py migrate --noinput
+
+      - name: Start backend (for schema generation only)
+        run: |
+          uv run backend/manage.py runserver 8000 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000/api/openapi.json -o /dev/null && exit 0
+            sleep 1
+          done
+          echo "Backend never became ready" >&2
+          exit 1
+
+      - name: Set up bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: bun install --frozen-lockfile
+
+      - name: Generate Orval API client
+        working-directory: frontend
+        env:
+          OPENAPI_SCHEMA_URL: http://localhost:8000/api/openapi.json
+        run: bun run orval:generate
 
       - name: Log in to forgejo.stabrise.com
         uses: docker/login-action@v3
