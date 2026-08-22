@@ -2,6 +2,7 @@
 	dev backend frontend \
 	db-up db-down db-logs \
 	docker-build docker-up docker-down docker-logs \
+	prod-login prod-pull prod-up prod-down prod-logs \
 	migrate makemigrations superuser shell \
 	lint lint-backend lint-frontend \
 	format format-backend format-frontend \
@@ -60,6 +61,24 @@ docker-down: ## Stop the full stack
 
 docker-logs: ## Tail logs for the backend and frontend containers
 	docker compose logs -f backend frontend
+
+## Docker Compose (production — pulls pre-built images, see docker-compose.prod.yml)
+
+prod-login: ## Log in to the registry using REGISTRY/REGISTRY_USERNAME/REGISTRY_PASSWORD from .env
+	set -a; . ./.env; set +a; \
+	echo "$$REGISTRY_PASSWORD" | docker login "$$REGISTRY" -u "$$REGISTRY_USERNAME" --password-stdin
+
+prod-pull: prod-login ## Pull the latest backend/frontend images
+	docker compose -f docker-compose.prod.yml pull
+
+prod-up: prod-pull ## Pull and (re)start the production stack
+	docker compose -f docker-compose.prod.yml up -d
+
+prod-down: ## Stop the production stack
+	docker compose -f docker-compose.prod.yml down
+
+prod-logs: ## Tail logs for the production backend and frontend containers
+	docker compose -f docker-compose.prod.yml logs -f backend frontend
 
 ## Django management
 

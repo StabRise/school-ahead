@@ -1,0 +1,55 @@
+# Production compose file — pulls pre-built images from the registry
+# (pushed by .github/workflows/docker-build-push.yml) instead of building
+# them locally like docker-compose.yml does. Configuration comes from .env
+# at the repo root (see .env.example) — Compose loads it automatically for
+# ${VAR} substitution below, no --env-file flag needed.
+#
+# Usage: docker compose -f docker-compose.prod.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-school_ahead}
+      POSTGRES_USER: ${POSTGRES_USER:-school_ahead}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-school_ahead}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    image: ${REGISTRY:-forgejo.stabrise.com}/mykola/school-ahead-backend:${IMAGE_TAG:-latest}
+    env_file: .env
+    environment:
+      # Overrides .env's DATABASE_URL (host-facing, for local dev) to point
+      # at this stack's own postgres service over the Docker network —
+      # mirrors docker-compose.yml's backend service.
+      DATABASE_URL: postgres://${POSTGRES_USER:-school_ahead}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-school_ahead}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8005:8000"
+    restart: unless-stopped
+
+  frontend:
+    # NEXT_PUBLIC_* vars are baked in at image build time (see
+    # frontend/Dockerfile) — nothing to pass here. API_URL is the only
+    # runtime var this image reads (server-side calls, over the Docker
+    # network — see frontend/lib/api/mutators/server-mutator.ts).
+    image: ${REGISTRY:-forgejo.stabrise.com}/mykola/school-ahead-frontend:${IMAGE_TAG:-latest}
+    environment:
+      API_URL: http://backend:8000
+    depends_on:
+      - backend
+    ports:
+      - "3005:3000"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
