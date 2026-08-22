@@ -26,7 +26,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: forgejo.stabrise.com/school-ahead-backend
+          images: forgejo.stabrise.com/${{ secrets.REGISTRY_USERNAME }}/school-ahead-backend
           tags: |
             type=raw,value=latest
             type=sha,format=short
@@ -62,7 +62,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: forgejo.stabrise.com/school-ahead-frontend
+          images: forgejo.stabrise.com/${{ secrets.REGISTRY_USERNAME }}/school-ahead-frontend
           tags: |
             type=raw,value=latest
             type=sha,format=short
