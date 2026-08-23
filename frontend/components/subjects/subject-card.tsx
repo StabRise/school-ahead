@@ -30,11 +30,18 @@ export function SubjectCard({ subject }: { subject: SubjectOut }) {
       className="flex h-full flex-col gap-3 shadow-sm transition-shadow hover:shadow-md"
     >
       <div className="flex items-center gap-3">
-        <span
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-semibold text-white ${iconColor}`}
-        >
-          {subject.name.charAt(0).toUpperCase()}
-        </span>
+        {subject.icon ? (
+          <span className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={subject.icon} alt="" className="h-full w-full object-cover" />
+          </span>
+        ) : (
+          <span
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-semibold text-white ${iconColor}`}
+          >
+            {subject.name.charAt(0).toUpperCase()}
+          </span>
+        )}
         <span className="font-medium text-gray-900">{subject.name}</span>
       </div>
 
