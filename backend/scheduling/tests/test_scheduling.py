@@ -99,6 +99,87 @@ class TestGenerateCalendar:
         assert manual_sl.is_manually_scheduled is True
 
 
+class TestGenerateClassSchedule:
+    def test_schedules_only_new_lessons_across_school_days(self, subject, school_class, student):
+        _make_lessons(subject, 2)
+        # A Monday..Friday week (2025-09-01 is a Monday, per the backlog-label test above).
+        start = datetime.date(2025, 9, 1)
+        end = datetime.date(2025, 9, 5)
+
+        result = services.generate_class_schedule(school_class, start, end, {subject.id: 2})
+
+        assert result['lessons_scheduled'] == 2
+        assert result['subjects'] == [{'subject_id': subject.id, 'lessons_scheduled': 2}]
+        dates = set(StudentLesson.objects.filter(student=student).values_list('scheduled_date', flat=True))
+        assert len(dates) == 2  # spread across two different days, not doubled up
+        assert dates <= {start + datetime.timedelta(days=i) for i in range(5)}
+
+    def test_zero_hours_per_week_skips_subject(self, subject, school_class, student):
+        _make_lessons(subject, 3)
+        result = services.generate_class_schedule(
+            school_class, datetime.date(2025, 9, 1), datetime.date(2025, 9, 5), {subject.id: 0}
+        )
+        assert result == {'lessons_scheduled': 0, 'students_affected': 1, 'subjects': []}
+        assert StudentLesson.objects.count() == 0
+
+    def test_never_touches_an_already_scheduled_lesson(self, subject, school_class, student):
+        lessons = _make_lessons(subject, 2)
+        pinned_date = datetime.date(2025, 9, 3)
+        existing = StudentLesson.objects.create(student=student, lesson=lessons[0], scheduled_date=pinned_date)
+
+        services.generate_class_schedule(
+            school_class, datetime.date(2025, 9, 1), datetime.date(2025, 9, 5), {subject.id: 2}
+        )
+
+        existing.refresh_from_db()
+        assert existing.scheduled_date == pinned_date  # untouched
+        # Only the second (never-scheduled) lesson was newly planned.
+        assert StudentLesson.objects.filter(student=student, lesson=lessons[1]).exists()
+
+    def test_avoids_days_already_loaded_by_another_subject(self, subject, school_class, student):
+        other_subject = Subject.objects.create(school_class=school_class, name='History')
+        other_lessons = _make_lessons(other_subject, 2)
+        monday = datetime.date(2025, 9, 1)
+        tuesday = datetime.date(2025, 9, 2)
+        StudentLesson.objects.create(student=student, lesson=other_lessons[0], scheduled_date=monday)
+        StudentLesson.objects.create(student=student, lesson=other_lessons[1], scheduled_date=monday)
+        StudentLesson.objects.create(
+            student=student,
+            lesson=Lesson.objects.create(
+                topic=other_lessons[0].topic, order_index=3, title='L3',
+                lesson_type=LessonType.THEORY, grading_type='binary',
+            ),
+            scheduled_date=tuesday,
+        )
+
+        _make_lessons(subject, 1)
+        services.generate_class_schedule(school_class, monday, datetime.date(2025, 9, 5), {subject.id: 1})
+
+        new_sl = StudentLesson.objects.get(student=student, lesson__topic__subject=subject)
+        # Monday already has 2, Tuesday already has 1 — Wednesday is the
+        # first untouched day.
+        assert new_sl.scheduled_date == datetime.date(2025, 9, 3)
+
+    def test_repeats_a_subject_on_the_same_day_once_every_day_is_taken(self, subject, school_class, student):
+        _make_lessons(subject, 4)
+        # Only two school days in range (Mon-Tue) but a target of 4 lessons
+        # (hours_per_week=10 * 2/5 week fraction = 4) — each day must take
+        # two, since there's nowhere else to put them.
+        monday = datetime.date(2025, 9, 1)
+        tuesday = datetime.date(2025, 9, 2)
+        result = services.generate_class_schedule(school_class, monday, tuesday, {subject.id: 10})
+        assert result['subjects'] == [{'subject_id': subject.id, 'lessons_scheduled': 4}]
+        assert StudentLesson.objects.filter(student=student, scheduled_date=monday).count() == 2
+        assert StudentLesson.objects.filter(student=student, scheduled_date=tuesday).count() == 2
+
+    def test_no_school_days_in_range_is_a_noop(self, subject, school_class, student):
+        _make_lessons(subject, 1)
+        saturday = datetime.date(2025, 9, 6)
+        sunday = datetime.date(2025, 9, 7)
+        result = services.generate_class_schedule(school_class, saturday, sunday, {subject.id: 5})
+        assert result == {'lessons_scheduled': 0, 'students_affected': 1, 'subjects': []}
+
+
 class TestReadEndpoints:
     def test_today_and_backlog(self, subject, student):
         lessons = _make_lessons(subject, 2)
@@ -234,3 +315,87 @@ class TestApiEndpoints:
         without_own_icon = items_by_lesson['Lesson 2']
         assert without_own_icon['lesson_icon'] is None
         assert without_own_icon['subject_icon'] is not None
+
+
+class TestGenerateClassScheduleApi:
+    def test_requires_tutor_scope(self, api_client, auth_header, subject, school_class, tutor):
+        response = api_client.post(
+            f'/schedule/classes/{school_class.id}/generate-schedule',
+            json={
+                'start_date': '2025-09-01', 'end_date': '2025-09-05',
+                'subjects': [{'subject_id': subject.id, 'hours_per_week': 1}],
+            },
+            headers=auth_header(tutor.user),
+        )
+        assert response.status_code == 403
+
+    def test_generates_schedule_as_assigned_tutor(
+        self, api_client, auth_header, subject, school_class, tutor, student
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        _make_lessons(subject, 2)
+
+        response = api_client.post(
+            f'/schedule/classes/{school_class.id}/generate-schedule',
+            json={
+                'start_date': '2025-09-01', 'end_date': '2025-09-05',
+                'subjects': [{'subject_id': subject.id, 'hours_per_week': 2}],
+            },
+            headers=auth_header(tutor.user),
+        )
+        assert response.status_code == 200
+        assert response.data['lessons_scheduled'] == 2
+        assert response.data['subjects'] == [{'subject_id': subject.id, 'lessons_scheduled': 2}]
+
+    def test_rejected_for_subject_the_tutor_does_not_teach(
+        self, api_client, auth_header, subject, school_class, tutor, student
+    ):
+        # Assigned to a different subject in the same class, not `subject` itself.
+        other_subject = Subject.objects.create(school_class=school_class, name='History')
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=other_subject)
+        _make_lessons(subject, 1)
+
+        response = api_client.post(
+            f'/schedule/classes/{school_class.id}/generate-schedule',
+            json={
+                'start_date': '2025-09-01', 'end_date': '2025-09-05',
+                'subjects': [{'subject_id': subject.id, 'hours_per_week': 1}],
+            },
+            headers=auth_header(tutor.user),
+        )
+        assert response.status_code == 403
+
+    def test_rejected_for_subject_from_another_class(
+        self, api_client, auth_header, subject, school_class, tutor, student
+    ):
+        other_school = School.objects.create(name='Other School')
+        other_class = Class.objects.create(
+            school=other_school, name='9', order_index=9, academic_year='2025/2026'
+        )
+        foreign_subject = Subject.objects.create(school_class=other_class, name='Chemistry')
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=foreign_subject)
+        _make_lessons(foreign_subject, 1)
+
+        response = api_client.post(
+            f'/schedule/classes/{school_class.id}/generate-schedule',
+            json={
+                'start_date': '2025-09-01', 'end_date': '2025-09-05',
+                'subjects': [{'subject_id': foreign_subject.id, 'hours_per_week': 1}],
+            },
+            headers=auth_header(tutor.user),
+        )
+        assert response.status_code == 400
+
+    def test_rejected_when_start_after_end(self, api_client, auth_header, subject, school_class, tutor, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = api_client.post(
+            f'/schedule/classes/{school_class.id}/generate-schedule',
+            json={
+                'start_date': '2025-09-05', 'end_date': '2025-09-01',
+                'subjects': [{'subject_id': subject.id, 'hours_per_week': 1}],
+            },
+            headers=auth_header(tutor.user),
+        )
+        assert response.status_code == 400

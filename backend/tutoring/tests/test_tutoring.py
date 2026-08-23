@@ -2,6 +2,7 @@ import datetime
 
 import pytest
 
+from academics import services as academics_services
 from academics.models import Class, School, Subject, Topic
 from accounts.models import Role, StudentProfile, TutorProfile, User
 from lessons.models import Lesson, LessonType, StudentLesson, StudentLessonStatus
@@ -121,6 +122,36 @@ class TestScopeFiltering:
         assert items[0]['student_name'] == student.user.email
 
 
+class TestAssignmentsEndpoint:
+    def test_list_assignments_includes_topic_and_lesson_counts(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic_a = Topic.objects.create(subject=subject, title='A', order_index=1)
+        topic_b = Topic.objects.create(subject=subject, title='B', order_index=2)
+        Lesson.objects.create(
+            topic=topic_a, order_index=1, title='L1', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        Lesson.objects.create(
+            topic=topic_a, order_index=2, title='L2', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        Lesson.objects.create(
+            topic=topic_b, order_index=1, title='L3', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+
+        response = api_client.get('/tutor/assignments', headers=auth_header(tutor.user))
+        assert response.status_code == 200
+        assert len(response.data) == 1
+        assert response.data[0]['topic_count'] == 2
+        assert response.data[0]['lesson_count'] == 3
+
+    def test_list_assignments_zero_counts_for_empty_subject(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = api_client.get('/tutor/assignments', headers=auth_header(tutor.user))
+        assert response.status_code == 200
+        assert response.data[0]['topic_count'] == 0
+        assert response.data[0]['lesson_count'] == 0
+
+
 class TestStudentsEndpoint:
     def test_list_students_scoped_to_tutor_classes(self, api_client, auth_header, tutor, subject, student):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
@@ -138,6 +169,78 @@ class TestStudentsEndpoint:
         emails = {item['name'] for item in response.data}
         assert student.user.email in emails
         assert other_class_user.email not in emails
+
+
+class TestClassesEndpoint:
+    def test_list_classes_scoped_to_tutor_assignments(
+        self, api_client, auth_header, tutor, subject, other_subject, student
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        other_school = School.objects.create(name='Other School')
+        other_class = Class.objects.create(
+            school=other_school, name='9', order_index=9, academic_year='2025/2026'
+        )
+        # A subject in a different class the tutor is *not* assigned to.
+        Subject.objects.create(school_class=other_class, name='Chemistry')
+
+        response = api_client.get('/tutor/classes', headers=auth_header(tutor.user))
+        assert response.status_code == 200
+        assert len(response.data) == 1
+        assert response.data[0]['name'] == subject.school_class.name
+
+    def test_list_classes_reports_class_teacher_and_counts(
+        self, api_client, auth_header, tutor, subject, other_subject, student, other_student
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=other_subject)
+        school_class = subject.school_class
+        school_class.class_teacher = tutor
+        school_class.save(update_fields=['class_teacher'])
+
+        response = api_client.get('/tutor/classes', headers=auth_header(tutor.user))
+        assert response.status_code == 200
+        item = response.data[0]
+        assert item['class_teacher_name'] == tutor.user.email
+        assert item['is_class_teacher'] is True
+        assert item['student_count'] == 2
+        assert item['subject_count'] == 2
+
+    def test_list_classes_not_class_teacher_when_someone_else_is(
+        self, api_client, auth_header, tutor, subject
+    ):
+        other_tutor_user = User.objects.create_user(email='other-tutor@example.com', role=Role.TUTOR)
+        other_tutor = TutorProfile.objects.create(user=other_tutor_user)
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        subject.school_class.class_teacher = other_tutor
+        subject.school_class.save(update_fields=['class_teacher'])
+
+        response = api_client.get('/tutor/classes', headers=auth_header(tutor.user))
+        assert response.status_code == 200
+        item = response.data[0]
+        assert item['class_teacher_name'] == other_tutor_user.email
+        assert item['is_class_teacher'] is False
+
+    def test_get_class_detail_includes_roster_and_subjects(
+        self, api_client, auth_header, tutor, subject, other_subject, student, other_student
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=other_subject)
+
+        response = api_client.get(
+            f'/tutor/classes/{subject.school_class_id}', headers=auth_header(tutor.user)
+        )
+        assert response.status_code == 200
+        assert response.data['name'] == subject.school_class.name
+        student_names = {item['name'] for item in response.data['students']}
+        assert student_names == {student.user.email, other_student.user.email}
+        subject_names = {item['subject_name'] for item in response.data['subjects']}
+        assert subject_names == {subject.name, other_subject.name}
+
+    def test_get_class_detail_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        response = api_client.get(
+            f'/tutor/classes/{subject.school_class_id}', headers=auth_header(tutor.user)
+        )
+        assert response.status_code == 403
 
 
 class TestGradingDelegation:
@@ -421,6 +524,84 @@ class TestAssignStudent:
         response = api_client.post(
             f'/tutor/lessons/{lesson.id}/assign',
             json={'student_id': outside_student.id, 'scheduled_date': '2026-02-01'},
+            headers=auth_header(tutor.user),
+        )
+        assert response.status_code == 404
+
+
+class TestSetTopicBlock:
+    def test_set_topic_block(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        subject.block_count = 2
+        subject.save()
+        academics_services.ensure_subject_blocks(subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        academics_services.assign_topics_to_blocks(subject)
+        target_block = subject.blocks.get(index=2)
+
+        response = api_client.patch(
+            f'/tutor/topics/{topic.id}/block',
+            json={'subject_block_id': target_block.id},
+            headers=auth_header(tutor.user),
+        )
+        assert response.status_code == 200
+        assert response.data['subject_block_label'] == target_block.label
+
+        topic.refresh_from_db()
+        assert topic.subject_block_id == target_block.id
+        assert topic.subject_block_manually_set is True
+
+    def test_set_topic_block_survives_later_recompute(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        subject.block_count = 2
+        subject.save()
+        academics_services.ensure_subject_blocks(subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        academics_services.assign_topics_to_blocks(subject)
+        target_block = subject.blocks.get(index=2)
+
+        api_client.patch(
+            f'/tutor/topics/{topic.id}/block',
+            json={'subject_block_id': target_block.id},
+            headers=auth_header(tutor.user),
+        )
+
+        Topic.objects.create(subject=subject, title='Another', order_index=2)
+        academics_services.assign_topics_to_blocks(subject)
+
+        topic.refresh_from_db()
+        assert topic.subject_block_id == target_block.id
+
+    def test_set_topic_block_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        subject.block_count = 2
+        subject.save()
+        academics_services.ensure_subject_blocks(subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        target_block = subject.blocks.get(index=2)
+
+        response = api_client.patch(
+            f'/tutor/topics/{topic.id}/block',
+            json={'subject_block_id': target_block.id},
+            headers=auth_header(tutor.user),
+        )
+        assert response.status_code == 403
+
+    def test_set_topic_block_rejected_for_block_from_other_subject(
+        self, api_client, auth_header, tutor, subject, other_subject
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        subject.block_count = 1
+        subject.save()
+        academics_services.ensure_subject_blocks(subject)
+        other_subject.block_count = 1
+        other_subject.save()
+        academics_services.ensure_subject_blocks(other_subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        foreign_block = other_subject.blocks.get(index=1)
+
+        response = api_client.patch(
+            f'/tutor/topics/{topic.id}/block',
+            json={'subject_block_id': foreign_block.id},
             headers=auth_header(tutor.user),
         )
         assert response.status_code == 404

@@ -34,3 +34,25 @@ class GenerateCalendarOut(Schema):
 
 class RescheduleIn(Schema):
     scheduled_date: datetime.date
+
+
+class SubjectHoursIn(Schema):
+    subject_id: int
+    hours_per_week: int = 0
+
+
+class GenerateClassScheduleIn(Schema):
+    start_date: datetime.date
+    end_date: datetime.date
+    subjects: list[SubjectHoursIn]
+
+
+class SubjectScheduledOut(Schema):
+    subject_id: int
+    lessons_scheduled: int
+
+
+class GenerateClassScheduleOut(Schema):
+    lessons_scheduled: int
+    students_affected: int
+    subjects: list[SubjectScheduledOut]

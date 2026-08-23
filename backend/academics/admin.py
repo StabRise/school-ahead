@@ -13,10 +13,11 @@ class SchoolAdmin(admin.ModelAdmin):
 @admin.register(Class)
 class ClassAdmin(admin.ModelAdmin):
     """Admin configuration for Class model."""
-    list_display = ("name", "school", "academic_year", "order_index", "created_at")
+    list_display = ("name", "school", "academic_year", "order_index", "class_teacher", "created_at")
     list_filter = ("school", "academic_year")
     search_fields = ("name", "academic_year")
     ordering = ("order_index",)
+    autocomplete_fields = ("class_teacher",)
 
 
 class SubjectBlockInline(admin.TabularInline):
@@ -69,5 +70,4 @@ class TopicAdmin(admin.ModelAdmin):
     list_display = ("title", "subject", "order_index", "subject_block", "created_at")
     list_filter = ("subject__school_class", "subject", "subject_block")
     search_fields = ("title", "description", "subject__name")
-    readonly_fields = ("subject_block",)
     ordering = ("subject", "order_index")

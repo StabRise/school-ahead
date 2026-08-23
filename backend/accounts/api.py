@@ -43,6 +43,7 @@ def _user_out(request: HttpRequest, user) -> UserOut:
         avatar_url=user.avatar_url,
         interface_mode=student_profile.interface_mode if student_profile else None,
         equipped_avatar=_avatar_out(student_profile.equipped_avatar, request) if student_profile else None,
+        diamond_balance=student_profile.diamond_balance_cache if student_profile else None,
     )
 
 

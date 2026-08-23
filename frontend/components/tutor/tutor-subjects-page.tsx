@@ -19,6 +19,7 @@ const ICON_COLORS = [
 ];
 
 function SubjectCard({ assignment }: { assignment: AssignmentOut }) {
+  const t = useTranslations("TutorSubjects");
   const iconColor = ICON_COLORS[assignment.subject_id % ICON_COLORS.length];
 
   return (
@@ -42,11 +43,37 @@ function SubjectCard({ assignment }: { assignment: AssignmentOut }) {
         <span className="font-medium text-gray-900">{assignment.subject_name}</span>
       </div>
 
-      <span className="self-start rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-        {assignment.class_name}
+      <span className="text-xs text-gray-500">
+        {t("topicsCount", { count: assignment.topic_count })} · {t("lessonsCount", { count: assignment.lesson_count })}
       </span>
     </Card>
   );
+}
+
+interface ClassGroup {
+  classId: number;
+  className: string;
+  assignments: AssignmentOut[];
+}
+
+// AssignmentOut carries no class ordering (unlike ClassOut.order_index), so
+// classes are sorted by name for a stable, predictable grouping instead of
+// whatever order the backend's unordered query happens to return.
+function groupByClass(assignments: AssignmentOut[]): ClassGroup[] {
+  const groups = new Map<number, ClassGroup>();
+  for (const assignment of assignments) {
+    const group = groups.get(assignment.class_id);
+    if (group) {
+      group.assignments.push(assignment);
+    } else {
+      groups.set(assignment.class_id, {
+        classId: assignment.class_id,
+        className: assignment.class_name,
+        assignments: [assignment],
+      });
+    }
+  }
+  return Array.from(groups.values()).sort((a, b) => a.className.localeCompare(b.className));
 }
 
 export function TutorSubjectsPage() {
@@ -54,6 +81,7 @@ export function TutorSubjectsPage() {
   const { data, isLoading, isError } = useTutoringApiListAssignments();
 
   const assignments = data ?? [];
+  const classGroups = groupByClass(assignments);
 
   return (
     <PageContainer title={t("title")} maxWidthClassName="max-w-6xl">
@@ -64,14 +92,21 @@ export function TutorSubjectsPage() {
         <p className="text-sm text-gray-500">{t("empty")}</p>
       )}
 
-      {assignments.length > 0 && (
-        <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {assignments.map((assignment) => (
-            <li key={`${assignment.subject_id}-${assignment.class_id}`}>
-              <SubjectCard assignment={assignment} />
-            </li>
+      {classGroups.length > 0 && (
+        <div className="flex flex-col gap-8">
+          {classGroups.map((group) => (
+            <div key={group.classId} className="flex flex-col gap-3">
+              <h2 className="text-lg font-semibold text-gray-900">{group.className}</h2>
+              <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {group.assignments.map((assignment) => (
+                  <li key={assignment.subject_id}>
+                    <SubjectCard assignment={assignment} />
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </PageContainer>
   );

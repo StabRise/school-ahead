@@ -11,6 +11,8 @@ class AssignmentOut(Schema):
     subject_icon: str | None
     class_id: int
     class_name: str
+    topic_count: int
+    lesson_count: int
 
 
 class LessonStudentOut(Schema):
@@ -36,6 +38,21 @@ class TutorStudentOut(Schema):
     name: str
     class_id: int
     class_name: str
+
+
+class TutorClassOut(Schema):
+    id: int
+    name: str
+    academic_year: str
+    class_teacher_name: str | None
+    is_class_teacher: bool
+    student_count: int
+    subject_count: int
+
+
+class TutorClassDetailOut(TutorClassOut):
+    students: list[TutorStudentOut]
+    subjects: list[AssignmentOut]
 
 
 class SubmissionDetailOut(Schema):
@@ -70,3 +87,7 @@ class ResolveNeedHelpIn(Schema):
 class AssignStudentIn(Schema):
     student_id: int
     scheduled_date: datetime.date
+
+
+class SetTopicBlockIn(Schema):
+    subject_block_id: int

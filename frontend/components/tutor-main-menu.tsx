@@ -6,6 +6,7 @@ import { Link, usePathname } from "@/i18n/navigation";
 const MENU_ITEMS = [
   { href: "/", labelKey: "tutorDashboard" },
   { href: "/tutor/subjects", labelKey: "mySubjects" },
+  { href: "/tutor/classes", labelKey: "myClasses" },
 ] as const;
 
 export function TutorMainMenu() {

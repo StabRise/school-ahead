@@ -118,6 +118,11 @@ class StudentLessonAdmin(admin.ModelAdmin):
         "is_manually_scheduled",
         "grade_result",
         "scheduled_date",
+        # RelatedOnlyFieldListFilter narrows each dropdown to students/
+        # subjects that actually appear on a StudentLesson, instead of every
+        # StudentProfile or Subject in the system.
+        ("student", admin.RelatedOnlyFieldListFilter),
+        ("lesson__topic__subject", admin.RelatedOnlyFieldListFilter),
     )
     search_fields = (
         "student__user__email",

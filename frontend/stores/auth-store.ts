@@ -28,6 +28,8 @@ export interface AuthUser {
   // Only meaningful for role="student", and only once one is chosen — see
   // docs/core/avatar.md.
   equippedAvatar: EquippedAvatar | null;
+  // Only meaningful for role="student" — see docs/core/progress.md section 2.
+  diamondBalance: number | null;
 }
 
 interface AuthState {

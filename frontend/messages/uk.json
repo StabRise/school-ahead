@@ -20,11 +20,13 @@
     "logout": "Вийти",
     "userMenu": "Меню користувача",
     "mySubjects": "Мої предмети",
+    "myClasses": "Мої класи",
     "myProfile": "Мій профіль",
     "todayLessons": "Уроки сьогодні",
     "calendar": "Календар",
     "tutorDashboard": "Панель тьютора",
-    "preschoolMode": "Дитячий режим"
+    "preschoolMode": "Дитячий режим",
+    "diamondBalance": "{count, plural, one {# діамант} few {# діаманти} many {# діамантів} other {# діаманта}}"
   },
   "Home": {
     "welcomeBack": "З поверненням, {name}!",
@@ -41,7 +43,11 @@
     "title": "Усі уроки зроблено!",
     "subtitle": "Лопай кульки, поки не набридне 🎈",
     "score": "{count, plural, one {Лопнуто # кульку} few {Лопнуто # кульки} many {Лопнуто # кульок} other {Лопнуто # кульки}}",
-    "balloon": "Кулька"
+    "balloon": "Кулька",
+    "settingsButton": "Налаштування гри",
+    "sizeLabel": "Розмір кульок",
+    "countLabel": "Кількість кульок",
+    "speedLabel": "Швидкість"
   },
   "StudentDashboard": {
     "title": "Сьогоднішні уроки",
@@ -67,14 +73,63 @@
     "title": "Мої предмети",
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити предмети. Спробуйте ще раз.",
-    "empty": "Вам ще не призначено жодного предмета."
+    "empty": "Вам ще не призначено жодного предмета.",
+    "topicsCount": "{count, plural, one {# тема} few {# теми} many {# тем} other {# теми}}",
+    "lessonsCount": "{count, plural, one {# урок} few {# уроки} many {# уроків} other {# уроку}}"
+  },
+  "TutorClasses": {
+    "title": "Мої класи",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити класи. Спробуйте ще раз.",
+    "empty": "У вас ще немає класів.",
+    "classTeacherLabel": "Класний керівник",
+    "classTeacherUnset": "не призначено",
+    "youAreClassTeacher": "Ви — класний керівник",
+    "studentsCount": "{count, plural, one {# учень} few {# учні} many {# учнів} other {# учня}}",
+    "subjectsCount": "{count, plural, one {# предмет} few {# предмети} many {# предметів} other {# предмета}}"
+  },
+  "TutorClassDetail": {
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити клас. Спробуйте ще раз.",
+    "breadcrumbMyClasses": "Мої класи",
+    "classTeacherLabel": "Класний керівник",
+    "classTeacherUnset": "не призначено",
+    "youAreClassTeacher": "Ви — класний керівник",
+    "subjectsTitle": "Предмети",
+    "noSubjects": "Ви ще не викладаєте жодного предмета в цьому класі.",
+    "studentsTitle": "Учні",
+    "noStudents": "У цьому класі ще немає учнів.",
+    "topicsCount": "{count, plural, one {# тема} few {# теми} many {# тем} other {# теми}}",
+    "lessonsCount": "{count, plural, one {# урок} few {# уроки} many {# уроків} other {# уроку}}"
+  },
+  "PlanLessons": {
+    "triggerButton": "Запланувати уроки на період",
+    "title": "Запланувати уроки на період",
+    "classLabel": "Клас",
+    "startDateLabel": "Початок періоду",
+    "endDateLabel": "Кінець періоду",
+    "dateRangeSeparator": "до",
+    "invalidDateRange": "Дата початку має бути не пізніше дати завершення.",
+    "subjectsTitle": "Предмети та навантаження (годин на тиждень)",
+    "loading": "Завантаження...",
+    "noSubjects": "Ви ще не викладаєте жодного предмета в цьому класі.",
+    "hoursPerWeekSuffix": "год/тижд",
+    "infoNote": "Систему рівномірно розподілить уроки за період, мінімізуючи повторення одного предмета в один день, де це можливо.",
+    "generateError": "Не вдалося згенерувати розклад. Спробуйте ще раз.",
+    "cancelButton": "Скасувати",
+    "generateButton": "Згенерувати розклад",
+    "resultHeading": "Заплановано:",
+    "nothingScheduled": "Нічого не заплановано.",
+    "subjectLessonsCount": "{count, plural, one {# урок} few {# уроки} many {# уроків} other {# уроку}}",
+    "closeButton": "Закрити"
   },
   "TutorSubjectDetail": {
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити предмет. Спробуйте ще раз.",
     "breadcrumbMySubjects": "Мої предмети",
     "noTopics": "Тем ще немає.",
-    "noLessonsInTopic": "У цій темі ще немає уроків."
+    "noLessonsInTopic": "У цій темі ще немає уроків.",
+    "moveToBlockLabel": "Перемістити тему до блоку"
   },
   "TutorLessonDetail": {
     "loading": "Завантаження...",

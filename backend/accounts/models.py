@@ -92,7 +92,11 @@ class StudentProfile(models.Model):
     )
 
     def __str__(self):
-        return f'StudentProfile({self.user.email})'
+        # Same full_name-or-email fallback used everywhere a student's name
+        # is displayed (tutoring/lessons APIs) — keeps the admin's student
+        # filter dropdown (lessons.StudentLessonAdmin) and other FK widgets
+        # readable instead of showing "StudentProfile(email)".
+        return self.user.full_name or self.user.email
 
 
 class TutorProfile(models.Model):

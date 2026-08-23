@@ -5,19 +5,21 @@ from django.shortcuts import get_object_or_404
 from ninja import Router
 from ninja.errors import HttpError
 
-from academics.models import Subject
+from academics.models import Class, Subject
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
 from common.permissions import get_own_student_profile
 from lessons import services as lesson_services
 from lessons.models import StudentLesson
-from tutoring.services import ensure_is_tutor_for_subject
+from tutoring.services import ensure_is_tutor_for_class, ensure_is_tutor_for_subject, get_tutor_subject_ids
 
 from . import services
 from .schemas import (
     BacklogItemOut,
     CalendarItemOut,
     GenerateCalendarOut,
+    GenerateClassScheduleIn,
+    GenerateClassScheduleOut,
     RescheduleIn,
     TodayOut,
 )
@@ -98,6 +100,31 @@ def recalculate_calendar(request: HttpRequest, subject_id: int):
     subject = get_object_or_404(Subject, id=subject_id)
     result = services.generate_calendar_for_subject(subject)
     return GenerateCalendarOut(**result)
+
+
+@router.post('/classes/{class_id}/generate-schedule', response=GenerateClassScheduleOut)
+def generate_class_schedule(request: HttpRequest, class_id: int, payload: GenerateClassScheduleIn):
+    """The tutor's "Plan Lessons" modal — see
+    scheduling.services.generate_class_schedule for the algorithm."""
+    require_csrf(request)
+    ensure_is_tutor_for_class(request, class_id)
+    if payload.start_date > payload.end_date:
+        raise HttpError(400, 'start_date must not be after end_date')
+
+    school_class = get_object_or_404(Class, id=class_id)
+
+    requested = {item.subject_id: item.hours_per_week for item in payload.subjects if item.hours_per_week > 0}
+    tutor_subject_ids = set(get_tutor_subject_ids(request.auth))
+    if not set(requested) <= tutor_subject_ids:
+        raise HttpError(403, 'Not a tutor for one or more of the given subjects')
+    valid_subject_ids = set(
+        Subject.objects.filter(id__in=requested, school_class_id=class_id).values_list('id', flat=True)
+    )
+    if set(requested) != valid_subject_ids:
+        raise HttpError(400, 'One or more subjects do not belong to this class')
+
+    result = services.generate_class_schedule(school_class, payload.start_date, payload.end_date, requested)
+    return GenerateClassScheduleOut(**result)
 
 
 @router.post('/student-lessons/{student_lesson_id}/reschedule', response=CalendarItemOut)

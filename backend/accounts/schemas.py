@@ -31,6 +31,8 @@ class UserOut(Schema):
     # Only set for role=student, and only once one is chosen — see
     # docs/core/avatar.md.
     equipped_avatar: AvatarOut | None = None
+    # Only set for role=student — see docs/core/progress.md section 2.
+    diamond_balance: int | None = None
 
 
 class MeOut(Schema):
