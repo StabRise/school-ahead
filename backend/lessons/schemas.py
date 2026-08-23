@@ -64,6 +64,7 @@ class LessonOut(Schema):
     quiz_questions: list[QuizQuestionOut]
     subject_id: int
     subject_name: str
+    class_name: str
     topic_title: str
     subject_block_label: str | None
     icon: str | None
@@ -87,6 +88,10 @@ class LessonOut(Schema):
     @staticmethod
     def resolve_subject_name(obj):
         return obj.topic.subject.name
+
+    @staticmethod
+    def resolve_class_name(obj):
+        return obj.topic.subject.school_class.name
 
     @staticmethod
     def resolve_topic_title(obj):

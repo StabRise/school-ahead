@@ -4,17 +4,20 @@ from ninja import Router
 from ninja.errors import HttpError
 from ninja.pagination import paginate
 
+from accounts.models import StudentProfile
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
 from lessons import services as lesson_services
-from lessons.models import StudentLesson, StudentLessonStatus
-from lessons.schemas import AddCommentIn, LessonCommentOut
+from lessons.models import Lesson, StudentLesson, StudentLessonStatus
+from lessons.schemas import AddCommentIn, LessonCommentOut, LessonOut
 
 from . import services
 from .models import TutorSubjectAssignment
 from .schemas import (
     AssignmentOut,
+    AssignStudentIn,
     GradeIn,
+    LessonStudentOut,
     RequestRevisionIn,
     ResolveNeedHelpIn,
     SubmissionDetailOut,
@@ -23,6 +26,14 @@ from .schemas import (
 )
 
 router = Router(tags=['tutor'], auth=CookieOrBearerJWTAuth())
+
+
+def _absolute_file_url(file_field, request: HttpRequest) -> str | None:
+    """See academics/schemas.py's identical helper — file URLs are
+    host-relative and the frontend is a separate origin (no BFF)."""
+    if not file_field:
+        return None
+    return request.build_absolute_uri(file_field.url)
 
 
 def _feed_item(student_lesson: StudentLesson) -> TutorFeedItemOut:
@@ -69,11 +80,116 @@ def list_assignments(request: HttpRequest):
         AssignmentOut(
             subject_id=a.subject_id,
             subject_name=a.subject.name,
+            subject_icon=_absolute_file_url(a.subject.icon, request),
             class_id=a.subject.school_class_id,
             class_name=a.subject.school_class.name,
         )
         for a in assignments
     ]
+
+
+@router.get('/subjects/{subject_id}/lessons', response=list[LessonOut], operation_id='list_tutor_subject_lessons')
+def list_subject_lessons(request: HttpRequest, subject_id: int):
+    """Plain curriculum content (no per-student status/grade) for the tutor's
+    Subject detail page — grouped client-side by topic and subject block."""
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    return (
+        Lesson.objects.filter(topic__subject_id=subject_id)
+        .select_related('topic__subject__school_class', 'topic__subject_block')
+        .prefetch_related('materials', 'quiz_questions__choices')
+        .order_by('topic__order_index', 'order_index')
+    )
+
+
+@router.get('/lessons/{lesson_id}', response=LessonOut, operation_id='get_tutor_lesson')
+def get_lesson(request: HttpRequest, lesson_id: int):
+    """Plain curriculum content for one lesson — same LessonOut shape the
+    student wizard renders, so the tutor's preview reuses LessonContent
+    as-is instead of a parallel renderer."""
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('topic__subject__school_class', 'topic__subject_block'), id=lesson_id
+    )
+    services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
+    return lesson
+
+
+@router.get(
+    '/lessons/{lesson_id}/students',
+    response=list[LessonStudentOut],
+    operation_id='list_tutor_lesson_students',
+)
+def list_lesson_students(request: HttpRequest, lesson_id: int):
+    lesson = get_object_or_404(Lesson.objects.select_related('topic'), id=lesson_id)
+    services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
+    student_lessons = (
+        StudentLesson.objects.filter(lesson_id=lesson_id)
+        .select_related('student__user')
+        .order_by('scheduled_date', 'student__user__first_name')
+    )
+    return [
+        LessonStudentOut(
+            student_lesson_id=sl.id,
+            student_name=sl.student.user.full_name or sl.student.user.email,
+            scheduled_date=sl.scheduled_date,
+            status=sl.status,
+        )
+        for sl in student_lessons
+    ]
+
+
+@router.get(
+    '/lessons/{lesson_id}/assignable-students',
+    response=list[TutorStudentOut],
+    operation_id='list_assignable_students',
+)
+def list_assignable_students(request: HttpRequest, lesson_id: int):
+    """Students in the lesson's class who don't already have a StudentLesson
+    for it — powers the "assign to student" picker on the tutor's lesson
+    detail page."""
+    lesson = get_object_or_404(Lesson.objects.select_related('topic__subject'), id=lesson_id)
+    services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
+    already_assigned_ids = StudentLesson.objects.filter(lesson_id=lesson_id).values_list('student_id', flat=True)
+    students = (
+        StudentProfile.objects.filter(school_class_id=lesson.topic.subject.school_class_id)
+        .exclude(id__in=already_assigned_ids)
+        .select_related('user', 'school_class')
+        .order_by('user__first_name', 'user__last_name')
+    )
+    return [
+        TutorStudentOut(
+            id=s.id,
+            name=s.user.full_name or s.user.email,
+            class_id=s.school_class_id,
+            class_name=s.school_class.name if s.school_class else '',
+        )
+        for s in students
+    ]
+
+
+@router.post(
+    '/lessons/{lesson_id}/assign',
+    response=LessonStudentOut,
+    operation_id='assign_lesson_to_student',
+)
+def assign_lesson_to_student(request: HttpRequest, lesson_id: int, payload: AssignStudentIn):
+    require_csrf(request)
+    lesson = get_object_or_404(Lesson.objects.select_related('topic__subject'), id=lesson_id)
+    services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
+    student = get_object_or_404(
+        StudentProfile.objects.select_related('user'),
+        id=payload.student_id,
+        school_class_id=lesson.topic.subject.school_class_id,
+    )
+    try:
+        student_lesson = lesson_services.assign_student(lesson, student, payload.scheduled_date)
+    except lesson_services.InvalidTransition as exc:
+        raise HttpError(409, str(exc)) from exc
+    return LessonStudentOut(
+        student_lesson_id=student_lesson.id,
+        student_name=student.user.full_name or student.user.email,
+        scheduled_date=student_lesson.scheduled_date,
+        status=student_lesson.status,
+    )
 
 
 @router.get('/students', response=list[TutorStudentOut])

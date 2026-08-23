@@ -30,7 +30,9 @@ router = Router(tags=['student-lessons'], auth=CookieOrBearerJWTAuth())
 
 def _get_owned(request: HttpRequest, student_lesson_id: int) -> StudentLesson:
     student_lesson = get_object_or_404(
-        StudentLesson.objects.select_related('lesson__topic__subject', 'lesson__topic__subject_block'),
+        StudentLesson.objects.select_related(
+            'lesson__topic__subject__school_class', 'lesson__topic__subject_block'
+        ),
         id=student_lesson_id,
     )
     ensure_is_owner_student(request, student_lesson)
