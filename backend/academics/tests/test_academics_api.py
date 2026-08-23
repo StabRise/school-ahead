@@ -117,6 +117,32 @@ def test_patch_subject_as_admin(api_client, auth_header, admin_user, subject):
     assert subject.blocks.count() == 4
 
 
+def test_get_subject_teacher_name_null_when_unassigned(api_client, auth_header, student_user, subject):
+    response = api_client.get(f'/academics/subjects/{subject.id}', headers=auth_header(student_user))
+    assert response.status_code == 200
+    assert response.data['teacher_name'] is None
+
+
+def test_get_subject_teacher_name_joins_active_tutors(api_client, auth_header, student_user, subject):
+    from accounts.models import TutorProfile
+    from tutoring.models import TutorSubjectAssignment
+
+    active_tutor = TutorProfile.objects.create(
+        user=User.objects.create_user(
+            email='smirnova@example.com', role=Role.TUTOR, first_name='А.', last_name='Смирнова',
+        )
+    )
+    inactive_tutor = TutorProfile.objects.create(
+        user=User.objects.create_user(email='inactive@example.com', role=Role.TUTOR, first_name='Old')
+    )
+    TutorSubjectAssignment.objects.create(tutor=active_tutor, subject=subject)
+    TutorSubjectAssignment.objects.create(tutor=inactive_tutor, subject=subject, is_active=False)
+
+    response = api_client.get(f'/academics/subjects/{subject.id}', headers=auth_header(student_user))
+    assert response.status_code == 200
+    assert response.data['teacher_name'] == 'А. Смирнова'
+
+
 def test_get_topic(api_client, auth_header, student_user, subject):
     topic = Topic.objects.create(subject=subject, title='Fractions', description='Numerators & co', order_index=1)
 

@@ -201,17 +201,20 @@ class CompletionProgressOut(Schema):
 
 
 class TopicLessonOut(Schema):
-    """One row of the Topic detail page's paginated lessons table — `id` is
-    the StudentLesson id (what the row links to), not the Lesson id.
-    subject_block_label is constant across every row (a Topic belongs to
-    exactly one SubjectBlock), included per-row for a "Subject block" table
-    column per docs/interfaces/student/subjects.md."""
+    """One row of the Topic detail page's paginated lessons table, and of the
+    Subject detail page's "Course plan" accordion — `id` is the StudentLesson
+    id (what the row links to), not the Lesson id. subject_block_label is
+    constant across every row (a Topic belongs to exactly one SubjectBlock),
+    included per-row for a "Subject block" table column per
+    docs/interfaces/student/subjects.md."""
 
     id: int
     lesson_id: int
     title: str
     order_index: int
     status: str
+    lesson_type: str
+    scheduled_date: datetime.date
     grade_points: int | None
     grade_result: str | None
     subject_block_label: str | None
@@ -229,5 +232,56 @@ class TopicLessonOut(Schema):
         return obj.lesson.order_index
 
     @staticmethod
+    def resolve_lesson_type(obj):
+        return obj.lesson.lesson_type
+
+    @staticmethod
     def resolve_subject_block_label(obj):
         return obj.lesson.topic.subject_block.label if obj.lesson.topic.subject_block else None
+
+
+class NextLessonOut(Schema):
+    """The student's next actionable lesson within a subject — the earliest
+    (by topic order, then lesson order) StudentLesson that isn't completed
+    yet. All lessons are always open (no unlocking/blocking), so this is a
+    suggestion for the Subject detail page's hero card, not a gate — see
+    docs/interfaces/student/subjects_list.md."""
+
+    id: int
+    lesson_id: int
+    title: str
+    status: str
+    lesson_type: str
+    scheduled_date: datetime.date
+    topic_id: int
+    topic_title: str
+    subject_block_label: str | None
+    task_content: str
+
+    @staticmethod
+    def resolve_lesson_id(obj):
+        return obj.lesson_id
+
+    @staticmethod
+    def resolve_title(obj):
+        return obj.lesson.title
+
+    @staticmethod
+    def resolve_lesson_type(obj):
+        return obj.lesson.lesson_type
+
+    @staticmethod
+    def resolve_topic_id(obj):
+        return obj.lesson.topic_id
+
+    @staticmethod
+    def resolve_topic_title(obj):
+        return obj.lesson.topic.title
+
+    @staticmethod
+    def resolve_subject_block_label(obj):
+        return obj.lesson.topic.subject_block.label if obj.lesson.topic.subject_block else None
+
+    @staticmethod
+    def resolve_task_content(obj):
+        return obj.lesson.task_content

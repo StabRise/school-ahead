@@ -277,6 +277,61 @@ def test_list_topic_lessons_includes_subject_block_label(api_client, auth_header
     assert response.data['items'][0]['subject_block_label'] == 'Semester 1'
 
 
+def test_get_next_lesson_returns_earliest_incomplete_in_curriculum_order(
+    api_client, auth_header, topic, student, student_lesson
+):
+    # student_lesson is topic/order_index=1 ("Understanding fractions"), still assigned.
+    later_topic = Topic.objects.create(subject=topic.subject, title='Decimals', order_index=2)
+    later_lesson = Lesson.objects.create(
+        topic=later_topic, order_index=1, title='Decimal basics',
+        lesson_type=LessonType.THEORY, grading_type='binary',
+    )
+    StudentLesson.objects.create(student=student, lesson=later_lesson, scheduled_date=datetime.date.today())
+
+    response = api_client.get(
+        f'/student-lessons/subjects/{topic.subject_id}/next-lesson', headers=auth_header(student.user)
+    )
+    assert response.status_code == 200
+    assert response.data['title'] == 'Understanding fractions'
+    assert response.data['topic_title'] == 'Fractions'
+    assert response.data['id'] == student_lesson.id
+
+
+def test_get_next_lesson_skips_completed_and_returns_next_in_order(
+    api_client, auth_header, topic, student, student_lesson
+):
+    from lessons import services
+
+    services.start(student_lesson, student.user)
+    services.confirm_understanding(student_lesson, student.user, understood=True)  # -> completed
+
+    lesson2 = Lesson.objects.create(
+        topic=topic, order_index=2, title='Second lesson',
+        lesson_type=LessonType.THEORY, grading_type='binary',
+    )
+    sl2 = StudentLesson.objects.create(student=student, lesson=lesson2, scheduled_date=datetime.date.today())
+
+    response = api_client.get(
+        f'/student-lessons/subjects/{topic.subject_id}/next-lesson', headers=auth_header(student.user)
+    )
+    assert response.status_code == 200
+    assert response.data['id'] == sl2.id
+    assert response.data['title'] == 'Second lesson'
+
+
+def test_get_next_lesson_null_when_everything_completed(api_client, auth_header, topic, student, student_lesson):
+    from lessons import services
+
+    services.start(student_lesson, student.user)
+    services.confirm_understanding(student_lesson, student.user, understood=True)
+
+    response = api_client.get(
+        f'/student-lessons/subjects/{topic.subject_id}/next-lesson', headers=auth_header(student.user)
+    )
+    assert response.status_code == 200
+    assert response.data is None
+
+
 def test_get_quiz_hint_returns_correct_choice(api_client, auth_header, topic, student):
     from lessons.models import LessonType, QuizChoice, QuizQuestion
 

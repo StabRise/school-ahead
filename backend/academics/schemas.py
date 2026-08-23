@@ -47,6 +47,7 @@ class SubjectOut(Schema):
     due_date: datetime.date
     blocks: list[SubjectBlockOut]
     icon: str | None
+    teacher_name: str | None
 
     @staticmethod
     def resolve_blocks(obj):
@@ -55,6 +56,16 @@ class SubjectOut(Schema):
     @staticmethod
     def resolve_icon(obj, context):
         return _absolute_file_url(obj.icon, context)
+
+    @staticmethod
+    def resolve_teacher_name(obj):
+        # A subject can have multiple active tutors (tutoring.TutorSubjectAssignment
+        # is a M2M join, not a single FK) — join their display names.
+        names = [
+            assignment.tutor.user.full_name or assignment.tutor.user.email
+            for assignment in obj.tutor_assignments.filter(is_active=True).select_related('tutor__user')
+        ]
+        return ', '.join(names) or None
 
 
 class TopicOut(Schema):

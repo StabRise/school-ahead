@@ -10,12 +10,13 @@ from common.csrf import require_csrf
 from common.permissions import ensure_is_owner_student, get_own_student_profile
 
 from . import services
-from .models import QuizQuestion, StudentLesson
+from .models import QuizQuestion, StudentLesson, StudentLessonStatus
 from .schemas import (
     AddCommentIn,
     CompletionProgressOut,
     ConfirmUnderstandingIn,
     LessonCommentOut,
+    NextLessonOut,
     QuizHintOut,
     RequestHelpIn,
     StudentLessonOut,
@@ -219,4 +220,24 @@ def list_topic_lessons(request: HttpRequest, topic_id: int):
         StudentLesson.objects.filter(student=student, lesson__topic_id=topic_id)
         .select_related('lesson__topic__subject_block')
         .order_by('lesson__order_index')
+    )
+
+
+@router.get(
+    '/subjects/{subject_id}/next-lesson',
+    response=NextLessonOut | None,
+    operation_id='get_next_lesson',
+)
+def get_next_lesson(request: HttpRequest, subject_id: int):
+    """The earliest not-yet-completed lesson in curriculum order — powers the
+    Subject detail page's "next lesson" hero card. Returns null once every
+    lesson in the subject is completed. See
+    docs/interfaces/student/subjects_list.md."""
+    student = get_own_student_profile(request)
+    return (
+        StudentLesson.objects.filter(student=student, lesson__topic__subject_id=subject_id)
+        .exclude(status=StudentLessonStatus.COMPLETED)
+        .select_related('lesson__topic__subject_block')
+        .order_by('lesson__topic__order_index', 'lesson__order_index')
+        .first()
     )
