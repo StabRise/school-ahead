@@ -8,8 +8,16 @@ from lessons.schemas import LessonSubmissionOut
 class AssignmentOut(Schema):
     subject_id: int
     subject_name: str
+    subject_icon: str | None
     class_id: int
     class_name: str
+
+
+class LessonStudentOut(Schema):
+    student_lesson_id: int
+    student_name: str
+    scheduled_date: datetime.date
+    status: str
 
 
 class TutorFeedItemOut(Schema):

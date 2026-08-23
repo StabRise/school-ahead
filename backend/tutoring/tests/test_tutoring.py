@@ -253,3 +253,80 @@ class TestComments:
             f'/tutor/submissions/{sl.id}/comments', json={'body': 'hi'}, headers=auth_header(tutor.user)
         )
         assert response.status_code == 403
+
+
+class TestSubjectLessons:
+    def test_list_subject_lessons(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+
+        response = api_client.get(f'/tutor/subjects/{subject.id}/lessons', headers=auth_header(tutor.user))
+        assert response.status_code == 200
+        assert len(response.data) == 1
+        item = response.data[0]
+        assert item['title'] == 'Intro'
+        assert item['topic_title'] == 'Fractions'
+        assert item['subject_name'] == subject.name
+
+    def test_list_subject_lessons_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+
+        response = api_client.get(f'/tutor/subjects/{subject.id}/lessons', headers=auth_header(tutor.user))
+        assert response.status_code == 403
+
+
+class TestLessonDetail:
+    def test_get_lesson(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+
+        response = api_client.get(f'/tutor/lessons/{lesson.id}', headers=auth_header(tutor.user))
+        assert response.status_code == 200
+        assert response.data['title'] == 'Intro'
+        assert response.data['subject_name'] == subject.name
+
+    def test_get_lesson_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+
+        response = api_client.get(f'/tutor/lessons/{lesson.id}', headers=auth_header(tutor.user))
+        assert response.status_code == 403
+
+    def test_list_lesson_students(self, api_client, auth_header, tutor, subject, student, other_student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+            status=StudentLessonStatus.ASSIGNED,
+        )
+        StudentLesson.objects.create(
+            student=other_student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 12),
+            status=StudentLessonStatus.COMPLETED,
+        )
+
+        response = api_client.get(f'/tutor/lessons/{lesson.id}/students', headers=auth_header(tutor.user))
+        assert response.status_code == 200
+        assert len(response.data) == 2
+        assert response.data[0]['scheduled_date'] == '2026-01-10'
+        assert response.data[0]['student_name'] == student.user.email
+        assert response.data[1]['status'] == StudentLessonStatus.COMPLETED
+
+    def test_list_lesson_students_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+
+        response = api_client.get(f'/tutor/lessons/{lesson.id}/students', headers=auth_header(tutor.user))
+        assert response.status_code == 403

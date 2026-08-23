@@ -23,6 +23,7 @@
     "myProfile": "Мій профіль",
     "todayLessons": "Уроки сьогодні",
     "calendar": "Календар",
+    "tutorDashboard": "Панель тьютора",
     "preschoolMode": "Дитячий режим"
   },
   "Home": {
@@ -61,6 +62,29 @@
     "pendingReviewTitle": "На перевірці",
     "pendingReviewEmpty": "Робіт на перевірку немає.",
     "error": "Не вдалося завантажити дані. Спробуйте ще раз."
+  },
+  "TutorSubjects": {
+    "title": "Мої предмети",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити предмети. Спробуйте ще раз.",
+    "empty": "Вам ще не призначено жодного предмета."
+  },
+  "TutorSubjectDetail": {
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити предмет. Спробуйте ще раз.",
+    "breadcrumbMySubjects": "Мої предмети",
+    "noTopics": "Тем ще немає.",
+    "noLessonsInTopic": "У цій темі ще немає уроків."
+  },
+  "TutorLessonDetail": {
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити урок. Спробуйте ще раз.",
+    "breadcrumbMySubjects": "Мої предмети",
+    "taskContentTitle": "Завдання",
+    "quizQuestionsTitle": "Питання квізу",
+    "quizQuestionRow": "Питання {index}",
+    "studentsTitle": "Учні",
+    "noStudents": "Цей урок ще нікому не призначено."
   },
   "SubmissionReview": {
     "back": "← До панелі тьютора",
