@@ -69,5 +69,4 @@ class TopicAdmin(admin.ModelAdmin):
     list_display = ("title", "subject", "order_index", "subject_block", "created_at")
     list_filter = ("subject__school_class", "subject", "subject_block")
     search_fields = ("title", "description", "subject__name")
-    readonly_fields = ("subject_block",)
     ordering = ("subject", "order_index")
