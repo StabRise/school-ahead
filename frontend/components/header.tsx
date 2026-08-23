@@ -43,6 +43,19 @@ function Avatar({
   );
 }
 
+// Earned via lesson completion — see docs/core/progress.md section 2.
+function DiamondBadge({ count }: { count: number }) {
+  const t = useTranslations("Header");
+  return (
+    <span
+      aria-label={t("diamondBalance", { count })}
+      className="flex items-center gap-1 rounded-full bg-cyan-50 px-2 py-1 text-xs font-semibold text-cyan-700"
+    >
+      💎 {count}
+    </span>
+  );
+}
+
 function BrandIcon() {
   return (
     <svg
@@ -106,84 +119,89 @@ export function Header() {
       </div>
 
       {user ? (
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger asChild>
-            <button
-              type="button"
-              aria-label={t("userMenu")}
-              className="rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-            >
-              <Avatar
-                name={user.name}
-                email={user.email}
-                avatarUrl={user.avatarUrl}
-                equippedAvatarImage={user.equippedAvatar?.image}
-              />
-            </button>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content
-              align="end"
-              sideOffset={8}
-              className="min-w-56 rounded-md border border-gray-200 bg-white p-1 shadow-lg"
-            >
-              <div className="px-3 py-2">
-                <p className="text-sm font-medium text-gray-900">{user.name || user.email}</p>
-                <p className="text-xs text-gray-500">{user.email}</p>
-              </div>
-              <DropdownMenu.Separator className="my-1 h-px bg-gray-200" />
-              {user.role === "student" && (
-                <>
-                  <DropdownMenu.Item asChild>
-                    <Link
-                      href="/subjects"
-                      className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
-                    >
-                      {t("mySubjects")}
-                    </Link>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item asChild>
-                    <Link
-                      href="/profile"
-                      className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
-                    >
-                      {t("myProfile")}
-                    </Link>
-                  </DropdownMenu.Item>
-                  <PreschoolModeToggle />
-                  <DropdownMenu.Separator className="my-1 h-px bg-gray-200" />
-                </>
-              )}
-              {user.role === "tutor" && (
-                <>
-                  <DropdownMenu.Item asChild>
-                    <Link
-                      href="/tutor/subjects"
-                      className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
-                    >
-                      {t("mySubjects")}
-                    </Link>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item asChild>
-                    <Link
-                      href="/tutor/classes"
-                      className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
-                    >
-                      {t("myClasses")}
-                    </Link>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Separator className="my-1 h-px bg-gray-200" />
-                </>
-              )}
-              <DropdownMenu.Item
-                onSelect={handleLogout}
-                className="cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
+        <div className="flex items-center gap-3">
+          {user.role === "student" && user.diamondBalance !== null && (
+            <DiamondBadge count={user.diamondBalance} />
+          )}
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+              <button
+                type="button"
+                aria-label={t("userMenu")}
+                className="rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
               >
-                {t("logout")}
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        </DropdownMenu.Root>
+                <Avatar
+                  name={user.name}
+                  email={user.email}
+                  avatarUrl={user.avatarUrl}
+                  equippedAvatarImage={user.equippedAvatar?.image}
+                />
+              </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                align="end"
+                sideOffset={8}
+                className="min-w-56 rounded-md border border-gray-200 bg-white p-1 shadow-lg"
+              >
+                <div className="px-3 py-2">
+                  <p className="text-sm font-medium text-gray-900">{user.name || user.email}</p>
+                  <p className="text-xs text-gray-500">{user.email}</p>
+                </div>
+                <DropdownMenu.Separator className="my-1 h-px bg-gray-200" />
+                {user.role === "student" && (
+                  <>
+                    <DropdownMenu.Item asChild>
+                      <Link
+                        href="/subjects"
+                        className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
+                      >
+                        {t("mySubjects")}
+                      </Link>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item asChild>
+                      <Link
+                        href="/profile"
+                        className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
+                      >
+                        {t("myProfile")}
+                      </Link>
+                    </DropdownMenu.Item>
+                    <PreschoolModeToggle />
+                    <DropdownMenu.Separator className="my-1 h-px bg-gray-200" />
+                  </>
+                )}
+                {user.role === "tutor" && (
+                  <>
+                    <DropdownMenu.Item asChild>
+                      <Link
+                        href="/tutor/subjects"
+                        className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
+                      >
+                        {t("mySubjects")}
+                      </Link>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item asChild>
+                      <Link
+                        href="/tutor/classes"
+                        className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
+                      >
+                        {t("myClasses")}
+                      </Link>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Separator className="my-1 h-px bg-gray-200" />
+                  </>
+                )}
+                <DropdownMenu.Item
+                  onSelect={handleLogout}
+                  className="cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
+                >
+                  {t("logout")}
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
+        </div>
       ) : (
         <Link
           href="/login"

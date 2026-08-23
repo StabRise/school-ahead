@@ -25,7 +25,8 @@
     "todayLessons": "Уроки сьогодні",
     "calendar": "Календар",
     "tutorDashboard": "Панель тьютора",
-    "preschoolMode": "Дитячий режим"
+    "preschoolMode": "Дитячий режим",
+    "diamondBalance": "{count, plural, one {# діамант} few {# діаманти} many {# діамантів} other {# діаманта}}"
   },
   "Home": {
     "welcomeBack": "З поверненням, {name}!",

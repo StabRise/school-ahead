@@ -20,6 +20,7 @@ describe("useAuthStore", () => {
       avatarUrl: "",
       interfaceMode: "default" as const,
       equippedAvatar: null,
+      diamondBalance: null,
     };
 
     useAuthStore.getState().setUser(user);

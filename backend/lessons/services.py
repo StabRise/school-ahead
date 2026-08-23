@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.db.models import QuerySet
+from django.db.models import F, QuerySet
 from django.utils import timezone
 
 from accounts.models import StudentProfile, User
@@ -18,6 +18,13 @@ from .models import (
 )
 
 QUIZ_PASS_THRESHOLD_PERCENT = 60
+
+# Diamond reward for completing a lesson — see docs/core/progress.md
+# section 2. This is intentionally the simple StudentProfile.diamond_
+# balance_cache counter, not the append-only ledger docs/architecture/
+# 02-data-model.md decision 3 describes; see that doc's note for the gap.
+LESSON_COMPLETION_DIAMONDS = 1
+LESSON_COMPLETION_AHEAD_DIAMONDS = 2
 
 
 class InvalidTransition(Exception):
@@ -53,6 +60,19 @@ def _score_to_grade_points(score_percent: Decimal) -> int:
     return max(1, min(12, points))
 
 
+def _award_completion_diamonds(student_lesson: StudentLesson) -> None:
+    """+1 diamond for completing on/after the scheduled date, +2 if
+    completed strictly before it — the same "ahead" condition
+    scheduling.api's CalendarItemOut.is_completed_ahead already uses. An
+    atomic F() update, since this can run concurrently with other requests
+    touching the same StudentProfile."""
+    is_ahead = student_lesson.completed_at.date() < student_lesson.scheduled_date
+    amount = LESSON_COMPLETION_AHEAD_DIAMONDS if is_ahead else LESSON_COMPLETION_DIAMONDS
+    StudentProfile.objects.filter(pk=student_lesson.student_id).update(
+        diamond_balance_cache=F('diamond_balance_cache') + amount
+    )
+
+
 def mark_completed(
     student_lesson: StudentLesson,
     actor: User,
@@ -64,9 +84,8 @@ def mark_completed(
     student_lesson.completed_at = timezone.now()
     student_lesson.grade_points = grade_points
     student_lesson.grade_result = grade_result
-    # No diamond-ledger side effect this pass — gamification (`progress` app)
-    # is explicitly deferred.
     student_lesson.save()
+    _award_completion_diamonds(student_lesson)
 
 
 def start(student_lesson: StudentLesson, actor: User) -> None:

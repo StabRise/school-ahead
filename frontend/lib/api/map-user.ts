@@ -10,6 +10,7 @@ export function mapApiUserToAuthUser(user: UserOut): AuthUser {
     locale: user.locale,
     avatarUrl: user.avatar_url,
     interfaceMode: (user.interface_mode as AuthUser["interfaceMode"]) ?? null,
+    diamondBalance: user.diamond_balance ?? null,
     equippedAvatar: user.equipped_avatar
       ? {
           id: user.equipped_avatar.id,

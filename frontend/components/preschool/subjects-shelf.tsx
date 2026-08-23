@@ -42,12 +42,12 @@ function Book({ subject }: { subject: SubjectOut }) {
           aria-hidden="true"
         />
         <div
-          className={`relative z-10 flex h-32 w-24 flex-col items-center rounded-t-xl rounded-b-md bg-gradient-to-b pt-3 shadow-lg transition-transform group-hover:-translate-y-1 group-active:scale-95 sm:w-28 ${color}`}
+          className={`relative z-10 flex h-40 w-24 flex-col items-center rounded-t-xl rounded-b-md bg-gradient-to-b pt-3 shadow-lg transition-transform group-hover:-translate-y-1 group-active:scale-95 sm:w-28 ${color}`}
         >
           <span className="absolute bottom-2 left-2 top-2 w-[3px] rounded bg-white/30" aria-hidden="true" />
           <span className="absolute bottom-2 left-4 top-2 w-[2px] rounded bg-white/20" aria-hidden="true" />
 
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/80 bg-white shadow">
+          <span className="mr-2 flex h-20 w-20 shrink-0 items-center justify-center self-end overflow-hidden rounded-xl border-2 border-white/80 bg-white shadow">
             {subject.icon ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={subject.icon} alt="" className="h-full w-full object-cover" />

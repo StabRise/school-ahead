@@ -38,12 +38,12 @@ def tutor_user():
     return User.objects.create_user(email='tutor@example.com', role=Role.TUTOR)
 
 
-def _new_student_lesson(topic, lesson_type, student, grading_type='points'):
+def _new_student_lesson(topic, lesson_type, student, grading_type='points', scheduled_date=None, order_index=1):
     lesson = Lesson.objects.create(
-        topic=topic, order_index=1, title='Lesson', lesson_type=lesson_type, grading_type=grading_type
+        topic=topic, order_index=order_index, title='Lesson', lesson_type=lesson_type, grading_type=grading_type
     )
     return StudentLesson.objects.create(
-        student=student, lesson=lesson, scheduled_date=datetime.date.today()
+        student=student, lesson=lesson, scheduled_date=scheduled_date or datetime.date.today()
     )
 
 
@@ -333,3 +333,52 @@ class TestSyncScheduledLesson:
             student, sl.lesson, datetime.date.today() + datetime.timedelta(days=30)
         )
         assert result.scheduled_date == manual_date
+
+
+class TestDiamondRewards:
+    def test_on_time_completion_awards_one_diamond(self, topic, student):
+        sl = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        services.start(sl, student.user)
+        services.confirm_understanding(sl, student.user, True)
+
+        student.refresh_from_db()
+        assert student.diamond_balance_cache == 1
+
+    def test_ahead_of_schedule_completion_awards_two_diamonds(self, topic, student):
+        tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+        sl = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary', scheduled_date=tomorrow)
+        services.start(sl, student.user)
+        services.confirm_understanding(sl, student.user, True)
+
+        student.refresh_from_db()
+        assert student.diamond_balance_cache == 2
+
+    def test_diamonds_accumulate_across_lessons(self, topic, student):
+        first = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        services.start(first, student.user)
+        services.confirm_understanding(first, student.user, True)
+
+        second = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary', order_index=2)
+        services.start(second, student.user)
+        services.confirm_understanding(second, student.user, True)
+
+        student.refresh_from_db()
+        assert student.diamond_balance_cache == 2
+
+    def test_tutor_grading_completion_also_awards_diamonds(self, topic, student, tutor_user):
+        sl = _new_student_lesson(topic, LessonType.WITH_TASK, student)
+        services.start(sl, student.user)
+        services.submit_task(sl, student.user, comment='done')
+        services.grade_submission(sl, tutor_user, grade_points=10)
+
+        student.refresh_from_db()
+        assert student.diamond_balance_cache == 1
+
+    def test_completing_a_backlog_lesson_late_still_awards_one_diamond(self, topic, student):
+        yesterday = datetime.date.today() - datetime.timedelta(days=1)
+        sl = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary', scheduled_date=yesterday)
+        services.start(sl, student.user)
+        services.confirm_understanding(sl, student.user, True)
+
+        student.refresh_from_db()
+        assert student.diamond_balance_cache == 1

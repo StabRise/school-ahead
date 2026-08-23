@@ -4,7 +4,7 @@ Gaps and assumptions this architecture makes beyond what `/docs` specifies. Each
 
 - **Parent features.** `/docs` only names "debt tracking" and "automated reporting" as personas/future goals with zero field-level detail (`docs/core/core.md`). This design models only a minimal `ParentProfile` + `ParentStudentLink` for domain coherence — no Parent-facing API/UI beyond a stub route is designed.
 
-- **Diamond formula.** No exact earning formula is documented for lesson completion, working ahead, or semester closure. `DiamondLedgerEntry.amount`/`reason` are pluggable; the actual point values are an open product decision.
+- **Diamond formula.** ~~No exact earning formula is documented for lesson completion, working ahead, or semester closure.~~ — partially resolved: lesson completion now awards +1 diamond on time / +2 if completed ahead of `scheduled_date` (`lessons.services.mark_completed`, see `docs/core/progress.md` section 2). This was implemented directly against `StudentProfile.diamond_balance_cache`, not the `DiamondLedgerEntry` ledger this doc and `02-data-model.md` (decision 3) describe — that app doesn't exist yet, so there's no per-award audit trail or correction support. Semester-closure bonuses remain undecided.
 
 - **Real-time delivery.** The tutor's Need-Help feed needs near-real-time visibility with no transport specified. This design defaults to React Query polling; WebSocket/SSE/Django Channels is a future upgrade path.
 
