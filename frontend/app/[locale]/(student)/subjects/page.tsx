@@ -1,5 +1,5 @@
-import { MySubjectsPage } from "@/components/subjects/my-subjects-page";
+import { StudentSubjectsView } from "@/components/subjects/student-subjects-view";
 
 export default function SubjectsPage() {
-  return <MySubjectsPage />;
+  return <StudentSubjectsView />;
 }

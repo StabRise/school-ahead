@@ -184,7 +184,8 @@
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити предмети. Спробуйте ще раз.",
     "empty": "Предметів ще немає.",
-    "blocksCount": "{count, plural, one {# семестр} few {# семестри} many {# семестрів} other {# семестра}}"
+    "blocksCount": "{count, plural, one {# семестр} few {# семестри} many {# семестрів} other {# семестра}}",
+    "progressLabel": "Прогрес"
   },
   "Profile": {
     "title": "Мій профіль",
@@ -195,14 +196,26 @@
   "SubjectDetail": {
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити предмет. Спробуйте ще раз.",
-    "tabOverview": "Огляд",
-    "tabResources": "Рекомендовані матеріали",
-    "tabTopics": "Теми",
-    "progressLabel": "Прогрес завершення",
-    "noDescription": "Опис ще не додано.",
-    "noResources": "Рекомендованих матеріалів ще немає.",
+    "breadcrumbMySubjects": "Мої предмети",
+    "teacherLabel": "Вчитель",
+    "courseProgressLabel": "Прогрес курсу",
+    "aboutSubject": "Про предмет",
+    "recommendedResources": "Рекомендовані матеріали",
+    "today": "Сьогодні",
+    "nextLessonLabel": "Наступний урок",
+    "goToLesson": "Перейти до уроку",
+    "homeworkLabel": "Домашнє завдання",
+    "allLessonsCompleted": "Усі уроки цього предмета пройдено! 🎉",
+    "contentTheory": "Теорія",
+    "contentQuiz": "Квіз",
+    "contentTask": "Завдання",
+    "coursePlan": "План курсу",
+    "expandAll": "Розгорнути все",
+    "collapseAll": "Згорнути все",
     "noTopics": "Тем ще немає.",
-    "lessonsCount": "{count, plural, one {# урок} few {# уроки} many {# уроків} other {# уроку}}"
+    "noLessonsInTopic": "У цій темі ще немає уроків.",
+    "lessonsProgress": "{completed}/{total} уроків пройдено",
+    "lessonRow": "Урок №{index}: {title}"
   },
   "TopicDetail": {
     "loading": "Завантаження...",
@@ -245,5 +258,11 @@
     "title": "Хвостики",
     "hint": "Ці уроки чекають на тебе",
     "origin": "Мало бути: {label}"
+  },
+  "PreschoolSubjects": {
+    "title": "Полиця з книжками",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити предмети.",
+    "empty": "Книжок на полиці ще немає."
   }
 }

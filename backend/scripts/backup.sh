@@ -13,7 +13,9 @@ else
 fi
 
 LOCAL_BACKUP_PATH="/tmp/backups/${BACKUP_FILENAME}"
-S3_BACKUP_PATH="s3://${S3_BUCKET}/${S3_FOLDER}/${BACKUP_FILENAME}"
+# "backup" is the mc alias entrypoint.sh configures for S3_ENDPOINT (or AWS
+# S3 if unset) — see entrypoint.sh.
+S3_BACKUP_PATH="backup/${S3_BUCKET}/${S3_FOLDER}/${BACKUP_FILENAME}"
 
 # Log function
 log() {
@@ -50,7 +52,7 @@ case "$COMPRESSION_CMD" in
         COMPRESS="zstd -3"
         BACKUP_FILENAME="backup_${TIMESTAMP}.sql.zst"
         LOCAL_BACKUP_PATH="/tmp/backups/${BACKUP_FILENAME}"
-        S3_BACKUP_PATH="s3://${S3_BUCKET}/${S3_FOLDER}/${BACKUP_FILENAME}"
+        S3_BACKUP_PATH="backup/${S3_BUCKET}/${S3_FOLDER}/${BACKUP_FILENAME}"
         ;;
     *)
         log "WARNING: Unknown compression '${COMPRESSION_CMD}', defaulting to pigz"
@@ -99,38 +101,16 @@ log "Backup size: ${backup_size}"
 
 # Upload to S3
 log "Uploading to S3..."
-if [ -n "${S3_ENDPOINT}" ]; then
-    ENDPOINT_URL="--endpoint-url=${S3_ENDPOINT}"
-    log "Using S3 endpoint: ${S3_ENDPOINT}"
-else
-    ENDPOINT_URL=""
-fi
-
-aws s3 cp "${LOCAL_BACKUP_PATH}" "${S3_BACKUP_PATH}" \
-    ${ENDPOINT_URL} \
-    --region "${S3_REGION:-us-east-1}" \
-    || error_exit "S3 upload failed"
-
+mc cp "${LOCAL_BACKUP_PATH}" "${S3_BACKUP_PATH}" || error_exit "S3 upload failed"
 log "Upload completed successfully!"
 
-# Cleanup old backups
+# Cleanup old backups. mc's own --older-than does this correctly in one
+# call — no manual date parsing needed.
 if [ -n "${BACKUP_KEEP_DAYS}" ]; then
     log "Cleaning up backups older than ${BACKUP_KEEP_DAYS} days..."
-    OLD_BACKUPS=$(aws s3 ls "s3://${S3_BUCKET}/${S3_FOLDER}/" ${ENDPOINT_URL} \
-        --region "${S3_REGION:-us-east-1}" | \
-        awk -v date="$(date -d '-${BACKUP_KEEP_DAYS} days' '+%Y%m%d')" '$1 < date {print $2}' || true)
-
-    if [ -n "$OLD_BACKUPS" ]; then
-        echo "$OLD_BACKUPS" | while read -r backup_file; do
-            backup_file=$(echo "$backup_file" | tr -d '/')
-            log "Deleting old backup: ${backup_file}"
-            aws s3 rm "s3://${S3_BUCKET}/${S3_FOLDER}/${backup_file}" ${ENDPOINT_URL} \
-                --region "${S3_REGION:-us-east-1}" || log "WARNING: Failed to delete ${backup_file}"
-        done
-        log "Old backup cleanup completed"
-    else
-        log "No old backups to clean up"
-    fi
+    mc rm --recursive --force --older-than "${BACKUP_KEEP_DAYS}d" "backup/${S3_BUCKET}/${S3_FOLDER}/" \
+        || log "WARNING: Old backup cleanup failed"
+    log "Old backup cleanup completed"
 fi
 
 # Cleanup local backup
