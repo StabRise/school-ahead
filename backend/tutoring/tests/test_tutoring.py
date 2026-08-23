@@ -290,6 +290,7 @@ class TestLessonDetail:
         assert response.status_code == 200
         assert response.data['title'] == 'Intro'
         assert response.data['subject_name'] == subject.name
+        assert response.data['class_name'] == subject.school_class.name
 
     def test_get_lesson_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
         topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
@@ -330,3 +331,96 @@ class TestLessonDetail:
 
         response = api_client.get(f'/tutor/lessons/{lesson.id}/students', headers=auth_header(tutor.user))
         assert response.status_code == 403
+
+
+class TestAssignStudent:
+    def test_list_assignable_students_excludes_already_assigned(
+        self, api_client, auth_header, tutor, subject, student, other_student
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+        )
+
+        response = api_client.get(
+            f'/tutor/lessons/{lesson.id}/assignable-students', headers=auth_header(tutor.user)
+        )
+        assert response.status_code == 200
+        names = {item['name'] for item in response.data}
+        assert names == {other_student.user.email}
+
+    def test_assign_lesson_to_student(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+
+        response = api_client.post(
+            f'/tutor/lessons/{lesson.id}/assign',
+            json={'student_id': student.id, 'scheduled_date': '2026-02-01'},
+            headers=auth_header(tutor.user),
+        )
+        assert response.status_code == 200
+        assert response.data['student_name'] == student.user.email
+        assert response.data['scheduled_date'] == '2026-02-01'
+        assert response.data['status'] == StudentLessonStatus.ASSIGNED
+
+        sl = StudentLesson.objects.get(student=student, lesson=lesson)
+        assert sl.is_manually_scheduled is True
+
+    def test_assign_lesson_to_already_assigned_student_conflicts(
+        self, api_client, auth_header, tutor, subject, student
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        StudentLesson.objects.create(student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10))
+
+        response = api_client.post(
+            f'/tutor/lessons/{lesson.id}/assign',
+            json={'student_id': student.id, 'scheduled_date': '2026-02-01'},
+            headers=auth_header(tutor.user),
+        )
+        assert response.status_code == 409
+
+    def test_assign_lesson_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject, student):
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+
+        response = api_client.post(
+            f'/tutor/lessons/{lesson.id}/assign',
+            json={'student_id': student.id, 'scheduled_date': '2026-02-01'},
+            headers=auth_header(tutor.user),
+        )
+        assert response.status_code == 403
+
+    def test_assign_lesson_rejected_for_student_outside_class(
+        self, api_client, auth_header, tutor, subject, school_class
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        other_school = School.objects.create(name='Other School')
+        other_class = Class.objects.create(
+            school=other_school, name='9', order_index=9, academic_year='2025/2026'
+        )
+        outside_user = User.objects.create_user(email='outside@example.com', role=Role.STUDENT)
+        outside_student = StudentProfile.objects.create(user=outside_user, school_class=other_class)
+
+        response = api_client.post(
+            f'/tutor/lessons/{lesson.id}/assign',
+            json={'student_id': outside_student.id, 'scheduled_date': '2026-02-01'},
+            headers=auth_header(tutor.user),
+        )
+        assert response.status_code == 404

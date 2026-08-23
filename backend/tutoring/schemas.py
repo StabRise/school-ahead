@@ -65,3 +65,8 @@ class ResolveNeedHelpIn(Schema):
     grade_points: int | None = None
     grade_result: str | None = None
     feedback: str = ''
+
+
+class AssignStudentIn(Schema):
+    student_id: int
+    scheduled_date: datetime.date

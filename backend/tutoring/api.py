@@ -4,6 +4,7 @@ from ninja import Router
 from ninja.errors import HttpError
 from ninja.pagination import paginate
 
+from accounts.models import StudentProfile
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
 from lessons import services as lesson_services
@@ -14,6 +15,7 @@ from . import services
 from .models import TutorSubjectAssignment
 from .schemas import (
     AssignmentOut,
+    AssignStudentIn,
     GradeIn,
     LessonStudentOut,
     RequestRevisionIn,
@@ -93,7 +95,7 @@ def list_subject_lessons(request: HttpRequest, subject_id: int):
     services.ensure_is_tutor_for_subject(request, subject_id)
     return (
         Lesson.objects.filter(topic__subject_id=subject_id)
-        .select_related('topic__subject', 'topic__subject_block')
+        .select_related('topic__subject__school_class', 'topic__subject_block')
         .prefetch_related('materials', 'quiz_questions__choices')
         .order_by('topic__order_index', 'order_index')
     )
@@ -105,7 +107,7 @@ def get_lesson(request: HttpRequest, lesson_id: int):
     student wizard renders, so the tutor's preview reuses LessonContent
     as-is instead of a parallel renderer."""
     lesson = get_object_or_404(
-        Lesson.objects.select_related('topic__subject', 'topic__subject_block'), id=lesson_id
+        Lesson.objects.select_related('topic__subject__school_class', 'topic__subject_block'), id=lesson_id
     )
     services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
     return lesson
@@ -133,6 +135,61 @@ def list_lesson_students(request: HttpRequest, lesson_id: int):
         )
         for sl in student_lessons
     ]
+
+
+@router.get(
+    '/lessons/{lesson_id}/assignable-students',
+    response=list[TutorStudentOut],
+    operation_id='list_assignable_students',
+)
+def list_assignable_students(request: HttpRequest, lesson_id: int):
+    """Students in the lesson's class who don't already have a StudentLesson
+    for it — powers the "assign to student" picker on the tutor's lesson
+    detail page."""
+    lesson = get_object_or_404(Lesson.objects.select_related('topic__subject'), id=lesson_id)
+    services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
+    already_assigned_ids = StudentLesson.objects.filter(lesson_id=lesson_id).values_list('student_id', flat=True)
+    students = (
+        StudentProfile.objects.filter(school_class_id=lesson.topic.subject.school_class_id)
+        .exclude(id__in=already_assigned_ids)
+        .select_related('user', 'school_class')
+        .order_by('user__first_name', 'user__last_name')
+    )
+    return [
+        TutorStudentOut(
+            id=s.id,
+            name=s.user.full_name or s.user.email,
+            class_id=s.school_class_id,
+            class_name=s.school_class.name if s.school_class else '',
+        )
+        for s in students
+    ]
+
+
+@router.post(
+    '/lessons/{lesson_id}/assign',
+    response=LessonStudentOut,
+    operation_id='assign_lesson_to_student',
+)
+def assign_lesson_to_student(request: HttpRequest, lesson_id: int, payload: AssignStudentIn):
+    require_csrf(request)
+    lesson = get_object_or_404(Lesson.objects.select_related('topic__subject'), id=lesson_id)
+    services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
+    student = get_object_or_404(
+        StudentProfile.objects.select_related('user'),
+        id=payload.student_id,
+        school_class_id=lesson.topic.subject.school_class_id,
+    )
+    try:
+        student_lesson = lesson_services.assign_student(lesson, student, payload.scheduled_date)
+    except lesson_services.InvalidTransition as exc:
+        raise HttpError(409, str(exc)) from exc
+    return LessonStudentOut(
+        student_lesson_id=student_lesson.id,
+        student_name=student.user.full_name or student.user.email,
+        scheduled_date=student_lesson.scheduled_date,
+        status=student_lesson.status,
+    )
 
 
 @router.get('/students', response=list[TutorStudentOut])

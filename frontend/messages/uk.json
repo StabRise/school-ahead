@@ -80,11 +80,20 @@
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити урок. Спробуйте ще раз.",
     "breadcrumbMySubjects": "Мої предмети",
+    "breadcrumbLessonRow": "Урок {index}: «{title}»",
     "taskContentTitle": "Завдання",
     "quizQuestionsTitle": "Питання квізу",
     "quizQuestionRow": "Питання {index}",
     "studentsTitle": "Учні",
-    "noStudents": "Цей урок ще нікому не призначено."
+    "noStudents": "Цей урок ще нікому не призначено.",
+    "assignToStudentButton": "Призначити учню",
+    "assignStudentLabel": "Учень",
+    "assignStudentPlaceholder": "Оберіть учня",
+    "assignDateLabel": "Дата",
+    "assignButton": "Призначити",
+    "cancelButton": "Скасувати",
+    "assignError": "Не вдалося призначити урок. Спробуйте ще раз.",
+    "noAssignableStudents": "Усі учні цього класу вже мають цей урок."
   },
   "SubmissionReview": {
     "back": "← До панелі тьютора",
