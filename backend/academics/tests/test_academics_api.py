@@ -225,6 +225,57 @@ def test_assign_topics_to_blocks_remainder_goes_to_first_block(subject):
     ]
 
 
+def test_assign_topics_to_blocks_preserves_manually_pinned_topic(subject):
+    from academics import services
+
+    subject.block_count = 2
+    subject.save()
+    services.ensure_subject_blocks(subject)
+    topics = [Topic.objects.create(subject=subject, title=f'T{i}', order_index=i) for i in range(1, 5)]
+    services.assign_topics_to_blocks(subject)
+
+    blocks_by_index = {b.index: b for b in subject.blocks.all()}
+    # Pin the first topic (naturally in block 1) to block 2 instead.
+    pinned = topics[0]
+    pinned.subject_block = blocks_by_index[2]
+    pinned.subject_block_manually_set = True
+    pinned.save(update_fields=['subject_block', 'subject_block_manually_set'])
+
+    # A later topic/block change elsewhere in the subject triggers a recompute.
+    Topic.objects.create(subject=subject, title='T5', order_index=5)
+    services.assign_topics_to_blocks(subject)
+
+    pinned.refresh_from_db()
+    assert pinned.subject_block_id == blocks_by_index[2].id
+
+
+def test_assign_topics_to_blocks_reclaims_pin_to_deleted_block(subject):
+    from academics import services
+
+    subject.block_count = 2
+    subject.save()
+    services.ensure_subject_blocks(subject)
+    topics = [Topic.objects.create(subject=subject, title=f'T{i}', order_index=i) for i in range(1, 3)]
+    services.assign_topics_to_blocks(subject)
+
+    blocks_by_index = {b.index: b for b in subject.blocks.all()}
+    pinned = topics[1]
+    pinned.subject_block = blocks_by_index[2]
+    pinned.subject_block_manually_set = True
+    pinned.save(update_fields=['subject_block', 'subject_block_manually_set'])
+
+    # Shrinking block_count deletes block 2 (SET_NULL clears the FK), leaving
+    # the pin dangling — the next recompute should reclaim it instead of
+    # leaving it permanently unassigned.
+    subject.block_count = 1
+    subject.save()
+    services.ensure_subject_blocks(subject)
+    services.assign_topics_to_blocks(subject)
+
+    pinned.refresh_from_db()
+    assert pinned.subject_block_id == subject.blocks.get(index=1).id
+
+
 def test_assign_topics_to_blocks_noop_without_blocks(subject):
     from academics import services
 

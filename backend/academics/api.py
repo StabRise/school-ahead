@@ -35,7 +35,7 @@ def _ensure_staff(request: HttpRequest) -> None:
 
 @router.get('/classes', response=list[ClassOut])
 def list_classes(request: HttpRequest):
-    return Class.objects.all()
+    return Class.objects.select_related('class_teacher__user').all()
 
 
 @router.get('/classes/{class_id}/subjects', response=list[SubjectOut])

@@ -28,8 +28,20 @@ interface Particle {
 
 const BALLOON_COLORS = ["#f87171", "#fb923c", "#fbbf24", "#4ade80", "#38bdf8", "#a78bfa", "#f472b6"];
 const SPAWN_INTERVAL_MS = 850;
-const MAX_ON_SCREEN = 9;
 const PARTICLES_PER_POP = 10;
+
+// Sliders' defaults reproduce the original hardcoded values exactly: size
+// randomBetween(84, 140) is base=112 ± 25%, duration randomBetween(6, 11) is
+// speed=1 (i.e. unscaled), and 9 was the original MAX_ON_SCREEN.
+const DEFAULT_SIZE = 112;
+const MIN_SIZE = 60;
+const MAX_SIZE = 200;
+const DEFAULT_SPEED = 1;
+const MIN_SPEED = 0.5;
+const MAX_SPEED = 3;
+const DEFAULT_COUNT = 9;
+const MIN_COUNT = 3;
+const MAX_COUNT = 24;
 
 let nextBalloonId = 0;
 let nextParticleId = 0;
@@ -84,15 +96,14 @@ function BalloonNode({
   balloon,
   label,
   onPop,
+  onMissed,
 }: {
   balloon: FallingBalloon;
   label: string;
   onPop: (balloon: FallingBalloon, rect: DOMRect) => void;
+  onMissed: (balloonId: number) => void;
 }) {
-  const [missed, setMissed] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
-
-  if (missed) return null;
 
   const handlePop = () => {
     const rect = ref.current?.getBoundingClientRect();
@@ -112,7 +123,7 @@ function BalloonNode({
         width: balloon.size,
         animation: `balloon-fall ${balloon.duration}s linear ${balloon.delay}s forwards`,
       }}
-      onAnimationEnd={() => setMissed(true)}
+      onAnimationEnd={() => onMissed(balloon.id)}
     >
       <svg viewBox="0 0 40 52" className="w-full drop-shadow-md" aria-hidden="true">
         <ellipse cx="20" cy="20" rx="18" ry="20" fill={balloon.color} />
@@ -143,26 +154,34 @@ export function BalloonPopGame() {
   const [particles, setParticles] = useState<Particle[]>([]);
   const [score, setScore] = useState(0);
   const [scoreBump, setScoreBump] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [size, setSize] = useState(DEFAULT_SIZE);
+  const [speed, setSpeed] = useState(DEFAULT_SPEED);
+  const [maxOnScreen, setMaxOnScreen] = useState(DEFAULT_COUNT);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setBalloons((current) => {
-        if (current.length >= MAX_ON_SCREEN) return current;
+        if (current.length >= maxOnScreen) return current;
         const balloon: FallingBalloon = {
           id: nextBalloonId++,
           left: randomBetween(4, 82),
           color: randomColor(),
-          duration: randomBetween(6, 11),
+          duration: randomBetween(6, 11) / speed,
           delay: 0,
-          size: randomBetween(84, 140),
+          size: randomBetween(size * 0.75, size * 1.25),
           number: Math.floor(randomBetween(1, 21)),
         };
         return [...current, balloon];
       });
     }, SPAWN_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, []);
+  }, [size, speed, maxOnScreen]);
+
+  const handleMissed = (balloonId: number) => {
+    setBalloons((current) => current.filter((b) => b.id !== balloonId));
+  };
 
   const handlePop = (balloon: FallingBalloon, rect: DOMRect) => {
     setBalloons((current) => current.filter((b) => b.id !== balloon.id));
@@ -214,8 +233,53 @@ export function BalloonPopGame() {
         </span>
       </div>
 
+      <button
+        type="button"
+        aria-label={t("settingsButton")}
+        onClick={() => setSettingsOpen((current) => !current)}
+        className="absolute left-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+      >
+        ⚙️
+      </button>
+
+      {settingsOpen && (
+        <div className="absolute left-4 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200">
+          <label className="flex flex-col gap-1">
+            <span className="font-medium text-gray-700">{t("sizeLabel")}</span>
+            <input
+              type="range"
+              min={MIN_SIZE}
+              max={MAX_SIZE}
+              value={size}
+              onChange={(e) => setSize(Number(e.target.value))}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="font-medium text-gray-700">{t("countLabel")}</span>
+            <input
+              type="range"
+              min={MIN_COUNT}
+              max={MAX_COUNT}
+              value={maxOnScreen}
+              onChange={(e) => setMaxOnScreen(Number(e.target.value))}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="font-medium text-gray-700">{t("speedLabel")}</span>
+            <input
+              type="range"
+              min={MIN_SPEED}
+              max={MAX_SPEED}
+              step={0.1}
+              value={speed}
+              onChange={(e) => setSpeed(Number(e.target.value))}
+            />
+          </label>
+        </div>
+      )}
+
       {balloons.map((balloon) => (
-        <BalloonNode key={balloon.id} balloon={balloon} label={t("balloon")} onPop={handlePop} />
+        <BalloonNode key={balloon.id} balloon={balloon} label={t("balloon")} onPop={handlePop} onMissed={handleMissed} />
       ))}
 
       {particles.map((particle) => (

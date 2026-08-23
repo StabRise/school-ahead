@@ -164,6 +164,14 @@ export function Header() {
                       {t("mySubjects")}
                     </Link>
                   </DropdownMenu.Item>
+                  <DropdownMenu.Item asChild>
+                    <Link
+                      href="/tutor/classes"
+                      className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
+                    >
+                      {t("myClasses")}
+                    </Link>
+                  </DropdownMenu.Item>
                   <DropdownMenu.Separator className="my-1 h-px bg-gray-200" />
                 </>
               )}

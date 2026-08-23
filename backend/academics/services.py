@@ -33,21 +33,36 @@ def _split_evenly(items: list, n_groups: int) -> list[list]:
 
 
 def assign_topics_to_blocks(subject: Subject) -> None:
-    """Distributes the subject's Topics evenly across its SubjectBlocks, in
-    topic order_index order. A Topic belongs to exactly one SubjectBlock, and
-    every Lesson under it inherits that block — so this is the single source
-    of truth for lesson-to-block membership; StudentLesson carries no block
-    of its own. Recomputes from scratch every time (no per-topic override
-    concept), so call this after any change to topics or blocks: topic
-    create/update/delete/reorder, or subject.block_count changing via
-    ensure_subject_blocks. See docs/interfaces/student/subjects.md."""
+    """Distributes the subject's non-pinned Topics evenly across its
+    SubjectBlocks, in topic order_index order. A Topic belongs to exactly one
+    SubjectBlock, and every Lesson under it inherits that block — so this is
+    the single source of truth for lesson-to-block membership; StudentLesson
+    carries no block of its own. Recomputes from scratch every time, so call
+    this after any change to topics or blocks: topic create/update/delete/
+    reorder, or subject.block_count changing via ensure_subject_blocks.
+
+    A topic a tutor has manually moved (Topic.subject_block_manually_set,
+    set by tutoring.api.set_topic_block) is excluded from this recompute and
+    keeps its assigned block — unless that block no longer exists (e.g. the
+    subject's block_count shrank), in which case it falls back to being
+    auto-assigned like any other topic. See
+    docs/interfaces/student/subjects.md."""
     topics = list(subject.topics.order_by('order_index'))
     blocks = list(subject.blocks.order_by('index'))
     if not topics or not blocks:
         return
 
+    valid_block_ids = {block.id for block in blocks}
+    auto_topics = [
+        topic
+        for topic in topics
+        if not topic.subject_block_manually_set or topic.subject_block_id not in valid_block_ids
+    ]
+    if not auto_topics:
+        return
+
     updated = []
-    for block, topics_in_block in zip(blocks, _split_evenly(topics, len(blocks))):
+    for block, topics_in_block in zip(blocks, _split_evenly(auto_topics, len(blocks))):
         for topic in topics_in_block:
             if topic.subject_block_id != block.id:
                 topic.subject_block = block

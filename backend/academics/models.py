@@ -22,6 +22,13 @@ class Class(models.Model):
     name = models.CharField(max_length=50)
     order_index = models.PositiveSmallIntegerField()
     academic_year = models.CharField(max_length=9)
+    # Класний керівник — always a TutorProfile (admins hold one too, see
+    # decision 7), never a plain student/parent account. String reference
+    # since accounts.StudentProfile.school_class already points the other
+    # way at 'academics.Class'.
+    class_teacher = models.ForeignKey(
+        'accounts.TutorProfile', on_delete=models.SET_NULL, null=True, blank=True, related_name='homeroom_classes'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -114,6 +121,11 @@ class Topic(models.Model):
     subject_block = models.ForeignKey(
         SubjectBlock, on_delete=models.SET_NULL, null=True, blank=True, related_name='topics'
     )
+    # Set when a tutor manually moves this topic to a different block
+    # (tutoring.api.set_topic_block) — excludes it from the even-split
+    # recompute in assign_topics_to_blocks so a later topic/block change
+    # elsewhere in the subject doesn't silently undo the move.
+    subject_block_manually_set = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

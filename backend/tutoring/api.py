@@ -1,9 +1,12 @@
+from django.db.models import Count
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 from ninja import Router
 from ninja.errors import HttpError
 from ninja.pagination import paginate
 
+from academics.models import Class, Subject, SubjectBlock, Topic
+from academics.schemas import TopicOut
 from accounts.models import StudentProfile
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
@@ -20,7 +23,10 @@ from .schemas import (
     LessonStudentOut,
     RequestRevisionIn,
     ResolveNeedHelpIn,
+    SetTopicBlockIn,
     SubmissionDetailOut,
+    TutorClassDetailOut,
+    TutorClassOut,
     TutorFeedItemOut,
     TutorStudentOut,
 )
@@ -71,21 +77,35 @@ def _scoped_queryset(
     return qs
 
 
+def _tutor_assignments_with_counts(request: HttpRequest, **filters):
+    return (
+        TutorSubjectAssignment.objects.filter(tutor__user=request.auth, is_active=True, **filters)
+        .select_related('subject__school_class')
+        # distinct=True on each Count separately — the subject__topics__lessons
+        # join fans out per-lesson, which would otherwise inflate topic_count.
+        .annotate(
+            topic_count=Count('subject__topics', distinct=True),
+            lesson_count=Count('subject__topics__lessons', distinct=True),
+        )
+    )
+
+
+def _assignment_out(assignment: TutorSubjectAssignment, request: HttpRequest) -> AssignmentOut:
+    return AssignmentOut(
+        subject_id=assignment.subject_id,
+        subject_name=assignment.subject.name,
+        subject_icon=_absolute_file_url(assignment.subject.icon, request),
+        class_id=assignment.subject.school_class_id,
+        class_name=assignment.subject.school_class.name,
+        topic_count=assignment.topic_count,
+        lesson_count=assignment.lesson_count,
+    )
+
+
 @router.get('/assignments', response=list[AssignmentOut])
 def list_assignments(request: HttpRequest):
-    assignments = TutorSubjectAssignment.objects.filter(
-        tutor__user=request.auth, is_active=True
-    ).select_related('subject__school_class')
-    return [
-        AssignmentOut(
-            subject_id=a.subject_id,
-            subject_name=a.subject.name,
-            subject_icon=_absolute_file_url(a.subject.icon, request),
-            class_id=a.subject.school_class_id,
-            class_name=a.subject.school_class.name,
-        )
-        for a in assignments
-    ]
+    assignments = _tutor_assignments_with_counts(request)
+    return [_assignment_out(a, request) for a in assignments]
 
 
 @router.get('/subjects/{subject_id}/lessons', response=list[LessonOut], operation_id='list_tutor_subject_lessons')
@@ -99,6 +119,21 @@ def list_subject_lessons(request: HttpRequest, subject_id: int):
         .prefetch_related('materials', 'quiz_questions__choices')
         .order_by('topic__order_index', 'order_index')
     )
+
+
+@router.patch('/topics/{topic_id}/block', response=TopicOut, operation_id='set_topic_block')
+def set_topic_block(request: HttpRequest, topic_id: int, payload: SetTopicBlockIn):
+    """Manually moves a topic to a different SubjectBlock — see
+    Topic.subject_block_manually_set and academics.services.assign_topics_to_blocks
+    for how this survives later topic/block changes."""
+    require_csrf(request)
+    topic = get_object_or_404(Topic.objects.select_related('subject'), id=topic_id)
+    services.ensure_is_tutor_for_subject(request, topic.subject_id)
+    block = get_object_or_404(SubjectBlock, id=payload.subject_block_id, subject_id=topic.subject_id)
+    topic.subject_block = block
+    topic.subject_block_manually_set = True
+    topic.save(update_fields=['subject_block', 'subject_block_manually_set'])
+    return topic
 
 
 @router.get('/lessons/{lesson_id}', response=LessonOut, operation_id='get_tutor_lesson')
@@ -204,6 +239,64 @@ def list_students(request: HttpRequest):
         )
         for s in students
     ]
+
+
+def _class_teacher_name(school_class: Class) -> str | None:
+    class_teacher = school_class.class_teacher
+    if class_teacher is None:
+        return None
+    return class_teacher.user.full_name or class_teacher.user.email
+
+
+def _tutor_class_out(school_class: Class, request: HttpRequest, subject_ids) -> TutorClassOut:
+    tutor_profile = getattr(request.auth, 'tutor_profile', None)
+    return TutorClassOut(
+        id=school_class.id,
+        name=school_class.name,
+        academic_year=school_class.academic_year,
+        class_teacher_name=_class_teacher_name(school_class),
+        is_class_teacher=tutor_profile is not None and school_class.class_teacher_id == tutor_profile.id,
+        student_count=school_class.students.count(),
+        subject_count=Subject.objects.filter(school_class=school_class, id__in=subject_ids).count(),
+    )
+
+
+@router.get('/classes', response=list[TutorClassOut], operation_id='list_tutor_classes')
+def list_tutor_classes(request: HttpRequest):
+    """Classes reachable through the tutor's subject assignments — powers
+    the "Мої класи" page. student_count is the whole class roster;
+    subject_count is only the subjects *this* tutor teaches there (matching
+    the grouping on the "Мої предмети" page), not the class's total."""
+    subject_ids = list(services.get_tutor_subject_ids(request.auth))
+    classes = (
+        Class.objects.filter(id__in=services.get_tutor_class_ids(request.auth))
+        .select_related('class_teacher__user')
+        .order_by('order_index')
+    )
+    return [_tutor_class_out(school_class, request, subject_ids) for school_class in classes]
+
+
+@router.get('/classes/{class_id}', response=TutorClassDetailOut, operation_id='get_tutor_class')
+def get_tutor_class(request: HttpRequest, class_id: int):
+    """Class detail for the "Мої класи" page's drill-down: the class summary
+    plus its full student roster and the subjects *this* tutor teaches
+    there."""
+    services.ensure_is_tutor_for_class(request, class_id)
+    school_class = get_object_or_404(Class.objects.select_related('class_teacher__user'), id=class_id)
+    subject_ids = list(services.get_tutor_subject_ids(request.auth))
+
+    students = school_class.students.select_related('user').order_by('user__first_name', 'user__last_name')
+    assignments = _tutor_assignments_with_counts(request, subject__school_class_id=class_id)
+
+    summary = _tutor_class_out(school_class, request, subject_ids)
+    return TutorClassDetailOut(
+        **summary.dict(),
+        students=[
+            TutorStudentOut(id=s.id, name=s.user.full_name or s.user.email, class_id=class_id, class_name=school_class.name)
+            for s in students
+        ],
+        subjects=[_assignment_out(a, request) for a in assignments],
+    )
 
 
 @router.get('/need-help', response=list[TutorFeedItemOut])

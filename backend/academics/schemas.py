@@ -25,6 +25,15 @@ class ClassOut(Schema):
     name: str
     order_index: int
     academic_year: str
+    class_teacher_id: int | None
+    class_teacher_name: str | None
+
+    @staticmethod
+    def resolve_class_teacher_name(obj):
+        if not obj.class_teacher_id:
+            return None
+        teacher_user = obj.class_teacher.user
+        return teacher_user.full_name or teacher_user.email
 
 
 class SubjectBlockOut(Schema):
@@ -75,6 +84,7 @@ class TopicOut(Schema):
     description: str
     order_index: int
     lesson_count: int
+    subject_block_id: int | None
     subject_block_label: str | None
 
     @staticmethod
@@ -112,6 +122,7 @@ class ClassIn(Schema):
     name: str
     order_index: int
     academic_year: str
+    class_teacher_id: int | None = None
 
 
 class SubjectIn(Schema):

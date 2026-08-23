@@ -19,6 +19,7 @@ const ICON_COLORS = [
 ];
 
 function SubjectCard({ assignment }: { assignment: AssignmentOut }) {
+  const t = useTranslations("TutorSubjects");
   const iconColor = ICON_COLORS[assignment.subject_id % ICON_COLORS.length];
 
   return (
@@ -41,6 +42,10 @@ function SubjectCard({ assignment }: { assignment: AssignmentOut }) {
         )}
         <span className="font-medium text-gray-900">{assignment.subject_name}</span>
       </div>
+
+      <span className="text-xs text-gray-500">
+        {t("topicsCount", { count: assignment.topic_count })} · {t("lessonsCount", { count: assignment.lesson_count })}
+      </span>
     </Card>
   );
 }

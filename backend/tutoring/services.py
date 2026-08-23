@@ -18,14 +18,20 @@ def get_tutor_subject_ids(user: User) -> QuerySet:
     ).values_list('subject_id', flat=True)
 
 
+def get_tutor_class_ids(user: User) -> QuerySet:
+    """Classes reachable through any of the tutor's subject assignments —
+    the "Мої класи" page's scope, and get_tutor_students'/
+    ensure_is_tutor_for_class's shared filter."""
+    return Subject.objects.filter(id__in=get_tutor_subject_ids(user)).values_list(
+        'school_class_id', flat=True
+    )
+
+
 def get_tutor_students(user: User) -> QuerySet:
     """Students enrolled in any class the tutor has a subject assignment
     in — powers the dashboard's student filter."""
-    class_ids = Subject.objects.filter(id__in=get_tutor_subject_ids(user)).values_list(
-        'school_class_id', flat=True
-    )
     return (
-        StudentProfile.objects.filter(school_class_id__in=class_ids)
+        StudentProfile.objects.filter(school_class_id__in=get_tutor_class_ids(user))
         .select_related('user', 'school_class')
         .order_by('user__first_name', 'user__last_name')
     )
@@ -37,6 +43,13 @@ def ensure_is_tutor_for_subject(request, subject_id: int) -> None:
     7 below — so no special-casing is needed here)."""
     if subject_id not in get_tutor_subject_ids(request.auth):
         raise HttpError(403, 'Not a tutor for this subject')
+
+
+def ensure_is_tutor_for_class(request, class_id: int) -> None:
+    """403s unless the authenticated user teaches at least one subject in
+    this class — see ensure_is_tutor_for_subject."""
+    if class_id not in get_tutor_class_ids(request.auth):
+        raise HttpError(403, 'Not a tutor for this class')
 
 
 def _get_or_create_tutor_profile(user: User) -> TutorProfile:
