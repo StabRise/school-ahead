@@ -51,10 +51,16 @@ function SubjectRow({ subject }: { subject: AssignmentOut }) {
 }
 
 function StudentRow({ student }: { student: TutorStudentOut }) {
+  const t = useTranslations("TutorClassDetail");
+
   return (
     <li>
-      <Card className="bg-white">
+      <Card
+        href={`/tutor/students/${student.id}/calendar`}
+        className="flex items-center justify-between gap-3 bg-white transition-shadow hover:shadow-md"
+      >
         <span className="font-medium text-gray-900">{student.name}</span>
+        <span className="shrink-0 text-xs text-blue-600">{t("viewCalendarLink")}</span>
       </Card>
     </li>
   );

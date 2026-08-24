@@ -1,17 +1,21 @@
 import datetime
 
-from django.http import HttpRequest
-from django.shortcuts import get_object_or_404
-from ninja import Router
-from ninja.errors import HttpError
-
 from academics.models import Class, Subject
+from accounts.models import StudentProfile
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
 from common.permissions import get_own_student_profile
+from django.http import HttpRequest
+from django.shortcuts import get_object_or_404
 from lessons import services as lesson_services
 from lessons.models import StudentLesson
-from tutoring.services import ensure_is_tutor_for_class, ensure_is_tutor_for_subject, get_tutor_subject_ids
+from ninja import Router
+from ninja.errors import HttpError
+from tutoring.services import (
+    ensure_is_tutor_for_class,
+    ensure_is_tutor_for_subject,
+    get_tutor_subject_ids,
+)
 
 from . import services
 from .schemas import (
@@ -80,6 +84,34 @@ def today(request: HttpRequest, date: datetime.date):
 @router.get('/backlog', response=list[BacklogItemOut])
 def backlog(request: HttpRequest):
     student = get_own_student_profile(request)
+    items = services.get_backlog(student, datetime.date.today())
+    return [_backlog_item(request, sl) for sl in items]
+
+
+@router.get(
+    '/students/{student_id}/calendar',
+    response=list[CalendarItemOut],
+    operation_id='get_tutor_student_calendar',
+)
+def student_calendar(request: HttpRequest, student_id: int, week_start: datetime.date):
+    """A tutor viewing one of their students' weekly calendar — see the
+    "View calendar" link on the class detail page's roster. Scoped the same
+    way as the roster itself (get_tutor_class): any subject in the
+    student's class is enough, not just the ones this tutor teaches."""
+    student = get_object_or_404(StudentProfile, id=student_id)
+    ensure_is_tutor_for_class(request, student.school_class_id)
+    items = services.get_week_calendar(student, week_start)
+    return [_calendar_item(request, sl) for sl in items]
+
+
+@router.get(
+    '/students/{student_id}/backlog',
+    response=list[BacklogItemOut],
+    operation_id='get_tutor_student_backlog',
+)
+def student_backlog(request: HttpRequest, student_id: int):
+    student = get_object_or_404(StudentProfile, id=student_id)
+    ensure_is_tutor_for_class(request, student.school_class_id)
     items = services.get_backlog(student, datetime.date.today())
     return [_backlog_item(request, sl) for sl in items]
 

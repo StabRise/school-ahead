@@ -99,8 +99,14 @@
     "noSubjects": "Ви ще не викладаєте жодного предмета в цьому класі.",
     "studentsTitle": "Учні",
     "noStudents": "У цьому класі ще немає учнів.",
+    "viewCalendarLink": "Переглянути календар →",
     "topicsCount": "{count, plural, one {# тема} few {# теми} many {# тем} other {# теми}}",
     "lessonsCount": "{count, plural, one {# урок} few {# уроки} many {# уроків} other {# уроку}}"
+  },
+  "TutorStudentCalendar": {
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити учня. Спробуйте ще раз.",
+    "breadcrumbMyClasses": "Мої класи"
   },
   "PlanLessons": {
     "triggerButton": "Запланувати уроки на період",

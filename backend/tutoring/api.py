@@ -285,6 +285,21 @@ def list_students(request: HttpRequest):
     ]
 
 
+@router.get('/students/{student_id}', response=TutorStudentOut, operation_id='get_tutor_student')
+def get_student(request: HttpRequest, student_id: int):
+    """Powers the "View calendar" page's breadcrumb/header — the roster
+    itself (get_tutor_class) already has this, this is for navigating there
+    directly by student_id."""
+    student = get_object_or_404(StudentProfile.objects.select_related('user', 'school_class'), id=student_id)
+    services.ensure_is_tutor_for_class(request, student.school_class_id)
+    return TutorStudentOut(
+        id=student.id,
+        name=student.user.full_name or student.user.email,
+        class_id=student.school_class_id,
+        class_name=student.school_class.name if student.school_class else '',
+    )
+
+
 def _class_teacher_name(school_class: Class) -> str | None:
     class_teacher = school_class.class_teacher
     if class_teacher is None:
