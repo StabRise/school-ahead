@@ -1,14 +1,14 @@
-from django.db import models
-
-from academics.models import Topic
+from academics.models import Subject, Topic
 from accounts.models import StudentProfile, User
 from common.models import TimeStampedModel
 from common.storage import (
     lesson_attachment_upload_to,
     lesson_icon_upload_to,
     lesson_submission_upload_to,
+    lessons_json_upload_to,
     quiz_choice_image_upload_to,
 )
+from django.db import models
 
 
 class LessonType(models.TextChoices):
@@ -185,3 +185,26 @@ class LessonComment(models.Model):
 
     def __str__(self):
         return f'{self.kind}: {self.body[:40]}'
+
+
+class LessonsJsonStatus(models.TextChoices):
+    NEW = 'new', 'New'
+    PROCESSED = 'processed', 'Processed'
+
+
+class LessonsJson(TimeStampedModel):
+    """A scrape_lessons JSON upload (list of TopicOut) staged for
+    import_lessons — tracks which Subject it targets, the Lessons it ended
+    up creating once processed, and whether it's been processed yet."""
+
+    # Tutor-facing label — on-disk filenames are anonymized hex (see
+    # common.storage._unique_path), so this is what actually tells uploads
+    # apart in the admin and the "Load lessons from JSON" picker.
+    name = models.CharField(max_length=255, default='json')
+    json_file = models.FileField(upload_to=lessons_json_upload_to)
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='lessons_json_uploads')
+    lessons = models.ManyToManyField(Lesson, blank=True, related_name='lessons_json_uploads')
+    status = models.CharField(max_length=10, choices=LessonsJsonStatus.choices, default=LessonsJsonStatus.NEW)
+
+    def __str__(self):
+        return f'{self.name} — {self.subject} ({self.status})'

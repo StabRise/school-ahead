@@ -290,3 +290,33 @@ class NextLessonOut(Schema):
     @staticmethod
     def resolve_task_content(obj):
         return obj.lesson.task_content
+
+
+class LessonsJsonOut(Schema):
+    """A scrape_lessons JSON upload staged for import — powers the tutor's
+    "Load lessons from JSON" dialog picker on the Subject detail page."""
+
+    id: int
+    subject_id: int
+    name: str
+    status: str
+    file_name: str
+    file_url: str | None
+    created_at: datetime.datetime
+
+    @staticmethod
+    def resolve_file_name(obj):
+        return obj.json_file.name.rsplit('/', 1)[-1] if obj.json_file else ''
+
+    @staticmethod
+    def resolve_file_url(obj, context):
+        return _absolute_file_url(obj.json_file, context)
+
+
+class ProcessLessonsJsonOut(Schema):
+    lessons_json_id: int
+    status: str
+    topics_created: int
+    topics_reused: int
+    lessons_created: int
+    lessons_skipped: int

@@ -1,18 +1,25 @@
-from django.db.models import Count
-from django.http import HttpRequest
-from django.shortcuts import get_object_or_404
-from ninja import Router
-from ninja.errors import HttpError
-from ninja.pagination import paginate
+import json
 
 from academics.models import Class, Subject, SubjectBlock, Topic
 from academics.schemas import TopicOut
 from accounts.models import StudentProfile
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
+from django.db.models import Count
+from django.http import HttpRequest
+from django.shortcuts import get_object_or_404
 from lessons import services as lesson_services
-from lessons.models import Lesson, StudentLesson, StudentLessonStatus
-from lessons.schemas import AddCommentIn, LessonCommentOut, LessonOut
+from lessons.models import Lesson, LessonsJson, StudentLesson, StudentLessonStatus
+from lessons.schemas import (
+    AddCommentIn,
+    LessonCommentOut,
+    LessonOut,
+    LessonsJsonOut,
+    ProcessLessonsJsonOut,
+)
+from ninja import Router
+from ninja.errors import HttpError
+from ninja.pagination import paginate
 
 from . import services
 from .models import TutorSubjectAssignment
@@ -118,6 +125,43 @@ def list_subject_lessons(request: HttpRequest, subject_id: int):
         .select_related('topic__subject__school_class', 'topic__subject_block')
         .prefetch_related('materials', 'quiz_questions__choices')
         .order_by('topic__order_index', 'order_index')
+    )
+
+
+@router.get(
+    '/subjects/{subject_id}/lessons-json',
+    response=list[LessonsJsonOut],
+    operation_id='list_tutor_subject_lessons_json',
+)
+def list_subject_lessons_json(request: HttpRequest, subject_id: int):
+    """Powers the "Load lessons from JSON" dialog's picker on the Subject
+    detail page — every scrape_lessons upload staged for this subject,
+    regardless of status (reprocessing an already-processed upload is safe —
+    see lessons.services.import_topics_and_lessons)."""
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    return LessonsJson.objects.filter(subject_id=subject_id).order_by('-created_at')
+
+
+@router.post(
+    '/lessons-json/{lessons_json_id}/process',
+    response=ProcessLessonsJsonOut,
+    operation_id='process_lessons_json',
+)
+def process_lessons_json(request: HttpRequest, lessons_json_id: int):
+    require_csrf(request)
+    lessons_json_obj = get_object_or_404(LessonsJson, id=lessons_json_id)
+    services.ensure_is_tutor_for_subject(request, lessons_json_obj.subject_id)
+    try:
+        summary = lesson_services.process_lessons_json(lessons_json_obj)
+    except (json.JSONDecodeError, KeyError) as exc:
+        raise HttpError(400, f'Invalid lessons JSON: {exc}') from exc
+    return ProcessLessonsJsonOut(
+        lessons_json_id=lessons_json_obj.id,
+        status=lessons_json_obj.status,
+        topics_created=summary.topics_created,
+        topics_reused=summary.topics_reused,
+        lessons_created=len(summary.lessons_created),
+        lessons_skipped=summary.lessons_skipped,
     )
 
 

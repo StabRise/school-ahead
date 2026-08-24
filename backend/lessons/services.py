@@ -1,15 +1,22 @@
+import json
+from dataclasses import dataclass, field
 from decimal import Decimal
 
+from academics import services as academics_services
+from academics.models import Subject, Topic
+from accounts.models import StudentProfile, User
+from django.db import transaction
 from django.db.models import F, QuerySet
 from django.utils import timezone
 
-from accounts.models import StudentProfile, User
-
 from .models import (
     GradeResult,
+    GradingType,
     Lesson,
     LessonComment,
     LessonCommentKind,
+    LessonsJson,
+    LessonsJsonStatus,
     LessonSubmission,
     QuizChoice,
     StudentLesson,
@@ -331,3 +338,131 @@ def assign_student(lesson: Lesson, student: StudentProfile, scheduled_date) -> S
     return StudentLesson.objects.create(
         student=student, lesson=lesson, scheduled_date=scheduled_date, is_manually_scheduled=True
     )
+
+
+# --- scrape_lessons JSON import -------------------------------------------
+# Shared by manage.py's import_lessons command and the tutor "Load lessons
+# from JSON" dialog (tutoring.api.process_lessons_json). See
+# lessons.management.commands.scrape_lessons for the JSON shape.
+
+def _next_order_index(queryset: QuerySet) -> int:
+    max_index = queryset.order_by('-order_index').values_list('order_index', flat=True).first()
+    return (max_index or 0) + 1
+
+
+def _render_extra_content_item(item: dict, lesson_title: str) -> str:
+    """One entry of a scraped lesson's optional `extra_content` list:
+    {"content": <url-or-text>, "type": "pdf"|"video"|"text", "name": <optional
+    heading>}. `pdf` renders as a <pdfiframe> tag, same as the Конспект
+    section scrape_lessons builds; `video` and free-form `text` both just
+    render as plain text — a bare YouTube URL still auto-embeds via the
+    frontend's YoutubeAwareLink (see frontend/components/markdown.tsx)."""
+    value = item.get('content', '')
+    item_type = (item.get('type') or '').strip().lower()
+    name = item.get('name')
+
+    if item_type == 'pdf':
+        title_attr = str(name or lesson_title).replace('"', '&quot;')
+        body = f'<pdfiframe file="{value}" title="{title_attr}"/>'
+    else:
+        body = value
+
+    return f'## {name}\n\n{body}' if name else body
+
+
+def build_lesson_content(lesson_data: dict) -> tuple[str, str]:
+    """(content, task_content) for one scraped lesson dict — content is the
+    scraper's base markdown with any extra_content items appended, then
+    task_content appended last (also returned as-is, for Lesson.task_content
+    itself)."""
+    parts = [lesson_data.get('content', '')]
+
+    extra_content = lesson_data.get('extra_content')
+    if extra_content:
+        lesson_title = lesson_data['title']
+        parts.append(
+            '\n\n'.join(_render_extra_content_item(item, lesson_title) for item in extra_content if item)
+        )
+
+    task_content = lesson_data.get('task_content', '')
+    if task_content:
+        parts.append(task_content)
+
+    return '\n\n'.join(part for part in parts if part), task_content
+
+
+@dataclass
+class LessonImportSummary:
+    topics_created: int = 0
+    topics_reused: int = 0
+    lessons_created: list[Lesson] = field(default_factory=list)
+    lessons_skipped: int = 0
+
+
+def import_topics_and_lessons(subject: Subject, topics_data: list[dict]) -> LessonImportSummary:
+    """Reuses an existing Topic by title where one already exists under
+    `subject`, otherwise creates it; same for Lesson by (topic, title). Safe
+    to call repeatedly with the same data — only genuinely new topics/
+    lessons get created. Callers are responsible for wrapping this in
+    transaction.atomic() if they need it (process_lessons_json and
+    manage.py's import_lessons both do)."""
+    summary = LessonImportSummary()
+    next_topic_order = _next_order_index(Topic.objects.filter(subject=subject))
+
+    for topic_data in topics_data:
+        topic = Topic.objects.filter(subject=subject, title=topic_data['title']).first()
+        if topic is None:
+            topic = Topic.objects.create(
+                subject=subject,
+                title=topic_data['title'],
+                description=topic_data.get('description', ''),
+                order_index=next_topic_order,
+            )
+            next_topic_order += 1
+            summary.topics_created += 1
+        else:
+            summary.topics_reused += 1
+
+        next_lesson_order = _next_order_index(Lesson.objects.filter(topic=topic))
+
+        for lesson_data in topic_data.get('lessons', []):
+            if Lesson.objects.filter(topic=topic, title=lesson_data['title']).exists():
+                summary.lessons_skipped += 1
+                continue
+
+            content, task_content = build_lesson_content(lesson_data)
+            lesson = Lesson.objects.create(
+                topic=topic,
+                order_index=next_lesson_order,
+                title=lesson_data['title'],
+                lesson_type=lesson_data['lesson_type'],
+                # Neither lesson_type the scraper produces ('theory',
+                # 'with_task') is auto-graded — both resolve to a Pass/Fail
+                # outcome (docs/core/lessons.md Path B/C).
+                grading_type=GradingType.BINARY,
+                content=content,
+                task_content=task_content,
+            )
+            next_lesson_order += 1
+            summary.lessons_created.append(lesson)
+
+    academics_services.assign_topics_to_blocks(subject)
+    return summary
+
+
+def process_lessons_json(lessons_json: LessonsJson) -> LessonImportSummary:
+    """Reads lessons_json.json_file, imports its topics/lessons into
+    lessons_json.subject, links every newly-created Lesson onto
+    lessons_json.lessons, and marks it processed. Safe to call again later —
+    a re-run only adds whatever's genuinely new."""
+    with lessons_json.json_file.open('rb') as f:
+        topics_data = json.load(f)
+
+    with transaction.atomic():
+        summary = import_topics_and_lessons(lessons_json.subject, topics_data)
+        if summary.lessons_created:
+            lessons_json.lessons.add(*summary.lessons_created)
+        lessons_json.status = LessonsJsonStatus.PROCESSED
+        lessons_json.save(update_fields=['status'])
+
+    return summary

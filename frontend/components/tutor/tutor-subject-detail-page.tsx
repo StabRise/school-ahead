@@ -9,6 +9,7 @@ import type { LessonOut, SubjectBlockOut, TopicOut } from "@/lib/api/browser/sch
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Card } from "@/components/card";
 import { ContentTypeBadges } from "@/components/subjects/content-type-badges";
+import { LoadLessonsJsonDialog } from "./load-lessons-json-dialog";
 
 interface BlockGroup {
   key: string;
@@ -195,7 +196,10 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
       <div className="flex flex-col gap-3">
         <Breadcrumbs items={breadcrumbItems} />
-        <h1 className="text-2xl font-semibold text-gray-900">{subject.name}</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold text-gray-900">{subject.name}</h1>
+          <LoadLessonsJsonDialog subjectId={subjectId} />
+        </div>
       </div>
 
       {topics.length === 0 ? (

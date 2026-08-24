@@ -49,3 +49,7 @@ def avatar_image_upload_to(instance, filename: str) -> str:
 
 def quiz_choice_image_upload_to(instance, filename: str) -> str:
     return _unique_path('quiz_choice_images', filename)
+
+
+def lessons_json_upload_to(instance, filename: str) -> str:
+    return _unique_path('lessons_json', filename)
