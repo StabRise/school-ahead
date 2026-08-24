@@ -114,7 +114,7 @@ class TestGenerateClassSchedule:
         assert len(dates) == 2  # spread across two different days, not doubled up
         assert dates <= {start + datetime.timedelta(days=i) for i in range(5)}
 
-    def test_zero_hours_per_week_skips_subject(self, subject, school_class, student):
+    def test_zero_lessons_count_skips_subject(self, subject, school_class, student):
         _make_lessons(subject, 3)
         result = services.generate_class_schedule(
             school_class, datetime.date(2025, 9, 1), datetime.date(2025, 9, 5), {subject.id: 0}
@@ -122,19 +122,41 @@ class TestGenerateClassSchedule:
         assert result == {'lessons_scheduled': 0, 'students_affected': 1, 'subjects': []}
         assert StudentLesson.objects.count() == 0
 
-    def test_never_touches_an_already_scheduled_lesson(self, subject, school_class, student):
+    def test_never_touches_completed_or_manually_scheduled_lessons(self, subject, school_class, student):
+        """Completion is the only hard stop on reflow; a manually-scheduled
+        row is fair game once it's not completed (see the third lesson
+        below, moved off its manual date) — see
+        test_reflows_manually_scheduled_but_incomplete_lessons for that."""
         lessons = _make_lessons(subject, 2)
-        pinned_date = datetime.date(2025, 9, 3)
-        existing = StudentLesson.objects.create(student=student, lesson=lessons[0], scheduled_date=pinned_date)
-
-        services.generate_class_schedule(
-            school_class, datetime.date(2025, 9, 1), datetime.date(2025, 9, 5), {subject.id: 2}
+        completed_date = datetime.date(2025, 9, 3)
+        completed = StudentLesson.objects.create(
+            student=student, lesson=lessons[0], scheduled_date=completed_date,
+            status=StudentLessonStatus.COMPLETED,
         )
 
-        existing.refresh_from_db()
-        assert existing.scheduled_date == pinned_date  # untouched
+        services.generate_class_schedule(
+            school_class, datetime.date(2025, 9, 1), datetime.date(2025, 9, 5), {subject.id: 1}
+        )
+
+        completed.refresh_from_db()
+        assert completed.scheduled_date == completed_date  # untouched
         # Only the second (never-scheduled) lesson was newly planned.
         assert StudentLesson.objects.filter(student=student, lesson=lessons[1]).exists()
+
+    def test_reflows_manually_scheduled_but_incomplete_lessons(self, subject, school_class, student):
+        lessons = _make_lessons(subject, 1)
+        manual_date = datetime.date(2025, 9, 10)
+        manual = StudentLesson.objects.create(
+            student=student, lesson=lessons[0], scheduled_date=manual_date, is_manually_scheduled=True,
+        )
+
+        services.generate_class_schedule(
+            school_class, datetime.date(2025, 9, 1), datetime.date(2025, 9, 1), {subject.id: 1}
+        )
+
+        manual.refresh_from_db()
+        assert manual.scheduled_date == datetime.date(2025, 9, 1)
+        assert manual.is_manually_scheduled is False
 
     def test_avoids_days_already_loaded_by_another_subject(self, subject, school_class, student):
         other_subject = Subject.objects.create(school_class=school_class, name='History')
@@ -163,14 +185,60 @@ class TestGenerateClassSchedule:
     def test_repeats_a_subject_on_the_same_day_once_every_day_is_taken(self, subject, school_class, student):
         _make_lessons(subject, 4)
         # Only two school days in range (Mon-Tue) but a target of 4 lessons
-        # (hours_per_week=10 * 2/5 week fraction = 4) — each day must take
-        # two, since there's nowhere else to put them.
+        # — each day must take two, since there's nowhere else to put them.
         monday = datetime.date(2025, 9, 1)
         tuesday = datetime.date(2025, 9, 2)
-        result = services.generate_class_schedule(school_class, monday, tuesday, {subject.id: 10})
+        result = services.generate_class_schedule(school_class, monday, tuesday, {subject.id: 4})
         assert result['subjects'] == [{'subject_id': subject.id, 'lessons_scheduled': 4}]
         assert StudentLesson.objects.filter(student=student, scheduled_date=monday).count() == 2
         assert StudentLesson.objects.filter(student=student, scheduled_date=tuesday).count() == 2
+
+    def test_lessons_land_in_order_across_days(self, subject, school_class, student):
+        """4 lessons over a 3-day period must fill days front-to-back in
+        lesson order (Mon: 1&2, Tue: 3, Wed: 4) — never split so a later
+        lesson lands on an earlier day than an earlier one is still due."""
+        lessons = _make_lessons(subject, 4)
+        monday = datetime.date(2025, 9, 1)
+        tuesday = datetime.date(2025, 9, 2)
+        wednesday = datetime.date(2025, 9, 3)
+        services.generate_class_schedule(school_class, monday, wednesday, {subject.id: 4})
+
+        dates_by_lesson = {
+            sl.lesson_id: sl.scheduled_date
+            for sl in StudentLesson.objects.filter(student=student)
+        }
+        assert dates_by_lesson[lessons[0].id] == monday
+        assert dates_by_lesson[lessons[1].id] == monday
+        assert dates_by_lesson[lessons[2].id] == tuesday
+        assert dates_by_lesson[lessons[3].id] == wednesday
+
+    def test_backfilling_an_earlier_gap_reflows_the_later_week_forward(self, subject, school_class, student):
+        """Lessons 1-3 are already scheduled Mon-Wed of the *later* week
+        (e.g. that week got planned first, leaving an earlier gap). Planning
+        5 more lessons into the *earlier* week must not stack them before
+        lessons 1-3 — instead the whole 8-lesson run is reflowed in order
+        across the combined range, pushing 1-3 forward to make room."""
+        lessons = _make_lessons(subject, 8)
+        earlier_monday = datetime.date(2025, 9, 1)
+        earlier_friday = datetime.date(2025, 9, 5)
+        later_monday = datetime.date(2025, 9, 8)
+        later_tuesday = datetime.date(2025, 9, 9)
+        later_wednesday = datetime.date(2025, 9, 10)
+        StudentLesson.objects.create(student=student, lesson=lessons[0], scheduled_date=later_monday)
+        StudentLesson.objects.create(student=student, lesson=lessons[1], scheduled_date=later_tuesday)
+        StudentLesson.objects.create(student=student, lesson=lessons[2], scheduled_date=later_wednesday)
+
+        result = services.generate_class_schedule(school_class, earlier_monday, earlier_friday, {subject.id: 5})
+
+        assert result['subjects'] == [{'subject_id': subject.id, 'lessons_scheduled': 8}]
+        dates_by_lesson = {
+            sl.lesson_id: sl.scheduled_date for sl in StudentLesson.objects.filter(student=student)
+        }
+        expected_days = [
+            earlier_monday, earlier_monday + datetime.timedelta(days=1), earlier_monday + datetime.timedelta(days=2),
+            earlier_monday + datetime.timedelta(days=3), earlier_friday, later_monday, later_tuesday, later_wednesday,
+        ]
+        assert [dates_by_lesson[lesson.id] for lesson in lessons] == expected_days
 
     def test_no_school_days_in_range_is_a_noop(self, subject, school_class, student):
         _make_lessons(subject, 1)
@@ -323,7 +391,7 @@ class TestGenerateClassScheduleApi:
             f'/schedule/classes/{school_class.id}/generate-schedule',
             json={
                 'start_date': '2025-09-01', 'end_date': '2025-09-05',
-                'subjects': [{'subject_id': subject.id, 'hours_per_week': 1}],
+                'subjects': [{'subject_id': subject.id, 'lessons_count': 1}],
             },
             headers=auth_header(tutor.user),
         )
@@ -339,7 +407,7 @@ class TestGenerateClassScheduleApi:
             f'/schedule/classes/{school_class.id}/generate-schedule',
             json={
                 'start_date': '2025-09-01', 'end_date': '2025-09-05',
-                'subjects': [{'subject_id': subject.id, 'hours_per_week': 2}],
+                'subjects': [{'subject_id': subject.id, 'lessons_count': 2}],
             },
             headers=auth_header(tutor.user),
         )
@@ -359,7 +427,7 @@ class TestGenerateClassScheduleApi:
             f'/schedule/classes/{school_class.id}/generate-schedule',
             json={
                 'start_date': '2025-09-01', 'end_date': '2025-09-05',
-                'subjects': [{'subject_id': subject.id, 'hours_per_week': 1}],
+                'subjects': [{'subject_id': subject.id, 'lessons_count': 1}],
             },
             headers=auth_header(tutor.user),
         )
@@ -381,7 +449,7 @@ class TestGenerateClassScheduleApi:
             f'/schedule/classes/{school_class.id}/generate-schedule',
             json={
                 'start_date': '2025-09-01', 'end_date': '2025-09-05',
-                'subjects': [{'subject_id': foreign_subject.id, 'hours_per_week': 1}],
+                'subjects': [{'subject_id': foreign_subject.id, 'lessons_count': 1}],
             },
             headers=auth_header(tutor.user),
         )
@@ -394,7 +462,7 @@ class TestGenerateClassScheduleApi:
             f'/schedule/classes/{school_class.id}/generate-schedule',
             json={
                 'start_date': '2025-09-05', 'end_date': '2025-09-01',
-                'subjects': [{'subject_id': subject.id, 'hours_per_week': 1}],
+                'subjects': [{'subject_id': subject.id, 'lessons_count': 1}],
             },
             headers=auth_header(tutor.user),
         )

@@ -36,15 +36,15 @@ class RescheduleIn(Schema):
     scheduled_date: datetime.date
 
 
-class SubjectHoursIn(Schema):
+class SubjectLessonsIn(Schema):
     subject_id: int
-    hours_per_week: int = 0
+    lessons_count: int = 0
 
 
 class GenerateClassScheduleIn(Schema):
     start_date: datetime.date
     end_date: datetime.date
-    subjects: list[SubjectHoursIn]
+    subjects: list[SubjectLessonsIn]
 
 
 class SubjectScheduledOut(Schema):
