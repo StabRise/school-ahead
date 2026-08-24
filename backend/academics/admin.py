@@ -52,6 +52,15 @@ class SubjectAdmin(admin.ModelAdmin):
     # Embed blocks and topics directly inside the subject detail view
     inlines = [SubjectBlockInline, TopicInline]
 
+    def get_queryset(self, request):
+        # Alphabetical by name — used by the autocomplete widget other
+        # admins' `subject` fields render with (e.g. LessonsJsonAdmin), which
+        # queries this instead of going through a select dropdown. The
+        # changelist above still shows this list's own (school_class, name)
+        # order since ChangeList re-applies `ordering` on top of whatever
+        # this returns.
+        return super().get_queryset(request).order_by("name")
+
 
 @admin.register(SubjectBlock)
 class SubjectBlockAdmin(admin.ModelAdmin):

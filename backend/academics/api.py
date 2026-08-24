@@ -40,7 +40,7 @@ def list_classes(request: HttpRequest):
 
 @router.get('/classes/{class_id}/subjects', response=list[SubjectOut])
 def list_class_subjects(request: HttpRequest, class_id: int):
-    return Subject.objects.filter(school_class_id=class_id)
+    return Subject.objects.filter(school_class_id=class_id).select_related('school_class')
 
 
 @router.get('/my-subjects', response=list[SubjectOut], operation_id='get_my_subjects')
@@ -50,12 +50,12 @@ def my_subjects(request: HttpRequest):
     student = get_own_student_profile(request)
     if student.school_class_id is None:
         return []
-    return Subject.objects.filter(school_class_id=student.school_class_id)
+    return Subject.objects.filter(school_class_id=student.school_class_id).select_related('school_class')
 
 
 @router.get('/subjects/{subject_id}', response=SubjectOut, operation_id='get_subject')
 def get_subject(request: HttpRequest, subject_id: int):
-    return get_object_or_404(Subject, id=subject_id)
+    return get_object_or_404(Subject.objects.select_related('school_class'), id=subject_id)
 
 
 @router.get('/subjects/{subject_id}/topics', response=list[TopicOut], operation_id='list_subject_topics')

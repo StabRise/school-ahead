@@ -1,12 +1,12 @@
+from common.storage import random_sample_lesson_icon
 from django.contrib import admin
 from django.core.files.base import ContentFile
-
-from common.storage import random_sample_lesson_icon
 
 from .models import (
     Lesson,
     LessonAttachment,
     LessonComment,
+    LessonsJson,
     LessonSubmission,
     QuizChoice,
     QuizQuestion,
@@ -160,6 +160,16 @@ class LessonCommentAdmin(admin.ModelAdmin):
     )
     readonly_fields = ("created_at",)
     ordering = ("-created_at",)
+
+
+@admin.register(LessonsJson)
+class LessonsJsonAdmin(admin.ModelAdmin):
+    """Admin configuration for staged scrape_lessons JSON uploads awaiting import_lessons."""
+    list_display = ("name", "subject", "status", "created_at")
+    list_filter = ("status", "subject")
+    search_fields = ("name",)
+    autocomplete_fields = ("subject", "lessons")
+    readonly_fields = ("created_at", "updated_at")
 
 
 @admin.register(StudentLessonStatusEvent)

@@ -123,10 +123,30 @@
     "subjectLessonsCount": "{count, plural, one {# урок} few {# уроки} many {# уроків} other {# уроку}}",
     "closeButton": "Закрити"
   },
+  "LoadLessonsJson": {
+    "triggerButton": "Завантажити уроки з JSON",
+    "title": "Завантажити уроки з JSON",
+    "fileLabel": "Файл",
+    "loading": "Завантаження...",
+    "noFiles": "Немає завантажених JSON-файлів для цього предмета.",
+    "viewFileLink": "Переглянути файл",
+    "statusNew": "нове",
+    "statusProcessed": "оброблено",
+    "cancelButton": "Скасувати",
+    "loadButton": "Завантажити",
+    "processError": "Не вдалося завантажити уроки. Спробуйте ще раз.",
+    "resultHeading": "Результат:",
+    "topicsCreated": "Нові теми: {count}",
+    "topicsReused": "Наявні теми: {count}",
+    "lessonsCreated": "Нові уроки: {count}",
+    "lessonsSkipped": "Пропущено уроків (вже існували): {count}",
+    "closeButton": "Закрити"
+  },
   "TutorSubjectDetail": {
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити предмет. Спробуйте ще раз.",
     "breadcrumbMySubjects": "Мої предмети",
+    "classLabel": "Клас",
     "noTopics": "Тем ще немає.",
     "noLessonsInTopic": "У цій темі ще немає уроків.",
     "moveToBlockLabel": "Перемістити тему до блоку"
