@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
+  useGetTutorStudentBacklog,
+  useGetTutorStudentCalendar,
   useSchedulingApiBacklog,
   useSchedulingApiCalendar,
 } from "@/lib/api/browser/schedule/schedule";
@@ -47,9 +49,11 @@ function formatWeekRange(start: Date, end: Date): string {
   return `${startLabel} – ${RANGE_DAY_YEAR_FORMAT.format(end)}`;
 }
 
-function LessonCard({ item }: { item: CalendarItemOut }) {
+// href omitted (readOnly) for a tutor viewing a student's calendar — /lessons/{id}
+// is the student wizard, not a page a tutor can open.
+function LessonCard({ item, readOnly }: { item: CalendarItemOut; readOnly?: boolean }) {
   return (
-    <Card href={`/lessons/${item.id}`} className="flex flex-col gap-1">
+    <Card href={readOnly ? undefined : `/lessons/${item.id}`} className="flex flex-col gap-1">
       <p className="truncate text-sm font-medium">{item.lesson_title}</p>
       <p className="truncate text-xs text-gray-500">{item.subject_name}</p>
       <div className="flex items-center gap-2">
@@ -60,11 +64,11 @@ function LessonCard({ item }: { item: CalendarItemOut }) {
   );
 }
 
-function BacklogCard({ item }: { item: BacklogItemOut }) {
+function BacklogCard({ item, readOnly }: { item: BacklogItemOut; readOnly?: boolean }) {
   const t = useTranslations("Calendar");
 
   return (
-    <Card href={`/lessons/${item.id}`} className="flex items-center justify-between gap-4">
+    <Card href={readOnly ? undefined : `/lessons/${item.id}`} className="flex items-center justify-between gap-4">
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">{item.lesson_title}</p>
         <p className="truncate text-xs text-gray-500">{item.subject_name}</p>
@@ -99,9 +103,15 @@ function NavButton({
   );
 }
 
-export function WeeklyCalendar() {
+// `studentId` puts this in read-only "tutor viewing a student" mode: it
+// hits the tutor-scoped student calendar/backlog endpoints instead of the
+// self-scoped "my calendar" ones, and lesson cards aren't clickable (see
+// LessonCard/BacklogCard above). Both hook pairs are always called (rules
+// of hooks) — `enabled` picks which one actually fires.
+export function WeeklyCalendar({ studentId }: { studentId?: number } = {}) {
   const t = useTranslations("Calendar");
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const isTutorView = studentId !== undefined;
 
   const weekDays = useMemo(
     () => Array.from({ length: WEEK_LENGTH }, (_, index) => addDays(weekStart, index)),
@@ -109,8 +119,20 @@ export function WeeklyCalendar() {
   );
   const todayKey = useMemo(() => toLocalIsoDate(new Date()), []);
 
-  const calendarQuery = useSchedulingApiCalendar({ week_start: toLocalIsoDate(weekStart) });
-  const backlogQuery = useSchedulingApiBacklog();
+  const ownCalendarQuery = useSchedulingApiCalendar(
+    { week_start: toLocalIsoDate(weekStart) },
+    { query: { enabled: !isTutorView } },
+  );
+  const studentCalendarQuery = useGetTutorStudentCalendar(
+    studentId ?? 0,
+    { week_start: toLocalIsoDate(weekStart) },
+    { query: { enabled: isTutorView } },
+  );
+  const calendarQuery = isTutorView ? studentCalendarQuery : ownCalendarQuery;
+
+  const ownBacklogQuery = useSchedulingApiBacklog({ query: { enabled: !isTutorView } });
+  const studentBacklogQuery = useGetTutorStudentBacklog(studentId ?? 0, { query: { enabled: isTutorView } });
+  const backlogQuery = isTutorView ? studentBacklogQuery : ownBacklogQuery;
 
   const items = calendarQuery.data ?? [];
   const backlog = backlogQuery.data ?? [];
@@ -186,7 +208,7 @@ export function WeeklyCalendar() {
                 <div className="flex flex-col gap-2">
                   {dayItems.length === 0 && <p className="text-xs text-gray-400">{t("noLessons")}</p>}
                   {dayItems.map((item) => (
-                    <LessonCard key={item.id} item={item} />
+                    <LessonCard key={item.id} item={item} readOnly={isTutorView} />
                   ))}
                 </div>
               </div>
@@ -202,7 +224,7 @@ export function WeeklyCalendar() {
           <ul className="flex flex-col gap-2">
             {backlog.map((item) => (
               <li key={item.id}>
-                <BacklogCard item={item} />
+                <BacklogCard item={item} readOnly={isTutorView} />
               </li>
             ))}
           </ul>
