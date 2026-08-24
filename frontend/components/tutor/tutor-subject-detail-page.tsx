@@ -189,6 +189,7 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
   const subject = subjectQuery.data;
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: t("breadcrumbMySubjects"), href: "/tutor/subjects" },
+    { label: subject.class_name, href: `/tutor/classes/${subject.school_class_id}` },
     { label: subject.name },
   ];
 
@@ -200,6 +201,9 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
           <h1 className="text-2xl font-semibold text-gray-900">{subject.name}</h1>
           <LoadLessonsJsonDialog subjectId={subjectId} />
         </div>
+        <p className="text-sm text-gray-700">
+          {t("classLabel")}: <span className="font-medium">{subject.class_name}</span>
+        </p>
       </div>
 
       {topics.length === 0 ? (

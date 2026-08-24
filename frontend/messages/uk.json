@@ -146,6 +146,7 @@
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити предмет. Спробуйте ще раз.",
     "breadcrumbMySubjects": "Мої предмети",
+    "classLabel": "Клас",
     "noTopics": "Тем ще немає.",
     "noLessonsInTopic": "У цій темі ще немає уроків.",
     "moveToBlockLabel": "Перемістити тему до блоку"

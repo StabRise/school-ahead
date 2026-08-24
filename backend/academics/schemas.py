@@ -48,6 +48,7 @@ class SubjectBlockOut(Schema):
 class SubjectOut(Schema):
     id: int
     school_class_id: int
+    class_name: str
     name: str
     description: str
     recommended_resources: str
@@ -57,6 +58,10 @@ class SubjectOut(Schema):
     blocks: list[SubjectBlockOut]
     icon: str | None
     teacher_name: str | None
+
+    @staticmethod
+    def resolve_class_name(obj):
+        return obj.school_class.name
 
     @staticmethod
     def resolve_blocks(obj):
