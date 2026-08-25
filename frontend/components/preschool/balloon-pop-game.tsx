@@ -225,7 +225,10 @@ function BalloonNode({
           fontSize={labelFontSize(balloon.label)}
           fontWeight="700"
           fill="white"
-          style={{ paintOrder: "stroke" }}
+          // Otherwise a precise tap directly on the glyph can be grabbed by
+          // the browser as a text-selection gesture instead of bubbling up
+          // as a click on the button, so the balloon doesn't pop.
+          style={{ paintOrder: "stroke", pointerEvents: "none", userSelect: "none" }}
           stroke="rgba(0,0,0,0.2)"
           strokeWidth="0.5"
         >
