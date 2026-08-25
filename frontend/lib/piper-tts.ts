@@ -2,11 +2,16 @@
 // in-browser via WebAssembly. Voices, the ONNX runtime, and the phonemizer
 // are all fetched on demand from CDNs by the library itself and cached in
 // the browser's Origin Private File System. Shared by the balloon-pop
-// minigame and the preschool quiz's "read aloud" button.
+// minigame, the preschool quiz's "read aloud" button, and the lesson title.
 import * as piperTts from "@diffusionstudio/vits-web";
 import type { VoiceId } from "@diffusionstudio/vits-web";
 
 export type SpeechLanguage = "en" | "uk" | "pl";
+
+// "short" is for single digits/letters/color words (the balloon-pop game);
+// "sentence" is for full phrases (quiz questions/answers, lesson titles).
+// They can map to different voices per language — see SENTENCE_VOICE_BY_LANGUAGE.
+export type VoiceProfile = "short" | "sentence";
 
 // Tutor-authored quiz prompts/choices are Markdown (see QuizQuestion.prompt,
 // QuizChoice.text) — strip the syntax before handing text to the TTS engine
@@ -27,13 +32,27 @@ export function toSpeechText(markdown: string): string {
     .trim();
 }
 
-const VOICE_BY_LANGUAGE: Record<SpeechLanguage, VoiceId> = {
+const SHORT_VOICE_BY_LANGUAGE: Record<SpeechLanguage, VoiceId> = {
   en: "en_US-lessac-medium",
   uk: "uk_UA-lada-x_low",
   pl: "pl_PL-gosia-medium",
 };
 
-let queuedUtterance: { text: string; language: SpeechLanguage } | null = null;
+// Full sentences need a voice with a fuller phoneme vocabulary. The tiny
+// x_low Ukrainian voice above is fine for single digits/letters, but throws
+// an ONNX "Gather ... indices element out of data bounds" error on some
+// ordinary multi-word sentences it was never trained to cover.
+const SENTENCE_VOICE_BY_LANGUAGE: Record<SpeechLanguage, VoiceId> = {
+  en: "en_US-lessac-medium",
+  uk: "uk_UA-lada-x_low",
+  pl: "pl_PL-gosia-medium",
+};
+
+function voiceIdFor(language: SpeechLanguage, profile: VoiceProfile): VoiceId {
+  return profile === "short" ? SHORT_VOICE_BY_LANGUAGE[language] : SENTENCE_VOICE_BY_LANGUAGE[language];
+}
+
+let queuedUtterance: { text: string; language: SpeechLanguage; profile: VoiceProfile } | null = null;
 let processingQueue = false;
 let currentAudio: HTMLAudioElement | null = null;
 // Bumped by speakSequence() so an in-progress sequence (e.g. re-reading a
@@ -44,9 +63,9 @@ let sequenceToken = 0;
 // Prefetches the voice model into OPFS so switching language doesn't stall
 // the first utterance on a multi-megabyte download. `download()` always
 // re-fetches, so we check `stored()` ourselves first.
-export async function prefetchVoice(language: SpeechLanguage): Promise<void> {
+export async function prefetchVoice(language: SpeechLanguage, profile: VoiceProfile = "sentence"): Promise<void> {
   try {
-    const voiceId = VOICE_BY_LANGUAGE[language];
+    const voiceId = voiceIdFor(language, profile);
     const alreadyStored = await piperTts.stored();
     if (alreadyStored.includes(voiceId)) return;
     await piperTts.download(voiceId);
@@ -58,9 +77,9 @@ export async function prefetchVoice(language: SpeechLanguage): Promise<void> {
 // Speaks `text` using the voice for `language`. Calls made while a previous
 // synthesis is still running replace the queued utterance instead of piling
 // up, so rapidly popping balloons only ever speaks the latest one.
-export function speak(text: string, language: SpeechLanguage): void {
+export function speak(text: string, language: SpeechLanguage, profile: VoiceProfile = "sentence"): void {
   sequenceToken++;
-  queuedUtterance = { text, language };
+  queuedUtterance = { text, language, profile };
   void drainQueue();
 }
 
@@ -74,6 +93,7 @@ export async function speakSequence(
   texts: string[],
   language: SpeechLanguage,
   onProgress?: (index: number | null) => void,
+  profile: VoiceProfile = "sentence",
 ): Promise<void> {
   const token = ++sequenceToken;
   currentAudio?.pause();
@@ -83,7 +103,7 @@ export async function speakSequence(
       const text = texts[index];
       if (!text.trim()) continue;
       onProgress?.(index);
-      await synthesizeAndPlayToEnd(text, language, token);
+      await synthesizeAndPlayToEnd(text, language, profile, token);
     }
   } finally {
     if (token === sequenceToken) onProgress?.(null);
@@ -95,18 +115,18 @@ async function drainQueue(): Promise<void> {
   processingQueue = true;
   try {
     while (queuedUtterance) {
-      const { text, language } = queuedUtterance;
+      const { text, language, profile } = queuedUtterance;
       queuedUtterance = null;
-      await synthesizeAndPlay(text, language);
+      await synthesizeAndPlay(text, language, profile);
     }
   } finally {
     processingQueue = false;
   }
 }
 
-async function synthesizeAndPlay(text: string, language: SpeechLanguage): Promise<void> {
+async function synthesizeAndPlay(text: string, language: SpeechLanguage, profile: VoiceProfile): Promise<void> {
   try {
-    const wav = await piperTts.predict({ text, voiceId: VOICE_BY_LANGUAGE[language] });
+    const wav = await piperTts.predict({ text, voiceId: voiceIdFor(language, profile) });
     currentAudio?.pause();
     const audio = new Audio(URL.createObjectURL(wav));
     currentAudio = audio;
@@ -117,9 +137,14 @@ async function synthesizeAndPlay(text: string, language: SpeechLanguage): Promis
   }
 }
 
-async function synthesizeAndPlayToEnd(text: string, language: SpeechLanguage, token: number): Promise<void> {
+async function synthesizeAndPlayToEnd(
+  text: string,
+  language: SpeechLanguage,
+  profile: VoiceProfile,
+  token: number,
+): Promise<void> {
   try {
-    const wav = await piperTts.predict({ text, voiceId: VOICE_BY_LANGUAGE[language] });
+    const wav = await piperTts.predict({ text, voiceId: voiceIdFor(language, profile) });
     if (token !== sequenceToken) return;
     const audio = new Audio(URL.createObjectURL(wav));
     currentAudio = audio;

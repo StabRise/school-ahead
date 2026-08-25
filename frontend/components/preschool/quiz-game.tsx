@@ -152,7 +152,7 @@ function QuestionRound({
                 onClick={() => handleSelect(choice.id)}
                 className={`flex min-w-40 flex-none flex-col items-center justify-center gap-2 rounded-2xl border-4 px-6 py-4 text-center text-lg font-extrabold uppercase text-gray-900 shadow-md transition-transform disabled:cursor-default sm:min-w-48 sm:px-8 sm:py-5 sm:text-xl md:px-10 md:py-6 md:text-2xl lg:text-3xl ${
                   selectedChoiceId === null ? "active:scale-95" : ""
-                } ${isWrongPick ? "opacity-90" : ""} ${!isSelected && selectedChoiceId !== null && !showAsCorrect ? "opacity-50" : ""} ${isSpeaking ? "ring-4 ring-sky-400 ring-offset-2" : ""}`}
+                } ${isWrongPick ? "opacity-90" : ""} ${!isSelected && selectedChoiceId !== null && !showAsCorrect ? "opacity-50" : ""} ${isSpeaking ? "z-10 scale-110 ring-4 ring-sky-400 ring-offset-2" : ""}`}
                 style={{
                   backgroundColor: style.bg,
                   borderColor: showAsCorrect ? "#16a34a" : isWrongPick ? "#dc2626" : style.border,

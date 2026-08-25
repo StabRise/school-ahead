@@ -244,6 +244,7 @@
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити урок.",
     "exitLabel": "Вийти на стежку",
+    "readTitleButton": "Прочитати назву уроку",
     "continueButton": "Далі",
     "needHelpWaiting": "Тьютор скоро допоможе!",
     "resolveNeedHelp": "Я вже розібрався(лась)",

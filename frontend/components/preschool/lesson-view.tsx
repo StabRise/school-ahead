@@ -16,6 +16,11 @@ import { CelebrationScene } from "@/components/preschool/celebration-scene";
 import { PreschoolQuizGame } from "@/components/preschool/quiz-game";
 import { PreschoolTheoryCheck } from "@/components/preschool/theory-check";
 import { ScreenFrame } from "@/components/preschool/screen-frame";
+import { speak, toSpeechText } from "@/lib/piper-tts";
+
+// Lesson titles have no language field of their own (unlike quiz questions,
+// see QuizQuestion.language) — the read-aloud button always uses Ukrainian.
+const LESSON_TITLE_LANGUAGE = "uk";
 
 type MagicStep = "theory" | "practice";
 
@@ -72,13 +77,27 @@ function MagicScreen({ title, content, onContinue }: { title: string; content: s
   const t = useTranslations("PreschoolLesson");
   const { videoId, content: textContent } = extractYoutubeVideo(content);
 
+  const handleReadTitle = () => {
+    speak(toSpeechText(title), LESSON_TITLE_LANGUAGE);
+  };
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 p-3">
       <NextButton onClick={onContinue} />
 
-      <h2 className="bg-gradient-to-r from-red-500 via-amber-400 to-sky-500 bg-clip-text text-center text-4xl font-extrabold text-transparent drop-shadow-sm sm:text-5xl">
-        {title}
-      </h2>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          aria-label={t("readTitleButton")}
+          onClick={handleReadTitle}
+          className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-white text-2xl shadow-lg transition-transform active:scale-95"
+        >
+          🔊
+        </button>
+        <h2 className="bg-gradient-to-r from-red-500 via-amber-400 to-sky-500 bg-clip-text text-center text-4xl font-extrabold text-transparent drop-shadow-sm sm:text-5xl">
+          {title}
+        </h2>
+      </div>
 
       {/* The video is pulled out of the markdown flow and rendered as its
           own full-width block — embedding it inline would tie its size to

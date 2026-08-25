@@ -279,7 +279,7 @@ export function BalloonPopGame() {
   // Warms the voice model cache as soon as a language is selected, so the
   // first popped balloon doesn't stall on a multi-megabyte download.
   useEffect(() => {
-    void prefetchVoice(language);
+    void prefetchVoice(language, "short");
   }, [language]);
 
   const handleMissed = (balloonId: number) => {
@@ -312,7 +312,7 @@ export function BalloonPopGame() {
     }, 550);
 
     playPopSound();
-    speak(balloon.speech, language);
+    speak(balloon.speech, language, "short");
     setScore((current) => current + 1);
     setScoreBump((current) => current + 1);
   };
