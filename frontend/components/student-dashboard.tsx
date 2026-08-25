@@ -8,7 +8,7 @@ import { GradePoints } from "@/components/grade-points";
 import { Card } from "@/components/card";
 import { PageContainer } from "@/components/page-container";
 import { PreschoolGameMap } from "@/components/preschool/game-map";
-import { BalloonPopGame } from "@/components/preschool/balloon-pop-game";
+import { PreschoolCelebration } from "@/components/preschool/game-choice";
 import { useAuthStore } from "@/stores/auth-store";
 
 // Local (not UTC) YYYY-MM-DD — avoids toISOString() shifting the date near
@@ -94,7 +94,7 @@ export function StudentDashboard() {
           {/* No separate backlog section here — tails are already walked
               into `roadItems` above, so listing them again would just
               duplicate what's on the road. See docs/interfaces/preschool.md. */}
-          {!isLoading && !isError && (allTodayCompleted ? <BalloonPopGame /> : <PreschoolGameMap items={roadItems} />)}
+          {!isLoading && !isError && (allTodayCompleted ? <PreschoolCelebration /> : <PreschoolGameMap items={roadItems} />)}
         </div>
       </div>
     );

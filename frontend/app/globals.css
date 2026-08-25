@@ -59,6 +59,25 @@ body {
   }
 }
 
+/* Letter Train celebration minigame — docs/interfaces/preschool.md section 2.4. */
+@keyframes train-arrive {
+  from {
+    left: -40%;
+  }
+  to {
+    left: 50%;
+  }
+}
+
+@keyframes train-depart {
+  from {
+    left: 50%;
+  }
+  to {
+    left: 140%;
+  }
+}
+
 /* Adventure road (docs/interfaces/preschool.md, "Fairy-tale path" concept):
    the current step gently sways to invite a tap, and butterflies/bees flutter
    around it in a small loop. */

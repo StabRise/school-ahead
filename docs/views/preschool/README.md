@@ -31,7 +31,7 @@ views.
 
 | Route | Wrapper | Default component | Preschool component |
 |---|---|---|---|
-| `/` | `frontend/components/student-dashboard.tsx` | inline list | `PreschoolGameMap` / `BalloonPopGame` |
+| `/` | `frontend/components/student-dashboard.tsx` | inline list | `PreschoolGameMap` / `PreschoolCelebration` |
 | `/calendar` | `frontend/components/calendar/student-calendar-view.tsx` | `WeeklyCalendar` | `PreschoolCalendar` |
 | `/lessons/[id]` | `frontend/components/lesson-wizard/student-lesson-view.tsx` | `LessonWizard` | `PreschoolLessonView` |
 
@@ -70,9 +70,9 @@ walk through the same path as today's lessons, not a separate screen.
   ladybug along the path (`TrailDecorations`, positions from a deterministic
   `pseudoRandom` seed so they never shift between server/client render).
 
-### Balloon Pop celebration
+### Celebration minigames
 
-Component: `balloon-pop-game.tsx` → `BalloonPopGame`. Trigger, computed in
+Component: `game-choice.tsx` → `PreschoolCelebration`. Trigger, computed in
 `student-dashboard.tsx`:
 
 ```
@@ -82,12 +82,28 @@ hasAnyItems && backlog.length === 0 && today.every(item => item.status === "comp
 i.e. not just today's lessons — every tail has to be cleared too, and there
 has to be at least one item (an empty day never celebrates).
 
-* Balloons spawn on an interval, drift down, and pop on tap with a
-  particle burst and a procedural Web-Audio "pop" (no audio asset pipeline
-  exists in this project, so sounds here and in the lesson view are
-  synthesized, not files).
-* A ruby-icon + red-circle counter tracks the session's pop count (no
-  server round-trip — purely client-side).
+`PreschoolCelebration` first shows a game picker (two big cards — Balloons
+is the visually highlighted default) and, once the child taps one, renders
+that minigame full-screen with a small "🔁" button (bottom-left) to go back
+and pick the other one. Neither minigame is persisted between visits — the
+picker shows again next time the trigger fires.
+
+* **Balloon Pop** (`balloon-pop-game.tsx` → `BalloonPopGame`) — balloons
+  spawn on an interval, drift down, and pop on tap with a particle burst and
+  a procedural Web-Audio "pop" (no audio asset pipeline exists in this
+  project, so sounds here and in the lesson view are synthesized, not
+  files). A ruby-icon + red-circle counter tracks the session's pop count
+  (no server round-trip — purely client-side).
+* **Letter Train** (`trains-game.tsx` → `TrainsGame`) — a train slides in
+  from the left carrying a big letter on its wagon, parks in the middle,
+  and waits for the child to press the matching key on a physical keyboard
+  (`window` `keydown`, matched case-insensitively against the letter — this
+  minigame needs a real keyboard, unlike the tap-driven balloon game). A
+  correct press plays a synthesized chime, the train departs to the right,
+  and the letter is appended to a running list on a right-side panel that
+  also shows the total count. Both games share the same TTS language
+  picker (English/Ukrainian/Polish, `SpeechLanguage` from `piper-tts.ts`) —
+  Letter Train speaks the letter once the train parks.
 
 ## 3. Weekly Calendar (`/calendar`)
 

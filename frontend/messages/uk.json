@@ -63,6 +63,29 @@
     "countLabel": "Кількість кульок",
     "speedLabel": "Швидкість"
   },
+  "TrainsGame": {
+    "title": "Потяг привіз букву!",
+    "subtitle": "Зачекай на потяг 🚂",
+    "instruction": "Натисни на клавіатурі букву {letter}",
+    "settingsButton": "Налаштування гри",
+    "languageLabel": "Мова",
+    "language": {
+      "en": "English",
+      "uk": "Українська",
+      "pl": "Polski"
+    },
+    "collectedLabel": "Зібрані букви",
+    "collected": "{count, plural, one {Зібрано # букву} few {Зібрано # букви} many {Зібрано # букв} other {Зібрано # букви}}"
+  },
+  "PreschoolGameChoice": {
+    "title": "Усі уроки зроблено!",
+    "subtitle": "У яку гру хочеш пограти?",
+    "balloonsTitle": "Кульки",
+    "balloonsSubtitle": "Лопай кульки, що падають",
+    "trainsTitle": "Потяг",
+    "trainsSubtitle": "Натискай букви на клавіатурі",
+    "switchGame": "Обрати іншу гру"
+  },
   "StudentDashboard": {
     "title": "Сьогоднішні уроки",
     "loading": "Завантаження...",
