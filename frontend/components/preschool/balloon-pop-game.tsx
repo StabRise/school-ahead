@@ -2,10 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { type GameLanguage, prefetchVoice, speakBalloonLabel } from "@/lib/balloon-tts";
 
 // Celebration reward minigame — triggers when every one of today's lessons
 // is Completed (evaluated by the caller on dashboard load). See
 // docs/interfaces/preschool.md section 2.4.
+
+type BalloonMode = "numbers10" | "numbers20" | "numbers100" | "colors" | "letters";
 
 interface FallingBalloon {
   id: number;
@@ -14,7 +17,8 @@ interface FallingBalloon {
   duration: number; // seconds to fall
   delay: number; // seconds before starting
   size: number; // px
-  number: number; // 1-20, printed on the balloon
+  label: string; // text printed on the balloon, depends on the selected mode
+  speech: string; // text spoken via Piper TTS when the balloon is popped
 }
 
 interface Particle {
@@ -26,7 +30,41 @@ interface Particle {
   dy: number;
 }
 
-const BALLOON_COLORS = ["#f87171", "#fb923c", "#fbbf24", "#4ade80", "#38bdf8", "#a78bfa", "#f472b6"];
+// Hex values line up positionally with each language's name list below.
+const BALLOON_COLOR_HEXES = ["#f87171", "#fb923c", "#fbbf24", "#4ade80", "#38bdf8", "#a78bfa", "#f472b6"];
+
+const COLOR_NAMES: Record<GameLanguage, string[]> = {
+  en: ["Red", "Orange", "Yellow", "Green", "Blue", "Purple", "Pink"],
+  uk: ["Червоний", "Помаранчевий", "Жовтий", "Зелений", "Синій", "Фіолетовий", "Рожевий"],
+  pl: ["Czerwony", "Pomarańczowy", "Żółty", "Zielony", "Niebieski", "Fioletowy", "Różowy"],
+};
+
+const ALPHABETS: Record<GameLanguage, string[]> = {
+  en: [
+    "Aa", "Bb", "Cc", "Dd", "Ee", "Ff", "Gg", "Hh", "Ii", "Jj",
+    "Kk", "Ll", "Mm", "Nn", "Oo", "Pp", "Qq", "Rr", "Ss", "Tt",
+    "Uu", "Vv", "Ww", "Xx", "Yy", "Zz",
+  ],
+  uk: [
+    "Аа", "Бб", "Вв", "Гг", "Ґґ", "Дд", "Ее", "Єє", "Жж", "Зз",
+    "Ии", "Іі", "Її", "Йй", "Кк", "Лл", "Мм", "Нн", "Оо", "Пп",
+    "Рр", "Сс", "Тт", "Уу", "Фф", "Хх", "Цц", "Чч", "Шш", "Щщ",
+    "Ьь", "Юю", "Яя",
+  ],
+  pl: [
+    "Aa", "Ąą", "Bb", "Cc", "Ćć", "Dd", "Ee", "Ęę", "Ff", "Gg",
+    "Hh", "Ii", "Jj", "Kk", "Ll", "Łł", "Mm", "Nn", "Ńń", "Oo",
+    "Óó", "Pp", "Rr", "Ss", "Śś", "Tt", "Uu", "Ww", "Yy", "Zz",
+    "Źź", "Żż",
+  ],
+};
+
+const BALLOON_MODES: BalloonMode[] = ["numbers10", "numbers20", "numbers100", "colors", "letters"];
+const DEFAULT_MODE: BalloonMode = "numbers10";
+
+const GAME_LANGUAGES: GameLanguage[] = ["en", "uk", "pl"];
+const DEFAULT_LANGUAGE: GameLanguage = "en";
+
 const SPAWN_INTERVAL_MS = 850;
 const PARTICLES_PER_POP = 10;
 
@@ -51,7 +89,59 @@ function randomBetween(min: number, max: number): number {
 }
 
 function randomColor(): string {
-  return BALLOON_COLORS[Math.floor(Math.random() * BALLOON_COLORS.length)];
+  return BALLOON_COLOR_HEXES[Math.floor(Math.random() * BALLOON_COLOR_HEXES.length)];
+}
+
+function randomNumber(max: number): number {
+  return Math.floor(randomBetween(1, max + 1));
+}
+
+function randomFrom<T>(items: T[]): T {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+// Picks the label (and, for "colors" mode, the color that must match it) for
+// a newly spawned balloon. `speech` is what gets read aloud on pop — for
+// "letters" that's just the capital letter, since speaking the "Aa" pair as
+// one word wouldn't sound like the letter's name.
+function generateBalloonContent(
+  mode: BalloonMode,
+  language: GameLanguage,
+): { label: string; color: string; speech: string } {
+  switch (mode) {
+    case "numbers20": {
+      const label = String(randomNumber(20));
+      return { label, color: randomColor(), speech: label };
+    }
+    case "numbers100": {
+      const label = String(randomNumber(100));
+      return { label, color: randomColor(), speech: label };
+    }
+    case "colors": {
+      const index = Math.floor(Math.random() * BALLOON_COLOR_HEXES.length);
+      const label = COLOR_NAMES[language][index];
+      return { label, color: BALLOON_COLOR_HEXES[index], speech: label };
+    }
+    case "letters": {
+      const label = randomFrom(ALPHABETS[language]);
+      return { label, color: randomColor(), speech: label.charAt(0) };
+    }
+    case "numbers10":
+    default: {
+      const label = String(randomNumber(10));
+      return { label, color: randomColor(), speech: label };
+    }
+  }
+}
+
+// Longer labels (color names, three-digit numbers) need a smaller font to
+// keep fitting inside the fixed balloon SVG viewBox.
+function labelFontSize(label: string): number {
+  if (label.length <= 2) return 14;
+  if (label.length <= 4) return 12;
+  if (label.length <= 6) return 10;
+  if (label.length <= 8) return 8;
+  return 6.5;
 }
 
 // Synthesized "pop" — no audio asset pipeline exists in this project, and a
@@ -132,14 +222,14 @@ function BalloonNode({
           x="20"
           y="24"
           textAnchor="middle"
-          fontSize="14"
+          fontSize={labelFontSize(balloon.label)}
           fontWeight="700"
           fill="white"
           style={{ paintOrder: "stroke" }}
           stroke="rgba(0,0,0,0.2)"
           strokeWidth="0.5"
         >
-          {balloon.number}
+          {balloon.label}
         </text>
         <path d="M20 40 L17 46 L23 46 Z" fill={balloon.color} />
         <line x1="20" y1="46" x2="20" y2="52" stroke="#94a3b8" strokeWidth="1" />
@@ -158,26 +248,36 @@ export function BalloonPopGame() {
   const [size, setSize] = useState(DEFAULT_SIZE);
   const [speed, setSpeed] = useState(DEFAULT_SPEED);
   const [maxOnScreen, setMaxOnScreen] = useState(DEFAULT_COUNT);
+  const [mode, setMode] = useState<BalloonMode>(DEFAULT_MODE);
+  const [language, setLanguage] = useState<GameLanguage>(DEFAULT_LANGUAGE);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setBalloons((current) => {
         if (current.length >= maxOnScreen) return current;
+        const { label, color, speech } = generateBalloonContent(mode, language);
         const balloon: FallingBalloon = {
           id: nextBalloonId++,
           left: randomBetween(4, 82),
-          color: randomColor(),
+          color,
           duration: randomBetween(6, 11) / speed,
           delay: 0,
           size: randomBetween(size * 0.75, size * 1.25),
-          number: Math.floor(randomBetween(1, 21)),
+          label,
+          speech,
         };
         return [...current, balloon];
       });
     }, SPAWN_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [size, speed, maxOnScreen]);
+  }, [size, speed, maxOnScreen, mode, language]);
+
+  // Warms the voice model cache as soon as a language is selected, so the
+  // first popped balloon doesn't stall on a multi-megabyte download.
+  useEffect(() => {
+    void prefetchVoice(language);
+  }, [language]);
 
   const handleMissed = (balloonId: number) => {
     setBalloons((current) => current.filter((b) => b.id !== balloonId));
@@ -209,6 +309,7 @@ export function BalloonPopGame() {
     }, 550);
 
     playPopSound();
+    speakBalloonLabel(balloon.speech, language);
     setScore((current) => current + 1);
     setScoreBump((current) => current + 1);
   };
@@ -244,6 +345,34 @@ export function BalloonPopGame() {
 
       {settingsOpen && (
         <div className="absolute left-4 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200">
+          <label className="flex flex-col gap-1">
+            <span className="font-medium text-gray-700">{t("modeLabel")}</span>
+            <select
+              value={mode}
+              onChange={(e) => setMode(e.target.value as BalloonMode)}
+              className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
+            >
+              {BALLOON_MODES.map((m) => (
+                <option key={m} value={m}>
+                  {t(`mode.${m}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="font-medium text-gray-700">{t("languageLabel")}</span>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as GameLanguage)}
+              className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
+            >
+              {GAME_LANGUAGES.map((lang) => (
+                <option key={lang} value={lang}>
+                  {t(`language.${lang}`)}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("sizeLabel")}</span>
             <input

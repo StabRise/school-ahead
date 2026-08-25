@@ -13,6 +13,14 @@ const nextConfig: NextConfig = {
         as: "*.css",
       },
     },
+    // @diffusionstudio/vits-web's emscripten-generated piper.js has a
+    // `require("fs")`/`require("path")` guarded by a Node-only runtime
+    // check that never runs in Next.js's client/edge bundles, but Turbopack
+    // still resolves it statically at build time. Stub both out.
+    resolveAlias: {
+      fs: "./lib/stubs/empty-node-module.js",
+      path: "./lib/stubs/empty-node-module.js",
+    },
   },
 };
 
