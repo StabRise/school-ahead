@@ -30,6 +30,7 @@ class QuizQuestionOut(Schema):
     id: int
     prompt: str
     order_index: int
+    language: str
     choices: list[QuizChoiceOut]
 
     @staticmethod

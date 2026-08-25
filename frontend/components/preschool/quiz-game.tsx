@@ -6,6 +6,13 @@ import { getQuizQuestionHint, useSubmitQuiz } from "@/lib/api/browser/student-le
 import type { QuizQuestionOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Markdown } from "@/components/markdown";
 import { Raccoon } from "@/components/preschool/raccoon";
+import { prefetchVoice, speakSequence, toSpeechText, type SpeechLanguage } from "@/lib/piper-tts";
+
+const DEFAULT_QUIZ_LANGUAGE: SpeechLanguage = "uk";
+
+function toSpeechLanguage(language: string): SpeechLanguage {
+  return language === "en" || language === "uk" || language === "pl" ? language : DEFAULT_QUIZ_LANGUAGE;
+}
 
 const PASS_THRESHOLD_PERCENT = 60;
 const HINT_DELAY_MS = 15000;
@@ -35,7 +42,7 @@ function QuizCard({ children }: { children: React.ReactNode }) {
 
 function QuizBanner({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-gradient-to-r from-fuchsia-400 via-pink-400 to-amber-300 px-6 py-7 text-center sm:py-9">
+    <div className="relative bg-gradient-to-r from-fuchsia-400 via-pink-400 to-amber-300 px-6 py-7 text-center sm:py-9">
       {children}
     </div>
   );
@@ -56,6 +63,7 @@ function QuestionRound({
   const [correctChoiceId, setCorrectChoiceId] = useState<number | null>(null);
   const [hintRevealed, setHintRevealed] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
+  const speechLanguage = toSpeechLanguage(question.language);
 
   // "Stuck for too long" hint — the correct card starts pulsing.
   useEffect(() => {
@@ -70,6 +78,17 @@ function QuestionRound({
     }, HINT_DELAY_MS);
     return () => window.clearTimeout(hintTimer);
   }, [question.id]);
+
+  // Warms the voice model cache as soon as the question is shown, so tapping
+  // the read-aloud button doesn't stall on a multi-megabyte download.
+  useEffect(() => {
+    void prefetchVoice(speechLanguage);
+  }, [speechLanguage]);
+
+  const handleReadAloud = () => {
+    const texts = [question.prompt, ...question.choices.map((choice) => choice.text)].map(toSpeechText);
+    void speakSequence(texts, speechLanguage);
+  };
 
   const handleSelect = async (choiceId: number) => {
     if (selectedChoiceId !== null) return;
@@ -93,6 +112,14 @@ function QuestionRound({
   return (
     <>
       <QuizBanner>
+        <button
+          type="button"
+          aria-label={t("readAloudButton")}
+          onClick={handleReadAloud}
+          className="absolute left-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-xl shadow-md transition-transform active:scale-95"
+        >
+          🔊
+        </button>
         <div className="text-xl font-extrabold uppercase text-gray-900 [&_p]:m-0 [&_p]:text-xl sm:[&_p]:text-2xl md:[&_p]:text-3xl lg:[&_p]:text-4xl">
           <Markdown content={question.prompt} />
         </div>

@@ -255,6 +255,7 @@
     "homeButton": "На стежку"
   },
   "PreschoolQuizGame": {
+    "readAloudButton": "Прочитати вголос",
     "progress": "Питання {current} із {total}",
     "correctMessage": "Так тримати!",
     "incorrectMessage": "Майже! Спробуй ще раз пізніше.",

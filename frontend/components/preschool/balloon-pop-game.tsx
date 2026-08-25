@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { type GameLanguage, prefetchVoice, speakBalloonLabel } from "@/lib/balloon-tts";
+import { prefetchVoice, speak, type SpeechLanguage as GameLanguage } from "@/lib/piper-tts";
 
 // Celebration reward minigame — triggers when every one of today's lessons
 // is Completed (evaluated by the caller on dashboard load). See
@@ -312,7 +312,7 @@ export function BalloonPopGame() {
     }, 550);
 
     playPopSound();
-    speakBalloonLabel(balloon.speech, language);
+    speak(balloon.speech, language);
     setScore((current) => current + 1);
     setScoreBump((current) => current + 1);
   };

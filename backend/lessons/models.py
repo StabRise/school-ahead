@@ -36,6 +36,15 @@ class GradeResult(models.TextChoices):
     FAIL = 'fail', 'Fail'
 
 
+class QuizLanguage(models.TextChoices):
+    # Matches the Piper voices wired up on the frontend (see
+    # frontend/lib/balloon-tts.ts) — used to read the question and its
+    # answers aloud in the preschool quiz.
+    UK = 'uk', 'Ukrainian'
+    EN = 'en', 'English'
+    PL = 'pl', 'Polish'
+
+
 class Lesson(TimeStampedModel):
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='lessons')
     order_index = models.PositiveSmallIntegerField()
@@ -82,6 +91,10 @@ class QuizQuestion(models.Model):
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='quiz_questions')
     prompt = models.TextField()
     order_index = models.PositiveSmallIntegerField(default=0)
+    # Spoken language for the "read aloud" button on the preschool quiz
+    # screen. Defaults to Ukrainian; a tutor can set it per question, e.g.
+    # for a lesson that teaches English vocabulary.
+    language = models.CharField(max_length=2, choices=QuizLanguage.choices, default=QuizLanguage.UK)
 
     class Meta:
         ordering = ['order_index']
