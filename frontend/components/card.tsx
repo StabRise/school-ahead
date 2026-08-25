@@ -9,10 +9,16 @@ export function Card({
   children,
   href,
   className = "",
+  draggable,
+  onDragStart,
+  onDragEnd,
 }: {
   children: React.ReactNode;
   href?: string;
   className?: string;
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
 }) {
   const classes = [
     "rounded-md border border-gray-200 px-4 py-3",
@@ -30,5 +36,9 @@ export function Card({
     );
   }
 
-  return <div className={classes}>{children}</div>;
+  return (
+    <div className={classes} draggable={draggable} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+      {children}
+    </div>
+  );
 }

@@ -396,7 +396,16 @@
     "noLessons": "Немає уроків",
     "backlogTitle": "Хвости",
     "backlogHint": "Уроки, які не завершено вчасно",
-    "backlogOrigin": "Мало бути виконано: {label}"
+    "backlogOrigin": "Мало бути виконано: {label}",
+    "lessonTooltip": "{topic}\n{lesson}",
+    "previewAsStudent": "Переглянути урок як учень",
+    "openSubject": "Відкрити предмет",
+    "changeDate": "Змінити дату",
+    "rescheduleTitle": "Змінити дату уроку",
+    "rescheduleDateLabel": "Нова дата",
+    "rescheduleSubmit": "Зберегти",
+    "rescheduleCancel": "Скасувати",
+    "rescheduleError": "Не вдалося перенести урок. Спробуйте ще раз."
   },
   "PreschoolCalendar": {
     "title": "Мій тиждень",

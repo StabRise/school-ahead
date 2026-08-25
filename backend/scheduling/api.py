@@ -47,7 +47,10 @@ def _calendar_item(request: HttpRequest, student_lesson: StudentLesson) -> Calen
     subject = student_lesson.lesson.topic.subject
     return CalendarItemOut(
         id=student_lesson.id,
+        lesson_id=student_lesson.lesson_id,
+        subject_id=subject.id,
         lesson_title=student_lesson.lesson.title,
+        topic_title=student_lesson.lesson.topic.title,
         subject_name=subject.name,
         status=student_lesson.status,
         scheduled_date=student_lesson.scheduled_date,

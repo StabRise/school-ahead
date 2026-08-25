@@ -5,7 +5,10 @@ from ninja import Schema
 
 class CalendarItemOut(Schema):
     id: int
+    lesson_id: int
+    subject_id: int
     lesson_title: str
+    topic_title: str
     subject_name: str
     status: str
     scheduled_date: datetime.date
