@@ -273,6 +273,7 @@
   "TaskStep": {
     "commentLabel": "Коментар",
     "fileLabel": "Файл (фото чи документ)",
+    "requiredError": "Додайте файл або напишіть коментар.",
     "submitButton": "Надіслати на перевірку",
     "resubmitButton": "Надіслати виправлення"
   },

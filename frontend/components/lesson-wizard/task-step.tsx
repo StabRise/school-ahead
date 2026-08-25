@@ -1,9 +1,24 @@
 "use client";
 
-import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useSubmitTask, useResubmitLesson } from "@/lib/api/browser/student-lessons/student-lessons";
 import { Markdown } from "@/components/markdown";
+
+// A submission needs a file or a written comment — never neither.
+const taskSubmissionSchema = z
+  .object({
+    comment: z.string(),
+    file: z.instanceof(File).nullable(),
+  })
+  .refine((data) => data.file !== null || data.comment.trim().length > 0, {
+    message: "required",
+    path: ["comment"],
+  });
+
+type TaskSubmissionValues = z.infer<typeof taskSubmissionSchema>;
 
 export function TaskStep({
   studentLessonId,
@@ -17,22 +32,30 @@ export function TaskStep({
   onChanged: () => void;
 }) {
   const t = useTranslations("TaskStep");
-  const [comment, setComment] = useState("");
-  const [file, setFile] = useState<File | null>(null);
   const submitTask = useSubmitTask();
   const resubmitLesson = useResubmitLesson();
 
   const mutation = isResubmit ? resubmitLesson : submitTask;
 
-  const handleSubmit = () => {
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    formState: { errors },
+  } = useForm<TaskSubmissionValues>({
+    resolver: zodResolver(taskSubmissionSchema),
+    defaultValues: { comment: "", file: null },
+  });
+
+  const onSubmit = (data: TaskSubmissionValues) => {
     mutation.mutate(
-      { studentLessonId, data: { comment, file } },
+      { studentLessonId, data: { comment: data.comment, file: data.file } },
       { onSuccess: () => onChanged() },
     );
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       {taskContent && <Markdown content={taskContent} embedYoutube embedPdf />}
 
       <div className="flex flex-col gap-1">
@@ -41,10 +64,9 @@ export function TaskStep({
         </label>
         <textarea
           id="task-comment"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
           rows={3}
           className="rounded-md border border-gray-300 p-2 text-sm"
+          {...register("comment")}
         />
       </div>
 
@@ -55,19 +77,20 @@ export function TaskStep({
         <input
           id="task-file"
           type="file"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           className="text-sm"
+          onChange={(e) => setValue("file", e.target.files?.[0] ?? null, { shouldValidate: true })}
         />
       </div>
 
+      {errors.comment && <p className="text-sm text-red-600">{t("requiredError")}</p>}
+
       <button
-        type="button"
+        type="submit"
         disabled={mutation.isPending}
-        onClick={handleSubmit}
         className="self-start rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
       >
         {isResubmit ? t("resubmitButton") : t("submitButton")}
       </button>
-    </div>
+    </form>
   );
 }
