@@ -67,14 +67,26 @@ export function speak(text: string, language: SpeechLanguage): void {
 // Reads `texts` aloud one after another, waiting for each to finish before
 // starting the next — e.g. a quiz question followed by its answer options.
 // Calling this again (or speak()) while a sequence is still running cuts it
-// off after whatever's currently playing.
-export async function speakSequence(texts: string[], language: SpeechLanguage): Promise<void> {
+// off after whatever's currently playing. `onProgress`, if given, is called
+// with the index about to start, then with `null` once the sequence ends —
+// skipped if a later call has already superseded this one by then.
+export async function speakSequence(
+  texts: string[],
+  language: SpeechLanguage,
+  onProgress?: (index: number | null) => void,
+): Promise<void> {
   const token = ++sequenceToken;
   currentAudio?.pause();
-  for (const text of texts) {
-    if (token !== sequenceToken) return;
-    if (!text.trim()) continue;
-    await synthesizeAndPlayToEnd(text, language, token);
+  try {
+    for (let index = 0; index < texts.length; index++) {
+      if (token !== sequenceToken) return;
+      const text = texts[index];
+      if (!text.trim()) continue;
+      onProgress?.(index);
+      await synthesizeAndPlayToEnd(text, language, token);
+    }
+  } finally {
+    if (token === sequenceToken) onProgress?.(null);
   }
 }
 
