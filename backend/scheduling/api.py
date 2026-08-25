@@ -145,7 +145,7 @@ def generate_class_schedule(request: HttpRequest, class_id: int, payload: Genera
 
     school_class = get_object_or_404(Class, id=class_id)
 
-    requested = {item.subject_id: item.hours_per_week for item in payload.subjects if item.hours_per_week > 0}
+    requested = {item.subject_id: item.lessons_count for item in payload.subjects if item.lessons_count > 0}
     tutor_subject_ids = set(get_tutor_subject_ids(request.auth))
     if not set(requested) <= tutor_subject_ids:
         raise HttpError(403, 'Not a tutor for one or more of the given subjects')

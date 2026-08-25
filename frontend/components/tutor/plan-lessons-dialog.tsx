@@ -29,17 +29,18 @@ function addDaysIso(base: string, days: number): string {
 }
 
 // Opened from the class detail page's "Запланувати уроки" button. Lets a
-// tutor pick a date range and a weekly-hours target per subject, then calls
-// the backend algorithm (scheduling.services.generate_class_schedule) that
-// balances load and minimizes same-subject repeats across the range,
-// accounting for whatever is already scheduled there.
+// tutor pick a date range and how many lessons of each subject to fit into
+// it, then calls the backend algorithm (scheduling.services.generate_class_schedule)
+// that balances load and minimizes same-subject repeats across the range,
+// accounting for whatever is already scheduled there (including reflowing
+// already-planned, not-yet-completed lessons if needed to keep order).
 export function PlanLessonsDialog({ classId }: { classId: number }) {
   const t = useTranslations("PlanLessons");
   const [open, setOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState(classId);
   const [startDate, setStartDate] = useState(todayIso);
   const [endDate, setEndDate] = useState(() => addDaysIso(todayIso(), DEFAULT_PERIOD_DAYS));
-  const [hoursBySubjectId, setHoursBySubjectId] = useState<Record<number, number>>({});
+  const [lessonsCountBySubjectId, setLessonsCountBySubjectId] = useState<Record<number, number>>({});
   const [result, setResult] = useState<GenerateClassScheduleOut | null>(null);
 
   const classesQuery = useListTutorClasses({ query: { enabled: open } });
@@ -54,24 +55,24 @@ export function PlanLessonsDialog({ classId }: { classId: number }) {
       setSelectedClassId(classId);
       setStartDate(todayIso());
       setEndDate(addDaysIso(todayIso(), DEFAULT_PERIOD_DAYS));
-      setHoursBySubjectId({});
+      setLessonsCountBySubjectId({});
       setResult(null);
     }
   };
 
   const isDateRangeValid = startDate <= endDate;
-  const hasAnyHours = subjects.some((subject) => (hoursBySubjectId[subject.subject_id] ?? 0) > 0);
+  const hasAnyLessons = subjects.some((subject) => (lessonsCountBySubjectId[subject.subject_id] ?? 0) > 0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isDateRangeValid || !hasAnyHours) return;
+    if (!isDateRangeValid || !hasAnyLessons) return;
 
     const payloadSubjects = subjects
       .map((subject) => ({
         subject_id: subject.subject_id,
-        hours_per_week: hoursBySubjectId[subject.subject_id] ?? 0,
+        lessons_count: lessonsCountBySubjectId[subject.subject_id] ?? 0,
       }))
-      .filter((item) => item.hours_per_week > 0);
+      .filter((item) => item.lessons_count > 0);
 
     generateSchedule.mutate(
       {
@@ -187,16 +188,16 @@ export function PlanLessonsDialog({ classId }: { classId: number }) {
                       <input
                         type="number"
                         min={0}
-                        value={hoursBySubjectId[subject.subject_id] ?? 0}
+                        value={lessonsCountBySubjectId[subject.subject_id] ?? 0}
                         onChange={(e) =>
-                          setHoursBySubjectId((prev) => ({
+                          setLessonsCountBySubjectId((prev) => ({
                             ...prev,
                             [subject.subject_id]: Math.max(0, Number(e.target.value)),
                           }))
                         }
                         className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-700"
                       />
-                      <span className="text-xs text-gray-500">{t("hoursPerWeekSuffix")}</span>
+                      <span className="text-xs text-gray-500">{t("lessonsCountSuffix")}</span>
                     </div>
                   </div>
                 ))}
@@ -217,7 +218,7 @@ export function PlanLessonsDialog({ classId }: { classId: number }) {
                 </Dialog.Close>
                 <button
                   type="submit"
-                  disabled={!hasAnyHours || !isDateRangeValid || generateSchedule.isPending}
+                  disabled={!hasAnyLessons || !isDateRangeValid || generateSchedule.isPending}
                   className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                 >
                   🚀 {t("generateButton")}

@@ -33,7 +33,7 @@ class QuizQuestionInline(admin.StackedInline):
     """Inline manager for quiz questions within a lesson, embedding their choices."""
     model = QuizQuestion
     extra = 1
-    fields = ("order_index", "prompt")
+    fields = ("order_index", "prompt", "language")
     # Note: Nested inlines (QuizChoice inside QuizQuestionInline) require third-party packages
     # like django-nested-admin, so choices can be managed via their own admin view if needed.
 
@@ -78,7 +78,8 @@ class LessonAttachmentAdmin(admin.ModelAdmin):
 @admin.register(QuizQuestion)
 class QuizQuestionAdmin(admin.ModelAdmin):
     """Admin configuration for quiz questions with inline choice management."""
-    list_display = ("prompt", "lesson", "order_index")
+    list_display = ("prompt", "lesson", "order_index", "language")
+    list_filter = ("language",)
     search_fields = ("prompt", "lesson__title")
     inlines = [QuizChoiceInline]
     ordering = ("lesson", "order_index")

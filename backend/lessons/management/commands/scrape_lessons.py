@@ -4,6 +4,11 @@ LMS) into the TopicOut/LessonOut JSON shape used to seed lessons.
 Usage:
     uv run manage.py scrape_lessons <course-outline-url> <name>
 
+With -Y/--youtube, <url> is a YouTube playlist URL instead — one "Base"
+topic, one theory lesson per video:
+
+    uv run manage.py scrape_lessons -Y <youtube-playlist-url> <name>
+
 Writes lessons/scraped/<name>.json.
 """
 
@@ -32,6 +37,13 @@ TASK_COUNT_SUFFIX_RE = re.compile(r'\s*\([^)]*\)\s*$')
 YOUTUBE_URL_RE = re.compile(
     r'(?:youtube\.com/(?:watch\?v=|embed/)|youtu\.be/)([\w-]+)'
 )
+
+# The playlist page's embedded state — same trick as the LMS scrape, just a
+# different platform's frontend. Holds the first ~100 videos; playlists
+# longer than that need "continuation" tokens against an undocumented,
+# frequently-changing internal API, which isn't implemented here — see
+# _extract_youtube_playlist_videos.
+YOUTUBE_INITIAL_DATA_RE = re.compile(r'var ytInitialData = (\{.*?\});</script>', re.DOTALL)
 
 # A lesson with no video/pdf materials is a pure quiz on the source
 # platform (e.g. "Тематичне оцінювання") — we don't scrape its questions,
@@ -62,6 +74,11 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('url', help='URL of the course outline page (list of topics/lessons).')
         parser.add_argument('name', help='Output filename (without path) written under lessons/scraped/.')
+        parser.add_argument(
+            '-Y', '--youtube', action='store_true',
+            help='Treat <url> as a YouTube playlist URL instead of an LMS course outline — '
+                 'produces one "Base" topic with one theory lesson per video.',
+        )
 
     def handle(self, *args, **options):
         url = options['url']
@@ -70,22 +87,10 @@ class Command(BaseCommand):
         session = requests.Session()
         session.headers['User-Agent'] = USER_AGENT
 
-        outline_html = self._get(session, url)
-        base_url = f'{urlparse(url).scheme}://{urlparse(url).netloc}'
-
-        topics = self._parse_outline(outline_html, base_url)
-        if not topics:
-            raise CommandError('No topics found on this page — is it a course outline page?')
-
-        topics_out = []
-        for topic in topics:
-            self.stdout.write(f"Topic: {topic['title']} ({len(topic['lessons'])} lessons)")
-            lessons_out = []
-            for lesson in topic['lessons']:
-                lessons_out.append(self._scrape_lesson(session, lesson, base_url))
-            topics_out.append(
-                TopicOut(title=topic['title'], description=topic['description'], lessons=lessons_out)
-            )
+        if options['youtube']:
+            topics_out = [self._scrape_youtube_playlist(session, url)]
+        else:
+            topics_out = self._scrape_lms_course(session, url)
 
         out_path = self._output_path(name)
         out_path.write_text(
@@ -125,6 +130,91 @@ class Command(BaseCommand):
     def _slugify(self, text: str, max_len: int = 60) -> str:
         slug = re.sub(r'[^\w]+', '-', text, flags=re.UNICODE).strip('-_').lower()
         return slug[:max_len].rstrip('-_') or 'lesson'
+
+    def _scrape_lms_course(self, session: requests.Session, url: str) -> list[TopicOut]:
+        outline_html = self._get(session, url)
+        base_url = f'{urlparse(url).scheme}://{urlparse(url).netloc}'
+
+        topics = self._parse_outline(outline_html, base_url)
+        if not topics:
+            raise CommandError('No topics found on this page — is it a course outline page?')
+
+        topics_out = []
+        for topic in topics:
+            self.stdout.write(f"Topic: {topic['title']} ({len(topic['lessons'])} lessons)")
+            lessons_out = []
+            for lesson in topic['lessons']:
+                lessons_out.append(self._scrape_lesson(session, lesson, base_url))
+            topics_out.append(
+                TopicOut(title=topic['title'], description=topic['description'], lessons=lessons_out)
+            )
+        return topics_out
+
+    def _scrape_youtube_playlist(self, session: requests.Session, playlist_url: str) -> TopicOut:
+        # Without this, an EU-geolocated request gets redirected to a cookie
+        # consent page instead of the playlist — this is the standard
+        # workaround (also used by yt-dlp) for skipping that wall.
+        session.cookies.set('SOCS', 'CAI', domain='.youtube.com')
+        html_text = self._get(session, playlist_url)
+        videos = self._extract_youtube_playlist_videos(html_text)
+        if not videos:
+            raise CommandError(
+                'No videos found on this page — is it a valid, public YouTube playlist URL?'
+            )
+
+        self.stdout.write(f'Topic: Base ({len(videos)} lessons)')
+        lessons = []
+        for video in videos:
+            video_url = f'https://www.youtube.com/watch?v={video["video_id"]}'
+            lessons.append(
+                LessonOut(
+                    title=video['title'],
+                    lesson_type='theory',
+                    origin_url=video_url,
+                    youtubes=[video_url],
+                    pdfs=[],
+                    content=video_url,
+                    task_content='',
+                )
+            )
+        return TopicOut(title='Base', description='', lessons=lessons)
+
+    def _extract_youtube_playlist_videos(self, html_text: str) -> list[dict]:
+        match = YOUTUBE_INITIAL_DATA_RE.search(html_text)
+        if not match:
+            raise CommandError('Could not find playlist data on the page — is this a YouTube playlist URL?')
+        data = json.loads(match.group(1))
+
+        try:
+            items = (
+                data['contents']['twoColumnBrowseResultsRenderer']['tabs'][0]['tabRenderer']
+                ['content']['sectionListRenderer']['contents'][0]['itemSectionRenderer']['contents']
+            )
+        except (KeyError, IndexError, TypeError) as exc:
+            raise CommandError(
+                'Unrecognized playlist page structure — YouTube may have changed its markup.'
+            ) from exc
+
+        videos = []
+        has_more = False
+        for item in items:
+            lockup = item.get('lockupViewModel')
+            if lockup is None:
+                if 'continuationItemViewModel' in item:
+                    has_more = True
+                continue
+            video_id = lockup.get('contentId')
+            title = (lockup.get('metadata') or {}).get('lockupMetadataViewModel', {}).get('title', {}).get('content')
+            if video_id and title:
+                videos.append({'video_id': video_id, 'title': title})
+
+        if has_more:
+            self.stdout.write(self.style.WARNING(
+                f'This playlist has more videos than fit on the first page — only the first '
+                f'{len(videos)} were scraped (pagination isn\'t supported).'
+            ))
+
+        return videos
 
     def _get(self, session: requests.Session, url: str) -> str:
         try:
