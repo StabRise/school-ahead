@@ -381,6 +381,52 @@ class TestSubjectLessons:
         assert response.status_code == 403
 
 
+class TestLessonsJsonUpload:
+    def _json_file(self, content=b'[]'):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        return SimpleUploadedFile('lessons.json', content, content_type='application/json')
+
+    def test_upload_creates_staged_lessons_json(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/lessons-json',
+            data={'name': 'Batch 1', 'description': 'Pre-hello songs'},
+            FILES={'file': self._json_file()},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['name'] == 'Batch 1'
+        assert response.data['description'] == 'Pre-hello songs'
+        assert response.data['status'] == 'new'
+        assert response.data['subject_id'] == subject.id
+
+    def test_upload_description_is_optional(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/lessons-json',
+            data={'name': 'Batch 1'},
+            FILES={'file': self._json_file()},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['description'] == ''
+
+    def test_upload_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/lessons-json',
+            data={'name': 'Batch 1'},
+            FILES={'file': self._json_file()},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 403
+
+
 class TestLessonDetail:
     def test_get_lesson(self, api_client, auth_header, tutor, subject):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)

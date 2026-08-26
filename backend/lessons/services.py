@@ -18,7 +18,10 @@ from .models import (
     LessonsJson,
     LessonsJsonStatus,
     LessonSubmission,
+    LessonType,
     QuizChoice,
+    QuizLanguage,
+    QuizQuestion,
     StudentLesson,
     StudentLessonStatus,
     StudentLessonStatusEvent,
@@ -350,13 +353,17 @@ def _next_order_index(queryset: QuerySet) -> int:
     return (max_index or 0) + 1
 
 
-def _render_extra_content_item(item: dict, lesson_title: str) -> str:
-    """One entry of a scraped lesson's optional `extra_content` list:
+def _render_extra_content_item(item: dict | str, lesson_title: str) -> str:
+    """One entry of a scraped lesson's optional `extra_content` list. Either
+    a plain string — already-formatted markdown, used as-is — or a dict:
     {"content": <url-or-text>, "type": "pdf"|"video"|"text", "name": <optional
     heading>}. `pdf` renders as a <pdfiframe> tag, same as the Конспект
     section scrape_lessons builds; `video` and free-form `text` both just
     render as plain text — a bare YouTube URL still auto-embeds via the
     frontend's YoutubeAwareLink (see frontend/components/markdown.tsx)."""
+    if isinstance(item, str):
+        return item
+
     value = item.get('content', '')
     item_type = (item.get('type') or '').strip().lower()
     name = item.get('name')
@@ -371,11 +378,22 @@ def _render_extra_content_item(item: dict, lesson_title: str) -> str:
 
 
 def build_lesson_content(lesson_data: dict) -> tuple[str, str]:
-    """(content, task_content) for one scraped lesson dict — content is the
-    scraper's base markdown with any extra_content items appended, then
-    task_content appended last (also returned as-is, for Lesson.task_content
-    itself)."""
-    parts = [lesson_data.get('content', '')]
+    """(content, task_content) for one scraped lesson dict — content starts
+    with any `youtubes` URLs not already embedded in `content` itself (a
+    bare YouTube link auto-embeds inline, see
+    frontend/components/markdown.tsx) — scrape_lessons already folds them
+    into `content` directly, while the hand-authored quiz JSON format lists
+    them separately, sometimes alongside its own `content` — then the base
+    markdown, then any extra_content items, then task_content appended last
+    (also returned as-is, for Lesson.task_content itself)."""
+    parts = []
+
+    content = lesson_data.get('content', '')
+    youtubes = lesson_data.get('youtubes')
+    if youtubes and not any(url in content for url in youtubes):
+        parts.append('\n\n'.join(youtubes))
+
+    parts.append(content)
 
     extra_content = lesson_data.get('extra_content')
     if extra_content:
@@ -389,6 +407,42 @@ def build_lesson_content(lesson_data: dict) -> tuple[str, str]:
         parts.append(task_content)
 
     return '\n\n'.join(part for part in parts if part), task_content
+
+
+# Maps a JSON import's shorthand lesson_type values onto the model's
+# LessonType choices — "quiz" is what the hand-authored quiz JSON format
+# uses (see backend/scraped.tmp/*.json); scrape_lessons already writes the
+# model's own values ('theory', 'with_task') directly.
+_LESSON_TYPE_ALIASES = {'quiz': LessonType.WITH_QUIZ}
+
+
+def _normalize_lesson_type(raw_lesson_type: str) -> str:
+    return _LESSON_TYPE_ALIASES.get(raw_lesson_type, raw_lesson_type)
+
+
+def _create_quiz_questions(lesson: Lesson, quiz_data: list[dict]) -> None:
+    """Creates QuizQuestion/QuizChoice rows from a lesson dict's `quiz` list
+    (see backend/scraped.tmp/*.json for the shape). Choices in that
+    hand-authored format don't carry an explicit `is_correct` flag — the
+    first choice listed for each question is the correct one by convention —
+    but an explicit `is_correct` on any choice, when present, is honored
+    instead."""
+    for question_data in quiz_data:
+        question = QuizQuestion.objects.create(
+            lesson=lesson,
+            prompt=question_data['prompt'],
+            order_index=question_data.get('order_index', 0),
+            language=question_data.get('language', QuizLanguage.UK),
+        )
+        choices = question_data.get('choices', [])
+        has_explicit_correct = any('is_correct' in choice for choice in choices)
+        for index, choice_data in enumerate(choices):
+            is_correct = choice_data.get('is_correct', False) if has_explicit_correct else index == 0
+            QuizChoice.objects.create(
+                question=question,
+                text=choice_data.get('text', ''),
+                is_correct=is_correct,
+            )
 
 
 @dataclass
@@ -431,20 +485,26 @@ def import_topics_and_lessons(subject: Subject, topics_data: list[dict]) -> Less
                 continue
 
             content, task_content = build_lesson_content(lesson_data)
+            lesson_type = _normalize_lesson_type(lesson_data['lesson_type'])
             lesson = Lesson.objects.create(
                 topic=topic,
                 order_index=next_lesson_order,
                 title=lesson_data['title'],
-                lesson_type=lesson_data['lesson_type'],
-                # Neither lesson_type the scraper produces ('theory',
-                # 'with_task') is auto-graded — both resolve to a Pass/Fail
-                # outcome (docs/core/lessons.md Path B/C).
-                grading_type=GradingType.BINARY,
+                lesson_type=lesson_type,
+                # with_quiz is auto-graded on a 1-12 scale (see
+                # _score_to_grade_points); the other lesson types ('theory',
+                # 'with_task') both resolve to a Pass/Fail outcome
+                # (docs/core/lessons.md Path B/C).
+                grading_type=GradingType.POINTS if lesson_type == LessonType.WITH_QUIZ else GradingType.BINARY,
                 content=content,
                 task_content=task_content,
             )
             next_lesson_order += 1
             summary.lessons_created.append(lesson)
+
+            quiz_data = lesson_data.get('quiz')
+            if quiz_data:
+                _create_quiz_questions(lesson, quiz_data)
 
     academics_services.assign_topics_to_blocks(subject)
     return summary

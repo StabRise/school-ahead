@@ -300,6 +300,7 @@ class LessonsJsonOut(Schema):
     id: int
     subject_id: int
     name: str
+    description: str
     status: str
     file_name: str
     file_url: str | None

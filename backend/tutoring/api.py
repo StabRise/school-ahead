@@ -17,8 +17,9 @@ from lessons.schemas import (
     LessonsJsonOut,
     ProcessLessonsJsonOut,
 )
-from ninja import Router
+from ninja import File, Form, Router
 from ninja.errors import HttpError
+from ninja.files import UploadedFile
 from ninja.pagination import paginate
 
 from . import services
@@ -140,6 +141,29 @@ def list_subject_lessons_json(request: HttpRequest, subject_id: int):
     see lessons.services.import_topics_and_lessons)."""
     services.ensure_is_tutor_for_subject(request, subject_id)
     return LessonsJson.objects.filter(subject_id=subject_id).order_by('-created_at')
+
+
+@router.post(
+    '/subjects/{subject_id}/lessons-json',
+    response=LessonsJsonOut,
+    operation_id='upload_tutor_subject_lessons_json',
+)
+def upload_subject_lessons_json(
+    request: HttpRequest,
+    subject_id: int,
+    name: str = Form(...),
+    description: str = Form(''),
+    file: UploadedFile = File(...),
+):
+    """Step 1 of the "Load lessons from JSON" wizard on the Subject detail
+    page — stages a scrape_lessons-shaped JSON upload for later review and
+    import (process_lessons_json is step 2, triggered separately once the
+    tutor has looked at the file)."""
+    require_csrf(request)
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    return LessonsJson.objects.create(
+        subject_id=subject_id, name=name, description=description, json_file=file
+    )
 
 
 @router.post(

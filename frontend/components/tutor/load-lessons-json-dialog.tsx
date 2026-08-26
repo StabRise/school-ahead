@@ -8,57 +8,60 @@ import { getListSubjectTopicsQueryKey } from "@/lib/api/browser/academics/academ
 import {
   getListTutorSubjectLessonsJsonQueryKey,
   getListTutorSubjectLessonsQueryKey,
-  useListTutorSubjectLessonsJson,
   useProcessLessonsJson,
+  useUploadTutorSubjectLessonsJson,
 } from "@/lib/api/browser/tutor/tutor";
-import type { ProcessLessonsJsonOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
+import type { LessonsJsonOut, ProcessLessonsJsonOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 
-// Every upload_to helper in common/storage.py renames files to a random hex
-// name on disk (never leaks the uploader's original filename), so file_name
-// isn't useful for telling LessonsJson rows apart — `name` (tutor-editable
-// in the admin, defaults to "json") is the actual label; the upload date is
-// shown alongside it since multiple uploads can share that default name.
-const UPLOADED_AT_FORMAT = new Intl.DateTimeFormat("uk-UA", {
-  day: "numeric",
-  month: "short",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-// Opened from the tutor's Subject detail page. Lets a tutor pick a
-// scrape_lessons JSON upload (staged for this subject via the Django admin
-// — see lessons.models.LessonsJson) and import it: reuses an existing Topic
-// by title, creates any Lesson under it that isn't already there. See
-// lessons.services.import_topics_and_lessons.
+// Opened from the tutor's Subject detail page. A two-step wizard: step 1
+// uploads a scrape_lessons-shaped JSON file (staging a lessons.models.
+// LessonsJson row), step 2 lets the tutor glance at the uploaded file before
+// importing it — reuses an existing Topic by title, creates any Lesson under
+// it that isn't already there. See lessons.services.import_topics_and_lessons.
 export function LoadLessonsJsonDialog({ subjectId }: { subjectId: number }) {
   const t = useTranslations("LoadLessonsJson");
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [uploaded, setUploaded] = useState<LessonsJsonOut | null>(null);
   const [result, setResult] = useState<ProcessLessonsJsonOut | null>(null);
 
-  const filesQuery = useListTutorSubjectLessonsJson(subjectId, { query: { enabled: open } });
+  const uploadLessonsJson = useUploadTutorSubjectLessonsJson();
   const processLessonsJson = useProcessLessonsJson();
-
-  const files = filesQuery.data ?? [];
-  // Defaults to the first file once the list loads, without syncing state
-  // in an effect — `selectedId` only tracks an explicit user choice.
-  const effectiveSelectedId = selectedId ?? files[0]?.id ?? null;
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (!next) {
-      setSelectedId(null);
+      setName("");
+      setDescription("");
+      setFile(null);
+      setUploaded(null);
       setResult(null);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleUpload = (e: React.FormEvent) => {
     e.preventDefault();
-    if (effectiveSelectedId === null) return;
+    if (!file) return;
+
+    uploadLessonsJson.mutate(
+      { subjectId, data: { name, description, file } },
+      {
+        onSuccess: (data) => {
+          setUploaded(data);
+          queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsJsonQueryKey(subjectId) });
+        },
+      },
+    );
+  };
+
+  const handleAddLessons = () => {
+    if (!uploaded) return;
 
     processLessonsJson.mutate(
-      { lessonsJsonId: effectiveSelectedId },
+      { lessonsJsonId: uploaded.id },
       {
         onSuccess: (data) => {
           setResult(data);
@@ -84,6 +87,7 @@ export function LoadLessonsJsonDialog({ subjectId }: { subjectId: number }) {
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-md bg-white p-6 shadow-lg">
           <Dialog.Title className="text-lg font-semibold text-gray-900">📥 {t("title")}</Dialog.Title>
+          <p className="mt-1 text-xs text-gray-500">{t("stepOfTotal", { step: uploaded ? 2 : 1 })}</p>
 
           {result ? (
             <div className="mt-4 flex flex-col gap-4">
@@ -103,46 +107,20 @@ export function LoadLessonsJsonDialog({ subjectId }: { subjectId: number }) {
                 </button>
               </Dialog.Close>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
-              <div className="flex flex-col gap-1">
-                <label htmlFor="lessons-json-file" className="text-xs font-medium text-gray-700">
-                  {t("fileLabel")}
-                </label>
-
-                {filesQuery.isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
-                {!filesQuery.isLoading && files.length === 0 && (
-                  <p className="text-sm text-gray-500">{t("noFiles")}</p>
-                )}
-                {files.length > 0 && (
-                  <>
-                    <select
-                      id="lessons-json-file"
-                      value={effectiveSelectedId ?? ""}
-                      onChange={(e) => setSelectedId(Number(e.target.value))}
-                      className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
-                    >
-                      {files.map((file) => (
-                        <option key={file.id} value={file.id}>
-                          {file.name} ({UPLOADED_AT_FORMAT.format(new Date(file.created_at))}) —{" "}
-                          {file.status === "processed" ? t("statusProcessed") : t("statusNew")}
-                        </option>
-                      ))}
-                    </select>
-                    {(() => {
-                      const selectedFile = files.find((file) => file.id === effectiveSelectedId);
-                      return selectedFile?.file_url ? (
-                        <a
-                          href={selectedFile.file_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="self-start text-xs text-blue-600 underline hover:no-underline"
-                        >
-                          {t("viewFileLink")}
-                        </a>
-                      ) : null;
-                    })()}
-                  </>
+          ) : uploaded ? (
+            <div className="mt-4 flex flex-col gap-4">
+              <div className="flex flex-col gap-1 rounded-md bg-gray-50 p-3 text-sm text-gray-700">
+                <p className="font-medium text-gray-900">{uploaded.name}</p>
+                {uploaded.description && <p>{uploaded.description}</p>}
+                {uploaded.file_url && (
+                  <a
+                    href={uploaded.file_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="self-start text-xs text-blue-600 underline hover:no-underline"
+                  >
+                    {t("viewFileLink")}
+                  </a>
                 )}
               </div>
 
@@ -158,11 +136,75 @@ export function LoadLessonsJsonDialog({ subjectId }: { subjectId: number }) {
                   </button>
                 </Dialog.Close>
                 <button
-                  type="submit"
-                  disabled={effectiveSelectedId === null || processLessonsJson.isPending}
+                  type="button"
+                  onClick={handleAddLessons}
+                  disabled={processLessonsJson.isPending}
                   className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                 >
-                  {t("loadButton")}
+                  {t("addLessonsButton")}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleUpload} className="mt-4 flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <label htmlFor="lessons-json-name" className="text-xs font-medium text-gray-700">
+                  {t("nameLabel")}
+                </label>
+                <input
+                  id="lessons-json-name"
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label htmlFor="lessons-json-description" className="text-xs font-medium text-gray-700">
+                  {t("descriptionLabel")}
+                </label>
+                <textarea
+                  id="lessons-json-description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={2}
+                  className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label htmlFor="lessons-json-file" className="text-xs font-medium text-gray-700">
+                  {t("fileLabel")}
+                </label>
+                <input
+                  id="lessons-json-file"
+                  type="file"
+                  accept="application/json"
+                  required
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  className="text-sm text-gray-700"
+                />
+              </div>
+
+              {uploadLessonsJson.isError && <p className="text-sm text-red-600">{t("uploadError")}</p>}
+
+              <div className="flex justify-end gap-2">
+                <Dialog.Close asChild>
+                  <button
+                    type="button"
+                    className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    {t("cancelButton")}
+                  </button>
+                </Dialog.Close>
+                <button
+                  type="submit"
+                  disabled={!file || uploadLessonsJson.isPending}
+                  className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {t("uploadButton")}
                 </button>
               </div>
             </form>
