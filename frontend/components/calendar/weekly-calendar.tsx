@@ -13,6 +13,7 @@ import {
   useSchedulingApiCalendar,
   useSchedulingApiReschedule,
 } from "@/lib/api/browser/schedule/schedule";
+import { useDeleteTutorStudentLesson } from "@/lib/api/browser/tutor/tutor";
 import type { BacklogItemOut, CalendarItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Link } from "@/i18n/navigation";
 import { Card } from "@/components/card";
@@ -74,12 +75,14 @@ function LessonCard({
   canManage,
   showTutorLinks,
   onRequestReschedule,
+  onRequestDelete,
 }: {
   item: CalendarItemOut;
   readOnly?: boolean;
   canManage?: boolean;
   showTutorLinks?: boolean;
   onRequestReschedule?: (item: CalendarItemOut) => void;
+  onRequestDelete?: (item: CalendarItemOut) => void;
 }) {
   const t = useTranslations("Calendar");
 
@@ -139,6 +142,22 @@ function LessonCard({
               className="shrink-0 rounded px-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-700"
             >
               📅
+            </button>
+          )}
+          {showTutorLinks && item.status === "assigned" && (
+            <button
+              type="button"
+              onMouseDown={stopDragStart}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onRequestDelete?.(item);
+              }}
+              title={t("removeLesson")}
+              aria-label={t("removeLesson")}
+              className="shrink-0 rounded px-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-red-600"
+            >
+              🗑️
             </button>
           )}
         </div>
@@ -319,6 +338,7 @@ export function WeeklyCalendar({ studentId }: { studentId?: number } = {}) {
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const reschedule = useSchedulingApiReschedule();
+  const deleteStudentLesson = useDeleteTutorStudentLesson();
 
   const invalidateCalendar = () => {
     queryClient.invalidateQueries({ queryKey: getSchedulingApiCalendarQueryKey() });
@@ -337,6 +357,12 @@ export function WeeklyCalendar({ studentId }: { studentId?: number } = {}) {
         },
       },
     );
+  };
+
+  const handleDeleteStudentLesson = (item: CalendarItemOut) => {
+    if (!window.confirm(t("removeLessonConfirm", { title: item.lesson_title }))) return;
+
+    deleteStudentLesson.mutate({ studentLessonId: item.id }, { onSuccess: () => invalidateCalendar() });
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, dateKey: string) => {
@@ -381,6 +407,7 @@ export function WeeklyCalendar({ studentId }: { studentId?: number } = {}) {
       {calendarQuery.isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
       {calendarQuery.isError && <p className="text-sm text-red-600">{t("error")}</p>}
       {reschedule.isError && <p className="mb-3 text-sm text-red-600">{t("rescheduleError")}</p>}
+      {deleteStudentLesson.isError && <p className="mb-3 text-sm text-red-600">{t("removeLessonError")}</p>}
 
       {!calendarQuery.isLoading && !calendarQuery.isError && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
@@ -432,6 +459,7 @@ export function WeeklyCalendar({ studentId }: { studentId?: number } = {}) {
                       canManage={isTutorView && item.status !== "completed"}
                       showTutorLinks={isTutorView}
                       onRequestReschedule={setRescheduleTarget}
+                      onRequestDelete={handleDeleteStudentLesson}
                     />
                   ))}
                 </div>

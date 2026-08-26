@@ -665,6 +665,55 @@ class TestAssignStudent:
         assert response.status_code == 404
 
 
+class TestDeleteStudentLesson:
+    def test_delete_assigned_student_lesson(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        sl = StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+            status=StudentLessonStatus.ASSIGNED,
+        )
+
+        response = api_client.delete(f'/tutor/student-lessons/{sl.id}', headers=auth_header(tutor.user))
+
+        assert response.status_code == 204
+        assert not StudentLesson.objects.filter(id=sl.id).exists()
+
+    def test_delete_rejected_when_not_assigned(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        sl = StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+            status=StudentLessonStatus.IN_PROGRESS,
+        )
+
+        response = api_client.delete(f'/tutor/student-lessons/{sl.id}', headers=auth_header(tutor.user))
+
+        assert response.status_code == 409
+        assert StudentLesson.objects.filter(id=sl.id).exists()
+
+    def test_delete_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject, student):
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        sl = StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+            status=StudentLessonStatus.ASSIGNED,
+        )
+
+        response = api_client.delete(f'/tutor/student-lessons/{sl.id}', headers=auth_header(tutor.user))
+
+        assert response.status_code == 403
+        assert StudentLesson.objects.filter(id=sl.id).exists()
+
+
 class TestSetTopicBlock:
     def test_set_topic_block(self, api_client, auth_header, tutor, subject):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)

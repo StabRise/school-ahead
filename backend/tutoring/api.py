@@ -367,6 +367,20 @@ def assign_lesson_to_student(request: HttpRequest, lesson_id: int, payload: Assi
     )
 
 
+@router.delete('/student-lessons/{student_lesson_id}', operation_id='delete_tutor_student_lesson')
+def delete_student_lesson(request: HttpRequest, student_lesson_id: int, response: HttpResponse):
+    """Removes a StudentLesson assignment — only while it's still Assigned
+    (the student hasn't touched it yet), from a tutor's "View calendar" page
+    for that student."""
+    require_csrf(request)
+    student_lesson = _get_scoped_student_lesson(request, student_lesson_id)
+    if student_lesson.status != StudentLessonStatus.ASSIGNED:
+        raise HttpError(409, 'Can only remove a lesson while it is still Assigned')
+    student_lesson.delete()
+    response.status_code = 204
+    return response
+
+
 @router.get('/students', response=list[TutorStudentOut])
 def list_students(request: HttpRequest):
     students = services.get_tutor_students(request.auth)
