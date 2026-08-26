@@ -3,15 +3,16 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { getListSubjectTopicsQueryKey, useGetSubject, useListSubjectTopics } from "@/lib/api/browser/academics/academics";
+import { getGetSubjectQueryKey, getListSubjectTopicsQueryKey, useGetSubject, useListSubjectTopics } from "@/lib/api/browser/academics/academics";
 import {
   getListTutorSubjectLessonsQueryKey,
   useDeleteTutorTopic,
   useListTutorSubjectLessons,
   useReorderTutorSubjectTopics,
+  useSetSubjectFilled,
   useSetTopicBlock,
 } from "@/lib/api/browser/tutor/tutor";
-import type { LessonOut, SubjectBlockOut, TopicOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
+import type { LessonOut, SubjectBlockOut, SubjectOut, TopicOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Card } from "@/components/card";
 import { ContentTypeBadges } from "@/components/subjects/content-type-badges";
@@ -131,6 +132,41 @@ function TopicBlockSelect({
         </option>
       ))}
     </select>
+  );
+}
+
+// Purely informational — doesn't gate anything, just lets a tutor mark a
+// subject's curriculum as fully populated with lessons (Subject.is_filled).
+function IsFilledToggle({ subject, subjectId }: { subject: SubjectOut; subjectId: number }) {
+  const t = useTranslations("TutorSubjectDetail");
+  const queryClient = useQueryClient();
+  const setSubjectFilled = useSetSubjectFilled();
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSubjectFilled.mutate(
+      { subjectId, data: { is_filled: e.target.checked } },
+      {
+        onSuccess: (data) => {
+          queryClient.setQueryData(getGetSubjectQueryKey(subjectId), data);
+        },
+      },
+    );
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <label className="flex items-center gap-2 text-sm text-gray-700">
+        <input
+          type="checkbox"
+          checked={subject.is_filled}
+          onChange={handleChange}
+          disabled={setSubjectFilled.isPending}
+          className="h-4 w-4 rounded border-gray-300"
+        />
+        {t("isFilledLabel")}
+      </label>
+      {setSubjectFilled.isError && <span className="text-sm text-red-600">{t("isFilledError")}</span>}
+    </div>
   );
 }
 
@@ -392,9 +428,12 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
             <LoadLessonsJsonDialog subjectId={subjectId} />
           </div>
         </div>
-        <p className="text-sm text-gray-700">
-          {t("classLabel")}: <span className="font-medium">{subject.class_name}</span>
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-gray-700">
+            {t("classLabel")}: <span className="font-medium">{subject.class_name}</span>
+          </p>
+          <IsFilledToggle subject={subject} subjectId={subjectId} />
+        </div>
       </div>
 
       {topics.length === 0 ? (

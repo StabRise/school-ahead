@@ -5,6 +5,7 @@ import type { AssignmentOut, TutorStudentOut } from "@/lib/api/browser/schoolAhe
 import { useGetTutorClass } from "@/lib/api/browser/tutor/tutor";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Card } from "@/components/card";
+import { IsFilledBadge } from "@/components/subjects/is-filled-badge";
 import { PlanLessonsDialog } from "./plan-lessons-dialog";
 
 const ICON_COLORS = [
@@ -38,13 +39,14 @@ function SubjectRow({ subject }: { subject: AssignmentOut }) {
             {subject.subject_name.charAt(0).toUpperCase()}
           </span>
         )}
-        <div className="flex flex-col">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="font-medium text-gray-900">{subject.subject_name}</span>
           <span className="text-xs text-gray-500">
             {t("topicsCount", { count: subject.topic_count })} ·{" "}
             {t("lessonsCount", { count: subject.lesson_count })}
           </span>
         </div>
+        <IsFilledBadge isFilled={subject.is_filled} />
       </Card>
     </li>
   );

@@ -13,6 +13,7 @@ class AssignmentOut(Schema):
     class_name: str
     topic_count: int
     lesson_count: int
+    is_filled: bool
 
 
 class LessonStudentOut(Schema):
@@ -91,3 +92,7 @@ class AssignStudentIn(Schema):
 
 class SetTopicBlockIn(Schema):
     subject_block_id: int
+
+
+class SetSubjectFilledIn(Schema):
+    is_filled: bool

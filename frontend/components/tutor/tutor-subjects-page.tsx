@@ -5,6 +5,7 @@ import type { AssignmentOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { useTutoringApiListAssignments } from "@/lib/api/browser/tutor/tutor";
 import { Card } from "@/components/card";
 import { PageContainer } from "@/components/page-container";
+import { IsFilledBadge } from "@/components/subjects/is-filled-badge";
 
 // Deterministic per-subject accent color — same trick as the student view's
 // SubjectCard (frontend/components/subjects/subject-card.tsx), AssignmentOut
@@ -43,9 +44,13 @@ function SubjectCard({ assignment }: { assignment: AssignmentOut }) {
         <span className="font-medium text-gray-900">{assignment.subject_name}</span>
       </div>
 
-      <span className="text-xs text-gray-500">
-        {t("topicsCount", { count: assignment.topic_count })} · {t("lessonsCount", { count: assignment.lesson_count })}
-      </span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-gray-500">
+          {t("topicsCount", { count: assignment.topic_count })} ·{" "}
+          {t("lessonsCount", { count: assignment.lesson_count })}
+        </span>
+        <IsFilledBadge isFilled={assignment.is_filled} />
+      </div>
     </Card>
   );
 }

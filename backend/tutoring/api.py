@@ -2,7 +2,7 @@ import json
 
 from academics import services as academics_services
 from academics.models import Class, Subject, SubjectBlock, Topic
-from academics.schemas import TopicOut, TopicsReorderIn
+from academics.schemas import SubjectOut, TopicOut, TopicsReorderIn
 from accounts.models import StudentProfile
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
@@ -33,6 +33,7 @@ from .schemas import (
     LessonStudentOut,
     RequestRevisionIn,
     ResolveNeedHelpIn,
+    SetSubjectFilledIn,
     SetTopicBlockIn,
     SubmissionDetailOut,
     TutorClassDetailOut,
@@ -109,6 +110,7 @@ def _assignment_out(assignment: TutorSubjectAssignment, request: HttpRequest) ->
         class_name=assignment.subject.school_class.name,
         topic_count=assignment.topic_count,
         lesson_count=assignment.lesson_count,
+        is_filled=assignment.subject.is_filled,
     )
 
 
@@ -129,6 +131,19 @@ def list_subject_lessons(request: HttpRequest, subject_id: int):
         .prefetch_related('materials', 'quiz_questions__choices')
         .order_by('topic__order_index', 'order_index')
     )
+
+
+@router.patch('/subjects/{subject_id}/is-filled', response=SubjectOut, operation_id='set_subject_filled')
+def set_subject_filled(request: HttpRequest, subject_id: int, payload: SetSubjectFilledIn):
+    """Tutor-toggled flag marking a subject's curriculum as fully populated
+    with lessons — purely informational, doesn't gate anything. See
+    Subject.is_filled."""
+    require_csrf(request)
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    subject = get_object_or_404(Subject, id=subject_id)
+    subject.is_filled = payload.is_filled
+    subject.save(update_fields=['is_filled'])
+    return subject
 
 
 @router.get(
