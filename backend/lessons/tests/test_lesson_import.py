@@ -136,3 +136,11 @@ def test_extra_content_plain_string_items_are_used_as_is():
         'extra_content': ['## Homework\n\nRead chapter 1'],
     })
     assert content == '# Intro\n\n## Homework\n\nRead chapter 1'
+
+
+def test_extra_content_as_a_bare_markdown_string_is_not_split_into_characters():
+    content, _ = build_lesson_content({
+        'title': 'Lesson',
+        'extra_content': '\n# Words:\nBus\nCar\nTrain\nBeep\nWheels',
+    })
+    assert content == '# Words:\nBus\nCar\nTrain\nBeep\nWheels'

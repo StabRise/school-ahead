@@ -1,12 +1,13 @@
 import json
 
+from academics import services as academics_services
 from academics.models import Class, Subject, SubjectBlock, Topic
 from academics.schemas import TopicOut
 from accounts.models import StudentProfile
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
 from django.db.models import Count
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from lessons import services as lesson_services
 from lessons.models import Lesson, LessonsJson, StudentLesson, StudentLessonStatus
@@ -202,6 +203,21 @@ def set_topic_block(request: HttpRequest, topic_id: int, payload: SetTopicBlockI
     topic.subject_block_manually_set = True
     topic.save(update_fields=['subject_block', 'subject_block_manually_set'])
     return topic
+
+
+@router.delete('/topics/{topic_id}', operation_id='delete_tutor_topic')
+def delete_topic(request: HttpRequest, topic_id: int, response: HttpResponse):
+    """Deletes a Topic and every Lesson under it (Lesson.topic cascades) —
+    from the tutor's Subject detail page. Unlike academics.api.delete_topic
+    (admin-only), this is scoped to tutors assigned to the topic's subject."""
+    require_csrf(request)
+    topic = get_object_or_404(Topic.objects.select_related('subject'), id=topic_id)
+    services.ensure_is_tutor_for_subject(request, topic.subject_id)
+    subject = topic.subject
+    topic.delete()
+    academics_services.assign_topics_to_blocks(subject)
+    response.status_code = 204
+    return response
 
 
 @router.get('/lessons/{lesson_id}', response=LessonOut, operation_id='get_tutor_lesson')

@@ -384,7 +384,8 @@ def build_lesson_content(lesson_data: dict) -> tuple[str, str]:
     frontend/components/markdown.tsx) — scrape_lessons already folds them
     into `content` directly, while the hand-authored quiz JSON format lists
     them separately, sometimes alongside its own `content` — then the base
-    markdown, then any extra_content items, then task_content appended last
+    markdown, then extra_content (either one markdown blob or a list of
+    items — see _render_extra_content_item), then task_content appended last
     (also returned as-is, for Lesson.task_content itself)."""
     parts = []
 
@@ -396,7 +397,12 @@ def build_lesson_content(lesson_data: dict) -> tuple[str, str]:
     parts.append(content)
 
     extra_content = lesson_data.get('extra_content')
-    if extra_content:
+    if isinstance(extra_content, str):
+        # A single already-formatted markdown blob, rather than a list of
+        # items — iterating a bare string below would walk it character by
+        # character.
+        parts.append(extra_content.strip())
+    elif extra_content:
         lesson_title = lesson_data['title']
         parts.append(
             '\n\n'.join(_render_extra_content_item(item, lesson_title) for item in extra_content if item)

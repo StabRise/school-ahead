@@ -4,7 +4,12 @@ import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListSubjectTopicsQueryKey, useGetSubject, useListSubjectTopics } from "@/lib/api/browser/academics/academics";
-import { getListTutorSubjectLessonsQueryKey, useListTutorSubjectLessons, useSetTopicBlock } from "@/lib/api/browser/tutor/tutor";
+import {
+  getListTutorSubjectLessonsQueryKey,
+  useDeleteTutorTopic,
+  useListTutorSubjectLessons,
+  useSetTopicBlock,
+} from "@/lib/api/browser/tutor/tutor";
 import type { LessonOut, SubjectBlockOut, TopicOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Card } from "@/components/card";
@@ -134,12 +139,40 @@ function TopicSection({
   subjectId: number;
 }) {
   const t = useTranslations("TutorSubjectDetail");
+  const queryClient = useQueryClient();
+  const deleteTopic = useDeleteTutorTopic();
+
+  const handleDelete = () => {
+    if (!window.confirm(t("deleteTopicConfirm", { title: topic.title, count: lessons.length }))) return;
+
+    deleteTopic.mutate(
+      { topicId: topic.id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListSubjectTopicsQueryKey(subjectId) });
+          queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsQueryKey(subjectId) });
+        },
+      },
+    );
+  };
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-medium text-gray-900">{topic.title}</h3>
-        {blocks.length > 1 && <TopicBlockSelect topic={topic} blocks={blocks} subjectId={subjectId} />}
+        <div className="flex items-center gap-2">
+          {blocks.length > 1 && <TopicBlockSelect topic={topic} blocks={blocks} subjectId={subjectId} />}
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleteTopic.isPending}
+            className="rounded-md border border-red-300 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+          >
+            🗑️ {t("deleteTopicButton")}
+          </button>
+        </div>
       </div>
+      {deleteTopic.isError && <p className="text-sm text-red-600">{t("deleteTopicError")}</p>}
       {lessons.length === 0 ? (
         <p className="text-sm text-gray-500">{t("noLessonsInTopic")}</p>
       ) : (

@@ -651,3 +651,26 @@ class TestSetTopicBlock:
             headers=auth_header(tutor.user),
         )
         assert response.status_code == 404
+
+
+class TestDeleteTopic:
+    def test_delete_topic_deletes_its_lessons(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.delete(f'/tutor/topics/{topic.id}', headers=auth_header(tutor.user))
+
+        assert response.status_code == 204
+        assert not Topic.objects.filter(id=topic.id).exists()
+        assert not Lesson.objects.filter(id=lesson.id).exists()
+
+    def test_delete_topic_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+
+        response = api_client.delete(f'/tutor/topics/{topic.id}', headers=auth_header(tutor.user))
+
+        assert response.status_code == 403
+        assert Topic.objects.filter(id=topic.id).exists()
