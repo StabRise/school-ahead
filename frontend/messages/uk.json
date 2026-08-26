@@ -193,6 +193,8 @@
     "error": "Не вдалося завантажити предмет. Спробуйте ще раз.",
     "breadcrumbMySubjects": "Мої предмети",
     "classLabel": "Клас",
+    "isFilledLabel": "Предмет повністю наповнений уроками",
+    "isFilledError": "Не вдалося зберегти. Спробуйте ще раз.",
     "noTopics": "Тем ще немає.",
     "noLessonsInTopic": "У цій темі ще немає уроків.",
     "lessonsCount": "Уроків: {count}",
@@ -388,6 +390,7 @@
     "contentTheory": "Теорія",
     "contentQuiz": "Квіз",
     "contentTask": "Завдання",
+    "isFilledBadge": "Наповнено",
     "coursePlan": "План курсу",
     "expandAll": "Розгорнути все",
     "collapseAll": "Згорнути все",
@@ -430,7 +433,10 @@
     "rescheduleDateLabel": "Нова дата",
     "rescheduleSubmit": "Зберегти",
     "rescheduleCancel": "Скасувати",
-    "rescheduleError": "Не вдалося перенести урок. Спробуйте ще раз."
+    "rescheduleError": "Не вдалося перенести урок. Спробуйте ще раз.",
+    "removeLesson": "Прибрати урок",
+    "removeLessonConfirm": "Прибрати урок «{title}» у цього учня? Цю дію не можна скасувати.",
+    "removeLessonError": "Не вдалося прибрати урок. Спробуйте ще раз."
   },
   "PreschoolCalendar": {
     "title": "Мій тиждень",

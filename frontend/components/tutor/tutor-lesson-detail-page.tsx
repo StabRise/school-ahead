@@ -61,18 +61,23 @@ function AssignStudentDialog({ lessonId }: { lessonId: number }) {
   const assignableQuery = useListAssignableStudents(lessonId, { query: { enabled: open } });
   const assignMutation = useAssignLessonToStudent();
 
+  // Only tracks an explicit user choice — defaults to the first student in
+  // the class (already name-ordered by the backend) once the list loads,
+  // without syncing state in an effect. Same pattern as
+  // LoadLessonsJsonDialog's `effectiveSelectedId`.
   const [studentId, setStudentId] = useState<number | "">("");
   const [scheduledDate, setScheduledDate] = useState(todayIso);
 
   const students = assignableQuery.data ?? [];
   const noAssignableStudents = !assignableQuery.isLoading && !assignableQuery.isError && students.length === 0;
+  const effectiveStudentId: number | "" = studentId !== "" ? studentId : (students.at(0)?.id ?? "");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (studentId === "") return;
+    if (effectiveStudentId === "") return;
 
     assignMutation.mutate(
-      { lessonId, data: { student_id: studentId, scheduled_date: scheduledDate } },
+      { lessonId, data: { student_id: effectiveStudentId, scheduled_date: scheduledDate } },
       {
         onSuccess: () => {
           setStudentId("");
@@ -117,12 +122,12 @@ function AssignStudentDialog({ lessonId }: { lessonId: number }) {
               </label>
               <select
                 id="assign-student"
-                value={studentId}
+                value={effectiveStudentId}
                 onChange={(e) => setStudentId(e.target.value ? Number(e.target.value) : "")}
                 disabled={assignableQuery.isLoading || noAssignableStudents}
                 className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
               >
-                <option value="">{t("assignStudentPlaceholder")}</option>
+                {students.length === 0 && <option value="">{t("assignStudentPlaceholder")}</option>}
                 {students.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -158,7 +163,7 @@ function AssignStudentDialog({ lessonId }: { lessonId: number }) {
               </Dialog.Close>
               <button
                 type="submit"
-                disabled={studentId === "" || assignMutation.isPending}
+                disabled={effectiveStudentId === "" || assignMutation.isPending}
                 className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 {t("assignButton")}

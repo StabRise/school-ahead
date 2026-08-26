@@ -2,7 +2,7 @@ import json
 
 from academics import services as academics_services
 from academics.models import Class, Subject, SubjectBlock, Topic
-from academics.schemas import TopicOut, TopicsReorderIn
+from academics.schemas import SubjectOut, TopicOut, TopicsReorderIn
 from accounts.models import StudentProfile
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
@@ -33,6 +33,7 @@ from .schemas import (
     LessonStudentOut,
     RequestRevisionIn,
     ResolveNeedHelpIn,
+    SetSubjectFilledIn,
     SetTopicBlockIn,
     SubmissionDetailOut,
     TutorClassDetailOut,
@@ -109,6 +110,7 @@ def _assignment_out(assignment: TutorSubjectAssignment, request: HttpRequest) ->
         class_name=assignment.subject.school_class.name,
         topic_count=assignment.topic_count,
         lesson_count=assignment.lesson_count,
+        is_filled=assignment.subject.is_filled,
     )
 
 
@@ -129,6 +131,19 @@ def list_subject_lessons(request: HttpRequest, subject_id: int):
         .prefetch_related('materials', 'quiz_questions__choices')
         .order_by('topic__order_index', 'order_index')
     )
+
+
+@router.patch('/subjects/{subject_id}/is-filled', response=SubjectOut, operation_id='set_subject_filled')
+def set_subject_filled(request: HttpRequest, subject_id: int, payload: SetSubjectFilledIn):
+    """Tutor-toggled flag marking a subject's curriculum as fully populated
+    with lessons — purely informational, doesn't gate anything. See
+    Subject.is_filled."""
+    require_csrf(request)
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    subject = get_object_or_404(Subject, id=subject_id)
+    subject.is_filled = payload.is_filled
+    subject.save(update_fields=['is_filled'])
+    return subject
 
 
 @router.get(
@@ -365,6 +380,20 @@ def assign_lesson_to_student(request: HttpRequest, lesson_id: int, payload: Assi
         scheduled_date=student_lesson.scheduled_date,
         status=student_lesson.status,
     )
+
+
+@router.delete('/student-lessons/{student_lesson_id}', operation_id='delete_tutor_student_lesson')
+def delete_student_lesson(request: HttpRequest, student_lesson_id: int, response: HttpResponse):
+    """Removes a StudentLesson assignment — only while it's still Assigned
+    (the student hasn't touched it yet), from a tutor's "View calendar" page
+    for that student."""
+    require_csrf(request)
+    student_lesson = _get_scoped_student_lesson(request, student_lesson_id)
+    if student_lesson.status != StudentLessonStatus.ASSIGNED:
+        raise HttpError(409, 'Can only remove a lesson while it is still Assigned')
+    student_lesson.delete()
+    response.status_code = 204
+    return response
 
 
 @router.get('/students', response=list[TutorStudentOut])

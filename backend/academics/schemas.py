@@ -55,6 +55,7 @@ class SubjectOut(Schema):
     block_count: int
     start_date: datetime.date
     due_date: datetime.date
+    is_filled: bool
     blocks: list[SubjectBlockOut]
     icon: str | None
     teacher_name: str | None

@@ -47,6 +47,10 @@ class Subject(TimeStampedModel):
     block_count = models.PositiveSmallIntegerField(default=2)
     start_date = models.DateField()
     due_date = models.DateField()
+    # Tutor-set flag: "this subject's curriculum is fully populated with
+    # lessons" — purely informational (doesn't gate anything), toggled from
+    # the tutor's Subject detail page.
+    is_filled = models.BooleanField(default=False)
     # Fallback chain for the preschool game map's step-node icon: lesson
     # icon -> subject icon -> a frontend-side default. See
     # docs/interfaces/preschool.md.
