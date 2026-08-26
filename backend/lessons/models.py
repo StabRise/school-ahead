@@ -214,6 +214,7 @@ class LessonsJson(TimeStampedModel):
     # common.storage._unique_path), so this is what actually tells uploads
     # apart in the admin and the "Load lessons from JSON" picker.
     name = models.CharField(max_length=255, default='json')
+    description = models.TextField(blank=True)
     json_file = models.FileField(upload_to=lessons_json_upload_to)
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='lessons_json_uploads')
     lessons = models.ManyToManyField(Lesson, blank=True, related_name='lessons_json_uploads')

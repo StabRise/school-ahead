@@ -148,6 +148,8 @@
   "PlanLessons": {
     "triggerButton": "Запланувати уроки на період",
     "title": "Запланувати уроки на період",
+    "triggerButtonForSubject": "Запланувати {subject}",
+    "titleForSubject": "Запланувати {subject}",
     "classLabel": "Клас",
     "startDateLabel": "Початок періоду",
     "endDateLabel": "Кінець періоду",
@@ -169,14 +171,15 @@
   "LoadLessonsJson": {
     "triggerButton": "Завантажити уроки з JSON",
     "title": "Завантажити уроки з JSON",
+    "stepOfTotal": "Крок {step} з 2",
+    "nameLabel": "Назва",
+    "descriptionLabel": "Опис (необов'язково)",
     "fileLabel": "Файл",
-    "loading": "Завантаження...",
-    "noFiles": "Немає завантажених JSON-файлів для цього предмета.",
+    "uploadButton": "Завантажити",
+    "uploadError": "Не вдалося завантажити файл. Спробуйте ще раз.",
     "viewFileLink": "Переглянути файл",
-    "statusNew": "нове",
-    "statusProcessed": "оброблено",
+    "addLessonsButton": "Додати уроки",
     "cancelButton": "Скасувати",
-    "loadButton": "Завантажити",
     "processError": "Не вдалося завантажити уроки. Спробуйте ще раз.",
     "resultHeading": "Результат:",
     "topicsCreated": "Нові теми: {count}",
@@ -192,7 +195,15 @@
     "classLabel": "Клас",
     "noTopics": "Тем ще немає.",
     "noLessonsInTopic": "У цій темі ще немає уроків.",
-    "moveToBlockLabel": "Перемістити тему до блоку"
+    "lessonsCount": "Уроків: {count}",
+    "expandAll": "Розгорнути всі теми",
+    "collapseAll": "Згорнути всі теми",
+    "dragHint": "Перетягніть тему, щоб змінити порядок або перемістити в інший семестр",
+    "emptySemesterDropHint": "У цьому семестрі ще немає тем. Перетягніть сюди тему.",
+    "moveToBlockLabel": "Перемістити тему до блоку",
+    "deleteTopicButton": "Видалити тему",
+    "deleteTopicConfirm": "Видалити тему «{title}» разом з усіма її уроками ({count})? Цю дію не можна скасувати.",
+    "deleteTopicError": "Не вдалося видалити тему. Спробуйте ще раз."
   },
   "TutorLessonDetail": {
     "loading": "Завантаження...",
@@ -211,7 +222,21 @@
     "assignButton": "Призначити",
     "cancelButton": "Скасувати",
     "assignError": "Не вдалося призначити урок. Спробуйте ще раз.",
-    "noAssignableStudents": "Усі учні цього класу вже мають цей урок."
+    "noAssignableStudents": "Усі учні цього класу вже мають цей урок.",
+    "editButton": "✏️ Редагувати",
+    "titleLabel": "Назва",
+    "contentLabel": "Вміст уроку",
+    "taskContentLabel": "Завдання (task_content)",
+    "lessonTypeLabel": "Тип уроку",
+    "gradingTypeLabel": "Тип оцінювання",
+    "gradingTypePoints": "Бали (1-12)",
+    "gradingTypeBinary": "Залік/Незалік",
+    "saveButton": "Зберегти",
+    "updateError": "Не вдалося зберегти зміни. Спробуйте ще раз."
+  },
+  "MarkdownEditor": {
+    "editButton": "Редагувати",
+    "previewButton": "Перегляд"
   },
   "SubmissionReview": {
     "back": "← До панелі тьютора",

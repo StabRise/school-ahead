@@ -381,6 +381,54 @@ class TestSubjectLessons:
         assert response.status_code == 403
 
 
+class TestLessonsJsonUpload:
+    def _json_file(self, content=b'[]'):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        return SimpleUploadedFile('lessons.json', content, content_type='application/json')
+
+    def test_upload_creates_staged_lessons_json(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/lessons-json',
+            data={'name': 'Batch 1', 'description': 'Pre-hello songs'},
+            FILES={'file': self._json_file()},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['name'] == 'Batch 1'
+        assert response.data['description'] == 'Pre-hello songs\n\nФайл: lessons.json'
+        assert response.data['status'] == 'new'
+        assert response.data['subject_id'] == subject.id
+
+    def test_upload_appends_original_filename_when_description_is_empty(
+        self, api_client, auth_header, tutor, subject
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/lessons-json',
+            data={'name': 'Batch 1'},
+            FILES={'file': self._json_file()},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['description'] == 'Файл: lessons.json'
+
+    def test_upload_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/lessons-json',
+            data={'name': 'Batch 1'},
+            FILES={'file': self._json_file()},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 403
+
+
 class TestLessonDetail:
     def test_get_lesson(self, api_client, auth_header, tutor, subject):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
@@ -434,6 +482,94 @@ class TestLessonDetail:
 
         response = api_client.get(f'/tutor/lessons/{lesson.id}/students', headers=auth_header(tutor.user))
         assert response.status_code == 403
+
+
+class TestUpdateLesson:
+    def test_update_lesson(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', content='old', lesson_type=LessonType.THEORY,
+            grading_type='binary',
+        )
+
+        response = api_client.patch(
+            f'/tutor/lessons/{lesson.id}',
+            json={
+                'title': 'Updated title',
+                'content': '# New content',
+                'task_content': 'Do the thing',
+                'lesson_type': 'with_task',
+                'grading_type': 'points',
+            },
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['title'] == 'Updated title'
+        assert response.data['content'] == '# New content'
+        assert response.data['task_content'] == 'Do the thing'
+        assert response.data['lesson_type'] == 'with_task'
+        assert response.data['grading_type'] == 'points'
+
+        lesson.refresh_from_db()
+        assert lesson.title == 'Updated title'
+        assert lesson.grading_type == 'points'
+
+    def test_update_lesson_rejects_invalid_lesson_type(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.patch(
+            f'/tutor/lessons/{lesson.id}',
+            json={
+                'title': 'Intro', 'content': '', 'task_content': '',
+                'lesson_type': 'bogus', 'grading_type': 'binary',
+            },
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 400
+
+    def test_update_lesson_rejects_invalid_grading_type(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.patch(
+            f'/tutor/lessons/{lesson.id}',
+            json={
+                'title': 'Intro', 'content': '', 'task_content': '',
+                'lesson_type': 'theory', 'grading_type': 'bogus',
+            },
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 400
+
+    def test_update_lesson_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.patch(
+            f'/tutor/lessons/{lesson.id}',
+            json={
+                'title': 'Hacked', 'content': '', 'task_content': '',
+                'lesson_type': 'theory', 'grading_type': 'binary',
+            },
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 403
+        lesson.refresh_from_db()
+        assert lesson.title == 'Intro'
 
 
 class TestAssignStudent:
@@ -605,3 +741,98 @@ class TestSetTopicBlock:
             headers=auth_header(tutor.user),
         )
         assert response.status_code == 404
+
+
+class TestReorderTopics:
+    def test_reorder_topics(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        t1 = Topic.objects.create(subject=subject, title='Intro', order_index=1)
+        t2 = Topic.objects.create(subject=subject, title='Advanced', order_index=2)
+
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}/topics/reorder',
+            json={'items': [{'id': t1.id, 'order_index': 2}, {'id': t2.id, 'order_index': 1}]},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        t1.refresh_from_db()
+        t2.refresh_from_db()
+        assert t1.order_index == 2
+        assert t2.order_index == 1
+
+    def test_reorder_topics_moves_topic_across_auto_assigned_blocks(
+        self, api_client, auth_header, tutor, subject
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        subject.block_count = 2
+        subject.save()
+        academics_services.ensure_subject_blocks(subject)
+        t1 = Topic.objects.create(subject=subject, title='T1', order_index=1)
+        t2 = Topic.objects.create(subject=subject, title='T2', order_index=2)
+        academics_services.assign_topics_to_blocks(subject)
+        first_block = subject.blocks.get(index=1)
+        second_block = subject.blocks.get(index=2)
+        t1.refresh_from_db()
+        t2.refresh_from_db()
+        assert t1.subject_block_id == first_block.id
+        assert t2.subject_block_id == second_block.id
+
+        api_client.patch(
+            f'/tutor/subjects/{subject.id}/topics/reorder',
+            json={'items': [{'id': t1.id, 'order_index': 2}, {'id': t2.id, 'order_index': 1}]},
+            headers=auth_header(tutor.user),
+        )
+
+        t1.refresh_from_db()
+        t2.refresh_from_db()
+        assert t2.subject_block_id == first_block.id
+        assert t1.subject_block_id == second_block.id
+
+    def test_reorder_topics_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        t1 = Topic.objects.create(subject=subject, title='Intro', order_index=1)
+
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}/topics/reorder',
+            json={'items': [{'id': t1.id, 'order_index': 1}]},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 403
+
+    def test_reorder_topics_rejected_for_topic_from_other_subject(
+        self, api_client, auth_header, tutor, subject, other_subject
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        foreign_topic = Topic.objects.create(subject=other_subject, title='Foreign', order_index=1)
+
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}/topics/reorder',
+            json={'items': [{'id': foreign_topic.id, 'order_index': 1}]},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 404
+
+
+class TestDeleteTopic:
+    def test_delete_topic_deletes_its_lessons(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.delete(f'/tutor/topics/{topic.id}', headers=auth_header(tutor.user))
+
+        assert response.status_code == 204
+        assert not Topic.objects.filter(id=topic.id).exists()
+        assert not Lesson.objects.filter(id=lesson.id).exists()
+
+    def test_delete_topic_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+
+        response = api_client.delete(f'/tutor/topics/{topic.id}', headers=auth_header(tutor.user))
+
+        assert response.status_code == 403
+        assert Topic.objects.filter(id=topic.id).exists()

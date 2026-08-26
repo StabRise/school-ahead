@@ -1,24 +1,27 @@
 import json
 
+from academics import services as academics_services
 from academics.models import Class, Subject, SubjectBlock, Topic
-from academics.schemas import TopicOut
+from academics.schemas import TopicOut, TopicsReorderIn
 from accounts.models import StudentProfile
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
 from django.db.models import Count
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from lessons import services as lesson_services
-from lessons.models import Lesson, LessonsJson, StudentLesson, StudentLessonStatus
+from lessons.models import GradingType, Lesson, LessonsJson, LessonType, StudentLesson, StudentLessonStatus
 from lessons.schemas import (
     AddCommentIn,
     LessonCommentOut,
     LessonOut,
     LessonsJsonOut,
+    LessonUpdateIn,
     ProcessLessonsJsonOut,
 )
-from ninja import Router
+from ninja import File, Form, Router
 from ninja.errors import HttpError
+from ninja.files import UploadedFile
 from ninja.pagination import paginate
 
 from . import services
@@ -143,6 +146,33 @@ def list_subject_lessons_json(request: HttpRequest, subject_id: int):
 
 
 @router.post(
+    '/subjects/{subject_id}/lessons-json',
+    response=LessonsJsonOut,
+    operation_id='upload_tutor_subject_lessons_json',
+)
+def upload_subject_lessons_json(
+    request: HttpRequest,
+    subject_id: int,
+    name: str = Form(...),
+    description: str = Form(''),
+    file: UploadedFile = File(...),
+):
+    """Step 1 of the "Load lessons from JSON" wizard on the Subject detail
+    page — stages a scrape_lessons-shaped JSON upload for later review and
+    import (process_lessons_json is step 2, triggered separately once the
+    tutor has looked at the file). The original filename is appended to the
+    description — upload_to renames the file to a random hex name on disk
+    (see common/storage.py), so this is the only place it survives."""
+    require_csrf(request)
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    filename_note = f'Файл: {file.name}'
+    full_description = f'{description}\n\n{filename_note}' if description else filename_note
+    return LessonsJson.objects.create(
+        subject_id=subject_id, name=name, description=full_description, json_file=file
+    )
+
+
+@router.post(
     '/lessons-json/{lessons_json_id}/process',
     response=ProcessLessonsJsonOut,
     operation_id='process_lessons_json',
@@ -180,6 +210,49 @@ def set_topic_block(request: HttpRequest, topic_id: int, payload: SetTopicBlockI
     return topic
 
 
+@router.patch('/subjects/{subject_id}/topics/reorder', operation_id='reorder_tutor_subject_topics')
+def reorder_topics(request: HttpRequest, subject_id: int, payload: TopicsReorderIn):
+    """Bulk-updates Topic.order_index for the given subject — powers
+    drag-and-drop topic reordering on the tutor's Subject detail page.
+    Unlike academics.api.reorder_topics (admin-only), this is scoped to
+    tutors assigned to the subject. Reassigning order alone can shift which
+    SubjectBlock a non-pinned topic falls into (see
+    academics.services.assign_topics_to_blocks) — dragging a topic to a
+    different semester on the frontend follows up with set_topic_block to
+    pin it there explicitly."""
+    require_csrf(request)
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    subject = get_object_or_404(Subject, id=subject_id)
+    topics_by_id = {t.id: t for t in Topic.objects.filter(subject_id=subject_id)}
+
+    updated = []
+    for item in payload.items:
+        topic = topics_by_id.get(item.id)
+        if topic is None:
+            raise HttpError(404, f'Topic {item.id} not found in this subject')
+        topic.order_index = item.order_index
+        updated.append(topic)
+
+    Topic.objects.bulk_update(updated, ['order_index'])
+    academics_services.assign_topics_to_blocks(subject)
+    return {'updated': len(updated)}
+
+
+@router.delete('/topics/{topic_id}', operation_id='delete_tutor_topic')
+def delete_topic(request: HttpRequest, topic_id: int, response: HttpResponse):
+    """Deletes a Topic and every Lesson under it (Lesson.topic cascades) —
+    from the tutor's Subject detail page. Unlike academics.api.delete_topic
+    (admin-only), this is scoped to tutors assigned to the topic's subject."""
+    require_csrf(request)
+    topic = get_object_or_404(Topic.objects.select_related('subject'), id=topic_id)
+    services.ensure_is_tutor_for_subject(request, topic.subject_id)
+    subject = topic.subject
+    topic.delete()
+    academics_services.assign_topics_to_blocks(subject)
+    response.status_code = 204
+    return response
+
+
 @router.get('/lessons/{lesson_id}', response=LessonOut, operation_id='get_tutor_lesson')
 def get_lesson(request: HttpRequest, lesson_id: int):
     """Plain curriculum content for one lesson — same LessonOut shape the
@@ -189,6 +262,29 @@ def get_lesson(request: HttpRequest, lesson_id: int):
         Lesson.objects.select_related('topic__subject__school_class', 'topic__subject_block'), id=lesson_id
     )
     services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
+    return lesson
+
+
+@router.patch('/lessons/{lesson_id}', response=LessonOut, operation_id='update_tutor_lesson')
+def update_lesson(request: HttpRequest, lesson_id: int, payload: LessonUpdateIn):
+    """Inline editing from the tutor's Lesson detail page — title, content,
+    task_content, lesson_type, grading_type. Quiz questions/choices aren't
+    editable here yet."""
+    require_csrf(request)
+    lesson = get_object_or_404(Lesson.objects.select_related('topic__subject'), id=lesson_id)
+    services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
+
+    if payload.lesson_type not in LessonType.values:
+        raise HttpError(400, f'Invalid lesson_type: {payload.lesson_type!r}')
+    if payload.grading_type not in GradingType.values:
+        raise HttpError(400, f'Invalid grading_type: {payload.grading_type!r}')
+
+    lesson.title = payload.title
+    lesson.content = payload.content
+    lesson.task_content = payload.task_content
+    lesson.lesson_type = payload.lesson_type
+    lesson.grading_type = payload.grading_type
+    lesson.save(update_fields=['title', 'content', 'task_content', 'lesson_type', 'grading_type'])
     return lesson
 
 
