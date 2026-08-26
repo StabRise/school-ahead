@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListSubjectTopicsQueryKey, useGetSubject, useListSubjectTopics } from "@/lib/api/browser/academics/academics";
@@ -127,16 +127,37 @@ function TopicBlockSelect({
   );
 }
 
+function ChevronIcon({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? "rotate-180" : ""}`}
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
 function TopicSection({
   topic,
   lessons,
   blocks,
   subjectId,
+  expanded,
+  onToggle,
 }: {
   topic: TopicOut;
   lessons: LessonOut[];
   blocks: SubjectBlockOut[];
   subjectId: number;
+  expanded: boolean;
+  onToggle: () => void;
 }) {
   const t = useTranslations("TutorSubjectDetail");
   const queryClient = useQueryClient();
@@ -157,10 +178,21 @@ function TopicSection({
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-medium text-gray-900">{topic.title}</h3>
-        <div className="flex items-center gap-2">
+    <div className="overflow-hidden rounded-md border border-gray-200">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-gray-50">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          className="flex flex-1 items-center gap-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        >
+          <ChevronIcon expanded={expanded} />
+          <div className="flex flex-col gap-0.5">
+            <span className="font-medium text-gray-900">{topic.title}</span>
+            <span className="text-xs text-gray-500">{t("lessonsCount", { count: lessons.length })}</span>
+          </div>
+        </button>
+        <div className="flex shrink-0 items-center gap-2">
           {blocks.length > 1 && <TopicBlockSelect topic={topic} blocks={blocks} subjectId={subjectId} />}
           <button
             type="button"
@@ -172,15 +204,20 @@ function TopicSection({
           </button>
         </div>
       </div>
-      {deleteTopic.isError && <p className="text-sm text-red-600">{t("deleteTopicError")}</p>}
-      {lessons.length === 0 ? (
-        <p className="text-sm text-gray-500">{t("noLessonsInTopic")}</p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {lessons.map((lesson) => (
-            <LessonRow key={lesson.id} lesson={lesson} />
-          ))}
-        </ul>
+
+      {expanded && (
+        <div className="flex flex-col gap-2 border-t border-gray-100 bg-gray-50/50 p-3">
+          {deleteTopic.isError && <p className="text-sm text-red-600">{t("deleteTopicError")}</p>}
+          {lessons.length === 0 ? (
+            <p className="text-sm text-gray-500">{t("noLessonsInTopic")}</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {lessons.map((lesson) => (
+                <LessonRow key={lesson.id} lesson={lesson} />
+              ))}
+            </ul>
+          )}
+        </div>
       )}
     </div>
   );
@@ -208,6 +245,19 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
   }, [lessons]);
 
   const blockGroups = useMemo(() => groupTopicsByBlock(topics, blocks), [topics, blocks]);
+
+  const [expandedOverrides, setExpandedOverrides] = useState<Record<number, boolean>>({});
+  const isExpanded = (topicId: number) => expandedOverrides[topicId] ?? false;
+  const allExpanded = topics.length > 0 && topics.every((topic) => isExpanded(topic.id));
+
+  const toggleTopic = (topicId: number) => {
+    setExpandedOverrides((prev) => ({ ...prev, [topicId]: !isExpanded(topicId) }));
+  };
+
+  const toggleAll = () => {
+    const next = !allExpanded;
+    setExpandedOverrides(Object.fromEntries(topics.map((topic) => [topic.id, next])));
+  };
 
   const isLoading = subjectQuery.isLoading || topicsQuery.isLoading || lessonsQuery.isLoading;
   const isError = subjectQuery.isError || topicsQuery.isError || lessonsQuery.isError;
@@ -242,21 +292,31 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
       {topics.length === 0 ? (
         <p className="text-sm text-gray-500">{t("noTopics")}</p>
       ) : (
-        <div className="flex flex-col gap-6">
-          {blockGroups.map((group) => (
-            <div key={group.key} className="flex flex-col gap-4">
-              {group.label && <h2 className="text-lg font-semibold text-gray-900">{group.label}</h2>}
-              {group.topics.map((topic) => (
-                <TopicSection
-                  key={topic.id}
-                  topic={topic}
-                  lessons={lessonsByTopicId.get(topic.id) ?? []}
-                  blocks={blocks}
-                  subjectId={subjectId}
-                />
-              ))}
-            </div>
-          ))}
+        <div className="flex flex-col gap-4">
+          <div className="flex justify-end">
+            <button type="button" onClick={toggleAll} className="text-sm font-medium text-blue-700 hover:underline">
+              {allExpanded ? t("collapseAll") : t("expandAll")}
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-6">
+            {blockGroups.map((group) => (
+              <div key={group.key} className="flex flex-col gap-4">
+                {group.label && <h2 className="text-lg font-semibold text-gray-900">{group.label}</h2>}
+                {group.topics.map((topic) => (
+                  <TopicSection
+                    key={topic.id}
+                    topic={topic}
+                    lessons={lessonsByTopicId.get(topic.id) ?? []}
+                    blocks={blocks}
+                    subjectId={subjectId}
+                    expanded={isExpanded(topic.id)}
+                    onToggle={() => toggleTopic(topic.id)}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

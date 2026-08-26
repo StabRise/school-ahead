@@ -159,11 +159,15 @@ def upload_subject_lessons_json(
     """Step 1 of the "Load lessons from JSON" wizard on the Subject detail
     page — stages a scrape_lessons-shaped JSON upload for later review and
     import (process_lessons_json is step 2, triggered separately once the
-    tutor has looked at the file)."""
+    tutor has looked at the file). The original filename is appended to the
+    description — upload_to renames the file to a random hex name on disk
+    (see common/storage.py), so this is the only place it survives."""
     require_csrf(request)
     services.ensure_is_tutor_for_subject(request, subject_id)
+    filename_note = f'Файл: {file.name}'
+    full_description = f'{description}\n\n{filename_note}' if description else filename_note
     return LessonsJson.objects.create(
-        subject_id=subject_id, name=name, description=description, json_file=file
+        subject_id=subject_id, name=name, description=full_description, json_file=file
     )
 
 

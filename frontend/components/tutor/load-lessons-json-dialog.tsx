@@ -111,7 +111,7 @@ export function LoadLessonsJsonDialog({ subjectId }: { subjectId: number }) {
             <div className="mt-4 flex flex-col gap-4">
               <div className="flex flex-col gap-1 rounded-md bg-gray-50 p-3 text-sm text-gray-700">
                 <p className="font-medium text-gray-900">{uploaded.name}</p>
-                {uploaded.description && <p>{uploaded.description}</p>}
+                {uploaded.description && <p className="whitespace-pre-wrap">{uploaded.description}</p>}
                 {uploaded.file_url && (
                   <a
                     href={uploaded.file_url}

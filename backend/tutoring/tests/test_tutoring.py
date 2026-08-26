@@ -399,11 +399,13 @@ class TestLessonsJsonUpload:
 
         assert response.status_code == 200
         assert response.data['name'] == 'Batch 1'
-        assert response.data['description'] == 'Pre-hello songs'
+        assert response.data['description'] == 'Pre-hello songs\n\nФайл: lessons.json'
         assert response.data['status'] == 'new'
         assert response.data['subject_id'] == subject.id
 
-    def test_upload_description_is_optional(self, api_client, auth_header, tutor, subject):
+    def test_upload_appends_original_filename_when_description_is_empty(
+        self, api_client, auth_header, tutor, subject
+    ):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
 
         response = api_client.post(
@@ -414,7 +416,7 @@ class TestLessonsJsonUpload:
         )
 
         assert response.status_code == 200
-        assert response.data['description'] == ''
+        assert response.data['description'] == 'Файл: lessons.json'
 
     def test_upload_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
         response = api_client.post(
