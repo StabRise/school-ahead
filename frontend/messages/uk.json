@@ -222,7 +222,21 @@
     "assignButton": "Призначити",
     "cancelButton": "Скасувати",
     "assignError": "Не вдалося призначити урок. Спробуйте ще раз.",
-    "noAssignableStudents": "Усі учні цього класу вже мають цей урок."
+    "noAssignableStudents": "Усі учні цього класу вже мають цей урок.",
+    "editButton": "✏️ Редагувати",
+    "titleLabel": "Назва",
+    "contentLabel": "Вміст уроку",
+    "taskContentLabel": "Завдання (task_content)",
+    "lessonTypeLabel": "Тип уроку",
+    "gradingTypeLabel": "Тип оцінювання",
+    "gradingTypePoints": "Бали (1-12)",
+    "gradingTypeBinary": "Залік/Незалік",
+    "saveButton": "Зберегти",
+    "updateError": "Не вдалося зберегти зміни. Спробуйте ще раз."
+  },
+  "MarkdownEditor": {
+    "editButton": "Редагувати",
+    "previewButton": "Перегляд"
   },
   "SubmissionReview": {
     "back": "← До панелі тьютора",

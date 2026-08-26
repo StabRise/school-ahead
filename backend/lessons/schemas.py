@@ -105,6 +105,18 @@ class LessonOut(Schema):
         return obj.topic.subject_block.label if obj.topic.subject_block else None
 
 
+class LessonUpdateIn(Schema):
+    """Inline editing from the tutor's Lesson detail page — title, content,
+    task_content, lesson_type, grading_type. Quiz questions/choices aren't
+    editable here yet, so this never touches them."""
+
+    title: str
+    content: str
+    task_content: str = ''
+    lesson_type: str
+    grading_type: str
+
+
 class LessonSubmissionOut(Schema):
     id: int
     file: str | None
