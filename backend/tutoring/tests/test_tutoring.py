@@ -655,6 +655,78 @@ class TestSetTopicBlock:
         assert response.status_code == 404
 
 
+class TestReorderTopics:
+    def test_reorder_topics(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        t1 = Topic.objects.create(subject=subject, title='Intro', order_index=1)
+        t2 = Topic.objects.create(subject=subject, title='Advanced', order_index=2)
+
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}/topics/reorder',
+            json={'items': [{'id': t1.id, 'order_index': 2}, {'id': t2.id, 'order_index': 1}]},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        t1.refresh_from_db()
+        t2.refresh_from_db()
+        assert t1.order_index == 2
+        assert t2.order_index == 1
+
+    def test_reorder_topics_moves_topic_across_auto_assigned_blocks(
+        self, api_client, auth_header, tutor, subject
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        subject.block_count = 2
+        subject.save()
+        academics_services.ensure_subject_blocks(subject)
+        t1 = Topic.objects.create(subject=subject, title='T1', order_index=1)
+        t2 = Topic.objects.create(subject=subject, title='T2', order_index=2)
+        academics_services.assign_topics_to_blocks(subject)
+        first_block = subject.blocks.get(index=1)
+        second_block = subject.blocks.get(index=2)
+        t1.refresh_from_db()
+        t2.refresh_from_db()
+        assert t1.subject_block_id == first_block.id
+        assert t2.subject_block_id == second_block.id
+
+        api_client.patch(
+            f'/tutor/subjects/{subject.id}/topics/reorder',
+            json={'items': [{'id': t1.id, 'order_index': 2}, {'id': t2.id, 'order_index': 1}]},
+            headers=auth_header(tutor.user),
+        )
+
+        t1.refresh_from_db()
+        t2.refresh_from_db()
+        assert t2.subject_block_id == first_block.id
+        assert t1.subject_block_id == second_block.id
+
+    def test_reorder_topics_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        t1 = Topic.objects.create(subject=subject, title='Intro', order_index=1)
+
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}/topics/reorder',
+            json={'items': [{'id': t1.id, 'order_index': 1}]},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 403
+
+    def test_reorder_topics_rejected_for_topic_from_other_subject(
+        self, api_client, auth_header, tutor, subject, other_subject
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        foreign_topic = Topic.objects.create(subject=other_subject, title='Foreign', order_index=1)
+
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}/topics/reorder',
+            json={'items': [{'id': foreign_topic.id, 'order_index': 1}]},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 404
+
+
 class TestDeleteTopic:
     def test_delete_topic_deletes_its_lessons(self, api_client, auth_header, tutor, subject):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)

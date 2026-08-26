@@ -2,7 +2,7 @@ import json
 
 from academics import services as academics_services
 from academics.models import Class, Subject, SubjectBlock, Topic
-from academics.schemas import TopicOut
+from academics.schemas import TopicOut, TopicsReorderIn
 from accounts.models import StudentProfile
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
@@ -207,6 +207,34 @@ def set_topic_block(request: HttpRequest, topic_id: int, payload: SetTopicBlockI
     topic.subject_block_manually_set = True
     topic.save(update_fields=['subject_block', 'subject_block_manually_set'])
     return topic
+
+
+@router.patch('/subjects/{subject_id}/topics/reorder', operation_id='reorder_tutor_subject_topics')
+def reorder_topics(request: HttpRequest, subject_id: int, payload: TopicsReorderIn):
+    """Bulk-updates Topic.order_index for the given subject — powers
+    drag-and-drop topic reordering on the tutor's Subject detail page.
+    Unlike academics.api.reorder_topics (admin-only), this is scoped to
+    tutors assigned to the subject. Reassigning order alone can shift which
+    SubjectBlock a non-pinned topic falls into (see
+    academics.services.assign_topics_to_blocks) — dragging a topic to a
+    different semester on the frontend follows up with set_topic_block to
+    pin it there explicitly."""
+    require_csrf(request)
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    subject = get_object_or_404(Subject, id=subject_id)
+    topics_by_id = {t.id: t for t in Topic.objects.filter(subject_id=subject_id)}
+
+    updated = []
+    for item in payload.items:
+        topic = topics_by_id.get(item.id)
+        if topic is None:
+            raise HttpError(404, f'Topic {item.id} not found in this subject')
+        topic.order_index = item.order_index
+        updated.append(topic)
+
+    Topic.objects.bulk_update(updated, ['order_index'])
+    academics_services.assign_topics_to_blocks(subject)
+    return {'updated': len(updated)}
 
 
 @router.delete('/topics/{topic_id}', operation_id='delete_tutor_topic')
