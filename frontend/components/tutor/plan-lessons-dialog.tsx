@@ -6,27 +6,10 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { useGetTutorClass, useListTutorClasses } from "@/lib/api/browser/tutor/tutor";
 import { useSchedulingApiGenerateClassSchedule } from "@/lib/api/browser/schedule/schedule";
 import type { GenerateClassScheduleOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
+import { addDaysIso, todayIso } from "@/lib/dates";
+import { DateRangeFields, LessonsCountInput, ScheduleResultView } from "./schedule-period-fields";
 
 const DEFAULT_PERIOD_DAYS = 13; // ~2 weeks, a reasonable starting range to adjust
-
-// Local (not UTC) YYYY-MM-DD, matching <input type="date"> — toISOString()
-// would shift the date near midnight in timezones behind UTC.
-function isoOf(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function todayIso(): string {
-  return isoOf(new Date());
-}
-
-function addDaysIso(base: string, days: number): string {
-  const date = new Date(`${base}T00:00:00`);
-  date.setDate(date.getDate() + days);
-  return isoOf(date);
-}
 
 // Opened from the class detail page's "Запланувати уроки" button. Lets a
 // tutor pick a date range and how many lessons of each subject to fit into
@@ -100,21 +83,12 @@ export function PlanLessonsDialog({ classId }: { classId: number }) {
 
           {result ? (
             <div className="mt-4 flex flex-col gap-4">
-              <p className="text-sm font-medium text-gray-900">{t("resultHeading")}</p>
-              {result.subjects.length > 0 ? (
-                <ul className="flex flex-col gap-1 rounded-md bg-gray-50 p-3 text-sm text-gray-700">
-                  {result.subjects.map((item) => {
-                    const subject = subjects.find((s) => s.subject_id === item.subject_id);
-                    return (
-                      <li key={item.subject_id}>
-                        {t("subjectLessonsCount", { count: item.lessons_scheduled })} — {subject?.subject_name ?? item.subject_id}
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className="text-sm text-gray-500">{t("nothingScheduled")}</p>
-              )}
+              <ScheduleResultView
+                result={result}
+                subjectName={(subjectId) =>
+                  subjects.find((s) => s.subject_id === subjectId)?.subject_name ?? String(subjectId)
+                }
+              />
               <Dialog.Close asChild>
                 <button
                   type="button"
@@ -144,34 +118,12 @@ export function PlanLessonsDialog({ classId }: { classId: number }) {
                 </select>
               </div>
 
-              <div className="flex items-end gap-3">
-                <div className="flex flex-1 flex-col gap-1">
-                  <label htmlFor="plan-start" className="text-xs font-medium text-gray-700">
-                    {t("startDateLabel")}
-                  </label>
-                  <input
-                    id="plan-start"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
-                  />
-                </div>
-                <span className="pb-2 text-sm text-gray-500">{t("dateRangeSeparator")}</span>
-                <div className="flex flex-1 flex-col gap-1">
-                  <label htmlFor="plan-end" className="text-xs font-medium text-gray-700">
-                    {t("endDateLabel")}
-                  </label>
-                  <input
-                    id="plan-end"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
-                  />
-                </div>
-              </div>
-              {!isDateRangeValid && <p className="text-sm text-red-600">{t("invalidDateRange")}</p>}
+              <DateRangeFields
+                startDate={startDate}
+                endDate={endDate}
+                onStartDateChange={setStartDate}
+                onEndDateChange={setEndDate}
+              />
 
               <div className="flex flex-col gap-2 border-t border-gray-200 pt-3">
                 <p className="text-sm font-medium text-gray-900">{t("subjectsTitle")}</p>
@@ -184,21 +136,12 @@ export function PlanLessonsDialog({ classId }: { classId: number }) {
                 {subjects.map((subject) => (
                   <div key={subject.subject_id} className="flex items-center justify-between gap-3">
                     <span className="text-sm text-gray-700">{subject.subject_name}</span>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min={0}
-                        value={lessonsCountBySubjectId[subject.subject_id] ?? 0}
-                        onChange={(e) =>
-                          setLessonsCountBySubjectId((prev) => ({
-                            ...prev,
-                            [subject.subject_id]: Math.max(0, Number(e.target.value)),
-                          }))
-                        }
-                        className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-700"
-                      />
-                      <span className="text-xs text-gray-500">{t("lessonsCountSuffix")}</span>
-                    </div>
+                    <LessonsCountInput
+                      value={lessonsCountBySubjectId[subject.subject_id] ?? 0}
+                      onChange={(count) =>
+                        setLessonsCountBySubjectId((prev) => ({ ...prev, [subject.subject_id]: count }))
+                      }
+                    />
                   </div>
                 ))}
               </div>

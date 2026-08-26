@@ -148,6 +148,8 @@
   "PlanLessons": {
     "triggerButton": "Запланувати уроки на період",
     "title": "Запланувати уроки на період",
+    "triggerButtonForSubject": "Запланувати {subject}",
+    "titleForSubject": "Запланувати {subject}",
     "classLabel": "Клас",
     "startDateLabel": "Початок періоду",
     "endDateLabel": "Кінець періоду",

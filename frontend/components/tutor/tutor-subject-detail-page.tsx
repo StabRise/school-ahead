@@ -16,6 +16,7 @@ import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Card } from "@/components/card";
 import { ContentTypeBadges } from "@/components/subjects/content-type-badges";
 import { LoadLessonsJsonDialog } from "./load-lessons-json-dialog";
+import { PlanSubjectLessonsDialog } from "./plan-subject-lessons-dialog";
 
 interface BlockGroup {
   key: string;
@@ -382,7 +383,14 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
         <Breadcrumbs items={breadcrumbItems} />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold text-gray-900">{subject.name}</h1>
-          <LoadLessonsJsonDialog subjectId={subjectId} />
+          <div className="flex flex-wrap items-center gap-2">
+            <PlanSubjectLessonsDialog
+              classId={subject.school_class_id}
+              subjectId={subjectId}
+              subjectName={subject.name}
+            />
+            <LoadLessonsJsonDialog subjectId={subjectId} />
+          </div>
         </div>
         <p className="text-sm text-gray-700">
           {t("classLabel")}: <span className="font-medium">{subject.class_name}</span>
