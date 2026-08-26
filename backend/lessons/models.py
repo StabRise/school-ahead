@@ -48,7 +48,10 @@ class QuizLanguage(models.TextChoices):
 class Lesson(TimeStampedModel):
     topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='lessons')
     order_index = models.PositiveSmallIntegerField()
-    title = models.CharField(max_length=255)
+    # Generated curriculum titles can run long (e.g. "Урок 6. Види
+    # декоративно-ужиткового мистецтва (...)"), so this is wider than the
+    # usual 255-char title field.
+    title = models.CharField(max_length=512)
     lesson_type = models.CharField(max_length=10, choices=LessonType.choices)
     grading_type = models.CharField(max_length=10, choices=GradingType.choices)
     content = models.TextField(blank=True)

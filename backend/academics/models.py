@@ -115,7 +115,9 @@ class SubjectBlock(models.Model):
 
 class Topic(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='topics')
-    title = models.CharField(max_length=255)
+    # Generated curriculum titles can run long, so this is wider than the
+    # usual 255-char title field.
+    title = models.CharField(max_length=512)
     description = models.TextField(blank=True)
     order_index = models.PositiveSmallIntegerField()
     # Auto-assigned by academics.services.assign_topics_to_blocks (even split
