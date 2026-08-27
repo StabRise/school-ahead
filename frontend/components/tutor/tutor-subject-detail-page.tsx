@@ -29,6 +29,7 @@ import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Card } from "@/components/card";
 import { ExpandAllButton } from "@/components/expand-all-button";
+import { GradeSquareBadge } from "@/components/grade-square-badge";
 import { ViewModeToggle } from "@/components/view-mode-toggle";
 import { getLessonTypeBorderColor } from "@/components/subjects/lesson-type-border-color";
 import { groupTopicsByBlock, type BlockGroup } from "@/components/subjects/group-topics-by-block";
@@ -247,6 +248,7 @@ function LessonRow({
                 <span className="text-xs text-gray-500">
                   {SCHEDULED_DATE_FORMAT.format(new Date(selectedAssignment.scheduled_date))}
                 </span>
+                <GradeSquareBadge gradePoints={selectedAssignment.grade_points} gradeResult={selectedAssignment.grade_result} />
                 {selectedAssignment.status !== "completed" && (
                   <RescheduleAssignmentDialog
                     studentLessonId={selectedAssignment.student_lesson_id}

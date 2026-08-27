@@ -18,8 +18,8 @@ import { useDeleteTutorStudentLesson } from "@/lib/api/browser/tutor/tutor";
 import type { BacklogItemOut, CalendarItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Link, useRouter } from "@/i18n/navigation";
 import { Card } from "@/components/card";
-import { StatusBadge } from "@/components/status-badge";
-import { GradePoints } from "@/components/grade-points";
+import { StatusBadge, STATUS_LABEL_KEY } from "@/components/status-badge";
+import { GradeSquareBadge } from "@/components/grade-square-badge";
 import { PageContainer } from "@/components/page-container";
 
 // dataTransfer MIME type carrying the dragged StudentLesson id between a
@@ -31,6 +31,28 @@ const WEEK_LENGTH = 7;
 const DAY_LABEL_FORMAT = new Intl.DateTimeFormat("uk-UA", { weekday: "short", day: "numeric", month: "short" });
 const RANGE_DAY_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" });
 const RANGE_DAY_YEAR_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short", year: "numeric" });
+
+// Pastel status color, shared by StudentLessonCard's whole-card border and
+// its own status pill (deliberately not StatusBadge's palette — that one's
+// tuned for the tutor-facing pages and doesn't line up with this hue-per-
+// status mapping: grey/green/orange/brown/red/blue).
+const STATUS_PASTEL: Record<string, { border: string; badgeClass: string }> = {
+  assigned: { border: "#D1D5DB", badgeClass: "bg-gray-100 text-gray-600" },
+  in_progress: { border: "#86EFAC", badgeClass: "bg-green-100 text-green-700" },
+  need_help: { border: "#FDBA74", badgeClass: "bg-orange-100 text-orange-700" },
+  pending_review: { border: "#D9C2A0", badgeClass: "bg-[#F1E4D3] text-[#6B4423]" },
+  revision_required: { border: "#FCA5A5", badgeClass: "bg-red-100 text-red-700" },
+  completed: { border: "#93C5FD", badgeClass: "bg-blue-100 text-blue-700" },
+};
+
+function statusPastel(status: string) {
+  return STATUS_PASTEL[status] ?? STATUS_PASTEL.assigned;
+}
+
+// Splits a day's lessons into "needs the student's attention now" (top) vs
+// "waiting on someone else / done" (bottom) — see the <hr> between them in
+// each day column below.
+const ACTIVE_STATUSES = new Set(["assigned", "in_progress", "revision_required"]);
 
 // Local (not UTC) YYYY-MM-DD — avoids toISOString() shifting the date near
 // midnight in timezones behind UTC.
@@ -198,7 +220,59 @@ function LessonCard({
       </p>
       <div className="flex items-center gap-2">
         <StatusBadge status={item.status} />
-        {item.grade_points != null && <GradePoints points={item.grade_points} />}
+        <GradeSquareBadge gradePoints={item.grade_points} gradeResult={item.grade_result} />
+      </div>
+    </Card>
+  );
+}
+
+// The student's own /calendar default view — a simpler card than LessonCard
+// (no tutor icons, no drag-and-drop): subject name up top, the lesson title
+// clamped to 2 lines below it, then a footer row with the status pill + the
+// "view subject" link on the left and — only when a grade exists — a small
+// grade badge on the right. The whole card's pastel border color encodes
+// the lesson's status too, echoed by the footer's status pill.
+function StudentLessonCard({ item }: { item: CalendarItemOut }) {
+  const t = useTranslations("Calendar");
+  const tStatus = useTranslations("LessonStatus");
+  const router = useRouter();
+  const pastel = statusPastel(item.status);
+
+  return (
+    <Card href={`/lessons/${item.id}`} className="flex flex-col gap-1" style={{ borderColor: pastel.border }}>
+      <p className="truncate text-base font-semibold text-gray-900">{item.subject_name}</p>
+      <p
+        className="line-clamp-2 text-xs text-gray-500"
+        title={t("lessonTooltip", { topic: item.topic_title, lesson: item.lesson_title })}
+      >
+        {item.lesson_title}
+      </p>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${pastel.badgeClass}`}>
+            {tStatus(STATUS_LABEL_KEY[item.status] ?? "statusAssigned")}
+          </span>
+          <button
+            type="button"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              router.push(`/subjects/${item.subject_id}`);
+            }}
+            title={t("viewSubject")}
+            aria-label={t("viewSubject")}
+            className="shrink-0 rounded px-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          >
+            <BookOpen className="h-4 w-4" />
+          </button>
+        </div>
+        <GradeSquareBadge
+          gradePoints={item.grade_points}
+          gradeResult={item.grade_result}
+          sizeClassName="h-6 w-6"
+          compact
+        />
       </div>
     </Card>
   );
@@ -280,7 +354,7 @@ function BacklogCard({ item, readOnly }: { item: BacklogItemOut; readOnly?: bool
         <p className="truncate text-xs text-amber-700">{t("backlogOrigin", { label: item.origin_label })}</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        {item.grade_points != null && <GradePoints points={item.grade_points} />}
+        <GradeSquareBadge gradePoints={item.grade_points} gradeResult={item.grade_result} />
         <StatusBadge status={item.status} />
       </div>
     </Card>
@@ -478,17 +552,35 @@ export function WeeklyCalendar({ studentId }: { studentId?: number } = {}) {
                 </div>
                 <div className="flex flex-col gap-2">
                   {dayItems.length === 0 && <p className="text-xs text-gray-400">{t("noLessons")}</p>}
-                  {dayItems.map((item) => (
-                    <LessonCard
-                      key={item.id}
-                      item={item}
-                      readOnly={isTutorView}
-                      canManage={isTutorView && item.status !== "completed"}
-                      showTutorLinks={isTutorView}
-                      onRequestReschedule={setRescheduleTarget}
-                      onRequestDelete={handleDeleteStudentLesson}
-                    />
-                  ))}
+                  {isTutorView
+                    ? dayItems.map((item) => (
+                        <LessonCard
+                          key={item.id}
+                          item={item}
+                          readOnly={isTutorView}
+                          canManage={isTutorView && item.status !== "completed"}
+                          showTutorLinks={isTutorView}
+                          onRequestReschedule={setRescheduleTarget}
+                          onRequestDelete={handleDeleteStudentLesson}
+                        />
+                      ))
+                    : (() => {
+                        const activeItems = dayItems.filter((item) => ACTIVE_STATUSES.has(item.status));
+                        const otherItems = dayItems.filter((item) => !ACTIVE_STATUSES.has(item.status));
+                        return (
+                          <>
+                            {activeItems.map((item) => (
+                              <StudentLessonCard key={item.id} item={item} />
+                            ))}
+                            {activeItems.length > 0 && otherItems.length > 0 && (
+                              <hr className="border-gray-200" />
+                            )}
+                            {otherItems.map((item) => (
+                              <StudentLessonCard key={item.id} item={item} />
+                            ))}
+                          </>
+                        );
+                      })()}
                 </div>
               </div>
             );

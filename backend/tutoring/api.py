@@ -369,6 +369,8 @@ def list_subject_lesson_students(request: HttpRequest, subject_id: int):
             student_name=sl.student.user.full_name or sl.student.user.email,
             scheduled_date=sl.scheduled_date,
             status=sl.status,
+            grade_points=sl.grade_points,
+            grade_result=sl.grade_result,
         )
         for sl in student_lessons
     ]

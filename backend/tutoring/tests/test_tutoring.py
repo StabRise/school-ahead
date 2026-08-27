@@ -395,7 +395,7 @@ class TestSubjectLessons:
         )
         StudentLesson.objects.create(
             student=other_student, lesson=other_lesson, scheduled_date=datetime.date(2026, 1, 12),
-            status=StudentLessonStatus.COMPLETED,
+            status=StudentLessonStatus.COMPLETED, grade_points=10,
         )
 
         response = api_client.get(f'/tutor/subjects/{subject.id}/lesson-students', headers=auth_header(tutor.user))
@@ -404,7 +404,9 @@ class TestSubjectLessons:
         by_lesson_id = {row['lesson_id']: row for row in response.data}
         assert by_lesson_id[lesson.id]['student_id'] == student.id
         assert by_lesson_id[lesson.id]['student_lesson_id'] == student_lesson.id
+        assert by_lesson_id[lesson.id]['grade_points'] is None
         assert by_lesson_id[other_lesson.id]['status'] == StudentLessonStatus.COMPLETED
+        assert by_lesson_id[other_lesson.id]['grade_points'] == 10
 
     def test_list_subject_lesson_students_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
         Topic.objects.create(subject=subject, title='Fractions', order_index=1)

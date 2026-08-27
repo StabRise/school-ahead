@@ -36,6 +36,8 @@ class SubjectLessonStudentOut(Schema):
     student_name: str
     scheduled_date: datetime.date
     status: str
+    grade_points: int | None
+    grade_result: str | None
 
 
 class TutorFeedItemOut(Schema):
