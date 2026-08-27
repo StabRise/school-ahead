@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { ChevronRight } from "lucide-react";
 import { useGetStudentLesson } from "@/lib/api/browser/student-lessons/student-lessons";
 import type { StudentLessonOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { StatusBadge } from "@/components/status-badge";
@@ -132,35 +133,39 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   ];
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6 lg:max-w-none">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
       <div className="flex flex-col gap-3 border-b border-gray-200 pb-4">
         <Breadcrumbs items={breadcrumbItems} />
-        <StepSwitcher step={step} onChange={setStep} />
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <h1 className="text-xl font-semibold text-gray-900">{data.lesson.title}</h1>
           <div className="flex items-center gap-2">
-            {data.status === "in_progress" && (
-              <NeedHelpButton studentLessonId={studentLessonId} onRequested={refetch} />
-            )}
             <StatusBadge status={data.status} />
             <ScoreBadge gradePoints={data.grade_points} gradeResult={data.grade_result} />
           </div>
         </div>
+        <StepSwitcher step={step} lessonType={data.lesson.lesson_type} onChange={setStep} />
       </div>
 
       {step === "materials" ? (
         <div className="flex flex-col gap-4">
           <LessonContent content={data.lesson.content} materials={data.lesson.materials} />
-          <button
-            type="button"
-            onClick={() => setStep("assessment")}
-            className="self-start rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
-          >
-            {t("goToTaskButton")}
-          </button>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setStep("assessment")}
+              className="inline-flex items-center gap-1.5 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+            >
+              {data.lesson.lesson_type === "with_quiz" ? t("goToQuizButton") : t("goToTaskButton")}
+              <ChevronRight className="size-4" />
+            </button>
+          </div>
         </div>
       ) : (
         <AssessmentStep studentLesson={data} onChanged={refetch} />
+      )}
+
+      {data.status === "in_progress" && (
+        <NeedHelpButton studentLessonId={studentLessonId} onRequested={refetch} />
       )}
     </div>
   );
