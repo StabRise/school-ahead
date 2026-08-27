@@ -200,12 +200,20 @@
     "lessonsCount": "Уроків: {count}",
     "expandAll": "Розгорнути всі теми",
     "collapseAll": "Згорнути всі теми",
-    "dragHint": "Перетягніть тему, щоб змінити порядок або перемістити в інший семестр",
     "emptySemesterDropHint": "У цьому семестрі ще немає тем. Перетягніть сюди тему.",
     "moveToBlockLabel": "Перемістити тему до блоку",
     "deleteTopicButton": "Видалити тему",
     "deleteTopicConfirm": "Видалити тему «{title}» разом з усіма її уроками ({count})? Цю дію не можна скасувати.",
-    "deleteTopicError": "Не вдалося видалити тему. Спробуйте ще раз."
+    "deleteTopicError": "Не вдалося видалити тему. Спробуйте ще раз.",
+    "viewModeBrief": "Стислий вигляд",
+    "viewModeFull": "Повний вигляд",
+    "viewModeStudent": "Вигляд по учню",
+    "noStudentsAssigned": "Не призначено жодному учню",
+    "assignedToStudent": "Призначено",
+    "notAssignedToStudent": "Не призначено",
+    "selectStudentLabel": "Учень",
+    "selectStudentPlaceholder": "Оберіть учня",
+    "submitButton": "Показати"
   },
   "TutorLessonDetail": {
     "loading": "Завантаження...",

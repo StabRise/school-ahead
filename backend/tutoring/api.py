@@ -35,6 +35,7 @@ from .schemas import (
     ResolveNeedHelpIn,
     SetSubjectFilledIn,
     SetTopicBlockIn,
+    SubjectLessonStudentOut,
     SubmissionDetailOut,
     TutorClassDetailOut,
     TutorClassOut,
@@ -319,6 +320,35 @@ def list_lesson_students(request: HttpRequest, lesson_id: int):
     return [
         LessonStudentOut(
             student_lesson_id=sl.id,
+            student_id=sl.student_id,
+            student_name=sl.student.user.full_name or sl.student.user.email,
+            scheduled_date=sl.scheduled_date,
+            status=sl.status,
+        )
+        for sl in student_lessons
+    ]
+
+
+@router.get(
+    '/subjects/{subject_id}/lesson-students',
+    response=list[SubjectLessonStudentOut],
+    operation_id='list_tutor_subject_lesson_students',
+)
+def list_subject_lesson_students(request: HttpRequest, subject_id: int):
+    """Every lesson/student assignment across the whole subject in one call —
+    powers the "full" and "student" list views on the tutor's Subject detail
+    page, which need to know which students each lesson is assigned to
+    without one request per lesson (see list_lesson_students for that)."""
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    student_lessons = (
+        StudentLesson.objects.filter(lesson__topic__subject_id=subject_id)
+        .select_related('student__user')
+        .order_by('scheduled_date', 'student__user__first_name')
+    )
+    return [
+        SubjectLessonStudentOut(
+            lesson_id=sl.lesson_id,
+            student_id=sl.student_id,
             student_name=sl.student.user.full_name or sl.student.user.email,
             scheduled_date=sl.scheduled_date,
             status=sl.status,
@@ -376,6 +406,7 @@ def assign_lesson_to_student(request: HttpRequest, lesson_id: int, payload: Assi
         raise HttpError(409, str(exc)) from exc
     return LessonStudentOut(
         student_lesson_id=student_lesson.id,
+        student_id=student.id,
         student_name=student.user.full_name or student.user.email,
         scheduled_date=student_lesson.scheduled_date,
         status=student_lesson.status,
