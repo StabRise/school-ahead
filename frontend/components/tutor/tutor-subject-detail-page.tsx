@@ -29,6 +29,7 @@ import { ExpandAllButton } from "@/components/expand-all-button";
 import { ViewModeToggle } from "@/components/view-mode-toggle";
 import { getLessonTypeBorderColor } from "@/components/subjects/lesson-type-border-color";
 import { groupTopicsByBlock, type BlockGroup } from "@/components/subjects/group-topics-by-block";
+import { useSubjectViewStore } from "@/stores/subject-view-store";
 import { LoadLessonsJsonDialog } from "./load-lessons-json-dialog";
 import { PlanSubjectLessonsDialog } from "./plan-subject-lessons-dialog";
 
@@ -344,7 +345,12 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
   const t = useTranslations("TutorSubjectDetail");
   const queryClient = useQueryClient();
 
-  const [viewMode, setViewMode] = useState<ViewMode>("brief");
+  // Persisted across subjects via subject-view-store, so switching subjects
+  // keeps the last chosen view instead of resetting to "brief" every time.
+  const viewMode = useSubjectViewStore((s) => s.tutorViewMode);
+  const setViewMode = useSubjectViewStore((s) => s.setTutorViewMode);
+  const topicsExpandedPreference = useSubjectViewStore((s) => s.tutorTopicsExpanded);
+  const setTopicsExpandedPreference = useSubjectViewStore((s) => s.setTutorTopicsExpanded);
   const needsLessonStudents = viewMode !== "brief";
 
   const subjectQuery = useGetSubject(subjectId);
@@ -403,7 +409,7 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
   const blockGroups = useMemo(() => groupTopicsByBlock(topics, blocks), [topics, blocks]);
 
   const [expandedOverrides, setExpandedOverrides] = useState<Record<number, boolean>>({});
-  const isExpanded = (topicId: number) => expandedOverrides[topicId] ?? false;
+  const isExpanded = (topicId: number) => expandedOverrides[topicId] ?? topicsExpandedPreference ?? false;
   const allExpanded = topics.length > 0 && topics.every((topic) => isExpanded(topic.id));
 
   const toggleTopic = (topicId: number) => {
@@ -412,6 +418,7 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
 
   const toggleAll = () => {
     const next = !allExpanded;
+    setTopicsExpandedPreference(next);
     setExpandedOverrides(Object.fromEntries(topics.map((topic) => [topic.id, next])));
   };
 
