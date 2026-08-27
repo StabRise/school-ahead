@@ -20,6 +20,7 @@
     "logout": "Вийти",
     "userMenu": "Меню користувача",
     "mySubjects": "Мої предмети",
+    "myAchievements": "Мої досягнення",
     "myClasses": "Мої класи",
     "myProfile": "Мій профіль",
     "todayLessons": "Уроки сьогодні",
@@ -375,6 +376,12 @@
     "empty": "Предметів ще немає.",
     "blocksCount": "{count, plural, one {# семестр} few {# семестри} many {# семестрів} other {# семестра}}",
     "progressLabel": "Прогрес"
+  },
+  "MyAchievements": {
+    "title": "Мої досягнення",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити досягнення. Спробуйте ще раз.",
+    "empty": "Предметів ще немає."
   },
   "Profile": {
     "title": "Мій профіль",

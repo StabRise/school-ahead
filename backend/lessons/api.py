@@ -5,6 +5,7 @@ from ninja.errors import HttpError
 from ninja.files import UploadedFile
 from ninja.pagination import LimitOffsetPagination, paginate
 
+from achievements import services as achievement_services
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
 from common.permissions import ensure_is_owner_student, get_own_student_profile
@@ -21,6 +22,7 @@ from .schemas import (
     RequestHelpIn,
     StudentLessonOut,
     SubjectLessonOut,
+    SubjectProgressOut,
     SubmitQuizIn,
     SubmitQuizOut,
     TopicLessonOut,
@@ -185,16 +187,23 @@ def add_comment(request: HttpRequest, student_lesson_id: int, payload: AddCommen
 
 @router.get(
     '/subjects/{subject_id}/progress',
-    response=CompletionProgressOut,
+    response=SubjectProgressOut,
     operation_id='get_subject_progress',
 )
 def get_subject_progress(request: HttpRequest, subject_id: int):
-    """Curriculum-wide, not just what's been scheduled so far — see
-    docs/interfaces/student/subjects.md."""
+    """Curriculum-wide (every Lesson in the subject, not just what's been
+    scheduled so far — see services.compute_completion), plus the
+    per-semester breakdown and matching ProgressBadge for the Subject detail
+    page's course badge. See docs/interfaces/student/subjects.md."""
     student = get_own_student_profile(request)
+    total_lessons = Lesson.objects.filter(topic__subject_id=subject_id).count()
     qs = StudentLesson.objects.filter(student=student, lesson__topic__subject_id=subject_id)
-    completed, total, percent = services.compute_completion(qs)
-    return CompletionProgressOut(completed_count=completed, total_count=total, completed_percent=percent)
+    completed, total, percent = services.compute_completion(total_lessons, qs)
+    blocks = services.compute_block_progress(subject_id, student)
+    badge = achievement_services.get_badge_for_percent(percent)
+    return SubjectProgressOut(
+        completed_count=completed, total_count=total, completed_percent=percent, badge=badge, blocks=blocks,
+    )
 
 
 @router.get(
@@ -203,9 +212,12 @@ def get_subject_progress(request: HttpRequest, subject_id: int):
     operation_id='get_topic_progress',
 )
 def get_topic_progress(request: HttpRequest, topic_id: int):
+    """Curriculum-wide within the topic — every Lesson under it, not just
+    what's been scheduled so far. See services.compute_completion."""
     student = get_own_student_profile(request)
+    total_lessons = Lesson.objects.filter(topic_id=topic_id).count()
     qs = StudentLesson.objects.filter(student=student, lesson__topic_id=topic_id)
-    completed, total, percent = services.compute_completion(qs)
+    completed, total, percent = services.compute_completion(total_lessons, qs)
     return CompletionProgressOut(completed_count=completed, total_count=total, completed_percent=percent)
 
 

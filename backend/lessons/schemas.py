@@ -1,5 +1,6 @@
 import datetime
 
+from achievements.schemas import BlockProgressOut, ProgressBadgeOut
 from ninja import Schema
 
 
@@ -210,12 +211,26 @@ class AddCommentIn(Schema):
 
 class CompletionProgressOut(Schema):
     """Curriculum-wide completion, not just what's been scheduled so far —
-    see lessons.services.compute_completion. Powers the Subject/Topic detail
-    pages' progress bars (docs/interfaces/student/subjects.md)."""
+    see lessons.services.compute_completion. Powers the Topic detail page's
+    progress bar (docs/interfaces/student/subjects.md); see
+    SubjectProgressOut for the richer Subject-level version."""
 
     completed_count: int
     total_count: int
     completed_percent: float
+
+
+class SubjectProgressOut(Schema):
+    """CompletionProgressOut plus the Subject detail page's per-semester
+    breakdown and gamified course badge — see
+    lessons.services.compute_block_progress and
+    achievements.services.get_badge_for_percent."""
+
+    completed_count: int
+    total_count: int
+    completed_percent: float
+    badge: ProgressBadgeOut | None
+    blocks: list[BlockProgressOut]
 
 
 class TopicLessonOut(Schema):

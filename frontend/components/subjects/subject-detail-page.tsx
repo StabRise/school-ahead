@@ -7,6 +7,7 @@ import { useGetSubjectProgress } from "@/lib/api/browser/student-lessons/student
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Markdown } from "@/components/markdown";
 import { ProgressBar } from "@/components/progress-bar";
+import { CourseBadge } from "@/components/subjects/course-badge";
 import { NextLessonCard } from "./next-lesson-card";
 import { CoursePlan } from "./course-plan";
 
@@ -28,6 +29,7 @@ export function SubjectDetailPage({ subjectId }: { subjectId: number }) {
 
   const subject = subjectQuery.data;
   const percent = progressQuery.data?.completed_percent ?? 0;
+  const blocks = progressQuery.data?.blocks ?? [];
 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: t("breadcrumbMySubjects"), href: "/subjects" },
@@ -38,7 +40,10 @@ export function SubjectDetailPage({ subjectId }: { subjectId: number }) {
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
       <div className="flex flex-col gap-3">
         <Breadcrumbs items={breadcrumbItems} />
-        <h1 className="text-2xl font-semibold text-gray-900">{subject.name}</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold text-gray-900">{subject.name}</h1>
+          <CourseBadge badge={progressQuery.data?.badge} />
+        </div>
         <p className="text-sm text-gray-500">
           {subject.teacher_name && (
             <>
@@ -48,6 +53,14 @@ export function SubjectDetailPage({ subjectId }: { subjectId: number }) {
           {t("courseProgressLabel")}: <span className="font-medium text-gray-700">{Math.round(percent)}%</span>
         </p>
         <ProgressBar percent={percent} />
+
+        {blocks.length > 1 && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {blocks.map((block) => (
+              <ProgressBar key={block.id} percent={block.completed_percent} label={block.label} />
+            ))}
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-4 pt-1">
           {subject.description && (

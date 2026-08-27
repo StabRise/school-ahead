@@ -161,6 +161,14 @@ export function Header() {
                     </DropdownMenu.Item>
                     <DropdownMenu.Item asChild>
                       <Link
+                        href="/achievements"
+                        className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
+                      >
+                        {t("myAchievements")}
+                      </Link>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item asChild>
+                      <Link
                         href="/profile"
                         className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
                       >

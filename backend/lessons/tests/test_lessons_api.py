@@ -223,7 +223,54 @@ def test_get_subject_progress(api_client, auth_header, topic, student, student_l
         f'/student-lessons/subjects/{topic.subject_id}/progress', headers=auth_header(student.user)
     )
     assert response.status_code == 200
-    assert response.data == {'completed_count': 1, 'total_count': 2, 'completed_percent': 50.0}
+    assert response.data['completed_count'] == 1
+    assert response.data['total_count'] == 2
+    assert response.data['completed_percent'] == 50.0
+    assert response.data['badge']['name'] == 'Дослідник'
+    assert response.data['blocks'] == []
+
+
+def test_get_subject_progress_counts_unassigned_lessons(api_client, auth_header, topic, student, student_lesson):
+    """total_count is every Lesson in the subject, not just the ones this
+    student has a StudentLesson for."""
+    Lesson.objects.create(
+        topic=topic, order_index=2, title='Never assigned',
+        lesson_type=LessonType.THEORY, grading_type='binary',
+    )
+
+    response = api_client.get(
+        f'/student-lessons/subjects/{topic.subject_id}/progress', headers=auth_header(student.user)
+    )
+    assert response.status_code == 200
+    assert response.data['completed_count'] == 0
+    assert response.data['total_count'] == 2
+    assert response.data['completed_percent'] == 0.0
+    assert response.data['badge']['name'] == 'Новачок'
+
+
+def test_get_subject_progress_includes_block_breakdown(api_client, auth_header, topic, student, student_lesson):
+    from academics.models import SubjectBlock
+
+    block1 = SubjectBlock.objects.create(subject=topic.subject, index=1, label='Semester 1')
+    block2 = SubjectBlock.objects.create(subject=topic.subject, index=2, label='Semester 2')
+    topic.subject_block = block1
+    topic.save()
+
+    other_topic = Topic.objects.create(subject=topic.subject, title='Decimals', order_index=2, subject_block=block2)
+    Lesson.objects.create(
+        topic=other_topic, order_index=1, title='Untouched',
+        lesson_type=LessonType.THEORY, grading_type='binary',
+    )
+
+    response = api_client.get(
+        f'/student-lessons/subjects/{topic.subject_id}/progress', headers=auth_header(student.user)
+    )
+    assert response.status_code == 200
+    blocks_by_label = {b['label']: b for b in response.data['blocks']}
+    assert blocks_by_label['Semester 1']['total_count'] == 1
+    assert blocks_by_label['Semester 1']['completed_count'] == 0
+    assert blocks_by_label['Semester 2']['total_count'] == 1
+    assert blocks_by_label['Semester 2']['completed_count'] == 0
 
 
 def test_get_subject_progress_requires_student(api_client, auth_header, topic):
@@ -240,6 +287,19 @@ def test_get_topic_progress(api_client, auth_header, topic, student, student_les
     )
     assert response.status_code == 200
     assert response.data == {'completed_count': 0, 'total_count': 1, 'completed_percent': 0.0}
+
+
+def test_get_topic_progress_counts_unassigned_lessons(api_client, auth_header, topic, student, student_lesson):
+    Lesson.objects.create(
+        topic=topic, order_index=2, title='Never assigned',
+        lesson_type=LessonType.THEORY, grading_type='binary',
+    )
+
+    response = api_client.get(
+        f'/student-lessons/topics/{topic.id}/progress', headers=auth_header(student.user)
+    )
+    assert response.status_code == 200
+    assert response.data == {'completed_count': 0, 'total_count': 2, 'completed_percent': 0.0}
 
 
 def test_list_subject_lessons_includes_unassigned_lessons(

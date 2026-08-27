@@ -3,10 +3,10 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 
 from academics import services as academics_services
-from academics.models import Subject, Topic
+from academics.models import Subject, SubjectBlock, Topic
 from accounts.models import StudentProfile, User
 from django.db import transaction
-from django.db.models import F, QuerySet
+from django.db.models import Count, F, QuerySet
 from django.utils import timezone
 
 from .models import (
@@ -286,14 +286,67 @@ def resubmit(student_lesson: StudentLesson, actor: User, *, file=None, comment: 
     return submission
 
 
-def compute_completion(student_lessons: QuerySet) -> tuple[int, int, float]:
-    """(completed_count, total_count, completed_percent) over the given
-    StudentLesson queryset — shared by the Subject/Topic detail pages'
-    progress bars (docs/interfaces/student/subjects.md)."""
-    total = student_lessons.count()
+def compute_completion(total_lessons: int, student_lessons: QuerySet) -> tuple[int, int, float]:
+    """(completed_count, total_count, completed_percent) — total_lessons is
+    every Lesson in scope (assigned to this student or not, e.g. every
+    Lesson in a subject/topic), completed_count is this student's completed
+    StudentLesson rows among them. Shared by the Subject/Topic detail pages'
+    progress bars and the achievements overview (docs/interfaces/student/subjects.md)."""
     completed = student_lessons.filter(status=StudentLessonStatus.COMPLETED).count()
-    percent = round(completed / total * 100, 1) if total else 0.0
-    return completed, total, percent
+    percent = round(completed / total_lessons * 100, 1) if total_lessons else 0.0
+    return completed, total_lessons, percent
+
+
+@dataclass
+class BlockProgress:
+    id: int
+    index: int
+    label: str
+    completed_count: int
+    total_count: int
+    completed_percent: float
+
+
+def compute_block_progress(subject_id: int, student: StudentProfile) -> list[BlockProgress]:
+    """Per-SubjectBlock completion within a subject, same total-vs-assigned
+    semantics as compute_completion — powers the Subject detail page's
+    per-semester bars and the achievements overview's per-subject
+    breakdown. Two aggregate queries regardless of lesson count, rather than
+    one per block."""
+    blocks = list(SubjectBlock.objects.filter(subject_id=subject_id).order_by('index'))
+    if not blocks:
+        return []
+
+    total_by_block = dict(
+        Lesson.objects.filter(topic__subject_id=subject_id, topic__subject_block_id__isnull=False)
+        .values('topic__subject_block_id')
+        .annotate(count=Count('id'))
+        .values_list('topic__subject_block_id', 'count')
+    )
+    completed_by_block = dict(
+        StudentLesson.objects.filter(
+            student=student,
+            lesson__topic__subject_id=subject_id,
+            lesson__topic__subject_block_id__isnull=False,
+            status=StudentLessonStatus.COMPLETED,
+        )
+        .values('lesson__topic__subject_block_id')
+        .annotate(count=Count('id'))
+        .values_list('lesson__topic__subject_block_id', 'count')
+    )
+
+    result = []
+    for block in blocks:
+        total = total_by_block.get(block.id, 0)
+        completed = completed_by_block.get(block.id, 0)
+        percent = round(completed / total * 100, 1) if total else 0.0
+        result.append(
+            BlockProgress(
+                id=block.id, index=block.index, label=block.label,
+                completed_count=completed, total_count=total, completed_percent=percent,
+            )
+        )
+    return result
 
 
 def reschedule(student_lesson: StudentLesson, new_date) -> None:
