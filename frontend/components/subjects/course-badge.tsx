@@ -9,8 +9,11 @@ export function CourseBadge({ badge }: { badge: ProgressBadgeOut | null | undefi
   if (!badge) return null;
 
   return (
-    <span className="inline-flex w-fit shrink-0 items-center gap-1 rounded-full bg-gray-900 px-3 py-1 text-xs font-medium text-white">
-      {badge.icon} {badge.name}
+    <span className="inline-flex w-fit shrink-0 items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-amber-900">
+      <span className="text-2xl leading-none" aria-hidden="true">
+        {badge.icon}
+      </span>
+      <span className="text-sm font-semibold">{badge.name}</span>
     </span>
   );
 }

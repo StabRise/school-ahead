@@ -5,9 +5,14 @@ import { useQueries } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { List, Rows3 } from "lucide-react";
 import { useGetSubject, useListSubjectTopics } from "@/lib/api/browser/academics/academics";
-import { getGetTopicProgressQueryOptions, useListStudentSubjectLessons } from "@/lib/api/browser/student-lessons/student-lessons";
+import {
+  getGetTopicProgressQueryOptions,
+  useGetSubjectProgress,
+  useListStudentSubjectLessons,
+} from "@/lib/api/browser/student-lessons/student-lessons";
 import type { SubjectLessonOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { ExpandAllButton } from "@/components/expand-all-button";
+import { ProgressBar } from "@/components/progress-bar";
 import { ViewModeToggle } from "@/components/view-mode-toggle";
 import { groupTopicsByBlock } from "@/components/subjects/group-topics-by-block";
 import { TopicAccordionItem, type CoursePlanViewMode } from "./topic-accordion-item";
@@ -25,10 +30,22 @@ export function CoursePlan({ subjectId }: { subjectId: number }) {
   // detail page) rather than per-topic, since not-yet-assigned lessons have
   // no StudentLesson row to lazily fetch by.
   const lessonsQuery = useListStudentSubjectLessons(subjectId);
+  // Shares its cache with the Subject detail page's own call to this same
+  // hook — this only reads its per-semester breakdown (see SubjectDetailPage,
+  // which shows the overall percent and leaves the per-block bars to here,
+  // next to each semester's name).
+  const subjectProgressQuery = useGetSubjectProgress(subjectId);
 
   const blocks = useMemo(() => subjectQuery.data?.blocks ?? [], [subjectQuery.data]);
   const topics = useMemo(() => topicsQuery.data ?? [], [topicsQuery.data]);
   const lessons = useMemo(() => lessonsQuery.data ?? [], [lessonsQuery.data]);
+  const blockProgressById = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const block of subjectProgressQuery.data?.blocks ?? []) {
+      map.set(block.id, block.completed_percent);
+    }
+    return map;
+  }, [subjectProgressQuery.data]);
 
   const lessonsByTopicId = useMemo(() => {
     const map = new Map<number, SubjectLessonOut[]>();
@@ -111,7 +128,14 @@ export function CoursePlan({ subjectId }: { subjectId: number }) {
       <div className="flex flex-col gap-6">
         {blockGroups.map((group) => (
           <div key={group.key} className="flex flex-col gap-2">
-            {group.label && <h3 className="text-sm font-semibold text-gray-700">{group.label}</h3>}
+            {group.label && (
+              <div className="flex flex-col gap-1">
+                <h3 className="text-sm font-semibold text-gray-700">{group.label}</h3>
+                {blocks.length > 1 && group.blockId !== null && blockProgressById.has(group.blockId) && (
+                  <ProgressBar percent={blockProgressById.get(group.blockId)!} />
+                )}
+              </div>
+            )}
             {group.topics.map((topic) => (
               <TopicAccordionItem
                 key={topic.id}
