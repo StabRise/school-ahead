@@ -4,7 +4,19 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Dialog from "@radix-ui/react-dialog";
-import { BookOpen, CalendarClock, Eye, Trash2 } from "lucide-react";
+import {
+  BookOpen,
+  CalendarClock,
+  CheckCircle2,
+  Circle,
+  Clock,
+  Eye,
+  HelpCircle,
+  PlayCircle,
+  RotateCcw,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react";
 import {
   getGetTutorStudentCalendarQueryKey,
   getSchedulingApiCalendarQueryKey,
@@ -18,8 +30,8 @@ import { useDeleteTutorStudentLesson } from "@/lib/api/browser/tutor/tutor";
 import type { BacklogItemOut, CalendarItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Link, useRouter } from "@/i18n/navigation";
 import { Card } from "@/components/card";
-import { StatusBadge } from "@/components/status-badge";
-import { GradePoints } from "@/components/grade-points";
+import { StatusBadge, STATUS_LABEL_KEY } from "@/components/status-badge";
+import { GradeSquareBadge } from "@/components/grade-square-badge";
 import { PageContainer } from "@/components/page-container";
 
 // dataTransfer MIME type carrying the dragged StudentLesson id between a
@@ -31,6 +43,38 @@ const WEEK_LENGTH = 7;
 const DAY_LABEL_FORMAT = new Intl.DateTimeFormat("uk-UA", { weekday: "short", day: "numeric", month: "short" });
 const RANGE_DAY_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" });
 const RANGE_DAY_YEAR_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short", year: "numeric" });
+
+// Pastel status color, shared by StudentLessonCard's whole-card border and
+// its own status icon (deliberately not StatusBadge's palette — that one's
+// tuned for the tutor-facing pages and doesn't line up with this hue-per-
+// status mapping: grey/green/orange/brown/red/blue).
+const STATUS_PASTEL: Record<string, { border: string; iconClass: string }> = {
+  assigned: { border: "#D1D5DB", iconClass: "text-gray-400" },
+  in_progress: { border: "#86EFAC", iconClass: "text-green-600" },
+  need_help: { border: "#FDBA74", iconClass: "text-orange-600" },
+  pending_review: { border: "#D9C2A0", iconClass: "text-[#6B4423]" },
+  revision_required: { border: "#FCA5A5", iconClass: "text-red-600" },
+  completed: { border: "#93C5FD", iconClass: "text-blue-600" },
+};
+
+function statusPastel(status: string) {
+  return STATUS_PASTEL[status] ?? STATUS_PASTEL.assigned;
+}
+
+// Icon shown in StudentLessonCard's footer in place of a text StatusBadge.
+const STATUS_ICON: Record<string, LucideIcon> = {
+  assigned: Circle,
+  in_progress: PlayCircle,
+  need_help: HelpCircle,
+  pending_review: Clock,
+  revision_required: RotateCcw,
+  completed: CheckCircle2,
+};
+
+// Splits a day's lessons into "needs the student's attention now" (top) vs
+// "waiting on someone else / done" (bottom) — see the <hr> between them in
+// each day column below.
+const ACTIVE_STATUSES = new Set(["assigned", "in_progress", "revision_required"]);
 
 // Local (not UTC) YYYY-MM-DD — avoids toISOString() shifting the date near
 // midnight in timezones behind UTC.
@@ -198,7 +242,61 @@ function LessonCard({
       </p>
       <div className="flex items-center gap-2">
         <StatusBadge status={item.status} />
-        {item.grade_points != null && <GradePoints points={item.grade_points} />}
+        <GradeSquareBadge gradePoints={item.grade_points} gradeResult={item.grade_result} />
+      </div>
+    </Card>
+  );
+}
+
+// The student's own /calendar default view — a simpler card than LessonCard
+// (no tutor icons, no drag-and-drop): subject name up top, the lesson title
+// clamped to 2 lines below it, then a footer row with the status icon + the
+// "view subject" link on the left and — only when a grade exists — a small
+// grade badge on the right. The whole card's pastel border color encodes
+// the lesson's status too, echoed by the footer's status icon's color.
+function StudentLessonCard({ item }: { item: CalendarItemOut }) {
+  const t = useTranslations("Calendar");
+  const tStatus = useTranslations("LessonStatus");
+  const router = useRouter();
+  const pastel = statusPastel(item.status);
+  const StatusIcon = STATUS_ICON[item.status] ?? Circle;
+  const statusLabel = tStatus(STATUS_LABEL_KEY[item.status] ?? "statusAssigned");
+
+  return (
+    <Card href={`/lessons/${item.id}`} className="flex flex-col gap-1 border border-l-4" style={{ borderLeftColor: item.subject_color ?? "#D1D5DB" }}>
+      <p className="truncate text-base font-semibold text-gray-900">{item.subject_name}</p>
+      <p
+        className="line-clamp-2 text-xs text-gray-500"
+        title={t("lessonTooltip", { topic: item.topic_title, lesson: item.lesson_title })}
+      >
+        {item.lesson_title}
+      </p>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span role="img" aria-label={statusLabel} title={statusLabel} className="shrink-0">
+            <StatusIcon aria-hidden="true" className={`h-4 w-4 ${pastel.iconClass}`} />
+          </span>
+          <button
+            type="button"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              router.push(`/subjects/${item.subject_id}`);
+            }}
+            title={t("viewSubject")}
+            aria-label={t("viewSubject")}
+            className="shrink-0 rounded px-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          >
+            <BookOpen className="h-4 w-4" />
+          </button>
+        </div>
+        <GradeSquareBadge
+          gradePoints={item.grade_points}
+          gradeResult={item.grade_result}
+          sizeClassName="h-6 w-6"
+          compact
+        />
       </div>
     </Card>
   );
@@ -280,7 +378,7 @@ function BacklogCard({ item, readOnly }: { item: BacklogItemOut; readOnly?: bool
         <p className="truncate text-xs text-amber-700">{t("backlogOrigin", { label: item.origin_label })}</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        {item.grade_points != null && <GradePoints points={item.grade_points} />}
+        <GradeSquareBadge gradePoints={item.grade_points} gradeResult={item.grade_result} />
         <StatusBadge status={item.status} />
       </div>
     </Card>
@@ -478,17 +576,35 @@ export function WeeklyCalendar({ studentId }: { studentId?: number } = {}) {
                 </div>
                 <div className="flex flex-col gap-2">
                   {dayItems.length === 0 && <p className="text-xs text-gray-400">{t("noLessons")}</p>}
-                  {dayItems.map((item) => (
-                    <LessonCard
-                      key={item.id}
-                      item={item}
-                      readOnly={isTutorView}
-                      canManage={isTutorView && item.status !== "completed"}
-                      showTutorLinks={isTutorView}
-                      onRequestReschedule={setRescheduleTarget}
-                      onRequestDelete={handleDeleteStudentLesson}
-                    />
-                  ))}
+                  {isTutorView
+                    ? dayItems.map((item) => (
+                        <LessonCard
+                          key={item.id}
+                          item={item}
+                          readOnly={isTutorView}
+                          canManage={isTutorView && item.status !== "completed"}
+                          showTutorLinks={isTutorView}
+                          onRequestReschedule={setRescheduleTarget}
+                          onRequestDelete={handleDeleteStudentLesson}
+                        />
+                      ))
+                    : (() => {
+                        const activeItems = dayItems.filter((item) => ACTIVE_STATUSES.has(item.status));
+                        const otherItems = dayItems.filter((item) => !ACTIVE_STATUSES.has(item.status));
+                        return (
+                          <>
+                            {activeItems.map((item) => (
+                              <StudentLessonCard key={item.id} item={item} />
+                            ))}
+                            {activeItems.length > 0 && otherItems.length > 0 && (
+                              <hr className="border-gray-200" />
+                            )}
+                            {otherItems.map((item) => (
+                              <StudentLessonCard key={item.id} item={item} />
+                            ))}
+                          </>
+                        );
+                      })()}
                 </div>
               </div>
             );

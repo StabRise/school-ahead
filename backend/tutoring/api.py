@@ -304,6 +304,22 @@ def update_lesson(request: HttpRequest, lesson_id: int, payload: LessonUpdateIn)
     return lesson
 
 
+@router.delete('/lessons/{lesson_id}', operation_id='delete_tutor_lesson')
+def delete_lesson(request: HttpRequest, lesson_id: int, response: HttpResponse):
+    """Deletes a single Lesson — from the tutor's Subject detail page. Unlike
+    delete_tutor_topic above, this refuses to delete a lesson that's already
+    assigned to a student (any StudentLesson row, regardless of status) —
+    removing it would also silently wipe that student's progress/grade."""
+    require_csrf(request)
+    lesson = get_object_or_404(Lesson.objects.select_related('topic'), id=lesson_id)
+    services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
+    if StudentLesson.objects.filter(lesson_id=lesson_id).exists():
+        raise HttpError(409, 'Cannot delete a lesson that is assigned to a student')
+    lesson.delete()
+    response.status_code = 204
+    return response
+
+
 @router.get(
     '/lessons/{lesson_id}/students',
     response=list[LessonStudentOut],
@@ -347,11 +363,14 @@ def list_subject_lesson_students(request: HttpRequest, subject_id: int):
     )
     return [
         SubjectLessonStudentOut(
+            student_lesson_id=sl.id,
             lesson_id=sl.lesson_id,
             student_id=sl.student_id,
             student_name=sl.student.user.full_name or sl.student.user.email,
             scheduled_date=sl.scheduled_date,
             status=sl.status,
+            grade_points=sl.grade_points,
+            grade_result=sl.grade_result,
         )
         for sl in student_lessons
     ]

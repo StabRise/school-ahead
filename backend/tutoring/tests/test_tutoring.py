@@ -389,13 +389,13 @@ class TestSubjectLessons:
         other_lesson = Lesson.objects.create(
             topic=topic, order_index=2, title='More', lesson_type=LessonType.THEORY, grading_type='points'
         )
-        StudentLesson.objects.create(
+        student_lesson = StudentLesson.objects.create(
             student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
             status=StudentLessonStatus.ASSIGNED,
         )
         StudentLesson.objects.create(
             student=other_student, lesson=other_lesson, scheduled_date=datetime.date(2026, 1, 12),
-            status=StudentLessonStatus.COMPLETED,
+            status=StudentLessonStatus.COMPLETED, grade_points=10,
         )
 
         response = api_client.get(f'/tutor/subjects/{subject.id}/lesson-students', headers=auth_header(tutor.user))
@@ -403,7 +403,10 @@ class TestSubjectLessons:
         assert len(response.data) == 2
         by_lesson_id = {row['lesson_id']: row for row in response.data}
         assert by_lesson_id[lesson.id]['student_id'] == student.id
+        assert by_lesson_id[lesson.id]['student_lesson_id'] == student_lesson.id
+        assert by_lesson_id[lesson.id]['grade_points'] is None
         assert by_lesson_id[other_lesson.id]['status'] == StudentLessonStatus.COMPLETED
+        assert by_lesson_id[other_lesson.id]['grade_points'] == 10
 
     def test_list_subject_lesson_students_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
         Topic.objects.create(subject=subject, title='Fractions', order_index=1)
@@ -958,3 +961,44 @@ class TestDeleteTopic:
 
         assert response.status_code == 403
         assert Topic.objects.filter(id=topic.id).exists()
+
+
+class TestDeleteLesson:
+    def test_delete_lesson(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.delete(f'/tutor/lessons/{lesson.id}', headers=auth_header(tutor.user))
+
+        assert response.status_code == 204
+        assert not Lesson.objects.filter(id=lesson.id).exists()
+        assert Topic.objects.filter(id=topic.id).exists()
+
+    def test_delete_lesson_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.delete(f'/tutor/lessons/{lesson.id}', headers=auth_header(tutor.user))
+
+        assert response.status_code == 403
+        assert Lesson.objects.filter(id=lesson.id).exists()
+
+    def test_delete_lesson_rejected_when_assigned_to_student(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+        StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date.today(), status=StudentLessonStatus.ASSIGNED
+        )
+
+        response = api_client.delete(f'/tutor/lessons/{lesson.id}', headers=auth_header(tutor.user))
+
+        assert response.status_code == 409
+        assert Lesson.objects.filter(id=lesson.id).exists()

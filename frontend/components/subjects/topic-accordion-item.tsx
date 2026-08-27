@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import type { CompletionProgressOut, SubjectLessonOut, TopicOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Card } from "@/components/card";
 import { StatusBadge } from "@/components/status-badge";
-import { ScoreBadge } from "@/components/score-badge";
+import { GradeSquareBadge } from "@/components/grade-square-badge";
 import { getLessonTypeBorderColor } from "./lesson-type-border-color";
 
 export type CoursePlanViewMode = "brief" | "full";
@@ -48,7 +48,7 @@ function LessonRow({ lesson, viewMode }: { lesson: SubjectLessonOut; viewMode: C
               </span>
             )}
             <StatusBadge status={lesson.status} />
-            <ScoreBadge gradePoints={lesson.grade_points} gradeResult={lesson.grade_result} />
+            <GradeSquareBadge gradePoints={lesson.grade_points} gradeResult={lesson.grade_result} />
           </>
         ) : (
           <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">

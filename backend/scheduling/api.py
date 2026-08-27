@@ -57,6 +57,7 @@ def _calendar_item(request: HttpRequest, student_lesson: StudentLesson) -> Calen
         completed_at=student_lesson.completed_at,
         is_completed_ahead=is_ahead,
         grade_points=student_lesson.grade_points,
+        grade_result=student_lesson.grade_result,
         lesson_icon=_absolute_file_url(student_lesson.lesson.icon, request),
         subject_icon=_absolute_file_url(subject.icon, request),
         subject_color=subject.color or None,

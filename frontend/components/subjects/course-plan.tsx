@@ -15,13 +15,19 @@ import { ExpandAllButton } from "@/components/expand-all-button";
 import { ProgressBar } from "@/components/progress-bar";
 import { ViewModeToggle } from "@/components/view-mode-toggle";
 import { groupTopicsByBlock } from "@/components/subjects/group-topics-by-block";
-import { TopicAccordionItem, type CoursePlanViewMode } from "./topic-accordion-item";
+import { useSubjectViewStore } from "@/stores/subject-view-store";
+import { TopicAccordionItem } from "./topic-accordion-item";
 
 // Topics come back pre-ordered by Topic.Meta.ordering (order_index) — see
 // backend/academics/models.py.
 export function CoursePlan({ subjectId }: { subjectId: number }) {
   const t = useTranslations("SubjectDetail");
-  const [viewMode, setViewMode] = useState<CoursePlanViewMode>("brief");
+  // Persisted across subjects via subject-view-store, so switching subjects
+  // keeps the last chosen view instead of resetting to "brief" every time.
+  const viewMode = useSubjectViewStore((s) => s.coursePlanViewMode);
+  const setViewMode = useSubjectViewStore((s) => s.setCoursePlanViewMode);
+  const topicsExpandedPreference = useSubjectViewStore((s) => s.coursePlanTopicsExpanded);
+  const setTopicsExpandedPreference = useSubjectViewStore((s) => s.setCoursePlanTopicsExpanded);
 
   const subjectQuery = useGetSubject(subjectId);
   const topicsQuery = useListSubjectTopics(subjectId);
@@ -83,7 +89,11 @@ export function CoursePlan({ subjectId }: { subjectId: number }) {
 
   const [overrides, setOverrides] = useState<Record<number, boolean>>({});
 
-  const isExpanded = (topicId: number) => overrides[topicId] ?? topicId === currentTopicId;
+  // Per-topic manual toggles win first, then the sticky cross-subject
+  // preference, then (only if the user never touched the toggle) the
+  // smart default of auto-expanding the current topic.
+  const isExpanded = (topicId: number) =>
+    overrides[topicId] ?? topicsExpandedPreference ?? topicId === currentTopicId;
   const allExpanded = topics.length > 0 && topics.every((topic) => isExpanded(topic.id));
 
   const toggleTopic = (topicId: number) => {
@@ -92,6 +102,7 @@ export function CoursePlan({ subjectId }: { subjectId: number }) {
 
   const toggleAll = () => {
     const next = !allExpanded;
+    setTopicsExpandedPreference(next);
     setOverrides(Object.fromEntries(topics.map((topic) => [topic.id, next])));
   };
 

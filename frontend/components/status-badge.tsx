@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 
-const STATUS_LABEL_KEY: Record<string, string> = {
+export const STATUS_LABEL_KEY: Record<string, string> = {
   assigned: "statusAssigned",
   in_progress: "statusInProgress",
   need_help: "statusNeedHelp",

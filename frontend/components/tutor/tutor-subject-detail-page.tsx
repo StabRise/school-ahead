@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { forwardRef, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { List, Rows3, UserSearch, Users } from "lucide-react";
+import { List, Pencil, type LucideIcon, Rows3, Trash2, UserPlus, UserSearch, Users } from "lucide-react";
 import { getGetSubjectQueryKey, getListSubjectTopicsQueryKey, useGetSubject, useListSubjectTopics } from "@/lib/api/browser/academics/academics";
 import {
   getListTutorSubjectLessonsQueryKey,
+  getListTutorSubjectLessonStudentsQueryKey,
+  useDeleteTutorLesson,
+  useDeleteTutorStudentLesson,
   useDeleteTutorTopic,
   useGetTutorClass,
   useListTutorSubjectLessons,
@@ -26,11 +29,15 @@ import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Card } from "@/components/card";
 import { ExpandAllButton } from "@/components/expand-all-button";
+import { GradeSquareBadge } from "@/components/grade-square-badge";
 import { ViewModeToggle } from "@/components/view-mode-toggle";
 import { getLessonTypeBorderColor } from "@/components/subjects/lesson-type-border-color";
 import { groupTopicsByBlock, type BlockGroup } from "@/components/subjects/group-topics-by-block";
+import { useSubjectViewStore } from "@/stores/subject-view-store";
+import { AssignStudentDialog } from "./assign-student-dialog";
 import { LoadLessonsJsonDialog } from "./load-lessons-json-dialog";
 import { PlanSubjectLessonsDialog } from "./plan-subject-lessons-dialog";
+import { RescheduleAssignmentDialog } from "./reschedule-assignment-dialog";
 
 type ViewMode = "brief" | "full" | "student";
 
@@ -64,20 +71,131 @@ function AssignedStudentsList({ students }: { students: SubjectLessonStudentOut[
   );
 }
 
+// Rendered as a Dialog's `trigger` (AssignStudentDialog, RescheduleAssignmentDialog),
+// which Dialog.Trigger asChild clones its own onClick/ref/aria-* props onto —
+// must forward all of them to the real <button>, not just render its own, or
+// Radix's open-on-click handler never reaches the DOM and the button silently
+// does nothing. Card's `href` also makes the whole row a Link (see
+// components/card.tsx), so the click must stop bubbling to it too —
+// otherwise opening the dialog would also navigate to the lesson page.
+// Radix's own click handler (the forwarded `onClick`) is itself built with
+// composeEventHandlers, which skips running if the event already has
+// defaultPrevented — so preventDefault must come AFTER calling it, not
+// before, or the dialog never opens.
+const DialogTriggerIconButton = forwardRef<
+  HTMLButtonElement,
+  { icon: LucideIcon; label: string } & React.ComponentPropsWithoutRef<"button">
+>(function DialogTriggerIconButton({ icon: Icon, label, onClick, ...props }, ref) {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={(e) => {
+        onClick?.(e);
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      className="shrink-0 rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-50"
+      {...props}
+    >
+      <Icon className="h-4 w-4" />
+    </button>
+  );
+});
+
+// Not a Dialog trigger — a direct action, so it just needs to stop the click
+// from bubbling to the surrounding Card link (see DialogTriggerIconButton's
+// comment) before confirming and firing the mutation.
+function DeleteAssignmentButton({ studentLessonId, onDeleted }: { studentLessonId: number; onDeleted: () => void }) {
+  const t = useTranslations("TutorSubjectDetail");
+  const deleteAssignment = useDeleteTutorStudentLesson();
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(t("deleteAssignmentConfirm"))) return;
+    deleteAssignment.mutate(
+      { studentLessonId },
+      { onSuccess: onDeleted, onError: () => window.alert(t("deleteAssignmentError")) },
+    );
+  };
+
+  return (
+    <button
+      type="button"
+      title={t("deleteAssignmentButton")}
+      aria-label={t("deleteAssignmentButton")}
+      onClick={handleClick}
+      disabled={deleteAssignment.isPending}
+      className="shrink-0 rounded-md border border-red-300 p-1.5 text-red-700 hover:bg-red-50 disabled:opacity-50"
+    >
+      <Trash2 className="h-4 w-4" />
+    </button>
+  );
+}
+
+// Not a Dialog trigger — direct action, same click-stopping rationale as
+// DeleteAssignmentButton above. Disabled (not hidden) when the lesson is
+// still assigned to a student, so the tutor sees why deletion is blocked
+// instead of the option silently vanishing — the backend enforces the same
+// rule (409) regardless.
+function DeleteLessonButton({
+  lessonId,
+  title,
+  disabled,
+  onDeleted,
+}: {
+  lessonId: number;
+  title: string;
+  disabled: boolean;
+  onDeleted: () => void;
+}) {
+  const t = useTranslations("TutorSubjectDetail");
+  const deleteLesson = useDeleteTutorLesson();
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(t("deleteLessonConfirm", { title }))) return;
+    deleteLesson.mutate({ lessonId }, { onSuccess: onDeleted, onError: () => window.alert(t("deleteLessonError")) });
+  };
+
+  return (
+    <button
+      type="button"
+      title={disabled ? t("deleteLessonDisabledTitle") : t("deleteLessonButton")}
+      aria-label={disabled ? t("deleteLessonDisabledTitle") : t("deleteLessonButton")}
+      onClick={handleClick}
+      disabled={disabled || deleteLesson.isPending}
+      className="shrink-0 rounded-md border border-red-300 p-1.5 text-red-700 hover:bg-red-50 disabled:opacity-50"
+    >
+      <Trash2 className="h-4 w-4" />
+    </button>
+  );
+}
+
 function LessonRow({
   lesson,
   viewMode,
   assignedStudents,
-  isAssignedToSelectedStudent,
+  selectedStudentId,
+  onAssignmentChanged,
+  onLessonDeleted,
 }: {
   lesson: LessonOut;
   viewMode: ViewMode;
   assignedStudents: SubjectLessonStudentOut[];
-  isAssignedToSelectedStudent: boolean | null;
+  selectedStudentId: number | null;
+  onAssignmentChanged: () => void;
+  onLessonDeleted: () => void;
 }) {
   const t = useTranslations("SubjectDetail");
   const tTutor = useTranslations("TutorSubjectDetail");
   const borderColor = getLessonTypeBorderColor(lesson.lesson_type);
+  const selectedAssignment =
+    selectedStudentId === null ? null : (assignedStudents.find((s) => s.student_id === selectedStudentId) ?? null);
 
   return (
     <li>
@@ -87,14 +205,36 @@ function LessonRow({
         style={{ borderLeftColor: borderColor }}
       >
         {viewMode === "brief" && (
-          <span className="text-sm font-medium text-gray-900">
-            {t("lessonRow", { index: lesson.order_index, title: lesson.title })}
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium text-gray-900">
+              {t("lessonRow", { index: lesson.order_index, title: lesson.title })}
+            </span>
+            <AssignStudentDialog
+              lessonId={lesson.id}
+              onAssigned={onAssignmentChanged}
+              trigger={<DialogTriggerIconButton icon={UserPlus} label={tTutor("assignToStudentButton")} />}
+            />
+          </div>
         )}
 
         {viewMode === "full" && (
           <>
-            <span className="text-sm font-medium text-gray-900">{lesson.title}</span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-gray-900">{lesson.title}</span>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <AssignStudentDialog
+                  lessonId={lesson.id}
+                  onAssigned={onAssignmentChanged}
+                  trigger={<DialogTriggerIconButton icon={UserPlus} label={tTutor("assignToStudentButton")} />}
+                />
+                <DeleteLessonButton
+                  lessonId={lesson.id}
+                  title={lesson.title}
+                  disabled={assignedStudents.length > 0}
+                  onDeleted={onLessonDeleted}
+                />
+              </div>
+            </div>
             {lesson.task_content && <p className="text-xs text-gray-500">{lesson.task_content}</p>}
             <AssignedStudentsList students={assignedStudents} />
           </>
@@ -103,11 +243,37 @@ function LessonRow({
         {viewMode === "student" && (
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-medium text-gray-900">{lesson.title}</span>
-            <span
-              className={`shrink-0 text-xs font-medium ${isAssignedToSelectedStudent ? "text-green-700" : "text-gray-400"}`}
-            >
-              {isAssignedToSelectedStudent ? tTutor("assignedToStudent") : tTutor("notAssignedToStudent")}
-            </span>
+            {selectedAssignment ? (
+              <div className="flex shrink-0 items-center gap-1.5">
+                <span className="text-xs text-gray-500">
+                  {SCHEDULED_DATE_FORMAT.format(new Date(selectedAssignment.scheduled_date))}
+                </span>
+                <GradeSquareBadge gradePoints={selectedAssignment.grade_points} gradeResult={selectedAssignment.grade_result} />
+                {selectedAssignment.status !== "completed" && (
+                  <RescheduleAssignmentDialog
+                    studentLessonId={selectedAssignment.student_lesson_id}
+                    currentDate={selectedAssignment.scheduled_date}
+                    onRescheduled={onAssignmentChanged}
+                    trigger={<DialogTriggerIconButton icon={Pencil} label={tTutor("editAssignmentDateButton")} />}
+                  />
+                )}
+                {selectedAssignment.status === "assigned" && (
+                  <DeleteAssignmentButton
+                    studentLessonId={selectedAssignment.student_lesson_id}
+                    onDeleted={onAssignmentChanged}
+                  />
+                )}
+              </div>
+            ) : selectedStudentId !== null ? (
+              <AssignStudentDialog
+                lessonId={lesson.id}
+                defaultStudentId={selectedStudentId}
+                onAssigned={onAssignmentChanged}
+                trigger={<DialogTriggerIconButton icon={UserPlus} label={tTutor("assignLessonButton")} />}
+              />
+            ) : (
+              <span className="shrink-0 text-xs font-medium text-gray-400">{tTutor("notAssignedToStudent")}</span>
+            )}
           </div>
         )}
       </Card>
@@ -238,6 +404,8 @@ function TopicSection({
   viewMode,
   lessonStudentsByLessonId,
   selectedStudentId,
+  onAssignmentChanged,
+  onLessonDeleted,
 }: {
   topic: TopicOut;
   lessons: LessonOut[];
@@ -254,6 +422,8 @@ function TopicSection({
   viewMode: ViewMode;
   lessonStudentsByLessonId: Map<number, SubjectLessonStudentOut[]>;
   selectedStudentId: number | null;
+  onAssignmentChanged: () => void;
+  onLessonDeleted: () => void;
 }) {
   const t = useTranslations("TutorSubjectDetail");
   const queryClient = useQueryClient();
@@ -324,11 +494,9 @@ function TopicSection({
                     lesson={lesson}
                     viewMode={viewMode}
                     assignedStudents={assignedStudents}
-                    isAssignedToSelectedStudent={
-                      selectedStudentId === null
-                        ? null
-                        : assignedStudents.some((s) => s.student_id === selectedStudentId)
-                    }
+                    selectedStudentId={selectedStudentId}
+                    onAssignmentChanged={onAssignmentChanged}
+                    onLessonDeleted={onLessonDeleted}
                   />
                 );
               })}
@@ -344,7 +512,12 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
   const t = useTranslations("TutorSubjectDetail");
   const queryClient = useQueryClient();
 
-  const [viewMode, setViewMode] = useState<ViewMode>("brief");
+  // Persisted across subjects via subject-view-store, so switching subjects
+  // keeps the last chosen view instead of resetting to "brief" every time.
+  const viewMode = useSubjectViewStore((s) => s.tutorViewMode);
+  const setViewMode = useSubjectViewStore((s) => s.setTutorViewMode);
+  const topicsExpandedPreference = useSubjectViewStore((s) => s.tutorTopicsExpanded);
+  const setTopicsExpandedPreference = useSubjectViewStore((s) => s.setTutorTopicsExpanded);
   const needsLessonStudents = viewMode !== "brief";
 
   const subjectQuery = useGetSubject(subjectId);
@@ -373,6 +546,14 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
     }
     return map;
   }, [lessonStudentsQuery.data]);
+
+  const handleAssignmentChanged = () => {
+    queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonStudentsQueryKey(subjectId) });
+  };
+
+  const handleLessonDeleted = () => {
+    queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsQueryKey(subjectId) });
+  };
 
   const [draftStudentId, setDraftStudentId] = useState<number | "">("");
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
@@ -403,7 +584,7 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
   const blockGroups = useMemo(() => groupTopicsByBlock(topics, blocks), [topics, blocks]);
 
   const [expandedOverrides, setExpandedOverrides] = useState<Record<number, boolean>>({});
-  const isExpanded = (topicId: number) => expandedOverrides[topicId] ?? false;
+  const isExpanded = (topicId: number) => expandedOverrides[topicId] ?? topicsExpandedPreference ?? false;
   const allExpanded = topics.length > 0 && topics.every((topic) => isExpanded(topic.id));
 
   const toggleTopic = (topicId: number) => {
@@ -412,6 +593,7 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
 
   const toggleAll = () => {
     const next = !allExpanded;
+    setTopicsExpandedPreference(next);
     setExpandedOverrides(Object.fromEntries(topics.map((topic) => [topic.id, next])));
   };
 
@@ -624,6 +806,8 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                         viewMode={viewMode}
                         lessonStudentsByLessonId={lessonStudentsByLessonId}
                         selectedStudentId={selectedStudentId}
+                        onAssignmentChanged={handleAssignmentChanged}
+                        onLessonDeleted={handleLessonDeleted}
                       />
                     ))
                   )}

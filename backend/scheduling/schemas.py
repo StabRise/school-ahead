@@ -15,6 +15,7 @@ class CalendarItemOut(Schema):
     completed_at: datetime.datetime | None
     is_completed_ahead: bool
     grade_points: int | None
+    grade_result: str | None
     # Preschool game map step-node icon, falling back lesson -> subject ->
     # a frontend default when both are empty. See docs/interfaces/preschool.md.
     lesson_icon: str | None
