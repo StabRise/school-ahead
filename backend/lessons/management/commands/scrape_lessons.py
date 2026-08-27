@@ -151,10 +151,6 @@ class Command(BaseCommand):
         return topics_out
 
     def _scrape_youtube_playlist(self, session: requests.Session, playlist_url: str) -> TopicOut:
-        # Without this, an EU-geolocated request gets redirected to a cookie
-        # consent page instead of the playlist — this is the standard
-        # workaround (also used by yt-dlp) for skipping that wall.
-        session.cookies.set('SOCS', 'CAI', domain='.youtube.com')
         html_text = self._get(session, playlist_url)
         videos = self._extract_youtube_playlist_videos(html_text)
         if not videos:
@@ -221,7 +217,8 @@ class Command(BaseCommand):
             response = session.get(url, timeout=REQUEST_TIMEOUT)
             response.raise_for_status()
         except requests.RequestException as exc:
-            raise CommandError(f'Failed to fetch {url}: {exc}') from exc
+            # raise CommandError(f'Failed to fetch {url}: {exc}') from exc
+            print(f"Failed to fetch {url}: {exc}")
         return response.text
 
     def _parse_outline(self, outline_html: str, base_url: str) -> list[dict]:

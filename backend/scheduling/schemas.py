@@ -19,6 +19,8 @@ class CalendarItemOut(Schema):
     # a frontend default when both are empty. See docs/interfaces/preschool.md.
     lesson_icon: str | None
     subject_icon: str | None
+    # Subject.color left-border accent on the calendar's lesson cards.
+    subject_color: str | None
 
 
 class BacklogItemOut(CalendarItemOut):

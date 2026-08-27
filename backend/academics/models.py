@@ -55,6 +55,12 @@ class Subject(TimeStampedModel):
     # icon -> subject icon -> a frontend-side default. See
     # docs/interfaces/preschool.md.
     icon = models.FileField(upload_to=subject_icon_upload_to, blank=True)
+    # Left-border accent on lesson cards — auto-assigned from
+    # colors.SUBJECT_COLOR_PALETTE on create (services.assign_subject_color),
+    # unique within the subject's own school_class. Blank only for subjects
+    # created before this field existed and not yet migrated (shouldn't happen
+    # after migration 0010's backfill).
+    color = models.CharField(max_length=7, blank=True)
 
     def clean(self):
         if self.start_date and self.due_date and self.start_date >= self.due_date:

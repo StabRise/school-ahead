@@ -58,6 +58,7 @@ class SubjectOut(Schema):
     is_filled: bool
     blocks: list[SubjectBlockOut]
     icon: str | None
+    color: str
     teacher_name: str | None
 
     @staticmethod
@@ -139,6 +140,7 @@ class SubjectIn(Schema):
     block_count: int = 2
     start_date: datetime.date | None = None
     due_date: datetime.date | None = None
+    color: str = ''
 
 
 class TopicIn(Schema):

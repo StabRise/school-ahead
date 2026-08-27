@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Dialog from "@radix-ui/react-dialog";
+import { BookOpen, CalendarClock, Eye, Trash2 } from "lucide-react";
 import {
   getGetTutorStudentCalendarQueryKey,
   getSchedulingApiCalendarQueryKey,
@@ -15,7 +16,7 @@ import {
 } from "@/lib/api/browser/schedule/schedule";
 import { useDeleteTutorStudentLesson } from "@/lib/api/browser/tutor/tutor";
 import type { BacklogItemOut, CalendarItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { Card } from "@/components/card";
 import { StatusBadge } from "@/components/status-badge";
 import { GradePoints } from "@/components/grade-points";
@@ -85,15 +86,20 @@ function LessonCard({
   onRequestDelete?: (item: CalendarItemOut) => void;
 }) {
   const t = useTranslations("Calendar");
+  const router = useRouter();
+  const showStudentSubjectLink = !showTutorLinks;
 
   // Keeps a click/tap on one of the header icon links from being swallowed
   // by the card's own native HTML5 drag (draggable="true" on the parent).
   const stopDragStart = (e: React.MouseEvent) => e.stopPropagation();
 
+  const iconButtonClasses = "rounded px-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-700";
+
   return (
     <Card
       href={readOnly ? undefined : `/lessons/${item.id}`}
-      className={`flex flex-col gap-1 ${canManage ? "cursor-grab active:cursor-grabbing" : ""}`}
+      className={`flex flex-col gap-1 border-l-4 ${canManage ? "cursor-grab active:cursor-grabbing" : ""}`}
+      style={{ borderLeftColor: item.subject_color ?? "#D1D5DB" }}
       draggable={canManage}
       onDragStart={
         canManage
@@ -104,71 +110,92 @@ function LessonCard({
           : undefined
       }
     >
-      {(showTutorLinks || canManage) && (
-        <div className="flex items-center justify-end gap-1">
-          {showTutorLinks && (
-            <>
-              <Link
-                href={`/tutor/lessons/${item.lesson_id}`}
-                onMouseDown={stopDragStart}
-                title={t("previewAsStudent")}
-                aria-label={t("previewAsStudent")}
-                className="rounded px-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-              >
-                👁️
-              </Link>
-              <Link
-                href={`/tutor/subjects/${item.subject_id}`}
-                onMouseDown={stopDragStart}
-                title={t("openSubject")}
-                aria-label={t("openSubject")}
-                className="rounded px-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-              >
-                📘
-              </Link>
-            </>
-          )}
-          {canManage && (
-            <button
-              type="button"
+      <div className="flex items-center justify-end gap-1">
+        {showTutorLinks && (
+          <>
+            <Link
+              href={`/tutor/lessons/${item.lesson_id}`}
               onMouseDown={stopDragStart}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onRequestReschedule?.(item);
-              }}
-              title={t("changeDate")}
-              aria-label={t("changeDate")}
-              className="shrink-0 rounded px-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              title={t("previewAsStudent")}
+              aria-label={t("previewAsStudent")}
+              className={iconButtonClasses}
             >
-              📅
-            </button>
-          )}
-          {showTutorLinks && item.status === "assigned" && (
-            <button
-              type="button"
+              <Eye className="h-4 w-4" />
+            </Link>
+            <Link
+              href={`/tutor/subjects/${item.subject_id}`}
               onMouseDown={stopDragStart}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onRequestDelete?.(item);
-              }}
-              title={t("removeLesson")}
-              aria-label={t("removeLesson")}
-              className="shrink-0 rounded px-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-red-600"
+              title={t("openSubject")}
+              aria-label={t("openSubject")}
+              className={iconButtonClasses}
             >
-              🗑️
-            </button>
-          )}
-        </div>
-      )}
+              <BookOpen className="h-4 w-4" />
+            </Link>
+          </>
+        )}
+        {canManage && (
+          <button
+            type="button"
+            onMouseDown={stopDragStart}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onRequestReschedule?.(item);
+            }}
+            title={t("changeDate")}
+            aria-label={t("changeDate")}
+            className={`shrink-0 ${iconButtonClasses}`}
+          >
+            <CalendarClock className="h-4 w-4" />
+          </button>
+        )}
+        {showTutorLinks && item.status === "assigned" && (
+          <button
+            type="button"
+            onMouseDown={stopDragStart}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onRequestDelete?.(item);
+            }}
+            title={t("removeLesson")}
+            aria-label={t("removeLesson")}
+            className="shrink-0 rounded px-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-red-600"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
+        {showStudentSubjectLink && (
+          <button
+            type="button"
+            onMouseDown={stopDragStart}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              router.push(`/subjects/${item.subject_id}`);
+            }}
+            title={t("viewSubject")}
+            aria-label={t("viewSubject")}
+            className={`shrink-0 ${iconButtonClasses}`}
+          >
+            <BookOpen className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2">
+        {item.subject_icon && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.subject_icon} alt="" className="h-5 w-5 shrink-0 rounded object-cover" />
+        )}
+        <p className="truncate text-sm font-semibold text-gray-900">{item.subject_name}</p>
+      </div>
       <p
-        className="truncate text-sm font-medium"
+        className="truncate text-xs text-gray-500"
         title={t("lessonTooltip", { topic: item.topic_title, lesson: item.lesson_title })}
       >
         {item.lesson_title}
       </p>
-      <p className="truncate text-xs text-gray-500">{item.subject_name}</p>
       <div className="flex items-center gap-2">
         <StatusBadge status={item.status} />
         {item.grade_points != null && <GradePoints points={item.grade_points} />}

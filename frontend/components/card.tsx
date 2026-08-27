@@ -9,6 +9,7 @@ export function Card({
   children,
   href,
   className = "",
+  style,
   draggable,
   onDragStart,
   onDragEnd,
@@ -16,6 +17,7 @@ export function Card({
   children: React.ReactNode;
   href?: string;
   className?: string;
+  style?: React.CSSProperties;
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
@@ -30,14 +32,20 @@ export function Card({
 
   if (href) {
     return (
-      <Link href={href} className={classes}>
+      <Link href={href} className={classes} style={style}>
         {children}
       </Link>
     );
   }
 
   return (
-    <div className={classes} draggable={draggable} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+    <div
+      className={classes}
+      style={style}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+    >
       {children}
     </div>
   );
