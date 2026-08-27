@@ -1,8 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useListTopicLessons } from "@/lib/api/browser/student-lessons/student-lessons";
-import type { CompletionProgressOut, TopicOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
+import type { CompletionProgressOut, SubjectLessonOut, TopicOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Card } from "@/components/card";
 import { StatusBadge } from "@/components/status-badge";
 import { ScoreBadge } from "@/components/score-badge";
@@ -10,39 +9,66 @@ import { getLessonTypeBorderColor } from "./lesson-type-border-color";
 
 export type CoursePlanViewMode = "brief" | "full";
 
-// Generous enough that a topic's full lesson list fits in one page — the
-// accordion has no pagination of its own (see docs/interfaces/student/subjects_list.md).
-// The paginated Topic detail page (topic-detail-page.tsx) remains the
-// fallback for a topic with more lessons than this.
-const TOPIC_LESSONS_LIMIT = 50;
-
 function percentColorClasses(percent: number) {
   if (percent >= 100) return "bg-green-100 text-green-700";
   if (percent > 0) return "bg-blue-100 text-blue-700";
   return "bg-gray-100 text-gray-500";
 }
 
+// A lesson with no StudentLesson yet (student_lesson_id null) isn't openable
+// — the title and task still show (per the Subject detail page spec) so a
+// student can see what's coming, but the row renders as a plain, unlinked
+// Card and a "not assigned yet" indicator instead of status/score badges.
+function LessonRow({ lesson, viewMode }: { lesson: SubjectLessonOut; viewMode: CoursePlanViewMode }) {
+  const t = useTranslations("SubjectDetail");
+  const isAssigned = lesson.student_lesson_id !== null;
+
+  return (
+    <Card
+      href={isAssigned ? `/lessons/${lesson.student_lesson_id}` : undefined}
+      className={`flex flex-col gap-1.5 border-l-4 bg-white sm:flex-row sm:items-center sm:justify-between ${isAssigned ? "" : "opacity-60"}`}
+      style={{ borderLeftColor: getLessonTypeBorderColor(lesson.lesson_type) }}
+    >
+      <div className="flex flex-col gap-1">
+        <span className="text-sm font-medium text-gray-900">
+          {t("lessonRow", { index: lesson.order_index, title: lesson.title })}
+        </span>
+        {viewMode === "full" && lesson.task_content && (
+          <p className="text-xs text-gray-500">{lesson.task_content}</p>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {isAssigned && lesson.status ? (
+          <>
+            <StatusBadge status={lesson.status} />
+            <ScoreBadge gradePoints={lesson.grade_points} gradeResult={lesson.grade_result} />
+          </>
+        ) : (
+          <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+            {t("notAssignedYet")}
+          </span>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 export function TopicAccordionItem({
   topic,
+  lessons,
   progress,
   expanded,
   onToggle,
   viewMode,
 }: {
   topic: TopicOut;
+  lessons: SubjectLessonOut[];
   progress: CompletionProgressOut | undefined;
   expanded: boolean;
   onToggle: () => void;
   viewMode: CoursePlanViewMode;
 }) {
   const t = useTranslations("SubjectDetail");
-  // Lazy: a collapsed topic's lessons are never fetched.
-  const lessonsQuery = useListTopicLessons(
-    topic.id,
-    { limit: TOPIC_LESSONS_LIMIT },
-    { query: { enabled: expanded } },
-  );
-  const lessons = lessonsQuery.data?.items ?? [];
 
   return (
     <div className="overflow-hidden rounded-md border border-gray-200">
@@ -81,32 +107,11 @@ export function TopicAccordionItem({
 
       {expanded && (
         <div className="flex flex-col gap-2 border-t border-gray-100 bg-gray-50/50 p-3">
-          {lessonsQuery.isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
-          {lessonsQuery.isError && <p className="text-sm text-red-600">{t("error")}</p>}
-          {!lessonsQuery.isLoading && !lessonsQuery.isError && lessons.length === 0 && (
+          {lessons.length === 0 ? (
             <p className="text-sm text-gray-500">{t("noLessonsInTopic")}</p>
+          ) : (
+            lessons.map((lesson) => <LessonRow key={lesson.id} lesson={lesson} viewMode={viewMode} />)
           )}
-          {lessons.map((lesson) => (
-            <Card
-              key={lesson.id}
-              href={`/lessons/${lesson.id}`}
-              className="flex flex-col gap-1.5 border-l-4 bg-white sm:flex-row sm:items-center sm:justify-between"
-              style={{ borderLeftColor: getLessonTypeBorderColor(lesson.lesson_type) }}
-            >
-              <div className="flex flex-col gap-1">
-                <span className="text-sm font-medium text-gray-900">
-                  {t("lessonRow", { index: lesson.order_index, title: lesson.title })}
-                </span>
-                {viewMode === "full" && lesson.task_content && (
-                  <p className="text-xs text-gray-500">{lesson.task_content}</p>
-                )}
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <StatusBadge status={lesson.status} />
-                <ScoreBadge gradePoints={lesson.grade_points} gradeResult={lesson.grade_result} />
-              </div>
-            </Card>
-          ))}
         </div>
       )}
     </div>

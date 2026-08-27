@@ -263,6 +263,27 @@ class TopicLessonOut(Schema):
         return obj.lesson.topic.subject_block.label if obj.lesson.topic.subject_block else None
 
 
+class SubjectLessonOut(Schema):
+    """Every Lesson in a subject, not just the ones scheduled for the
+    requesting student — powers the Subject detail page's Course plan, which
+    shows the whole curriculum (including not-yet-assigned lessons) grouped
+    by topic and semester like the tutor's equivalent view. `student_lesson_id`
+    and `status` are null when this student has no StudentLesson for the
+    lesson yet — the frontend renders those as unopenable (see
+    docs/interfaces/student/subjects_list.md)."""
+
+    id: int
+    topic_id: int
+    order_index: int
+    title: str
+    lesson_type: str
+    task_content: str
+    student_lesson_id: int | None
+    status: str | None
+    grade_points: int | None
+    grade_result: str | None
+
+
 class NextLessonOut(Schema):
     """The student's next actionable lesson within a subject — the earliest
     (by topic order, then lesson order) StudentLesson that isn't completed

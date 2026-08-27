@@ -242,6 +242,32 @@ def test_get_topic_progress(api_client, auth_header, topic, student, student_les
     assert response.data == {'completed_count': 0, 'total_count': 1, 'completed_percent': 0.0}
 
 
+def test_list_subject_lessons_includes_unassigned_lessons(
+    api_client, auth_header, topic, student, other_student, student_lesson
+):
+    unassigned_lesson = Lesson.objects.create(
+        topic=topic, order_index=2, title='Not yet assigned', task_content='Do exercises',
+        lesson_type=LessonType.WITH_TASK, grading_type='binary',
+    )
+    # Assigned to a different student only — must still show up, but as unassigned for `student`.
+    StudentLesson.objects.create(student=other_student, lesson=unassigned_lesson, scheduled_date=datetime.date.today())
+
+    response = api_client.get(
+        f'/student-lessons/subjects/{topic.subject_id}/lessons', headers=auth_header(student.user)
+    )
+    assert response.status_code == 200
+    assert len(response.data) == 2
+
+    assigned_row = next(row for row in response.data if row['id'] == student_lesson.lesson_id)
+    assert assigned_row['student_lesson_id'] == student_lesson.id
+    assert assigned_row['status'] == 'assigned'
+
+    unassigned_row = next(row for row in response.data if row['id'] == unassigned_lesson.id)
+    assert unassigned_row['student_lesson_id'] is None
+    assert unassigned_row['status'] is None
+    assert unassigned_row['task_content'] == 'Do exercises'
+
+
 def test_list_topic_lessons_paginated_and_scoped_to_own_student(
     api_client, auth_header, topic, student, other_student, student_lesson
 ):

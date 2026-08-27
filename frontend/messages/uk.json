@@ -404,6 +404,7 @@
     "collapseAll": "Згорнути все",
     "viewModeBrief": "Стислий вигляд",
     "viewModeFull": "Повний вигляд",
+    "notAssignedYet": "Ще не призначено",
     "noTopics": "Тем ще немає.",
     "noLessonsInTopic": "У цій темі ще немає уроків.",
     "lessonsProgress": "{completed}/{total} уроків пройдено",

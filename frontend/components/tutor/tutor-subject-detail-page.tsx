@@ -28,64 +28,13 @@ import { Card } from "@/components/card";
 import { ExpandAllButton } from "@/components/expand-all-button";
 import { ViewModeToggle } from "@/components/view-mode-toggle";
 import { getLessonTypeBorderColor } from "@/components/subjects/lesson-type-border-color";
+import { groupTopicsByBlock, type BlockGroup } from "@/components/subjects/group-topics-by-block";
 import { LoadLessonsJsonDialog } from "./load-lessons-json-dialog";
 import { PlanSubjectLessonsDialog } from "./plan-subject-lessons-dialog";
 
 type ViewMode = "brief" | "full" | "student";
 
 const SCHEDULED_DATE_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short", year: "numeric" });
-
-interface BlockGroup {
-  key: string;
-  label: string | null;
-  // The real SubjectBlock id a topic gets pinned to when dropped into this
-  // group (set_topic_block) — null for the blockless "all" fallback and for
-  // "unassigned", neither of which is a valid drag-and-drop target.
-  blockId: number | null;
-  topics: TopicOut[];
-}
-
-// Grouped off the subject's actual SubjectBlock rows (id + label, in
-// index order) rather than inferred from contiguous topic order — a tutor
-// can now move a topic to any block (set_topic_block, or by dragging it —
-// see TutorSubjectDetailPage's handleDrop), which can break the even-split
-// contiguity the old scan-based grouping relied on. A topic whose block no
-// longer exists (should self-heal on the next assign_topics_to_blocks
-// recompute) falls into a trailing "unassigned" group instead of
-// disappearing. Empty real blocks are kept (not filtered out) so a tutor
-// can still drag a topic into a currently-empty semester.
-function groupTopicsByBlock(topics: TopicOut[], blocks: SubjectBlockOut[]): BlockGroup[] {
-  if (blocks.length === 0) {
-    return topics.length > 0 ? [{ key: "all", label: null, blockId: null, topics }] : [];
-  }
-
-  const blockIds = new Set(blocks.map((block) => block.id));
-  const topicsByBlockId = new Map<number, TopicOut[]>();
-  const unassigned: TopicOut[] = [];
-
-  for (const topic of topics) {
-    if (topic.subject_block_id !== null && blockIds.has(topic.subject_block_id)) {
-      const list = topicsByBlockId.get(topic.subject_block_id) ?? [];
-      list.push(topic);
-      topicsByBlockId.set(topic.subject_block_id, list);
-    } else {
-      unassigned.push(topic);
-    }
-  }
-
-  const groups: BlockGroup[] = blocks.map((block) => ({
-    key: `block-${block.id}`,
-    label: block.label,
-    blockId: block.id,
-    topics: topicsByBlockId.get(block.id) ?? [],
-  }));
-
-  if (unassigned.length > 0) {
-    groups.push({ key: "unassigned", label: null, blockId: null, topics: unassigned });
-  }
-
-  return groups;
-}
 
 function AssignedStudentsList({ students }: { students: SubjectLessonStudentOut[] }) {
   const t = useTranslations("TutorSubjectDetail");

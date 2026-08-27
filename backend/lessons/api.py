@@ -10,7 +10,7 @@ from common.csrf import require_csrf
 from common.permissions import ensure_is_owner_student, get_own_student_profile
 
 from . import services
-from .models import QuizQuestion, StudentLesson, StudentLessonStatus
+from .models import Lesson, QuizQuestion, StudentLesson, StudentLessonStatus
 from .schemas import (
     AddCommentIn,
     CompletionProgressOut,
@@ -20,6 +20,7 @@ from .schemas import (
     QuizHintOut,
     RequestHelpIn,
     StudentLessonOut,
+    SubjectLessonOut,
     SubmitQuizIn,
     SubmitQuizOut,
     TopicLessonOut,
@@ -206,6 +207,44 @@ def get_topic_progress(request: HttpRequest, topic_id: int):
     qs = StudentLesson.objects.filter(student=student, lesson__topic_id=topic_id)
     completed, total, percent = services.compute_completion(qs)
     return CompletionProgressOut(completed_count=completed, total_count=total, completed_percent=percent)
+
+
+@router.get(
+    '/subjects/{subject_id}/lessons',
+    response=list[SubjectLessonOut],
+    operation_id='list_student_subject_lessons',
+)
+def list_subject_lessons(request: HttpRequest, subject_id: int):
+    """Every Lesson in the subject (unlike list_topic_lessons, which is
+    scoped to this student's own StudentLesson rows) — powers the Subject
+    detail page's Course plan so a student can see the whole curriculum,
+    including lessons not assigned to them yet. Those come back with
+    student_lesson_id/status set to null; the frontend renders them as
+    unopenable."""
+    student = get_own_student_profile(request)
+    lessons = Lesson.objects.filter(topic__subject_id=subject_id).order_by('topic__order_index', 'order_index')
+    student_lessons_by_lesson_id = {
+        sl.lesson_id: sl
+        for sl in StudentLesson.objects.filter(student=student, lesson__topic__subject_id=subject_id)
+    }
+    result = []
+    for lesson in lessons:
+        student_lesson = student_lessons_by_lesson_id.get(lesson.id)
+        result.append(
+            SubjectLessonOut(
+                id=lesson.id,
+                topic_id=lesson.topic_id,
+                order_index=lesson.order_index,
+                title=lesson.title,
+                lesson_type=lesson.lesson_type,
+                task_content=lesson.task_content,
+                student_lesson_id=student_lesson.id if student_lesson else None,
+                status=student_lesson.status if student_lesson else None,
+                grade_points=student_lesson.grade_points if student_lesson else None,
+                grade_result=student_lesson.grade_result if student_lesson else None,
+            )
+        )
+    return result
 
 
 @router.get(
