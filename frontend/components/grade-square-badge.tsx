@@ -7,15 +7,15 @@ import { Check, X } from "lucide-react";
 // counts as the top tier, a fail as the bottom): 10-12 & pass -> purple,
 // 7-9 -> blue, 4-6 -> orange, 0-3 & fail -> red.
 function gradeColorClasses(gradePoints: number | null, gradeResult: string | null): string {
-  if (gradeResult === "pass") return "border-purple-500 text-purple-600";
-  if (gradeResult === "fail") return "border-red-500 text-red-600";
-  if (gradePoints !== null) {
-    if (gradePoints >= 10) return "border-purple-500 text-purple-600";
-    if (gradePoints >= 7) return "border-blue-500 text-blue-600";
-    if (gradePoints >= 4) return "border-orange-500 text-orange-600";
-    return "border-red-500 text-red-600";
-  }
-  return "";
+  // if (gradeResult === "pass") return "border-blue-500 text-blue-600";
+  // if (gradeResult === "fail") return "border-red-500 text-red-600";
+  // if (gradePoints !== null) {
+  //   if (gradePoints >= 10) return "border-blue-500 text-blue-600";
+  //   if (gradePoints >= 7) return "border-blue-500 text-blue-600";
+  //   if (gradePoints >= 4) return "border-orange-500 text-orange-600";
+  //   return "border-red-500 text-red-600";
+  // }
+  return "border-gray-200 text-gray-400";
 }
 
 // Renders nothing when there's no grade yet — unlike ScoreBadge, this never
