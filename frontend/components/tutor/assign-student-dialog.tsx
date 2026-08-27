@@ -97,8 +97,15 @@ export function AssignStudentDialog({
         )}
       </Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-md bg-white p-6 shadow-lg">
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" onClick={(e) => e.stopPropagation()} />
+        {/* Portaled to document.body, so DOM-wise this sits outside the lesson
+            row's <a> — but React's synthetic events bubble the *React* tree,
+            not the DOM tree, so a click here would otherwise still reach and
+            navigate that surrounding Link. Stop it from escaping the dialog. */}
+        <Dialog.Content
+          onClick={(e) => e.stopPropagation()}
+          className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-md bg-white p-6 shadow-lg"
+        >
           <Dialog.Title className="text-lg font-semibold text-gray-900">
             {t("assignToStudentButton")}
           </Dialog.Title>

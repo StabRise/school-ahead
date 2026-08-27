@@ -3,11 +3,13 @@
 import { forwardRef, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { List, Rows3, UserPlus, UserSearch, Users } from "lucide-react";
+import { List, Pencil, type LucideIcon, Rows3, Trash2, UserPlus, UserSearch, Users } from "lucide-react";
 import { getGetSubjectQueryKey, getListSubjectTopicsQueryKey, useGetSubject, useListSubjectTopics } from "@/lib/api/browser/academics/academics";
 import {
   getListTutorSubjectLessonsQueryKey,
   getListTutorSubjectLessonStudentsQueryKey,
+  useDeleteTutorLesson,
+  useDeleteTutorStudentLesson,
   useDeleteTutorTopic,
   useGetTutorClass,
   useListTutorSubjectLessons,
@@ -34,6 +36,7 @@ import { useSubjectViewStore } from "@/stores/subject-view-store";
 import { AssignStudentDialog } from "./assign-student-dialog";
 import { LoadLessonsJsonDialog } from "./load-lessons-json-dialog";
 import { PlanSubjectLessonsDialog } from "./plan-subject-lessons-dialog";
+import { RescheduleAssignmentDialog } from "./reschedule-assignment-dialog";
 
 type ViewMode = "brief" | "full" | "student";
 
@@ -67,56 +70,131 @@ function AssignedStudentsList({ students }: { students: SubjectLessonStudentOut[
   );
 }
 
-// Rendered as AssignStudentDialog's `trigger`, which Dialog.Trigger asChild
-// clones its own onClick/ref/aria-* props onto — must forward all of them to
-// the real <button>, not just render its own, or Radix's open-on-click
-// handler never reaches the DOM and the button silently does nothing.
-// Card's `href` also makes the whole row a Link (see components/card.tsx),
-// so the click must stop bubbling to it too — otherwise opening the dialog
-// would also navigate to the lesson page. Radix's own click handler (the
-// forwarded `onClick`) is itself built with composeEventHandlers, which
-// skips running if the event already has defaultPrevented — so preventDefault
-// must come AFTER calling it, not before, or the dialog never opens.
-const AssignTriggerButton = forwardRef<HTMLButtonElement, { label: string } & React.ComponentPropsWithoutRef<"button">>(
-  function AssignTriggerButton({ label, onClick, ...props }, ref) {
-    return (
-      <button
-        ref={ref}
-        type="button"
-        title={label}
-        aria-label={label}
-        onClick={(e) => {
-          onClick?.(e);
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        className="shrink-0 rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-50"
-        {...props}
-      >
-        <UserPlus className="h-4 w-4" />
-      </button>
+// Rendered as a Dialog's `trigger` (AssignStudentDialog, RescheduleAssignmentDialog),
+// which Dialog.Trigger asChild clones its own onClick/ref/aria-* props onto —
+// must forward all of them to the real <button>, not just render its own, or
+// Radix's open-on-click handler never reaches the DOM and the button silently
+// does nothing. Card's `href` also makes the whole row a Link (see
+// components/card.tsx), so the click must stop bubbling to it too —
+// otherwise opening the dialog would also navigate to the lesson page.
+// Radix's own click handler (the forwarded `onClick`) is itself built with
+// composeEventHandlers, which skips running if the event already has
+// defaultPrevented — so preventDefault must come AFTER calling it, not
+// before, or the dialog never opens.
+const DialogTriggerIconButton = forwardRef<
+  HTMLButtonElement,
+  { icon: LucideIcon; label: string } & React.ComponentPropsWithoutRef<"button">
+>(function DialogTriggerIconButton({ icon: Icon, label, onClick, ...props }, ref) {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={(e) => {
+        onClick?.(e);
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      className="shrink-0 rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-50"
+      {...props}
+    >
+      <Icon className="h-4 w-4" />
+    </button>
+  );
+});
+
+// Not a Dialog trigger — a direct action, so it just needs to stop the click
+// from bubbling to the surrounding Card link (see DialogTriggerIconButton's
+// comment) before confirming and firing the mutation.
+function DeleteAssignmentButton({ studentLessonId, onDeleted }: { studentLessonId: number; onDeleted: () => void }) {
+  const t = useTranslations("TutorSubjectDetail");
+  const deleteAssignment = useDeleteTutorStudentLesson();
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(t("deleteAssignmentConfirm"))) return;
+    deleteAssignment.mutate(
+      { studentLessonId },
+      { onSuccess: onDeleted, onError: () => window.alert(t("deleteAssignmentError")) },
     );
-  },
-);
+  };
+
+  return (
+    <button
+      type="button"
+      title={t("deleteAssignmentButton")}
+      aria-label={t("deleteAssignmentButton")}
+      onClick={handleClick}
+      disabled={deleteAssignment.isPending}
+      className="shrink-0 rounded-md border border-red-300 p-1.5 text-red-700 hover:bg-red-50 disabled:opacity-50"
+    >
+      <Trash2 className="h-4 w-4" />
+    </button>
+  );
+}
+
+// Not a Dialog trigger — direct action, same click-stopping rationale as
+// DeleteAssignmentButton above. Disabled (not hidden) when the lesson is
+// still assigned to a student, so the tutor sees why deletion is blocked
+// instead of the option silently vanishing — the backend enforces the same
+// rule (409) regardless.
+function DeleteLessonButton({
+  lessonId,
+  title,
+  disabled,
+  onDeleted,
+}: {
+  lessonId: number;
+  title: string;
+  disabled: boolean;
+  onDeleted: () => void;
+}) {
+  const t = useTranslations("TutorSubjectDetail");
+  const deleteLesson = useDeleteTutorLesson();
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(t("deleteLessonConfirm", { title }))) return;
+    deleteLesson.mutate({ lessonId }, { onSuccess: onDeleted, onError: () => window.alert(t("deleteLessonError")) });
+  };
+
+  return (
+    <button
+      type="button"
+      title={disabled ? t("deleteLessonDisabledTitle") : t("deleteLessonButton")}
+      aria-label={disabled ? t("deleteLessonDisabledTitle") : t("deleteLessonButton")}
+      onClick={handleClick}
+      disabled={disabled || deleteLesson.isPending}
+      className="shrink-0 rounded-md border border-red-300 p-1.5 text-red-700 hover:bg-red-50 disabled:opacity-50"
+    >
+      <Trash2 className="h-4 w-4" />
+    </button>
+  );
+}
 
 function LessonRow({
   lesson,
   viewMode,
   assignedStudents,
   selectedStudentId,
-  isAssignedToSelectedStudent,
-  onAssigned,
+  onAssignmentChanged,
+  onLessonDeleted,
 }: {
   lesson: LessonOut;
   viewMode: ViewMode;
   assignedStudents: SubjectLessonStudentOut[];
   selectedStudentId: number | null;
-  isAssignedToSelectedStudent: boolean | null;
-  onAssigned: () => void;
+  onAssignmentChanged: () => void;
+  onLessonDeleted: () => void;
 }) {
   const t = useTranslations("SubjectDetail");
   const tTutor = useTranslations("TutorSubjectDetail");
   const borderColor = getLessonTypeBorderColor(lesson.lesson_type);
+  const selectedAssignment =
+    selectedStudentId === null ? null : (assignedStudents.find((s) => s.student_id === selectedStudentId) ?? null);
 
   return (
     <li>
@@ -132,8 +210,8 @@ function LessonRow({
             </span>
             <AssignStudentDialog
               lessonId={lesson.id}
-              onAssigned={onAssigned}
-              trigger={<AssignTriggerButton label={tTutor("assignToStudentButton")} />}
+              onAssigned={onAssignmentChanged}
+              trigger={<DialogTriggerIconButton icon={UserPlus} label={tTutor("assignToStudentButton")} />}
             />
           </div>
         )}
@@ -142,11 +220,19 @@ function LessonRow({
           <>
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-gray-900">{lesson.title}</span>
-              <AssignStudentDialog
-                lessonId={lesson.id}
-                onAssigned={onAssigned}
-                trigger={<AssignTriggerButton label={tTutor("assignToStudentButton")} />}
-              />
+              <div className="flex shrink-0 items-center gap-1.5">
+                <AssignStudentDialog
+                  lessonId={lesson.id}
+                  onAssigned={onAssignmentChanged}
+                  trigger={<DialogTriggerIconButton icon={UserPlus} label={tTutor("assignToStudentButton")} />}
+                />
+                <DeleteLessonButton
+                  lessonId={lesson.id}
+                  title={lesson.title}
+                  disabled={assignedStudents.length > 0}
+                  onDeleted={onLessonDeleted}
+                />
+              </div>
             </div>
             {lesson.task_content && <p className="text-xs text-gray-500">{lesson.task_content}</p>}
             <AssignedStudentsList students={assignedStudents} />
@@ -156,14 +242,32 @@ function LessonRow({
         {viewMode === "student" && (
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-medium text-gray-900">{lesson.title}</span>
-            {isAssignedToSelectedStudent ? (
-              <span className="shrink-0 text-xs font-medium text-green-700">{tTutor("assignedToStudent")}</span>
+            {selectedAssignment ? (
+              <div className="flex shrink-0 items-center gap-1.5">
+                <span className="text-xs text-gray-500">
+                  {SCHEDULED_DATE_FORMAT.format(new Date(selectedAssignment.scheduled_date))}
+                </span>
+                {selectedAssignment.status !== "completed" && (
+                  <RescheduleAssignmentDialog
+                    studentLessonId={selectedAssignment.student_lesson_id}
+                    currentDate={selectedAssignment.scheduled_date}
+                    onRescheduled={onAssignmentChanged}
+                    trigger={<DialogTriggerIconButton icon={Pencil} label={tTutor("editAssignmentDateButton")} />}
+                  />
+                )}
+                {selectedAssignment.status === "assigned" && (
+                  <DeleteAssignmentButton
+                    studentLessonId={selectedAssignment.student_lesson_id}
+                    onDeleted={onAssignmentChanged}
+                  />
+                )}
+              </div>
             ) : selectedStudentId !== null ? (
               <AssignStudentDialog
                 lessonId={lesson.id}
                 defaultStudentId={selectedStudentId}
-                onAssigned={onAssigned}
-                trigger={<AssignTriggerButton label={tTutor("assignLessonButton")} />}
+                onAssigned={onAssignmentChanged}
+                trigger={<DialogTriggerIconButton icon={UserPlus} label={tTutor("assignLessonButton")} />}
               />
             ) : (
               <span className="shrink-0 text-xs font-medium text-gray-400">{tTutor("notAssignedToStudent")}</span>
@@ -298,7 +402,8 @@ function TopicSection({
   viewMode,
   lessonStudentsByLessonId,
   selectedStudentId,
-  onLessonAssigned,
+  onAssignmentChanged,
+  onLessonDeleted,
 }: {
   topic: TopicOut;
   lessons: LessonOut[];
@@ -315,7 +420,8 @@ function TopicSection({
   viewMode: ViewMode;
   lessonStudentsByLessonId: Map<number, SubjectLessonStudentOut[]>;
   selectedStudentId: number | null;
-  onLessonAssigned: () => void;
+  onAssignmentChanged: () => void;
+  onLessonDeleted: () => void;
 }) {
   const t = useTranslations("TutorSubjectDetail");
   const queryClient = useQueryClient();
@@ -387,12 +493,8 @@ function TopicSection({
                     viewMode={viewMode}
                     assignedStudents={assignedStudents}
                     selectedStudentId={selectedStudentId}
-                    isAssignedToSelectedStudent={
-                      selectedStudentId === null
-                        ? null
-                        : assignedStudents.some((s) => s.student_id === selectedStudentId)
-                    }
-                    onAssigned={onLessonAssigned}
+                    onAssignmentChanged={onAssignmentChanged}
+                    onLessonDeleted={onLessonDeleted}
                   />
                 );
               })}
@@ -443,8 +545,12 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
     return map;
   }, [lessonStudentsQuery.data]);
 
-  const handleLessonAssigned = () => {
+  const handleAssignmentChanged = () => {
     queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonStudentsQueryKey(subjectId) });
+  };
+
+  const handleLessonDeleted = () => {
+    queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsQueryKey(subjectId) });
   };
 
   const [draftStudentId, setDraftStudentId] = useState<number | "">("");
@@ -698,7 +804,8 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                         viewMode={viewMode}
                         lessonStudentsByLessonId={lessonStudentsByLessonId}
                         selectedStudentId={selectedStudentId}
-                        onLessonAssigned={handleLessonAssigned}
+                        onAssignmentChanged={handleAssignmentChanged}
+                        onLessonDeleted={handleLessonDeleted}
                       />
                     ))
                   )}

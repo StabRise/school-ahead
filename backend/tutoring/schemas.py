@@ -30,6 +30,7 @@ class SubjectLessonStudentOut(Schema):
     need assignment data for every lesson at once rather than one lesson at
     a time (see list_tutor_lesson_students for the single-lesson version)."""
 
+    student_lesson_id: int
     lesson_id: int
     student_id: int
     student_name: str
