@@ -22,6 +22,7 @@ import { ExplanationThread } from "./explanation-thread";
 import { NeedHelpButton } from "./need-help-button";
 import { ResolveNeedHelpButton } from "./resolve-need-help-button";
 import { StepSwitcher, type WizardStep } from "./step-switcher";
+import { PageContainer } from "@/components/page-container";
 
 // The wizard's second page — feedback from the tutor, the task/quiz
 // interaction (only shown while actionable; otherwise a read-only status
@@ -137,9 +138,10 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   ];
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
-      <div className="flex flex-col gap-3 border-b border-gray-200 pb-4">
-        <Breadcrumbs items={breadcrumbItems} />
+    <PageContainer>
+      <Breadcrumbs items={breadcrumbItems} />
+      <div className="flex flex-col gap-3 border-b border-gray-200 pb-4 pt-4">
+
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h1 className="text-xl font-semibold text-gray-900">{data.lesson.title}</h1>
           <div className="flex items-center gap-2">
@@ -185,6 +187,7 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
       {data.status === "in_progress" && (
         <NeedHelpButton studentLessonId={studentLessonId} onRequested={refetch} />
       )}
-    </div>
+    </PageContainer>
+
   );
 }

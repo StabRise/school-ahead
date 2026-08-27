@@ -89,7 +89,7 @@ export function TutorSubjectsPage() {
   const classGroups = groupByClass(assignments);
 
   return (
-    <PageContainer title={t("title")} maxWidthClassName="xl:max-w-6xl">
+    <PageContainer title={t("title")}>
       {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
       {isError && <p className="text-sm text-red-600">{t("error")}</p>}
 
