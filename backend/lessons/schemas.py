@@ -232,6 +232,7 @@ class TopicLessonOut(Schema):
     order_index: int
     status: str
     lesson_type: str
+    task_content: str
     scheduled_date: datetime.date
     grade_points: int | None
     grade_result: str | None
@@ -252,6 +253,10 @@ class TopicLessonOut(Schema):
     @staticmethod
     def resolve_lesson_type(obj):
         return obj.lesson.lesson_type
+
+    @staticmethod
+    def resolve_task_content(obj):
+        return obj.lesson.task_content
 
     @staticmethod
     def resolve_subject_block_label(obj):

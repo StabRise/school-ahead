@@ -3,14 +3,18 @@
 import { useMemo, useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
+import { List, Rows3 } from "lucide-react";
 import { useListSubjectTopics } from "@/lib/api/browser/academics/academics";
 import { getGetTopicProgressQueryOptions } from "@/lib/api/browser/student-lessons/student-lessons";
-import { TopicAccordionItem } from "./topic-accordion-item";
+import { ExpandAllButton } from "@/components/expand-all-button";
+import { ViewModeToggle } from "@/components/view-mode-toggle";
+import { TopicAccordionItem, type CoursePlanViewMode } from "./topic-accordion-item";
 
 // Topics come back pre-ordered by Topic.Meta.ordering (order_index) — see
 // backend/academics/models.py.
 export function CoursePlan({ subjectId }: { subjectId: number }) {
   const t = useTranslations("SubjectDetail");
+  const [viewMode, setViewMode] = useState<CoursePlanViewMode>("brief");
   const topicsQuery = useListSubjectTopics(subjectId);
   const topics = useMemo(() => topicsQuery.data ?? [], [topicsQuery.data]);
 
@@ -47,13 +51,25 @@ export function CoursePlan({ subjectId }: { subjectId: number }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold text-gray-900">{t("coursePlan")}</h2>
-        {topics.length > 0 && (
-          <button type="button" onClick={toggleAll} className="text-sm font-medium text-blue-700 hover:underline">
-            {allExpanded ? t("collapseAll") : t("expandAll")}
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          <ViewModeToggle
+            value={viewMode}
+            onChange={setViewMode}
+            options={[
+              { value: "brief", icon: List, label: t("viewModeBrief") },
+              { value: "full", icon: Rows3, label: t("viewModeFull") },
+            ]}
+          />
+          <ExpandAllButton
+            expanded={allExpanded}
+            onToggle={toggleAll}
+            disabled={topics.length === 0}
+            expandLabel={t("expandAll")}
+            collapseLabel={t("collapseAll")}
+          />
+        </div>
       </div>
 
       {topicsQuery.isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
@@ -70,6 +86,7 @@ export function CoursePlan({ subjectId }: { subjectId: number }) {
             progress={progressQueries[index]?.data}
             expanded={isExpanded(topic.id)}
             onToggle={() => toggleTopic(topic.id)}
+            viewMode={viewMode}
           />
         ))}
       </div>

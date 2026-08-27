@@ -6,7 +6,9 @@ import type { CompletionProgressOut, TopicOut } from "@/lib/api/browser/schoolAh
 import { Card } from "@/components/card";
 import { StatusBadge } from "@/components/status-badge";
 import { ScoreBadge } from "@/components/score-badge";
-import { ContentTypeBadges } from "./content-type-badges";
+import { getLessonTypeBorderColor } from "./lesson-type-border-color";
+
+export type CoursePlanViewMode = "brief" | "full";
 
 // Generous enough that a topic's full lesson list fits in one page — the
 // accordion has no pagination of its own (see docs/interfaces/student/subjects_list.md).
@@ -25,11 +27,13 @@ export function TopicAccordionItem({
   progress,
   expanded,
   onToggle,
+  viewMode,
 }: {
   topic: TopicOut;
   progress: CompletionProgressOut | undefined;
   expanded: boolean;
   onToggle: () => void;
+  viewMode: CoursePlanViewMode;
 }) {
   const t = useTranslations("SubjectDetail");
   // Lazy: a collapsed topic's lessons are never fetched.
@@ -86,13 +90,16 @@ export function TopicAccordionItem({
             <Card
               key={lesson.id}
               href={`/lessons/${lesson.id}`}
-              className="flex flex-col gap-1.5 bg-white sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-1.5 border-l-4 bg-white sm:flex-row sm:items-center sm:justify-between"
+              style={{ borderLeftColor: getLessonTypeBorderColor(lesson.lesson_type) }}
             >
               <div className="flex flex-col gap-1">
                 <span className="text-sm font-medium text-gray-900">
                   {t("lessonRow", { index: lesson.order_index, title: lesson.title })}
                 </span>
-                <ContentTypeBadges lessonType={lesson.lesson_type} />
+                {viewMode === "full" && lesson.task_content && (
+                  <p className="text-xs text-gray-500">{lesson.task_content}</p>
+                )}
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <StatusBadge status={lesson.status} />

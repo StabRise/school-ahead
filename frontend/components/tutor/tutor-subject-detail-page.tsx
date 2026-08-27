@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronsDownUp, ChevronsUpDown, List, Rows3, UserSearch, Users } from "lucide-react";
+import { List, Rows3, UserSearch, Users } from "lucide-react";
 import { getGetSubjectQueryKey, getListSubjectTopicsQueryKey, useGetSubject, useListSubjectTopics } from "@/lib/api/browser/academics/academics";
 import {
   getListTutorSubjectLessonsQueryKey,
@@ -25,19 +25,13 @@ import type {
 import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Card } from "@/components/card";
+import { ExpandAllButton } from "@/components/expand-all-button";
+import { ViewModeToggle } from "@/components/view-mode-toggle";
+import { getLessonTypeBorderColor } from "@/components/subjects/lesson-type-border-color";
 import { LoadLessonsJsonDialog } from "./load-lessons-json-dialog";
 import { PlanSubjectLessonsDialog } from "./plan-subject-lessons-dialog";
 
 type ViewMode = "brief" | "full" | "student";
-
-// Lesson.lesson_type's left-border accent on the Subject detail page's
-// lesson rows — dark, high-contrast hues so the bar reads at a glance
-// without needing the old text badge (see LessonRow).
-const LESSON_TYPE_BORDER_COLOR: Record<string, string> = {
-  theory: "#166534",
-  with_quiz: "#991B1B",
-  with_task: "#1E3A8A",
-};
 
 const SCHEDULED_DATE_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short", year: "numeric" });
 
@@ -134,7 +128,7 @@ function LessonRow({
 }) {
   const t = useTranslations("SubjectDetail");
   const tTutor = useTranslations("TutorSubjectDetail");
-  const borderColor = LESSON_TYPE_BORDER_COLOR[lesson.lesson_type] ?? "#D1D5DB";
+  const borderColor = getLessonTypeBorderColor(lesson.lesson_type);
 
   return (
     <li>
@@ -250,47 +244,6 @@ function IsFilledToggle({ subject, subjectId }: { subject: SubjectOut; subjectId
         {t("isFilledLabel")}
       </label>
       {setSubjectFilled.isError && <span className="text-sm text-red-600">{t("isFilledError")}</span>}
-    </div>
-  );
-}
-
-const VIEW_MODE_ICONS: Record<ViewMode, typeof List> = {
-  brief: List,
-  full: Rows3,
-  student: UserSearch,
-};
-
-// Icon-only segmented control in the Subject detail page's header toolbar —
-// see LessonRow for what each mode actually renders.
-function ViewModeToggle({ value, onChange }: { value: ViewMode; onChange: (mode: ViewMode) => void }) {
-  const t = useTranslations("TutorSubjectDetail");
-  const modes: ViewMode[] = ["brief", "full", "student"];
-  const labelKey: Record<ViewMode, string> = {
-    brief: "viewModeBrief",
-    full: "viewModeFull",
-    student: "viewModeStudent",
-  };
-
-  return (
-    <div className="flex items-center gap-0.5 rounded-md border border-gray-300 p-0.5">
-      {modes.map((mode) => {
-        const Icon = VIEW_MODE_ICONS[mode];
-        const isActive = value === mode;
-        const label = t(labelKey[mode]);
-        return (
-          <button
-            key={mode}
-            type="button"
-            onClick={() => onChange(mode)}
-            aria-pressed={isActive}
-            title={label}
-            aria-label={label}
-            className={`rounded p-1.5 ${isActive ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-100"}`}
-          >
-            <Icon className="h-4 w-4" />
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -602,18 +555,23 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold text-gray-900">{subject.name}</h1>
           <div className="flex flex-wrap items-center gap-1">
-            <ViewModeToggle value={viewMode} onChange={handleViewModeChange} />
+            <ViewModeToggle
+              value={viewMode}
+              onChange={handleViewModeChange}
+              options={[
+                { value: "brief", icon: List, label: t("viewModeBrief") },
+                { value: "full", icon: Rows3, label: t("viewModeFull") },
+                { value: "student", icon: UserSearch, label: t("viewModeStudent") },
+              ]}
+            />
             <div className="mx-1 h-5 w-px bg-gray-200" aria-hidden="true" />
-            <button
-              type="button"
-              onClick={toggleAll}
+            <ExpandAllButton
+              expanded={allExpanded}
+              onToggle={toggleAll}
               disabled={topics.length === 0}
-              title={allExpanded ? t("collapseAll") : t("expandAll")}
-              aria-label={allExpanded ? t("collapseAll") : t("expandAll")}
-              className="shrink-0 rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {allExpanded ? <ChevronsDownUp className="h-4 w-4" /> : <ChevronsUpDown className="h-4 w-4" />}
-            </button>
+              expandLabel={t("expandAll")}
+              collapseLabel={t("collapseAll")}
+            />
             <PlanSubjectLessonsDialog
               classId={subject.school_class_id}
               subjectId={subjectId}

@@ -277,6 +277,17 @@ def test_list_topic_lessons_includes_subject_block_label(api_client, auth_header
     assert response.data['items'][0]['subject_block_label'] == 'Semester 1'
 
 
+def test_list_topic_lessons_includes_task_content(api_client, auth_header, topic, student, student_lesson):
+    student_lesson.lesson.task_content = 'Solve exercises 1-5'
+    student_lesson.lesson.save(update_fields=['task_content'])
+
+    response = api_client.get(
+        f'/student-lessons/topics/{topic.id}/lessons', headers=auth_header(student.user)
+    )
+    assert response.status_code == 200
+    assert response.data['items'][0]['task_content'] == 'Solve exercises 1-5'
+
+
 def test_get_next_lesson_returns_earliest_incomplete_in_curriculum_order(
     api_client, auth_header, topic, student, student_lesson
 ):
