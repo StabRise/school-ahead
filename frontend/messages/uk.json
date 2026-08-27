@@ -213,6 +213,8 @@
     "noStudentsAssigned": "Не призначено жодному учню",
     "assignedToStudent": "Призначено",
     "notAssignedToStudent": "Не призначено",
+    "assignToStudentButton": "Призначити учню",
+    "assignLessonButton": "Призначити урок",
     "selectStudentLabel": "Учень",
     "selectStudentPlaceholder": "Оберіть учня",
     "submitButton": "Показати"

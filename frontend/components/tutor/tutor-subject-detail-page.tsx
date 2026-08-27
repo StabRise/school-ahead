@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { forwardRef, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { List, Rows3, UserSearch, Users } from "lucide-react";
+import { List, Rows3, UserPlus, UserSearch, Users } from "lucide-react";
 import { getGetSubjectQueryKey, getListSubjectTopicsQueryKey, useGetSubject, useListSubjectTopics } from "@/lib/api/browser/academics/academics";
 import {
   getListTutorSubjectLessonsQueryKey,
+  getListTutorSubjectLessonStudentsQueryKey,
   useDeleteTutorTopic,
   useGetTutorClass,
   useListTutorSubjectLessons,
@@ -30,6 +31,7 @@ import { ViewModeToggle } from "@/components/view-mode-toggle";
 import { getLessonTypeBorderColor } from "@/components/subjects/lesson-type-border-color";
 import { groupTopicsByBlock, type BlockGroup } from "@/components/subjects/group-topics-by-block";
 import { useSubjectViewStore } from "@/stores/subject-view-store";
+import { AssignStudentDialog } from "./assign-student-dialog";
 import { LoadLessonsJsonDialog } from "./load-lessons-json-dialog";
 import { PlanSubjectLessonsDialog } from "./plan-subject-lessons-dialog";
 
@@ -65,16 +67,52 @@ function AssignedStudentsList({ students }: { students: SubjectLessonStudentOut[
   );
 }
 
+// Rendered as AssignStudentDialog's `trigger`, which Dialog.Trigger asChild
+// clones its own onClick/ref/aria-* props onto — must forward all of them to
+// the real <button>, not just render its own, or Radix's open-on-click
+// handler never reaches the DOM and the button silently does nothing.
+// Card's `href` also makes the whole row a Link (see components/card.tsx),
+// so the click must stop bubbling to it too — otherwise opening the dialog
+// would also navigate to the lesson page. Radix's own click handler (the
+// forwarded `onClick`) is itself built with composeEventHandlers, which
+// skips running if the event already has defaultPrevented — so preventDefault
+// must come AFTER calling it, not before, or the dialog never opens.
+const AssignTriggerButton = forwardRef<HTMLButtonElement, { label: string } & React.ComponentPropsWithoutRef<"button">>(
+  function AssignTriggerButton({ label, onClick, ...props }, ref) {
+    return (
+      <button
+        ref={ref}
+        type="button"
+        title={label}
+        aria-label={label}
+        onClick={(e) => {
+          onClick?.(e);
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        className="shrink-0 rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-50"
+        {...props}
+      >
+        <UserPlus className="h-4 w-4" />
+      </button>
+    );
+  },
+);
+
 function LessonRow({
   lesson,
   viewMode,
   assignedStudents,
+  selectedStudentId,
   isAssignedToSelectedStudent,
+  onAssigned,
 }: {
   lesson: LessonOut;
   viewMode: ViewMode;
   assignedStudents: SubjectLessonStudentOut[];
+  selectedStudentId: number | null;
   isAssignedToSelectedStudent: boolean | null;
+  onAssigned: () => void;
 }) {
   const t = useTranslations("SubjectDetail");
   const tTutor = useTranslations("TutorSubjectDetail");
@@ -88,14 +126,28 @@ function LessonRow({
         style={{ borderLeftColor: borderColor }}
       >
         {viewMode === "brief" && (
-          <span className="text-sm font-medium text-gray-900">
-            {t("lessonRow", { index: lesson.order_index, title: lesson.title })}
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium text-gray-900">
+              {t("lessonRow", { index: lesson.order_index, title: lesson.title })}
+            </span>
+            <AssignStudentDialog
+              lessonId={lesson.id}
+              onAssigned={onAssigned}
+              trigger={<AssignTriggerButton label={tTutor("assignToStudentButton")} />}
+            />
+          </div>
         )}
 
         {viewMode === "full" && (
           <>
-            <span className="text-sm font-medium text-gray-900">{lesson.title}</span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-gray-900">{lesson.title}</span>
+              <AssignStudentDialog
+                lessonId={lesson.id}
+                onAssigned={onAssigned}
+                trigger={<AssignTriggerButton label={tTutor("assignToStudentButton")} />}
+              />
+            </div>
             {lesson.task_content && <p className="text-xs text-gray-500">{lesson.task_content}</p>}
             <AssignedStudentsList students={assignedStudents} />
           </>
@@ -104,11 +156,18 @@ function LessonRow({
         {viewMode === "student" && (
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-medium text-gray-900">{lesson.title}</span>
-            <span
-              className={`shrink-0 text-xs font-medium ${isAssignedToSelectedStudent ? "text-green-700" : "text-gray-400"}`}
-            >
-              {isAssignedToSelectedStudent ? tTutor("assignedToStudent") : tTutor("notAssignedToStudent")}
-            </span>
+            {isAssignedToSelectedStudent ? (
+              <span className="shrink-0 text-xs font-medium text-green-700">{tTutor("assignedToStudent")}</span>
+            ) : selectedStudentId !== null ? (
+              <AssignStudentDialog
+                lessonId={lesson.id}
+                defaultStudentId={selectedStudentId}
+                onAssigned={onAssigned}
+                trigger={<AssignTriggerButton label={tTutor("assignLessonButton")} />}
+              />
+            ) : (
+              <span className="shrink-0 text-xs font-medium text-gray-400">{tTutor("notAssignedToStudent")}</span>
+            )}
           </div>
         )}
       </Card>
@@ -239,6 +298,7 @@ function TopicSection({
   viewMode,
   lessonStudentsByLessonId,
   selectedStudentId,
+  onLessonAssigned,
 }: {
   topic: TopicOut;
   lessons: LessonOut[];
@@ -255,6 +315,7 @@ function TopicSection({
   viewMode: ViewMode;
   lessonStudentsByLessonId: Map<number, SubjectLessonStudentOut[]>;
   selectedStudentId: number | null;
+  onLessonAssigned: () => void;
 }) {
   const t = useTranslations("TutorSubjectDetail");
   const queryClient = useQueryClient();
@@ -325,11 +386,13 @@ function TopicSection({
                     lesson={lesson}
                     viewMode={viewMode}
                     assignedStudents={assignedStudents}
+                    selectedStudentId={selectedStudentId}
                     isAssignedToSelectedStudent={
                       selectedStudentId === null
                         ? null
                         : assignedStudents.some((s) => s.student_id === selectedStudentId)
                     }
+                    onAssigned={onLessonAssigned}
                   />
                 );
               })}
@@ -379,6 +442,10 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
     }
     return map;
   }, [lessonStudentsQuery.data]);
+
+  const handleLessonAssigned = () => {
+    queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonStudentsQueryKey(subjectId) });
+  };
 
   const [draftStudentId, setDraftStudentId] = useState<number | "">("");
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
@@ -631,6 +698,7 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                         viewMode={viewMode}
                         lessonStudentsByLessonId={lessonStudentsByLessonId}
                         selectedStudentId={selectedStudentId}
+                        onLessonAssigned={handleLessonAssigned}
                       />
                     ))
                   )}
