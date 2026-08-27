@@ -9,6 +9,8 @@ import { getLessonTypeBorderColor } from "./lesson-type-border-color";
 
 export type CoursePlanViewMode = "brief" | "full";
 
+const SCHEDULED_DATE_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" });
+
 function percentColorClasses(percent: number) {
   if (percent >= 100) return "bg-green-100 text-green-700";
   if (percent > 0) return "bg-blue-100 text-blue-700";
@@ -40,6 +42,11 @@ function LessonRow({ lesson, viewMode }: { lesson: SubjectLessonOut; viewMode: C
       <div className="flex shrink-0 items-center gap-2">
         {isAssigned && lesson.status ? (
           <>
+            {lesson.scheduled_date && (
+              <span className="text-xs text-gray-500">
+                {SCHEDULED_DATE_FORMAT.format(new Date(`${lesson.scheduled_date}T00:00:00`))}
+              </span>
+            )}
             <StatusBadge status={lesson.status} />
             <ScoreBadge gradePoints={lesson.grade_points} gradeResult={lesson.grade_result} />
           </>

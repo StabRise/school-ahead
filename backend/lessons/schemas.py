@@ -280,6 +280,7 @@ class SubjectLessonOut(Schema):
     task_content: str
     student_lesson_id: int | None
     status: str | None
+    scheduled_date: datetime.date | None
     grade_points: int | None
     grade_result: str | None
 

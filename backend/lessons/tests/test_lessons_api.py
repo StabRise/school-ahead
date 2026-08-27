@@ -261,11 +261,13 @@ def test_list_subject_lessons_includes_unassigned_lessons(
     assigned_row = next(row for row in response.data if row['id'] == student_lesson.lesson_id)
     assert assigned_row['student_lesson_id'] == student_lesson.id
     assert assigned_row['status'] == 'assigned'
+    assert assigned_row['scheduled_date'] == str(student_lesson.scheduled_date)
 
     unassigned_row = next(row for row in response.data if row['id'] == unassigned_lesson.id)
     assert unassigned_row['student_lesson_id'] is None
     assert unassigned_row['status'] is None
     assert unassigned_row['task_content'] == 'Do exercises'
+    assert unassigned_row['scheduled_date'] is None
 
 
 def test_list_topic_lessons_paginated_and_scoped_to_own_student(

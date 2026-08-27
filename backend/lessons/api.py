@@ -240,6 +240,7 @@ def list_subject_lessons(request: HttpRequest, subject_id: int):
                 task_content=lesson.task_content,
                 student_lesson_id=student_lesson.id if student_lesson else None,
                 status=student_lesson.status if student_lesson else None,
+                scheduled_date=student_lesson.scheduled_date if student_lesson else None,
                 grade_points=student_lesson.grade_points if student_lesson else None,
                 grade_result=student_lesson.grade_result if student_lesson else None,
             )
