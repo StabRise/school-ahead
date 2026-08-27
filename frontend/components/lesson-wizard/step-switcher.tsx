@@ -1,9 +1,17 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { BookOpen, CheckCircle2, ClipboardList, ListChecks, type LucideIcon } from "lucide-react";
+import {
+  BookOpen,
+  CheckCircle2,
+  ClipboardList,
+  ListChecks,
+  MessageCircleQuestion,
+  MessageSquare,
+  type LucideIcon,
+} from "lucide-react";
 
-export type WizardStep = "materials" | "assessment";
+export type WizardStep = "materials" | "assessment" | "comments" | "explanation";
 
 // Icon + label for the assessment tab depend on the lesson's type: a quiz
 // gets a checklist icon and "Тест" label, a task a clipboard, and a
@@ -15,29 +23,42 @@ const ASSESSMENT_ICON: Record<string, LucideIcon> = {
   theory: CheckCircle2,
 };
 
-// Quick two-way toggle between the wizard's two pages, rendered directly
-// under the lesson title — the breadcrumb no longer encodes the current step
-// (docs/interfaces/student/lesson.md), so this is the only way to jump back
-// to Materials once on Assessment (or vice versa).
+// Tab switcher rendered directly under the lesson title — the breadcrumb no
+// longer encodes the current step (docs/interfaces/student/lesson.md), so
+// this is the only way to move between the wizard's sections. "Пояснення"
+// only appears once a help_request has ever been raised on the lesson (see
+// lesson-wizard.tsx's `hasExplanation`) — most lessons never show it.
 export function StepSwitcher({
   step,
   lessonType,
+  hasExplanation,
   onChange,
 }: {
   step: WizardStep;
   lessonType: string;
+  hasExplanation: boolean;
   onChange: (step: WizardStep) => void;
 }) {
   const t = useTranslations("LessonWizard");
   const AssessmentIcon = ASSESSMENT_ICON[lessonType] ?? ClipboardList;
   const assessmentLabel = lessonType === "with_quiz" ? t("breadcrumbQuiz") : t("breadcrumbAssessment");
 
+  const tabs: { value: WizardStep; label: string; Icon: LucideIcon }[] = [
+    { value: "materials", label: t("breadcrumbMaterials"), Icon: BookOpen },
+    { value: "assessment", label: assessmentLabel, Icon: AssessmentIcon },
+    { value: "comments", label: t("breadcrumbComments"), Icon: MessageSquare },
+    ...(hasExplanation
+      ? [{ value: "explanation" as const, label: t("breadcrumbExplanation"), Icon: MessageCircleQuestion }]
+      : []),
+  ];
+
   return (
-    <div role="tablist" className="inline-flex w-fit gap-1 rounded-md border border-gray-200 p-0.5">
-      {(["materials", "assessment"] as const).map((value) => {
+    <div
+      role="tablist"
+      className="inline-flex w-fit flex-wrap gap-1 rounded-md border border-gray-200 p-0.5"
+    >
+      {tabs.map(({ value, label, Icon }) => {
         const isActive = step === value;
-        const Icon = value === "materials" ? BookOpen : AssessmentIcon;
-        const label = value === "materials" ? t("breadcrumbMaterials") : assessmentLabel;
         return (
           <button
             key={value}

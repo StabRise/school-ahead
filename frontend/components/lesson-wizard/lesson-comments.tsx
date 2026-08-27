@@ -4,14 +4,31 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   getListLessonCommentsQueryKey,
   useAddLessonComment,
-  useListLessonComments,
 } from "@/lib/api/browser/student-lessons/student-lessons";
+import type { LessonCommentOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { CommentsThread } from "@/components/comments-thread";
 
-export function LessonComments({ studentLessonId }: { studentLessonId: number }) {
+// General, freestanding comments only — a help_request question and
+// whatever the tutor replied to it are shown on their own "Пояснення"
+// (Explanation) tab instead, see explanation-thread.tsx.
+export function LessonComments({
+  studentLessonId,
+  comments,
+}: {
+  studentLessonId: number;
+  comments: LessonCommentOut[] | undefined;
+}) {
   const queryClient = useQueryClient();
-  const { data: comments } = useListLessonComments(studentLessonId);
   const addComment = useAddLessonComment();
+
+  const helpRequestIds = new Set(
+    (comments ?? []).filter((comment) => comment.kind === "help_request").map((comment) => comment.id),
+  );
+  const generalComments = comments?.filter(
+    (comment) =>
+      comment.kind !== "help_request" &&
+      !(comment.reply_to_id != null && helpRequestIds.has(comment.reply_to_id)),
+  );
 
   const handleSubmit = (body: string) => {
     addComment.mutate(
@@ -25,6 +42,10 @@ export function LessonComments({ studentLessonId }: { studentLessonId: number })
   };
 
   return (
-    <CommentsThread comments={comments} onSubmit={handleSubmit} isSubmitting={addComment.isPending} />
+    <CommentsThread
+      comments={generalComments}
+      onSubmit={handleSubmit}
+      isSubmitting={addComment.isPending}
+    />
   );
 }

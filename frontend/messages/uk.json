@@ -297,6 +297,8 @@
     "breadcrumbMaterials": "Теорія",
     "breadcrumbAssessment": "Завдання",
     "breadcrumbQuiz": "Тест",
+    "breadcrumbComments": "Коментарі",
+    "breadcrumbExplanation": "Пояснення",
     "scoreValue": "{points}/12",
     "scorePass": "Залік",
     "scoreFail": "Незалік",
@@ -371,6 +373,14 @@
     "helpRequestBadge": "Запит допомоги",
     "resolvedBadge": "Вирішено",
     "replyBadge": "Відповідь"
+  },
+  "Explanation": {
+    "title": "Питання до вчителя",
+    "empty": "Ще немає запитань до тьютора.",
+    "resolvedStatus": "Вирішено",
+    "pendingStatus": "Очікує відповідь",
+    "studentLabel": "Учень",
+    "pendingReplyPlaceholder": "Тьютор ще не відповів"
   },
   "MySubjects": {
     "title": "Мої предмети",
