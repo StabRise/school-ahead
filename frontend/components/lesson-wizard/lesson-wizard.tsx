@@ -132,7 +132,7 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   ];
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6 lg:max-w-none">
       <div className="flex flex-col gap-3 border-b border-gray-200 pb-4">
         <Breadcrumbs items={breadcrumbItems} />
         <StepSwitcher step={step} onChange={setStep} />

@@ -101,7 +101,7 @@ export function StudentDashboard() {
   }
 
   return (
-    <PageContainer title={t("title")}>
+    <PageContainer title={t("title")} maxWidthClassName="max-w-2xl lg:max-w-none">
       {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
       {isError && <p className="text-sm text-red-600">{t("error")}</p>}
 

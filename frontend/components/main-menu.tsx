@@ -5,6 +5,7 @@ import { Link, usePathname } from "@/i18n/navigation";
 
 const MENU_ITEMS = [
   { href: "/", labelKey: "todayLessons" },
+  { href: "/subjects", labelKey: "subjects" },
   { href: "/calendar", labelKey: "calendar" },
 ] as const;
 
