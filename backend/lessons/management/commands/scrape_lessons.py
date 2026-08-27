@@ -9,6 +9,12 @@ topic, one theory lesson per video:
 
     uv run manage.py scrape_lessons -Y <youtube-playlist-url> <name>
 
+With -P/--pistacja, <url> is a Pi-stacja (ua.pistacja.tv) playlist page
+instead — one topic named after the playlist, one theory lesson per video
+in it (YouTube embed + the "ПІДСУМКОВА КАРТКА" summary PDF, when present):
+
+    uv run manage.py scrape_lessons -P <pistacja-playlist-url> <name>
+
 Writes lessons/scraped/<name>.json.
 """
 
@@ -79,6 +85,12 @@ class Command(BaseCommand):
             help='Treat <url> as a YouTube playlist URL instead of an LMS course outline — '
                  'produces one "Base" topic with one theory lesson per video.',
         )
+        parser.add_argument(
+            '-P', '--pistacja', action='store_true',
+            help='Treat <url> as a Pi-stacja (ua.pistacja.tv) playlist page instead of an LMS '
+                 'course outline — produces one topic (named after the playlist) with one '
+                 'theory lesson per video in it.',
+        )
 
     def handle(self, *args, **options):
         url = options['url']
@@ -89,6 +101,8 @@ class Command(BaseCommand):
 
         if options['youtube']:
             topics_out = [self._scrape_youtube_playlist(session, url)]
+        elif options['pistacja']:
+            topics_out = [self._scrape_pistacja_playlist(session, url)]
         else:
             topics_out = self._scrape_lms_course(session, url)
 
@@ -272,7 +286,9 @@ class Command(BaseCommand):
             task_content=ASSESSMENT_TASK_CONTENT if is_assessment else '',
         )
 
-    def _build_content(self, lesson_title: str, youtubes: list[str], pdfs: list[str], origin_url: str) -> str:
+    def _build_content(
+        self, lesson_title: str, youtubes: list[str], pdfs: list[str], origin_url: str, source_name: str = 'ВШО'
+    ) -> str:
         """Markdown for Lesson.content — order matters (see Markdown's
         embedYoutube/embedPdf in frontend/components/markdown.tsx): a bare
         YouTube link renders as an inline video embed, and a
@@ -285,9 +301,69 @@ class Command(BaseCommand):
             pdf_tags = '\n'.join(f'<pdfiframe file="{pdf_url}" title="{title_attr}"/>' for pdf_url in pdfs)
             sections.append(f'## Конспект\n\n{pdf_tags}')
 
-        sections.append(f'## ВШО\n\n[Переглянути на ВШО]({origin_url})')
+        sections.append(f'## {source_name}\n\n[Переглянути на {source_name}]({origin_url})')
 
         return '\n\n'.join(sections)
+
+    def _scrape_pistacja_playlist(self, session: requests.Session, url: str) -> TopicOut:
+        playlist_html = self._get(session, url)
+        base_url = f'{urlparse(url).scheme}://{urlparse(url).netloc}'
+        soup = BeautifulSoup(playlist_html, 'html.parser')
+
+        title_tag = soup.select_one('.pie-playlist-preview-description h1')
+        title = title_tag.get_text(strip=True) if title_tag else ''
+        description_tag = soup.select_one('.pie-playlist-preview-description .text')
+        description = description_tag.get_text(' ', strip=True) if description_tag else ''
+
+        videos = []
+        for a in soup.select('div[data-tab="videos"] a.pie-list-item[href]'):
+            span = a.find('span')
+            video_title = span.get_text(strip=True) if span else ''
+            if video_title:
+                videos.append({'title': video_title, 'url': urljoin(base_url, a['href'])})
+
+        if not videos:
+            raise CommandError('No videos found on this page — is it a valid Pi-stacja playlist URL?')
+
+        self.stdout.write(f'Topic: {title} ({len(videos)} lessons)')
+        lessons = []
+        for video in videos:
+            lessons.append(self._scrape_pistacja_video(session, video, base_url))
+            time.sleep(REQUEST_DELAY_SECONDS)
+
+        return TopicOut(title=title, description=description, lessons=lessons)
+
+    def _scrape_pistacja_video(self, session: requests.Session, video: dict, base_url: str) -> LessonOut:
+        video_html = self._get(session, video['url'])
+        soup = BeautifulSoup(video_html, 'html.parser')
+
+        title_tag = soup.select_one('#video-accordion-content h1')
+        lesson_title = title_tag.get_text(strip=True) if title_tag else video['title']
+
+        youtubes = []
+        iframe = soup.find('iframe', id='yt-player', src=True)
+        if iframe:
+            match = YOUTUBE_URL_RE.search(iframe['src'])
+            if match:
+                youtubes.append(f'https://www.youtube.com/watch?v={match.group(1)}')
+
+        # The downloads dialog also offers the raw .mp4 — we only want the
+        # "ПІДСУМКОВА КАРТКА" summary PDF, not the video file itself.
+        pdfs = [
+            urljoin(base_url, a['href'])
+            for a in soup.select('a.pie-download-card[href]')
+            if a['href'].lower().split('?')[0].endswith('.pdf')
+        ]
+
+        return LessonOut(
+            title=lesson_title,
+            lesson_type='theory',
+            origin_url=video['url'],
+            youtubes=youtubes,
+            pdfs=pdfs,
+            content=self._build_content(lesson_title, youtubes, pdfs, video['url'], source_name='Pi-stacja'),
+            task_content='',
+        )
 
     def _fetch_unit_content(self, session: requests.Session, unit_url: str) -> BeautifulSoup:
         """The unit's rendered xblock tree is embedded HTML-escaped as the
