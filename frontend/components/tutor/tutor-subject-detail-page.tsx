@@ -3,86 +3,113 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
+import { List, Rows3, UserSearch, Users } from "lucide-react";
 import { getGetSubjectQueryKey, getListSubjectTopicsQueryKey, useGetSubject, useListSubjectTopics } from "@/lib/api/browser/academics/academics";
 import {
   getListTutorSubjectLessonsQueryKey,
   useDeleteTutorTopic,
+  useGetTutorClass,
   useListTutorSubjectLessons,
+  useListTutorSubjectLessonStudents,
   useReorderTutorSubjectTopics,
   useSetSubjectFilled,
   useSetTopicBlock,
 } from "@/lib/api/browser/tutor/tutor";
-import type { LessonOut, SubjectBlockOut, SubjectOut, TopicOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
+import type {
+  LessonOut,
+  SubjectBlockOut,
+  SubjectLessonStudentOut,
+  SubjectOut,
+  TopicOut,
+} from "@/lib/api/browser/schoolAheadAPI.schemas";
+import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Card } from "@/components/card";
-import { ContentTypeBadges } from "@/components/subjects/content-type-badges";
+import { ExpandAllButton } from "@/components/expand-all-button";
+import { ViewModeToggle } from "@/components/view-mode-toggle";
+import { getLessonTypeBorderColor } from "@/components/subjects/lesson-type-border-color";
+import { groupTopicsByBlock, type BlockGroup } from "@/components/subjects/group-topics-by-block";
 import { LoadLessonsJsonDialog } from "./load-lessons-json-dialog";
 import { PlanSubjectLessonsDialog } from "./plan-subject-lessons-dialog";
 
-interface BlockGroup {
-  key: string;
-  label: string | null;
-  // The real SubjectBlock id a topic gets pinned to when dropped into this
-  // group (set_topic_block) — null for the blockless "all" fallback and for
-  // "unassigned", neither of which is a valid drag-and-drop target.
-  blockId: number | null;
-  topics: TopicOut[];
+type ViewMode = "brief" | "full" | "student";
+
+const SCHEDULED_DATE_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short", year: "numeric" });
+
+function AssignedStudentsList({ students }: { students: SubjectLessonStudentOut[] }) {
+  const t = useTranslations("TutorSubjectDetail");
+
+  return (
+    <div className="flex items-start gap-1.5 text-xs text-gray-600">
+      <Users className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+      {students.length === 0 ? (
+        <span className="text-gray-400">{t("noStudentsAssigned")}</span>
+      ) : (
+        <span className="flex flex-wrap gap-x-1">
+          {students.map((s, index) => (
+            <span key={s.student_id}>
+              <Link
+                href={`/tutor/students/${s.student_id}/calendar`}
+                title={SCHEDULED_DATE_FORMAT.format(new Date(s.scheduled_date))}
+                className="text-blue-700 hover:underline"
+              >
+                {s.student_name}
+              </Link>
+              {index < students.length - 1 && ","}
+            </span>
+          ))}
+        </span>
+      )}
+    </div>
+  );
 }
 
-// Grouped off the subject's actual SubjectBlock rows (id + label, in
-// index order) rather than inferred from contiguous topic order — a tutor
-// can now move a topic to any block (set_topic_block, or by dragging it —
-// see TutorSubjectDetailPage's handleDrop), which can break the even-split
-// contiguity the old scan-based grouping relied on. A topic whose block no
-// longer exists (should self-heal on the next assign_topics_to_blocks
-// recompute) falls into a trailing "unassigned" group instead of
-// disappearing. Empty real blocks are kept (not filtered out) so a tutor
-// can still drag a topic into a currently-empty semester.
-function groupTopicsByBlock(topics: TopicOut[], blocks: SubjectBlockOut[]): BlockGroup[] {
-  if (blocks.length === 0) {
-    return topics.length > 0 ? [{ key: "all", label: null, blockId: null, topics }] : [];
-  }
-
-  const blockIds = new Set(blocks.map((block) => block.id));
-  const topicsByBlockId = new Map<number, TopicOut[]>();
-  const unassigned: TopicOut[] = [];
-
-  for (const topic of topics) {
-    if (topic.subject_block_id !== null && blockIds.has(topic.subject_block_id)) {
-      const list = topicsByBlockId.get(topic.subject_block_id) ?? [];
-      list.push(topic);
-      topicsByBlockId.set(topic.subject_block_id, list);
-    } else {
-      unassigned.push(topic);
-    }
-  }
-
-  const groups: BlockGroup[] = blocks.map((block) => ({
-    key: `block-${block.id}`,
-    label: block.label,
-    blockId: block.id,
-    topics: topicsByBlockId.get(block.id) ?? [],
-  }));
-
-  if (unassigned.length > 0) {
-    groups.push({ key: "unassigned", label: null, blockId: null, topics: unassigned });
-  }
-
-  return groups;
-}
-
-function LessonRow({ lesson }: { lesson: LessonOut }) {
+function LessonRow({
+  lesson,
+  viewMode,
+  assignedStudents,
+  isAssignedToSelectedStudent,
+}: {
+  lesson: LessonOut;
+  viewMode: ViewMode;
+  assignedStudents: SubjectLessonStudentOut[];
+  isAssignedToSelectedStudent: boolean | null;
+}) {
   const t = useTranslations("SubjectDetail");
+  const tTutor = useTranslations("TutorSubjectDetail");
+  const borderColor = getLessonTypeBorderColor(lesson.lesson_type);
+
   return (
     <li>
       <Card
         href={`/tutor/lessons/${lesson.id}`}
-        className="flex flex-col gap-1.5 bg-white sm:flex-row sm:items-center sm:justify-between"
+        className="flex flex-col gap-1.5 border-l-4 bg-white"
+        style={{ borderLeftColor: borderColor }}
       >
-        <span className="text-sm font-medium text-gray-900">
-          {t("lessonRow", { index: lesson.order_index, title: lesson.title })}
-        </span>
-        <ContentTypeBadges lessonType={lesson.lesson_type} />
+        {viewMode === "brief" && (
+          <span className="text-sm font-medium text-gray-900">
+            {t("lessonRow", { index: lesson.order_index, title: lesson.title })}
+          </span>
+        )}
+
+        {viewMode === "full" && (
+          <>
+            <span className="text-sm font-medium text-gray-900">{lesson.title}</span>
+            {lesson.task_content && <p className="text-xs text-gray-500">{lesson.task_content}</p>}
+            <AssignedStudentsList students={assignedStudents} />
+          </>
+        )}
+
+        {viewMode === "student" && (
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium text-gray-900">{lesson.title}</span>
+            <span
+              className={`shrink-0 text-xs font-medium ${isAssignedToSelectedStudent ? "text-green-700" : "text-gray-400"}`}
+            >
+              {isAssignedToSelectedStudent ? tTutor("assignedToStudent") : tTutor("notAssignedToStudent")}
+            </span>
+          </div>
+        )}
       </Card>
     </li>
   );
@@ -208,6 +235,9 @@ function TopicSection({
   onDragEnd,
   onDragOver,
   onDrop,
+  viewMode,
+  lessonStudentsByLessonId,
+  selectedStudentId,
 }: {
   topic: TopicOut;
   lessons: LessonOut[];
@@ -221,6 +251,9 @@ function TopicSection({
   onDragEnd: () => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void;
+  viewMode: ViewMode;
+  lessonStudentsByLessonId: Map<number, SubjectLessonStudentOut[]>;
+  selectedStudentId: number | null;
 }) {
   const t = useTranslations("TutorSubjectDetail");
   const queryClient = useQueryClient();
@@ -283,9 +316,22 @@ function TopicSection({
             <p className="text-sm text-gray-500">{t("noLessonsInTopic")}</p>
           ) : (
             <ul className="flex flex-col gap-2">
-              {lessons.map((lesson) => (
-                <LessonRow key={lesson.id} lesson={lesson} />
-              ))}
+              {lessons.map((lesson) => {
+                const assignedStudents = lessonStudentsByLessonId.get(lesson.id) ?? [];
+                return (
+                  <LessonRow
+                    key={lesson.id}
+                    lesson={lesson}
+                    viewMode={viewMode}
+                    assignedStudents={assignedStudents}
+                    isAssignedToSelectedStudent={
+                      selectedStudentId === null
+                        ? null
+                        : assignedStudents.some((s) => s.student_id === selectedStudentId)
+                    }
+                  />
+                );
+              })}
             </ul>
           )}
         </div>
@@ -298,13 +344,51 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
   const t = useTranslations("TutorSubjectDetail");
   const queryClient = useQueryClient();
 
+  const [viewMode, setViewMode] = useState<ViewMode>("brief");
+  const needsLessonStudents = viewMode !== "brief";
+
   const subjectQuery = useGetSubject(subjectId);
   const topicsQuery = useListSubjectTopics(subjectId);
   const lessonsQuery = useListTutorSubjectLessons(subjectId);
+  const lessonStudentsQuery = useListTutorSubjectLessonStudents(subjectId, {
+    query: { enabled: needsLessonStudents },
+  });
+
+  const schoolClassId = subjectQuery.data?.school_class_id;
+  const classQuery = useGetTutorClass(schoolClassId ?? 0, {
+    query: { enabled: viewMode === "student" && schoolClassId !== undefined },
+  });
 
   const topics = useMemo(() => topicsQuery.data ?? [], [topicsQuery.data]);
   const lessons = useMemo(() => lessonsQuery.data ?? [], [lessonsQuery.data]);
   const blocks = useMemo(() => subjectQuery.data?.blocks ?? [], [subjectQuery.data]);
+  const classStudents = useMemo(() => classQuery.data?.students ?? [], [classQuery.data]);
+
+  const lessonStudentsByLessonId = useMemo(() => {
+    const map = new Map<number, SubjectLessonStudentOut[]>();
+    for (const row of lessonStudentsQuery.data ?? []) {
+      const list = map.get(row.lesson_id) ?? [];
+      list.push(row);
+      map.set(row.lesson_id, list);
+    }
+    return map;
+  }, [lessonStudentsQuery.data]);
+
+  const [draftStudentId, setDraftStudentId] = useState<number | "">("");
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    if (mode !== "student") {
+      setSelectedStudentId(null);
+      setDraftStudentId("");
+    }
+  };
+
+  const handleStudentFilterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSelectedStudentId(draftStudentId === "" ? null : draftStudentId);
+  };
 
   const lessonsByTopicId = useMemo(() => {
     const map = new Map<number, LessonOut[]>();
@@ -419,7 +503,24 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
         <Breadcrumbs items={breadcrumbItems} />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold text-gray-900">{subject.name}</h1>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1">
+            <ViewModeToggle
+              value={viewMode}
+              onChange={handleViewModeChange}
+              options={[
+                { value: "brief", icon: List, label: t("viewModeBrief") },
+                { value: "full", icon: Rows3, label: t("viewModeFull") },
+                { value: "student", icon: UserSearch, label: t("viewModeStudent") },
+              ]}
+            />
+            <div className="mx-1 h-5 w-px bg-gray-200" aria-hidden="true" />
+            <ExpandAllButton
+              expanded={allExpanded}
+              onToggle={toggleAll}
+              disabled={topics.length === 0}
+              expandLabel={t("expandAll")}
+              collapseLabel={t("collapseAll")}
+            />
             <PlanSubjectLessonsDialog
               classId={subject.school_class_id}
               subjectId={subjectId}
@@ -436,17 +537,43 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
         </div>
       </div>
 
+      {viewMode === "student" && (
+        <form
+          onSubmit={handleStudentFilterSubmit}
+          className="flex flex-wrap items-end gap-2 rounded-md border border-gray-200 bg-gray-50/50 p-3"
+        >
+          <div className="flex flex-col gap-1">
+            <label htmlFor="student-filter" className="text-xs font-medium text-gray-700">
+              {t("selectStudentLabel")}
+            </label>
+            <select
+              id="student-filter"
+              value={draftStudentId}
+              onChange={(e) => setDraftStudentId(e.target.value === "" ? "" : Number(e.target.value))}
+              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-700"
+            >
+              <option value="">{t("selectStudentPlaceholder")}</option>
+              {classStudents.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="submit"
+            disabled={draftStudentId === ""}
+            className="rounded-md bg-gray-900 px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {t("submitButton")}
+          </button>
+        </form>
+      )}
+
       {topics.length === 0 ? (
         <p className="text-sm text-gray-500">{t("noTopics")}</p>
       ) : (
         <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-gray-500">{t("dragHint")}</p>
-            <button type="button" onClick={toggleAll} className="text-sm font-medium text-blue-700 hover:underline">
-              {allExpanded ? t("collapseAll") : t("expandAll")}
-            </button>
-          </div>
-
           <div className="flex flex-col gap-6">
             {blockGroups.map((group) => {
               const isDropTarget = group.key !== "unassigned";
@@ -494,6 +621,9 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                           e.stopPropagation();
                           handleDrop(group, topic.id);
                         }}
+                        viewMode={viewMode}
+                        lessonStudentsByLessonId={lessonStudentsByLessonId}
+                        selectedStudentId={selectedStudentId}
                       />
                     ))
                   )}

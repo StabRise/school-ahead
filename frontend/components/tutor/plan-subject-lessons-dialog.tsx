@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import * as Dialog from "@radix-ui/react-dialog";
+import { CalendarPlus } from "lucide-react";
 import { useSchedulingApiGenerateClassSchedule } from "@/lib/api/browser/schedule/schedule";
 import type { GenerateClassScheduleOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { addDaysIso, todayIso } from "@/lib/dates";
@@ -67,9 +68,11 @@ export function PlanSubjectLessonsDialog({
       <Dialog.Trigger asChild>
         <button
           type="button"
-          className="shrink-0 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          title={t("triggerButtonForSubject", { subject: subjectName })}
+          aria-label={t("triggerButtonForSubject", { subject: subjectName })}
+          className="shrink-0 rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-50"
         >
-          📅 {t("triggerButtonForSubject", { subject: subjectName })}
+          <CalendarPlus className="h-4 w-4" />
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>

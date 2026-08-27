@@ -380,6 +380,37 @@ class TestSubjectLessons:
         response = api_client.get(f'/tutor/subjects/{subject.id}/lessons', headers=auth_header(tutor.user))
         assert response.status_code == 403
 
+    def test_list_subject_lesson_students(self, api_client, auth_header, tutor, subject, student, other_student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        other_lesson = Lesson.objects.create(
+            topic=topic, order_index=2, title='More', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+            status=StudentLessonStatus.ASSIGNED,
+        )
+        StudentLesson.objects.create(
+            student=other_student, lesson=other_lesson, scheduled_date=datetime.date(2026, 1, 12),
+            status=StudentLessonStatus.COMPLETED,
+        )
+
+        response = api_client.get(f'/tutor/subjects/{subject.id}/lesson-students', headers=auth_header(tutor.user))
+        assert response.status_code == 200
+        assert len(response.data) == 2
+        by_lesson_id = {row['lesson_id']: row for row in response.data}
+        assert by_lesson_id[lesson.id]['student_id'] == student.id
+        assert by_lesson_id[other_lesson.id]['status'] == StudentLessonStatus.COMPLETED
+
+    def test_list_subject_lesson_students_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+
+        response = api_client.get(f'/tutor/subjects/{subject.id}/lesson-students', headers=auth_header(tutor.user))
+        assert response.status_code == 403
+
 
 class TestLessonsJsonUpload:
     def _json_file(self, content=b'[]'):

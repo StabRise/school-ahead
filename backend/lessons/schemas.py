@@ -1,5 +1,6 @@
 import datetime
 
+from achievements.schemas import BlockProgressOut, ProgressBadgeOut
 from ninja import Schema
 
 
@@ -210,12 +211,26 @@ class AddCommentIn(Schema):
 
 class CompletionProgressOut(Schema):
     """Curriculum-wide completion, not just what's been scheduled so far —
-    see lessons.services.compute_completion. Powers the Subject/Topic detail
-    pages' progress bars (docs/interfaces/student/subjects.md)."""
+    see lessons.services.compute_completion. Powers the Topic detail page's
+    progress bar (docs/interfaces/student/subjects.md); see
+    SubjectProgressOut for the richer Subject-level version."""
 
     completed_count: int
     total_count: int
     completed_percent: float
+
+
+class SubjectProgressOut(Schema):
+    """CompletionProgressOut plus the Subject detail page's per-semester
+    breakdown and gamified course badge — see
+    lessons.services.compute_block_progress and
+    achievements.services.get_badge_for_percent."""
+
+    completed_count: int
+    total_count: int
+    completed_percent: float
+    badge: ProgressBadgeOut | None
+    blocks: list[BlockProgressOut]
 
 
 class TopicLessonOut(Schema):
@@ -232,6 +247,7 @@ class TopicLessonOut(Schema):
     order_index: int
     status: str
     lesson_type: str
+    task_content: str
     scheduled_date: datetime.date
     grade_points: int | None
     grade_result: str | None
@@ -254,8 +270,34 @@ class TopicLessonOut(Schema):
         return obj.lesson.lesson_type
 
     @staticmethod
+    def resolve_task_content(obj):
+        return obj.lesson.task_content
+
+    @staticmethod
     def resolve_subject_block_label(obj):
         return obj.lesson.topic.subject_block.label if obj.lesson.topic.subject_block else None
+
+
+class SubjectLessonOut(Schema):
+    """Every Lesson in a subject, not just the ones scheduled for the
+    requesting student — powers the Subject detail page's Course plan, which
+    shows the whole curriculum (including not-yet-assigned lessons) grouped
+    by topic and semester like the tutor's equivalent view. `student_lesson_id`
+    and `status` are null when this student has no StudentLesson for the
+    lesson yet — the frontend renders those as unopenable (see
+    docs/interfaces/student/subjects_list.md)."""
+
+    id: int
+    topic_id: int
+    order_index: int
+    title: str
+    lesson_type: str
+    task_content: str
+    student_lesson_id: int | None
+    status: str | None
+    scheduled_date: datetime.date | None
+    grade_points: int | None
+    grade_result: str | None
 
 
 class NextLessonOut(Schema):

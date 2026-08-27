@@ -98,7 +98,7 @@ export function TutorDashboard() {
   const pendingReview = useTutoringApiPendingReview(params);
 
   return (
-    <PageContainer title={t("title")} maxWidthClassName="max-w-5xl">
+    <PageContainer title={t("title")} maxWidthClassName="xl:max-w-5xl">
       <div className="mb-6 flex flex-wrap gap-3">
         <select
           value={subjectId ?? ""}

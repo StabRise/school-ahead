@@ -18,6 +18,20 @@ class AssignmentOut(Schema):
 
 class LessonStudentOut(Schema):
     student_lesson_id: int
+    student_id: int
+    student_name: str
+    scheduled_date: datetime.date
+    status: str
+
+
+class SubjectLessonStudentOut(Schema):
+    """One row per lesson/student assignment across a whole subject — powers
+    the tutor's Subject detail page "full" and "student" list views, which
+    need assignment data for every lesson at once rather than one lesson at
+    a time (see list_tutor_lesson_students for the single-lesson version)."""
+
+    lesson_id: int
+    student_id: int
     student_name: str
     scheduled_date: datetime.date
     status: str

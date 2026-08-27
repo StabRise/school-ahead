@@ -157,6 +157,9 @@ def delete_class(request: HttpRequest, class_id: int, response: HttpResponse):
 def create_subject(request: HttpRequest, payload: SubjectIn):
     _ensure_staff(request)
     subject = Subject.objects.create(**payload.dict())
+    if not subject.color:
+        subject.color = services.assign_subject_color(subject)
+        subject.save(update_fields=['color'])
     services.ensure_subject_blocks(subject)
     services.assign_topics_to_blocks(subject)
     return subject
@@ -168,6 +171,8 @@ def update_subject(request: HttpRequest, subject_id: int, payload: SubjectIn):
     subject = get_object_or_404(Subject, id=subject_id)
     for field, value in payload.dict().items():
         setattr(subject, field, value)
+    if not subject.color:
+        subject.color = services.assign_subject_color(subject)
     subject.save()
     services.ensure_subject_blocks(subject)
     services.assign_topics_to_blocks(subject)

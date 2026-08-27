@@ -1,4 +1,22 @@
+from .colors import SUBJECT_COLOR_PALETTE
 from .models import Subject, SubjectBlock, Topic
+
+
+def assign_subject_color(subject: Subject) -> str:
+    """First palette color not already used by another Subject in the same
+    school_class. Falls back to cycling by that class's subject count once
+    the 30-color palette is exhausted, rather than raising."""
+    used = set(
+        Subject.objects.filter(school_class_id=subject.school_class_id)
+        .exclude(pk=subject.pk)
+        .exclude(color='')
+        .values_list('color', flat=True)
+    )
+    for color in SUBJECT_COLOR_PALETTE:
+        if color not in used:
+            return color
+    count = Subject.objects.filter(school_class_id=subject.school_class_id).exclude(pk=subject.pk).count()
+    return SUBJECT_COLOR_PALETTE[count % len(SUBJECT_COLOR_PALETTE)]
 
 
 def ensure_subject_blocks(subject: Subject) -> None:

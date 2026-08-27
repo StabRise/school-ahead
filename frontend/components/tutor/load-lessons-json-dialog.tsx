@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import * as Dialog from "@radix-ui/react-dialog";
+import { Upload } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListSubjectTopicsQueryKey } from "@/lib/api/browser/academics/academics";
 import {
@@ -78,9 +79,11 @@ export function LoadLessonsJsonDialog({ subjectId }: { subjectId: number }) {
       <Dialog.Trigger asChild>
         <button
           type="button"
-          className="shrink-0 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          title={t("triggerButton")}
+          aria-label={t("triggerButton")}
+          className="shrink-0 rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-50"
         >
-          📥 {t("triggerButton")}
+          <Upload className="h-4 w-4" />
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>

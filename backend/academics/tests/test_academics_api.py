@@ -49,6 +49,66 @@ def test_subject_rejects_start_after_due(school_class):
         )
 
 
+def test_create_subject_assigns_default_color(api_client, auth_header, admin_user, school_class):
+    from academics.colors import SUBJECT_COLOR_PALETTE
+
+    response = api_client.post(
+        '/academics/subjects',
+        json={'school_class_id': school_class.id, 'name': 'Physics'},
+        headers=auth_header(admin_user),
+    )
+    assert response.status_code == 200
+    assert response.data['color'] in SUBJECT_COLOR_PALETTE
+
+
+def test_subjects_in_same_class_get_distinct_colors(api_client, auth_header, admin_user, school_class):
+    colors = []
+    for name in ('Math', 'Physics', 'Chemistry'):
+        response = api_client.post(
+            '/academics/subjects',
+            json={'school_class_id': school_class.id, 'name': name},
+            headers=auth_header(admin_user),
+        )
+        assert response.status_code == 200
+        colors.append(response.data['color'])
+    assert len(colors) == len(set(colors))
+
+
+def test_subjects_in_different_classes_can_reuse_colors(api_client, auth_header, admin_user, school, school_class):
+    other_class = Class.objects.create(school=school, name='6', order_index=6, academic_year='2025/2026')
+
+    first = api_client.post(
+        '/academics/subjects',
+        json={'school_class_id': school_class.id, 'name': 'Math'},
+        headers=auth_header(admin_user),
+    )
+    second = api_client.post(
+        '/academics/subjects',
+        json={'school_class_id': other_class.id, 'name': 'Math'},
+        headers=auth_header(admin_user),
+    )
+    assert first.status_code == 200
+    assert second.status_code == 200
+    # Both are the "first" subject in their own (otherwise empty) class, so
+    # they land on the same palette slot — uniqueness is per-class only.
+    assert first.data['color'] == second.data['color']
+
+
+def test_update_subject_self_heals_blank_color(api_client, auth_header, admin_user, subject):
+    # The `subject` fixture is created directly via the ORM (bypassing
+    # create_subject), so it starts with no color — exercising update_subject's
+    # self-heal path.
+    assert subject.color == ''
+
+    response = api_client.put(
+        f'/academics/subjects/{subject.id}',
+        json={'school_class_id': subject.school_class_id, 'name': subject.name},
+        headers=auth_header(admin_user),
+    )
+    assert response.status_code == 200
+    assert response.data['color']
+
+
 def test_list_classes_and_subjects(api_client, auth_header, student_user, school_class, subject):
     headers = auth_header(student_user)
 

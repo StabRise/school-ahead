@@ -43,6 +43,7 @@ class SubjectAdmin(admin.ModelAdmin):
         "block_count",
         "start_date",
         "due_date",
+        "color",
         "created_at",
     )
     list_filter = ("school_class", "start_date")

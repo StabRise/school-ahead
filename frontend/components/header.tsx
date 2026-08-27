@@ -120,6 +120,7 @@ export function Header() {
 
       {user ? (
         <div className="flex items-center gap-3">
+          {user.role === "student" && <div className="hidden lg:block"><PreschoolModeToggle /></div>}
           {user.role === "student" && user.diamondBalance !== null && (
             <DiamondBadge count={user.diamondBalance} />
           )}
@@ -153,10 +154,10 @@ export function Header() {
                   <>
                     <DropdownMenu.Item asChild>
                       <Link
-                        href="/subjects"
+                        href="/achievements"
                         className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
                       >
-                        {t("mySubjects")}
+                        {t("myAchievements")}
                       </Link>
                     </DropdownMenu.Item>
                     <DropdownMenu.Item asChild>

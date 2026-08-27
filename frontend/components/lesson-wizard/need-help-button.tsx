@@ -11,7 +11,9 @@ import { ChatIcon } from "./chat-icon";
 
 // The wizard's persistent "Need Help" trigger — accessible across every
 // step of the wizard (content view and each assignment-step type), per the
-// "State Transition & UI Rules" spec, section 2.3.
+// "State Transition & UI Rules" spec, section 2.3. Rendered as a floating
+// action button fixed to the bottom-right corner so it stays reachable
+// regardless of scroll position or which wizard step is active.
 export function NeedHelpButton({
   studentLessonId,
   onRequested,
@@ -30,16 +32,17 @@ export function NeedHelpButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-100"
+        aria-label={t("button")}
+        title={t("button")}
+        className="fixed right-6 bottom-6 z-40 flex size-14 items-center justify-center rounded-full bg-amber-500 text-white shadow-lg transition hover:bg-amber-600 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
       >
-        <ChatIcon />
-        {t("button")}
+        <ChatIcon className="size-6" />
       </button>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-gray-200 p-3">
+    <div className="fixed right-6 bottom-6 z-40 flex w-80 max-w-[calc(100vw-3rem)] flex-col gap-2 rounded-lg border border-gray-200 bg-white p-4 shadow-xl">
       <label className="text-sm font-medium" htmlFor="need-help-note">
         {t("noteLabel")}
       </label>
@@ -50,7 +53,14 @@ export function NeedHelpButton({
         rows={3}
         className="rounded-md border border-gray-300 p-2 text-sm"
       />
-      <div className="flex gap-2">
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700"
+        >
+          {t("cancelButton")}
+        </button>
         <button
           type="button"
           disabled={requestHelp.isPending}
@@ -72,13 +82,6 @@ export function NeedHelpButton({
           className="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
         >
           {t("sendButton")}
-        </button>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700"
-        >
-          {t("cancelButton")}
         </button>
       </div>
     </div>
