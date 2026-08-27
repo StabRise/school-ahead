@@ -283,7 +283,7 @@ export function SubmissionReview({ studentLessonId }: { studentLessonId: number 
   }
 
   return (
-    <PageContainer title={data.lesson_title} maxWidthClassName="max-w-2xl">
+    <PageContainer title={data.lesson_title} maxWidthClassName="xl:max-w-2xl">
       <div className="mb-4 flex flex-col gap-4">
         <Link href="/" className="self-start text-sm text-blue-600 underline hover:no-underline">
           {t("back")}

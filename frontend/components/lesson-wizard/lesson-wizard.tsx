@@ -174,7 +174,12 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
       ) : step === "comments" ? (
         <LessonComments studentLessonId={studentLessonId} comments={comments} />
       ) : (
-        <ExplanationThread comments={comments ?? []} />
+        <ExplanationThread
+          comments={comments ?? []}
+          studentLessonId={studentLessonId}
+          canSelfResolve={data.status === "need_help"}
+          onResolved={refetch}
+        />
       )}
 
       {data.status === "in_progress" && (

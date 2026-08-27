@@ -403,7 +403,7 @@ export function WeeklyCalendar({ studentId }: { studentId?: number } = {}) {
   };
 
   return (
-    <PageContainer title={t("title")} maxWidthClassName="max-w-6xl lg:max-w-none">
+    <PageContainer title={t("title")} maxWidthClassName="xl:max-w-7xl">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <NavButton onClick={() => setWeekStart((prev) => addDays(prev, -7))} label={t("previousWeek")}>

@@ -1,16 +1,19 @@
-// Shared page shell (centered column + title heading) used by every simple
-// list-style student page.
+// Shared page shell used by every simple list-style student page. Full width
+// (edge-to-edge padding only) through every breakpoint up to `lg`, then caps
+// at `maxWidthClassName` and centers via auto margins from `xl` up —
+// `maxWidthClassName` should therefore only ever carry `xl:max-w-*` classes,
+// never an unprefixed `max-w-*`.
 export function PageContainer({
   title,
   children,
-  maxWidthClassName = "max-w-2xl",
+  maxWidthClassName = "xl:max-w-2xl",
 }: {
   title: string;
   children: React.ReactNode;
   maxWidthClassName?: string;
 }) {
   return (
-    <div className={`mx-auto w-full ${maxWidthClassName} p-6`}>
+    <div className={`w-full px-4 py-6 sm:px-6 lg:px-8 xl:mx-auto ${maxWidthClassName}`}>
       <h2 className="mb-4 text-xl font-semibold">{title}</h2>
       {children}
     </div>
