@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { prefetchVoice, speak, type SpeechLanguage as GameLanguage } from "@/lib/piper-tts";
+import { prefetchVoice, speak, warmupSpeech, type SpeechLanguage as GameLanguage } from "@/lib/piper-tts";
 
 // Celebration reward minigame — triggers when every one of today's lessons
 // is Completed (evaluated by the caller on dashboard load). See
@@ -41,23 +41,23 @@ const COLOR_NAMES: Record<GameLanguage, string[]> = {
 
 const ALPHABETS: Record<GameLanguage, string[]> = {
   en: [
-    "Aa", "Bb", "Cc", "Dd", "Ee", "Ff", "Gg", "Hh", "Ii", "Jj",
-    "Kk", "Ll", "Mm", "Nn", "Oo", "Pp", "Qq", "Rr", "Ss", "Tt",
-    "Uu", "Vv", "Ww", "Xx", "Yy", "Zz",
+    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J",
+    "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T",
+    "U", "V", "W", "X", "Y", "Z"
   ],
   uk: [
-    "Аа", "Бб", "Вв", "Гг", "Ґґ", "Дд", "Ее", "Єє", "Жж", "Зз",
-    "Ии", "Іі", "Її", "Йй", "Кк", "Лл", "Мм", "Нн", "Оо", "Пп",
-    "Рр", "Сс", "Тт", "Уу", "Фф", "Хх", "Цц", "Чч", "Шш", "Щщ",
-    "Ьь", "Юю", "Яя",
+    "А", "Б", "В", "Г", "Ґ", "Д", "Е", "Є", "Ж", "З",
+    "И", "І", "Ї", "Й", "К", "Л", "М", "Н", "О", "П",
+    "Р", "С", "Т", "У", "Ф", "Х", "Ц", "Ч", "Ш", "Щ",
+    "Ь", "Ю", "Я"
   ],
   pl: [
-    "Aa", "Ąą", "Bb", "Cc", "Ćć", "Dd", "Ee", "Ęę", "Ff", "Gg",
-    "Hh", "Ii", "Jj", "Kk", "Ll", "Łł", "Mm", "Nn", "Ńń", "Oo",
-    "Óó", "Pp", "Rr", "Ss", "Śś", "Tt", "Uu", "Ww", "Yy", "Zz",
-    "Źź", "Żż",
-  ],
-};
+    "A", "Ą", "B", "C", "Ć", "D", "E", "Ę", "F", "G",
+    "H", "I", "J", "K", "L", "Ł", "M", "N", "Ń", "O",
+    "Ó", "P", "R", "S", "Ś", "T", "U", "W", "Y", "Z",
+    "Ź", "Ż"
+  ]
+}
 
 const BALLOON_MODES: BalloonMode[] = ["numbers10", "numbers20", "numbers100", "colors", "letters"];
 const DEFAULT_MODE: BalloonMode = "numbers10";
@@ -131,6 +131,28 @@ function generateBalloonContent(
       const label = String(randomNumber(10));
       return { label, color: randomColor(), speech: label };
     }
+  }
+}
+
+// Every distinct value a mode can speak, for proactively warming the TTS
+// cache (see the mode/language effect below) so pops play instantly instead
+// of paying synthesis cost live. Skipped for numbers100 — 100 distinct
+// utterances is too much background synthesis for a vocabulary that's
+// mostly never hit in a single play session; those are cached lazily as
+// they come up instead.
+function vocabularyFor(mode: BalloonMode, language: GameLanguage): string[] {
+  switch (mode) {
+    case "numbers20":
+      return Array.from({ length: 20 }, (_, i) => String(i + 1));
+    case "numbers100":
+      return [];
+    case "colors":
+      return COLOR_NAMES[language];
+    case "letters":
+      return ALPHABETS[language].map((letter) => letter.charAt(0));
+    case "numbers10":
+    default:
+      return Array.from({ length: 10 }, (_, i) => String(i + 1));
   }
 }
 
@@ -277,10 +299,19 @@ export function BalloonPopGame() {
   }, [size, speed, maxOnScreen, mode, language]);
 
   // Warms the voice model cache as soon as a language is selected, so the
-  // first popped balloon doesn't stall on a multi-megabyte download.
+  // first popped balloon doesn't stall on a multi-megabyte download — then
+  // pre-synthesizes every value the selected mode can speak, so pops play
+  // back instantly from cache instead of paying full TTS synthesis latency
+  // (piper-tts rebuilds its inference session from scratch on every call).
   useEffect(() => {
-    void prefetchVoice(language, "short");
-  }, [language]);
+    let cancelled = false;
+    void prefetchVoice(language, "short").then(() => {
+      if (!cancelled) warmupSpeech(vocabularyFor(mode, language), language, "short");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, language]);
 
   const handleMissed = (balloonId: number) => {
     setBalloons((current) => current.filter((b) => b.id !== balloonId));

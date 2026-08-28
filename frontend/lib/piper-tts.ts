@@ -60,6 +60,43 @@ let currentAudio: HTMLAudioElement | null = null;
 // it already started.
 let sequenceToken = 0;
 
+// piper-tts's predict() re-creates a full onnxruntime-web InferenceSession
+// from the model bytes on every call — expensive (hundreds of ms+) even
+// once the model itself is cached in OPFS. Short, high-repeat utterances
+// (digits, letters, color names) benefit hugely from caching the resulting
+// WAV per (language, profile, text) instead of re-synthesizing every time.
+const synthesisCache = new Map<string, Promise<Blob>>();
+
+function synthesisCacheKey(text: string, language: SpeechLanguage, profile: VoiceProfile): string {
+  return `${language}:${profile}:${text}`;
+}
+
+function getOrSynthesize(text: string, language: SpeechLanguage, profile: VoiceProfile): Promise<Blob> {
+  const key = synthesisCacheKey(text, language, profile);
+  let cached = synthesisCache.get(key);
+  if (!cached) {
+    cached = piperTts.predict({ text, voiceId: voiceIdFor(language, profile) });
+    synthesisCache.set(key, cached);
+    // Don't poison the cache with a failed synthesis — let the next call retry.
+    cached.catch(() => synthesisCache.delete(key));
+  }
+  return cached;
+}
+
+// Chains background synthesis so warmup calls run one at a time instead of
+// racing several InferenceSession creations at once.
+let warmupQueue: Promise<void> = Promise.resolve();
+
+// Pre-synthesizes `texts` in the background so they're already cached by
+// the time they're actually spoken (e.g. every number/letter/color a game
+// mode can produce). Safe to call repeatedly — already-cached or
+// already-queued texts are cheap no-ops.
+export function warmupSpeech(texts: string[], language: SpeechLanguage, profile: VoiceProfile = "short"): void {
+  for (const text of texts) {
+    warmupQueue = warmupQueue.then(() => getOrSynthesize(text, language, profile).then(() => undefined, () => undefined));
+  }
+}
+
 // Prefetches the voice model into OPFS so switching language doesn't stall
 // the first utterance on a multi-megabyte download. `download()` always
 // re-fetches, so we check `stored()` ourselves first.
@@ -126,7 +163,7 @@ async function drainQueue(): Promise<void> {
 
 async function synthesizeAndPlay(text: string, language: SpeechLanguage, profile: VoiceProfile): Promise<void> {
   try {
-    const wav = await piperTts.predict({ text, voiceId: voiceIdFor(language, profile) });
+    const wav = await getOrSynthesize(text, language, profile);
     currentAudio?.pause();
     const audio = new Audio(URL.createObjectURL(wav));
     currentAudio = audio;
@@ -144,7 +181,7 @@ async function synthesizeAndPlayToEnd(
   token: number,
 ): Promise<void> {
   try {
-    const wav = await piperTts.predict({ text, voiceId: voiceIdFor(language, profile) });
+    const wav = await getOrSynthesize(text, language, profile);
     if (token !== sequenceToken) return;
     const audio = new Audio(URL.createObjectURL(wav));
     currentAudio = audio;
