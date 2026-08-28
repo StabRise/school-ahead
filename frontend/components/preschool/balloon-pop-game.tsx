@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { prefetchVoice, speak, warmupSpeech, type SpeechLanguage as GameLanguage } from "@/lib/piper-tts";
+import { useBackgroundMusic } from "@/lib/use-background-music";
 import { useBalloonPopGameStore, type BalloonMode } from "@/stores/balloon-pop-game-store";
+import { useGameMusicStore } from "@/stores/game-music-store";
 
 // Celebration reward minigame — triggers when every one of today's lessons
 // is Completed (evaluated by the caller on dashboard load). See
@@ -292,7 +294,13 @@ export function BalloonPopGame() {
   const setLanguage = useBalloonPopGameStore((s) => s.setLanguage);
   const muted = useBalloonPopGameStore((s) => s.muted);
   const setMuted = useBalloonPopGameStore((s) => s.setMuted);
+  const musicEnabled = useGameMusicStore((s) => s.musicEnabled);
+  const setMusicEnabled = useGameMusicStore((s) => s.setMusicEnabled);
+  const musicVolume = useGameMusicStore((s) => s.volume);
+  const setMusicVolume = useGameMusicStore((s) => s.setVolume);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useBackgroundMusic();
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -397,6 +405,15 @@ export function BalloonPopGame() {
         ⚙️
       </button>
 
+      <button
+        type="button"
+        aria-label={musicEnabled ? t("musicOnLabel") : t("musicOffLabel")}
+        onClick={() => setMusicEnabled(!musicEnabled)}
+        className="absolute left-16 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+      >
+        {musicEnabled ? "🎵" : "🔇"}
+      </button>
+
       {settingsOpen && (
         <div className="absolute left-4 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200">
           <label className="flex flex-col gap-1">
@@ -430,6 +447,17 @@ export function BalloonPopGame() {
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={muted} onChange={(e) => setMuted(e.target.checked)} />
             <span className="font-medium text-gray-700">{t("mutedLabel")}</span>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="font-medium text-gray-700">{t("musicVolumeLabel")}</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={musicVolume}
+              onChange={(e) => setMusicVolume(Number(e.target.value))}
+            />
           </label>
           <label className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("sizeLabel")}</span>

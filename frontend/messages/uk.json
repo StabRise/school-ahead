@@ -47,6 +47,9 @@
     "score": "{count, plural, one {Лопнуто # кульку} few {Лопнуто # кульки} many {Лопнуто # кульок} other {Лопнуто # кульки}}",
     "balloon": "Кулька",
     "settingsButton": "Налаштування гри",
+    "musicOnLabel": "Вимкнути музику",
+    "musicOffLabel": "Увімкнути музику",
+    "musicVolumeLabel": "Гучність музики",
     "modeLabel": "Що написано на кульках",
     "mode": {
       "numbers10": "Числа 1-10",
@@ -71,6 +74,9 @@
     "subtitle": "Зачекай на потяг 🚂",
     "instruction": "Натисни на клавіатурі букву {letter}",
     "settingsButton": "Налаштування гри",
+    "musicOnLabel": "Вимкнути музику",
+    "musicOffLabel": "Увімкнути музику",
+    "musicVolumeLabel": "Гучність музики",
     "languageLabel": "Мова",
     "language": {
       "en": "English",

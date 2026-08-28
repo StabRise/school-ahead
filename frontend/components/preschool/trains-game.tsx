@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { prefetchVoice, speak, type SpeechLanguage as GameLanguage } from "@/lib/piper-tts";
+import { useBackgroundMusic } from "@/lib/use-background-music";
 import { useTrainsGameStore } from "@/stores/trains-game-store";
+import { useGameMusicStore } from "@/stores/game-music-store";
 
 // Celebration reward minigame, alternative to BalloonPopGame — same trigger
 // (every one of today's lessons, tails included, is Completed) but themed
@@ -161,7 +163,13 @@ export function TrainsGame() {
   const [collectedBump, setCollectedBump] = useState(0);
   const speed = useTrainsGameStore((s) => s.speed);
   const setSpeed = useTrainsGameStore((s) => s.setSpeed);
+  const musicEnabled = useGameMusicStore((s) => s.musicEnabled);
+  const setMusicEnabled = useGameMusicStore((s) => s.setMusicEnabled);
+  const musicVolume = useGameMusicStore((s) => s.volume);
+  const setMusicVolume = useGameMusicStore((s) => s.setVolume);
   const audioCtxRef = useRef<AudioContext | null>(null);
+
+  useBackgroundMusic();
 
   // Picks the very first letter client-side only, after mount — doing this
   // in a useState initializer would run during server render too and mismatch
@@ -296,6 +304,15 @@ export function TrainsGame() {
         ⚙️
       </button>
 
+      <button
+        type="button"
+        aria-label={musicEnabled ? t("musicOnLabel") : t("musicOffLabel")}
+        onClick={() => setMusicEnabled(!musicEnabled)}
+        className="absolute left-16 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+      >
+        {musicEnabled ? "🎵" : "🔇"}
+      </button>
+
       {settingsOpen && (
         <div className="absolute left-4 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200">
           <label className="flex flex-col gap-1">
@@ -311,6 +328,17 @@ export function TrainsGame() {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="font-medium text-gray-700">{t("musicVolumeLabel")}</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={musicVolume}
+              onChange={(e) => setMusicVolume(Number(e.target.value))}
+            />
           </label>
           <label className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("speedLabel")}</span>
