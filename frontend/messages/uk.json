@@ -77,6 +77,7 @@
       "uk": "Українська",
       "pl": "Polski"
     },
+    "speedLabel": "Швидкість",
     "collectedLabel": "Зібрані букви",
     "collected": "{count, plural, one {Зібрано # букву} few {Зібрано # букви} many {Зібрано # букв} other {Зібрано # букви}}"
   },
