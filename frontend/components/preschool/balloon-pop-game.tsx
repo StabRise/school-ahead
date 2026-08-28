@@ -210,11 +210,26 @@ function BalloonNode({
   onMissed: (balloonId: number) => void;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
+  // A plain onClick only fires if the mouse/touch goes down and up on
+  // (roughly) the same spot — a child pressing and dragging away before
+  // release never triggers a click, so the balloon survives untouched.
+  // Popping on pointerdown instead reacts the instant it's pressed,
+  // independent of whatever the pointer does afterward. onClick stays as a
+  // fallback for keyboard activation (Enter/Space), guarded so a completed
+  // mouse click doesn't pop the same balloon twice.
+  const poppedRef = useRef(false);
 
   const handlePop = () => {
+    if (poppedRef.current) return;
     const rect = ref.current?.getBoundingClientRect();
     if (!rect) return;
+    poppedRef.current = true;
     onPop(balloon, rect);
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    handlePop();
   };
 
   return (
@@ -222,6 +237,7 @@ function BalloonNode({
       ref={ref}
       type="button"
       aria-label={label}
+      onPointerDown={handlePointerDown}
       onClick={handlePop}
       className="absolute top-0 cursor-pointer touch-manipulation"
       style={{
