@@ -64,18 +64,56 @@ let sequenceToken = 0;
 // from the model bytes on every call — expensive (hundreds of ms+) even
 // once the model itself is cached in OPFS. Short, high-repeat utterances
 // (digits, letters, color names) benefit hugely from caching the resulting
-// WAV per (language, profile, text) instead of re-synthesizing every time.
+// WAV per (voiceId, text) instead of re-synthesizing every time.
+//
+// Two layers: an in-memory Map (dedupes concurrent/rapid calls within a tab)
+// backed by the CacheStorage API (survives page reloads — otherwise every
+// fresh page load pays the full warmup latency again, since the in-memory
+// map alone resets on every load).
 const synthesisCache = new Map<string, Promise<Blob>>();
+const AUDIO_CACHE_NAME = "piper-tts-audio-v1";
 
-function synthesisCacheKey(text: string, language: SpeechLanguage, profile: VoiceProfile): string {
-  return `${language}:${profile}:${text}`;
+// CacheStorage keys audio by (voiceId, text), not (language, profile, text)
+// — voiceId is what actually determines the audio, and keying on it means a
+// future change to the language→voice mapping naturally stops reusing
+// stale audio from a since-replaced voice instead of silently serving it.
+function audioCacheUrl(voiceId: VoiceId, text: string): string {
+  return `${location.origin}/__piper-tts-cache__/${encodeURIComponent(voiceId)}/${encodeURIComponent(text)}`;
+}
+
+async function getPersistedAudio(voiceId: VoiceId, text: string): Promise<Blob | undefined> {
+  if (typeof caches === "undefined") return undefined;
+  try {
+    const cache = await caches.open(AUDIO_CACHE_NAME);
+    const match = await cache.match(audioCacheUrl(voiceId, text));
+    return await match?.blob();
+  } catch {
+    return undefined;
+  }
+}
+
+async function persistAudio(voiceId: VoiceId, text: string, wav: Blob): Promise<void> {
+  if (typeof caches === "undefined") return;
+  try {
+    const cache = await caches.open(AUDIO_CACHE_NAME);
+    await cache.put(audioCacheUrl(voiceId, text), new Response(wav, { headers: { "Content-Type": "audio/x-wav" } }));
+  } catch {
+    // Best-effort only — private browsing, storage quota, unsupported browser, ...
+  }
 }
 
 function getOrSynthesize(text: string, language: SpeechLanguage, profile: VoiceProfile): Promise<Blob> {
-  const key = synthesisCacheKey(text, language, profile);
+  const voiceId = voiceIdFor(language, profile);
+  const key = `${voiceId}:${text}`;
   let cached = synthesisCache.get(key);
   if (!cached) {
-    cached = piperTts.predict({ text, voiceId: voiceIdFor(language, profile) });
+    cached = (async () => {
+      const persisted = await getPersistedAudio(voiceId, text);
+      if (persisted) return persisted;
+      const wav = await piperTts.predict({ text, voiceId });
+      void persistAudio(voiceId, text, wav);
+      return wav;
+    })();
     synthesisCache.set(key, cached);
     // Don't poison the cache with a failed synthesis — let the next call retry.
     cached.catch(() => synthesisCache.delete(key));

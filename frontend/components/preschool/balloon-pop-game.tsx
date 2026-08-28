@@ -3,12 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { prefetchVoice, speak, warmupSpeech, type SpeechLanguage as GameLanguage } from "@/lib/piper-tts";
+import { useBalloonPopGameStore, type BalloonMode } from "@/stores/balloon-pop-game-store";
 
 // Celebration reward minigame — triggers when every one of today's lessons
 // is Completed (evaluated by the caller on dashboard load). See
 // docs/interfaces/preschool.md section 2.4.
-
-type BalloonMode = "numbers10" | "numbers20" | "numbers100" | "colors" | "letters";
 
 interface FallingBalloon {
   id: number;
@@ -60,24 +59,19 @@ const ALPHABETS: Record<GameLanguage, string[]> = {
 }
 
 const BALLOON_MODES: BalloonMode[] = ["numbers10", "numbers20", "numbers100", "colors", "letters"];
-const DEFAULT_MODE: BalloonMode = "numbers10";
-
 const GAME_LANGUAGES: GameLanguage[] = ["en", "uk", "pl"];
-const DEFAULT_LANGUAGE: GameLanguage = "en";
 
 const SPAWN_INTERVAL_MS = 850;
 const PARTICLES_PER_POP = 10;
 
-// Sliders' defaults reproduce the original hardcoded values exactly: size
-// randomBetween(84, 140) is base=112 ± 25%, duration randomBetween(6, 11) is
-// speed=1 (i.e. unscaled), and 9 was the original MAX_ON_SCREEN.
-const DEFAULT_SIZE = 112;
+// Slider bounds — the sliders' persisted defaults (see balloon-pop-game-store)
+// reproduce the original hardcoded values exactly: size randomBetween(84, 140)
+// is base=112 ± 25%, duration randomBetween(6, 11) is speed=1 (i.e.
+// unscaled), and 9 was the original MAX_ON_SCREEN.
 const MIN_SIZE = 60;
 const MAX_SIZE = 200;
-const DEFAULT_SPEED = 1;
 const MIN_SPEED = 0.5;
 const MAX_SPEED = 3;
-const DEFAULT_COUNT = 9;
 const MIN_COUNT = 3;
 const MAX_COUNT = 24;
 
@@ -270,11 +264,18 @@ export function BalloonPopGame() {
   const [score, setScore] = useState(0);
   const [scoreBump, setScoreBump] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [size, setSize] = useState(DEFAULT_SIZE);
-  const [speed, setSpeed] = useState(DEFAULT_SPEED);
-  const [maxOnScreen, setMaxOnScreen] = useState(DEFAULT_COUNT);
-  const [mode, setMode] = useState<BalloonMode>(DEFAULT_MODE);
-  const [language, setLanguage] = useState<GameLanguage>(DEFAULT_LANGUAGE);
+  const size = useBalloonPopGameStore((s) => s.size);
+  const setSize = useBalloonPopGameStore((s) => s.setSize);
+  const speed = useBalloonPopGameStore((s) => s.speed);
+  const setSpeed = useBalloonPopGameStore((s) => s.setSpeed);
+  const maxOnScreen = useBalloonPopGameStore((s) => s.maxOnScreen);
+  const setMaxOnScreen = useBalloonPopGameStore((s) => s.setMaxOnScreen);
+  const mode = useBalloonPopGameStore((s) => s.mode);
+  const setMode = useBalloonPopGameStore((s) => s.setMode);
+  const language = useBalloonPopGameStore((s) => s.language);
+  const setLanguage = useBalloonPopGameStore((s) => s.setLanguage);
+  const muted = useBalloonPopGameStore((s) => s.muted);
+  const setMuted = useBalloonPopGameStore((s) => s.setMuted);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -303,7 +304,10 @@ export function BalloonPopGame() {
   // pre-synthesizes every value the selected mode can speak, so pops play
   // back instantly from cache instead of paying full TTS synthesis latency
   // (piper-tts rebuilds its inference session from scratch on every call).
+  // Skipped entirely while muted — no point downloading/synthesizing voices
+  // nothing will play.
   useEffect(() => {
+    if (muted) return;
     let cancelled = false;
     void prefetchVoice(language, "short").then(() => {
       if (!cancelled) warmupSpeech(vocabularyFor(mode, language), language, "short");
@@ -311,7 +315,7 @@ export function BalloonPopGame() {
     return () => {
       cancelled = true;
     };
-  }, [mode, language]);
+  }, [mode, language, muted]);
 
   const handleMissed = (balloonId: number) => {
     setBalloons((current) => current.filter((b) => b.id !== balloonId));
@@ -343,7 +347,7 @@ export function BalloonPopGame() {
     }, 550);
 
     playPopSound();
-    speak(balloon.speech, language, "short");
+    if (!muted) speak(balloon.speech, language, "short");
     setScore((current) => current + 1);
     setScoreBump((current) => current + 1);
   };
@@ -406,6 +410,10 @@ export function BalloonPopGame() {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={muted} onChange={(e) => setMuted(e.target.checked)} />
+            <span className="font-medium text-gray-700">{t("mutedLabel")}</span>
           </label>
           <label className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("sizeLabel")}</span>
