@@ -19,7 +19,8 @@ interface FallingBalloon {
   delay: number; // seconds before starting
   size: number; // px
   label: string; // text printed on the balloon, depends on the selected mode
-  icon?: string; // optional emoji shown above the label, larger than its text
+  icon?: string; // optional emoji hung below the balloon
+  image?: string; // optional illustration hung below the balloon instead of `icon`
   speech: string; // text spoken via Piper TTS when the balloon is popped
 }
 
@@ -159,6 +160,16 @@ const BALLOON_SCHOOL_SUPPLIES: { name: string; emoji: string }[] = [
   { name: "Colored pencils", emoji: "🎨" },
 ];
 
+// "animalsEx" mode — like "animals", but hangs a drawn illustration below
+// the balloon instead of an emoji, for characters worth showing at higher
+// fidelity than a Unicode glyph allows. Files live in
+// public/preschool/animals, same static-asset convention as public/music
+// (see lib/use-background-music.ts).
+const BALLOON_ANIMALS_EX: { name: string; image: string }[] = [
+  { name: "Kitten", image: "/preschool/animals/kitten.jpeg" },
+  { name: "Panda", image: "/preschool/animals/panda.jpeg" },
+];
+
 const BALLOON_MODES: BalloonMode[] = [
   "numbers10",
   "numbers20",
@@ -167,6 +178,7 @@ const BALLOON_MODES: BalloonMode[] = [
   "letters",
   "greetings",
   "animals",
+  "animalsEx",
   "schoolSupplies",
 ];
 const GAME_LANGUAGES: GameLanguage[] = ["en", "uk", "pl"];
@@ -211,7 +223,7 @@ function randomFrom<T>(items: T[]): T {
 function generateBalloonContent(
   mode: BalloonMode,
   language: GameLanguage,
-): { label: string; icon?: string; color: string; speech: string } {
+): { label: string; icon?: string; image?: string; color: string; speech: string } {
   switch (mode) {
     case "numbers20": {
       const label = String(randomNumber(20));
@@ -237,6 +249,10 @@ function generateBalloonContent(
     case "animals": {
       const animal = randomFrom(BALLOON_ANIMALS);
       return { label: animal.name, icon: animal.emoji, color: randomColor(), speech: animal.name };
+    }
+    case "animalsEx": {
+      const animal = randomFrom(BALLOON_ANIMALS_EX);
+      return { label: animal.name, image: animal.image, color: randomColor(), speech: animal.name };
     }
     case "schoolSupplies": {
       const item = randomFrom(BALLOON_SCHOOL_SUPPLIES);
@@ -272,6 +288,8 @@ function vocabularyFor(mode: BalloonMode, language: GameLanguage): string[] {
       // 50 names is as much background synthesis as numbers100's 100 — skip
       // proactive warmup and let pops cache lazily as each name comes up.
       return [];
+    case "animalsEx":
+      return BALLOON_ANIMALS_EX.map((animal) => animal.name);
     case "schoolSupplies":
       return BALLOON_SCHOOL_SUPPLIES.map((item) => item.name);
     case "numbers10":
@@ -374,12 +392,17 @@ function BalloonNode({
   const poppedRef = useRef(false);
   const lines = wrapBalloonLabel(balloon.label);
   const fontSize = labelFontSize(lines);
-  // The icon (e.g. "animals" mode) hangs below the balloon on its string,
-  // like the animal is dangling from it as it falls — not printed inside
-  // the balloon itself, which stays the same size regardless of icon.
-  const hasIcon = Boolean(balloon.icon);
-  const viewBoxHeight = hasIcon ? 74 : 52;
+  // The icon/image (e.g. "animals"/"animalsEx" modes) hangs below the
+  // balloon on its string, like the character is dangling from it as it
+  // falls — not printed inside the balloon itself, which stays the same
+  // size regardless. A photo/illustration needs more room than an emoji
+  // glyph, so it gets a taller viewBox and a bigger charm.
+  const hasImage = Boolean(balloon.image);
+  const hasIcon = Boolean(balloon.icon) || hasImage;
+  const viewBoxHeight = hasImage ? 86 : hasIcon ? 74 : 52;
   const stringEndY = hasIcon ? 60 : 52;
+  const imageRadius = 11;
+  const imageCenterY = stringEndY + imageRadius + 1;
 
   const handlePop = () => {
     if (poppedRef.current) return;
@@ -442,16 +465,35 @@ function BalloonNode({
         </text>
         <path d="M20 40 L17 46 L23 46 Z" fill={balloon.color} />
         <line x1="20" y1="46" x2="20" y2={stringEndY} stroke="#94a3b8" strokeWidth="1" />
-        {hasIcon && (
-          <text
-            x="20"
-            y={stringEndY + 10}
-            textAnchor="middle"
-            fontSize="16"
-            style={{ pointerEvents: "none", userSelect: "none" }}
-          >
-            {balloon.icon}
-          </text>
+        {hasImage ? (
+          <>
+            <clipPath id={`balloon-clip-${balloon.id}`}>
+              <circle cx="20" cy={imageCenterY} r={imageRadius} />
+            </clipPath>
+            <circle cx="20" cy={imageCenterY} r={imageRadius + 1} fill="white" stroke="#94a3b8" strokeWidth="1" />
+            <image
+              href={balloon.image}
+              x={20 - imageRadius}
+              y={imageCenterY - imageRadius}
+              width={imageRadius * 2}
+              height={imageRadius * 2}
+              preserveAspectRatio="xMidYMid slice"
+              clipPath={`url(#balloon-clip-${balloon.id})`}
+              style={{ pointerEvents: "none" }}
+            />
+          </>
+        ) : (
+          balloon.icon && (
+            <text
+              x="20"
+              y={stringEndY + 10}
+              textAnchor="middle"
+              fontSize="16"
+              style={{ pointerEvents: "none", userSelect: "none" }}
+            >
+              {balloon.icon}
+            </text>
+          )
         )}
       </svg>
     </button>
@@ -489,7 +531,7 @@ export function BalloonPopGame() {
     const interval = setInterval(() => {
       setBalloons((current) => {
         if (current.length >= maxOnScreen) return current;
-        const { label, icon, color, speech } = generateBalloonContent(mode, language);
+        const { label, icon, image, color, speech } = generateBalloonContent(mode, language);
         const balloon: FallingBalloon = {
           id: nextBalloonId++,
           left: randomBetween(4, 82),
@@ -499,6 +541,7 @@ export function BalloonPopGame() {
           size: randomBetween(size * 0.75, size * 1.25),
           label,
           icon,
+          image,
           speech,
         };
         return [...current, balloon];

@@ -15,6 +15,7 @@ export type BalloonMode =
   | "letters"
   | "greetings"
   | "animals"
+  | "animalsEx"
   | "schoolSupplies";
 
 const DEFAULT_MODE: BalloonMode = "numbers10";
