@@ -1,12 +1,54 @@
 "use client";
 
+import { useState } from "react";
+import { isAxiosError } from "axios";
+import { Lock } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { getMeQueryKey, useUpdateAvatarItems } from "@/lib/api/browser/auth/auth";
+import { getMeQueryKey, usePurchaseAvatarItem, useUpdateAvatarItems } from "@/lib/api/browser/auth/auth";
 import { mapApiUserToAuthUser } from "@/lib/api/map-user";
 import { useAuthStore, type EquippedAvatarItem } from "@/stores/auth-store";
+import { NotEnoughDiamondsDialog } from "@/components/profile/not-enough-diamonds-dialog";
 
 const SINGLE_SLOTS = ["headwear", "accessory"] as const;
+
+function WardrobeItemButton({
+  item,
+  isSelected,
+  disabled,
+  onClick,
+}: {
+  item: EquippedAvatarItem;
+  isSelected: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={item.isUnlocked ? isSelected : undefined}
+      title={item.isUnlocked ? item.name : `${item.name} — 💎 ${item.price}`}
+      className={`relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border bg-white transition-colors disabled:cursor-default disabled:opacity-60 ${
+        item.isUnlocked && isSelected
+          ? "border-gray-900 bg-gray-900/5"
+          : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+      }`}
+    >
+      {item.image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={item.image} alt="" className="h-full w-full object-contain" />
+      ) : null}
+      {!item.isUnlocked && (
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-white/85 text-[10px] font-semibold text-gray-700">
+          <Lock className="h-3.5 w-3.5" />
+          <span className="tabular-nums">💎{item.price}</span>
+        </span>
+      )}
+    </button>
+  );
+}
 
 // Wardrobe pickers for the equipped avatar's wardrobe — see
 // docs/core/avatar.md section 2.2. Clothing is multi-select: several pieces
@@ -15,12 +57,19 @@ const SINGLE_SLOTS = ["headwear", "accessory"] as const;
 // Headwear/accessory still equip at most one each (re-selecting the active
 // one, or picking "none", unequips it). The mutation always sends the full
 // wardrobe state (see UpdateAvatarItemsIn on the backend).
+//
+// A priced, not-yet-unlocked item shows a lock + price instead of equipping
+// on click — clicking it purchases first (docs/core/avatar.md's Diamond
+// shop), then equips it immediately on success. Insufficient balance shows
+// the "earn more Diamonds" dialog the doc calls for instead of equipping.
 export function AvatarWardrobe() {
   const t = useTranslations("Profile");
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
   const queryClient = useQueryClient();
   const updateItems = useUpdateAvatarItems();
+  const purchaseItem = usePurchaseAvatarItem();
+  const [notEnoughDiamonds, setNotEnoughDiamonds] = useState<{ itemName: string; price: number } | null>(null);
 
   const items = user?.equippedAvatar?.items ?? [];
   const clothingItems = items.filter((item) => item.slot === "clothing");
@@ -29,6 +78,7 @@ export function AvatarWardrobe() {
     headwear: user?.equippedHeadwear ?? null,
     accessory: user?.equippedAccessory ?? null,
   };
+  const isBusy = updateItems.isPending || purchaseItem.isPending;
 
   const save = (clothingIds: number[], headwearId: number | null, accessoryId: number | null) => {
     updateItems.mutate(
@@ -43,7 +93,7 @@ export function AvatarWardrobe() {
   };
 
   const handleToggleClothing = (itemId: number) => {
-    if (updateItems.isPending) return;
+    if (isBusy) return;
     const nextIds = equippedClothingIds.has(itemId)
       ? [...equippedClothingIds].filter((id) => id !== itemId)
       : [...equippedClothingIds, itemId];
@@ -51,16 +101,35 @@ export function AvatarWardrobe() {
   };
 
   const handleClearClothing = () => {
-    if (updateItems.isPending || equippedClothingIds.size === 0) return;
+    if (isBusy || equippedClothingIds.size === 0) return;
     save([], equippedBySingleSlot.headwear?.id ?? null, equippedBySingleSlot.accessory?.id ?? null);
   };
 
   const handleSelectSingle = (slot: (typeof SINGLE_SLOTS)[number], itemId: number | null) => {
-    if (updateItems.isPending || equippedBySingleSlot[slot]?.id === itemId) return;
+    if (isBusy || equippedBySingleSlot[slot]?.id === itemId) return;
     save(
       [...equippedClothingIds],
       slot === "headwear" ? itemId : (equippedBySingleSlot.headwear?.id ?? null),
       slot === "accessory" ? itemId : (equippedBySingleSlot.accessory?.id ?? null),
+    );
+  };
+
+  const handleBuy = (item: EquippedAvatarItem, onUnlocked: () => void) => {
+    if (isBusy) return;
+    purchaseItem.mutate(
+      { itemId: item.id },
+      {
+        onSuccess: (response) => {
+          setUser(mapApiUserToAuthUser(response.user));
+          queryClient.invalidateQueries({ queryKey: getMeQueryKey() });
+          onUnlocked();
+        },
+        onError: (error) => {
+          if (isAxiosError(error) && error.response?.status === 402) {
+            setNotEnoughDiamonds({ itemName: item.name, price: item.price });
+          }
+        },
+      },
     );
   };
 
@@ -75,7 +144,7 @@ export function AvatarWardrobe() {
             <button
               type="button"
               onClick={handleClearClothing}
-              disabled={updateItems.isPending}
+              disabled={isBusy}
               aria-pressed={equippedClothingIds.size === 0}
               className={`flex h-14 w-14 items-center justify-center rounded-lg border text-xs text-gray-500 transition-colors disabled:cursor-default disabled:opacity-60 ${
                 equippedClothingIds.size === 0
@@ -85,29 +154,19 @@ export function AvatarWardrobe() {
             >
               {t("wardrobeNone")}
             </button>
-            {clothingItems.map((item) => {
-              const isSelected = equippedClothingIds.has(item.id);
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => handleToggleClothing(item.id)}
-                  disabled={updateItems.isPending}
-                  aria-pressed={isSelected}
-                  title={item.name}
-                  className={`flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border bg-white transition-colors disabled:cursor-default disabled:opacity-60 ${
-                    isSelected
-                      ? "border-gray-900 bg-gray-900/5"
-                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                  }`}
-                >
-                  {item.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.image} alt="" className="h-full w-full object-contain" />
-                  ) : null}
-                </button>
-              );
-            })}
+            {clothingItems.map((item) => (
+              <WardrobeItemButton
+                key={item.id}
+                item={item}
+                isSelected={equippedClothingIds.has(item.id)}
+                disabled={isBusy}
+                onClick={() =>
+                  item.isUnlocked
+                    ? handleToggleClothing(item.id)
+                    : handleBuy(item, () => handleToggleClothing(item.id))
+                }
+              />
+            ))}
           </div>
         </div>
       )}
@@ -124,7 +183,7 @@ export function AvatarWardrobe() {
               <button
                 type="button"
                 onClick={() => handleSelectSingle(slot, null)}
-                disabled={updateItems.isPending}
+                disabled={isBusy}
                 aria-pressed={equippedId === null}
                 className={`flex h-14 w-14 items-center justify-center rounded-lg border text-xs text-gray-500 transition-colors disabled:cursor-default disabled:opacity-60 ${
                   equippedId === null
@@ -134,33 +193,31 @@ export function AvatarWardrobe() {
               >
                 {t("wardrobeNone")}
               </button>
-              {slotItems.map((item) => {
-                const isSelected = equippedId === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => handleSelectSingle(slot, item.id)}
-                    disabled={updateItems.isPending}
-                    aria-pressed={isSelected}
-                    title={item.name}
-                    className={`flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border bg-white transition-colors disabled:cursor-default disabled:opacity-60 ${
-                      isSelected
-                        ? "border-gray-900 bg-gray-900/5"
-                        : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                    }`}
-                  >
-                    {item.image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={item.image} alt="" className="h-full w-full object-contain" />
-                    ) : null}
-                  </button>
-                );
-              })}
+              {slotItems.map((item) => (
+                <WardrobeItemButton
+                  key={item.id}
+                  item={item}
+                  isSelected={equippedId === item.id}
+                  disabled={isBusy}
+                  onClick={() =>
+                    item.isUnlocked
+                      ? handleSelectSingle(slot, item.id)
+                      : handleBuy(item, () => handleSelectSingle(slot, item.id))
+                  }
+                />
+              ))}
             </div>
           </div>
         );
       })}
+
+      <NotEnoughDiamondsDialog
+        open={notEnoughDiamonds !== null}
+        onOpenChange={(open) => !open && setNotEnoughDiamonds(null)}
+        itemName={notEnoughDiamonds?.itemName ?? ""}
+        price={notEnoughDiamonds?.price ?? 0}
+        balance={user?.diamondBalance ?? 0}
+      />
     </div>
   );
 }

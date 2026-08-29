@@ -4,6 +4,7 @@ import pytest
 
 from accounts.models import (
     Avatar,
+    AvatarItem,
     InterfaceMode,
     RefreshToken,
     Role,
@@ -279,3 +280,112 @@ def test_logout_via_bearer_exempt_from_csrf(mock_verify, api_client):
         headers={'Authorization': f'Bearer {access_token}'},
     )
     assert response.status_code == 204
+
+
+def _make_student_with_avatar(diamonds=0):
+    user = User.objects.create_user(email='shopper@example.com', role=Role.STUDENT)
+    avatar = Avatar.objects.create(key='test-shop-avatar', name='Shop Avatar')
+    student = StudentProfile.objects.create(
+        user=user, equipped_avatar=avatar, diamond_balance_cache=diamonds
+    )
+    return user, student, avatar
+
+
+def test_purchase_avatar_item_deducts_diamonds_and_unlocks(api_client, auth_header):
+    user, student, avatar = _make_student_with_avatar(diamonds=50)
+    item = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='jacket', name='Jacket', price=30)
+
+    response = api_client.post(f'/auth/me/avatar-items/{item.id}/purchase', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['diamond_balance'] == 20
+    student.refresh_from_db()
+    assert student.unlocked_items.filter(pk=item.pk).exists()
+
+
+def test_purchase_avatar_item_rejects_insufficient_balance(api_client, auth_header):
+    user, student, avatar = _make_student_with_avatar(diamonds=10)
+    item = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='jacket', name='Jacket', price=30)
+
+    response = api_client.post(f'/auth/me/avatar-items/{item.id}/purchase', headers=auth_header(user))
+
+    assert response.status_code == 402
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 10
+    assert not student.unlocked_items.filter(pk=item.pk).exists()
+
+
+def test_purchase_avatar_item_rejects_already_unlocked(api_client, auth_header):
+    user, student, avatar = _make_student_with_avatar(diamonds=100)
+    item = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='jacket', name='Jacket', price=30)
+    student.unlocked_items.add(item)
+
+    response = api_client.post(f'/auth/me/avatar-items/{item.id}/purchase', headers=auth_header(user))
+
+    assert response.status_code == 409
+
+
+def test_free_item_is_always_unlocked_without_purchase(api_client, auth_header):
+    user, student, avatar = _make_student_with_avatar(diamonds=0)
+    item = AvatarItem.objects.create(avatar=avatar, slot='headwear', key='cap', name='Cap', price=0)
+
+    response = api_client.patch(
+        '/auth/me/avatar-items', json={'headwear_item_id': item.id}, headers=auth_header(user),
+    )
+
+    assert response.status_code == 200
+    assert response.data['user']['equipped_headwear']['key'] == 'cap'
+
+
+def test_equip_priced_item_requires_purchase_first(api_client, auth_header):
+    user, student, avatar = _make_student_with_avatar(diamonds=100)
+    item = AvatarItem.objects.create(avatar=avatar, slot='headwear', key='top-hat', name='Top Hat', price=30)
+
+    response = api_client.patch(
+        '/auth/me/avatar-items', json={'headwear_item_id': item.id}, headers=auth_header(user),
+    )
+    assert response.status_code == 403
+
+    purchase = api_client.post(f'/auth/me/avatar-items/{item.id}/purchase', headers=auth_header(user))
+    assert purchase.status_code == 200
+
+    equip = api_client.patch(
+        '/auth/me/avatar-items', json={'headwear_item_id': item.id}, headers=auth_header(user),
+    )
+    assert equip.status_code == 200
+    assert equip.data['user']['equipped_headwear']['key'] == 'top-hat'
+
+
+def test_unlocked_item_survives_switching_avatar_and_back(api_client, auth_header):
+    """The exact scenario from docs/core/avatar.md section 2.2: a purchased
+    item must stay available even after equipping a different companion and
+    then switching back to the original one."""
+    user, student, avatar = _make_student_with_avatar(diamonds=100)
+    other_avatar = Avatar.objects.create(key='test-other-avatar', name='Other Avatar')
+    item = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='jacket', name='Jacket', price=30)
+
+    api_client.post(f'/auth/me/avatar-items/{item.id}/purchase', headers=auth_header(user))
+    api_client.patch('/auth/me/avatar-items', json={'clothing_item_ids': [item.id]}, headers=auth_header(user))
+
+    # Switch away — the wardrobe clears (it belongs to the old avatar)...
+    switch_away = api_client.patch(
+        '/auth/me/avatar', json={'avatar_id': other_avatar.id}, headers=auth_header(user),
+    )
+    assert switch_away.status_code == 200
+    assert switch_away.data['user']['equipped_clothing_items'] == []
+
+    # ...and switch back: the item is still unlocked and equippable again,
+    # without paying for it a second time.
+    switch_back = api_client.patch(
+        '/auth/me/avatar', json={'avatar_id': avatar.id}, headers=auth_header(user),
+    )
+    assert switch_back.status_code == 200
+
+    re_equip = api_client.patch(
+        '/auth/me/avatar-items', json={'clothing_item_ids': [item.id]}, headers=auth_header(user),
+    )
+    assert re_equip.status_code == 200
+    assert [i['key'] for i in re_equip.data['user']['equipped_clothing_items']] == ['jacket']
+
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 70

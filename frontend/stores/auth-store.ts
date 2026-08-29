@@ -37,6 +37,12 @@ export interface EquippedAvatarItem {
   // first/closer to skin) — meaningless for headwear/accessory, which equip
   // one at a time. See docs/core/avatar.md.
   layerOrder: number;
+  // Diamond shop — see docs/core/avatar.md section 2.2. price=0 is free.
+  // isUnlocked reflects the current student (always true for price=0);
+  // equipping requires it, and the wardrobe offers a purchase flow when
+  // it's false.
+  price: number;
+  isUnlocked: boolean;
 }
 
 export interface AuthUser {

@@ -16,6 +16,8 @@ function mapAvatarItem(item: AvatarItemOut): EquippedAvatarItem {
     offsetX: item.offset_x ?? 0,
     offsetY: item.offset_y ?? 0,
     layerOrder: item.layer_order ?? 0,
+    price: item.price ?? 0,
+    isUnlocked: item.is_unlocked ?? true,
   };
 }
 

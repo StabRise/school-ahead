@@ -431,7 +431,10 @@
       "clothing": "Одяг",
       "headwear": "Головний убір",
       "accessory": "Аксесуар"
-    }
+    },
+    "notEnoughDiamondsTitle": "Недостатньо діамантів",
+    "notEnoughDiamondsBody": "{item} коштує 💎{price}, а в тебе {balance}. Виконуй уроки, щоб заробити більше діамантів!",
+    "notEnoughDiamondsClose": "Зрозуміло"
   },
   "SubjectDetail": {
     "loading": "Завантаження...",
@@ -532,6 +535,7 @@
     "offsetY": "Зміщення по Y",
     "save": "Зберегти",
     "dragHint": "Перетягніть елемент мишкою, щоб змінити положення",
-    "layerOrder": "Порядок шару (для одягу)"
+    "layerOrder": "Порядок шару (для одягу)",
+    "price": "Ціна (💎)"
   }
 }

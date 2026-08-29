@@ -18,6 +18,7 @@ const SLOTS = ["clothing", "headwear", "accessory"] as const;
 const SCALE_RANGE = { min: 0.3, max: 2.5, step: 0.01 };
 const OFFSET_RANGE = { min: -50, max: 50, step: 0.5 };
 const LAYER_ORDER_RANGE = { min: 0, max: 6, step: 1 };
+const PRICE_RANGE = { min: 0, max: 500, step: 5 };
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -28,6 +29,7 @@ interface ItemDraft {
   offsetX: number;
   offsetY: number;
   layerOrder: number;
+  price: number;
 }
 
 interface DragState {
@@ -60,7 +62,7 @@ export function TutorAvatarEditorPage() {
   const [selectedAvatarId, setSelectedAvatarId] = useState<number | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [avatarScale, setAvatarScale] = useState(1);
-  const [itemDraft, setItemDraft] = useState<ItemDraft>({ scale: 1, offsetX: 0, offsetY: 0, layerOrder: 0 });
+  const [itemDraft, setItemDraft] = useState<ItemDraft>({ scale: 1, offsetX: 0, offsetY: 0, layerOrder: 0, price: 0 });
   const previewRef = useRef<HTMLDivElement>(null);
   const dragStateRef = useRef<DragState | null>(null);
 
@@ -87,6 +89,7 @@ export function TutorAvatarEditorPage() {
       offsetX: item?.offset_x ?? 0,
       offsetY: item?.offset_y ?? 0,
       layerOrder: item?.layer_order ?? 0,
+      price: item?.price ?? 0,
     });
   }
 
@@ -113,6 +116,7 @@ export function TutorAvatarEditorPage() {
           offset_x: itemDraft.offsetX,
           offset_y: itemDraft.offsetY,
           layer_order: itemDraft.layerOrder,
+          price: itemDraft.price,
         },
       },
       { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListTutorAvatarsQueryKey() }) },
@@ -242,7 +246,7 @@ export function TutorAvatarEditorPage() {
                               onClick={() => setSelectedItemId(candidate.id)}
                               aria-pressed={candidate.id === selectedItemId}
                               title={candidate.name}
-                              className={`flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border bg-white transition-colors ${
+                              className={`relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border bg-white transition-colors ${
                                 candidate.id === selectedItemId
                                   ? "border-gray-900 bg-gray-900/5"
                                   : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
@@ -252,6 +256,11 @@ export function TutorAvatarEditorPage() {
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img src={candidate.image} alt="" className="h-full w-full object-contain" />
                               ) : null}
+                              {!!candidate.price && (
+                                <span className="absolute bottom-0 right-0 rounded-tl bg-gray-900/80 px-1 text-[9px] font-semibold text-white">
+                                  💎{candidate.price}
+                                </span>
+                              )}
                             </button>
                           ))}
                         </div>
@@ -290,6 +299,13 @@ export function TutorAvatarEditorPage() {
                         onChange={(layerOrder) => setItemDraft((d) => ({ ...d, layerOrder }))}
                       />
                     )}
+                    <AvatarEditorSlider
+                      label={t("price")}
+                      value={itemDraft.price}
+                      {...PRICE_RANGE}
+                      decimals={0}
+                      onChange={(price) => setItemDraft((d) => ({ ...d, price }))}
+                    />
                     <button
                       type="button"
                       onClick={handleSaveItem}

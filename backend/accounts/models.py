@@ -116,6 +116,10 @@ class AvatarItem(models.Model):
     # lives here rather than on a clothing-only model since AvatarItem is
     # otherwise slot-agnostic.
     layer_order = models.PositiveSmallIntegerField(default=0)
+    # Diamond shop price — see docs/core/avatar.md section 2.2. 0 means free:
+    # every student can equip it without buying (see StudentProfile.
+    # unlocked_items for the purchase record of priced items).
+    price = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ['slot', 'order_index', 'id']
@@ -158,6 +162,13 @@ class StudentProfile(models.Model):
     equipped_accessory = models.ForeignKey(
         AvatarItem, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipped_as_accessory'
     )
+    # Every priced AvatarItem this student has ever bought — see
+    # docs/core/avatar.md section 2.2 and accounts.services.purchase_avatar_item.
+    # Deliberately independent of equipped_avatar/equipped_*: switching to a
+    # different companion and back must not lose access to items already
+    # paid for, so this is never touched by the equip endpoints, only by a
+    # purchase. Free items (AvatarItem.price == 0) don't need an entry here.
+    unlocked_items = models.ManyToManyField(AvatarItem, blank=True, related_name='unlocked_by')
 
     def __str__(self):
         # Same full_name-or-email fallback used everywhere a student's name

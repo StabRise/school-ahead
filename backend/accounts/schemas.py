@@ -25,6 +25,12 @@ class AvatarItemOut(Schema):
     # Stacking order among simultaneously-equipped clothing items — see
     # AvatarItem.layer_order. Meaningless for headwear/accessory.
     layer_order: int = 0
+    # Diamond shop — see docs/core/avatar.md section 2.2. price=0 is free.
+    # is_unlocked is relative to the requesting user (accounts.services.
+    # is_item_unlocked): always true for price=0 items, and for anyone
+    # without a StudentProfile (nothing to gate for non-students).
+    price: int = 0
+    is_unlocked: bool = True
 
 
 class AvatarOut(Schema):
@@ -111,3 +117,4 @@ class UpdateAvatarItemTransformIn(Schema):
     offset_x: float
     offset_y: float
     layer_order: int
+    price: int

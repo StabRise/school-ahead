@@ -687,6 +687,8 @@ def _tutor_avatar_item_out(item: AvatarItem, request: HttpRequest) -> AvatarItem
         offset_x=item.offset_x,
         offset_y=item.offset_y,
         layer_order=item.layer_order,
+        price=item.price,
+        is_unlocked=True,
     )
 
 
@@ -718,8 +720,9 @@ def update_tutor_avatar_transform(request: HttpRequest, avatar_id: int, payload:
 
 @router.patch('/avatar-items/{item_id}', response=AvatarItemOut, operation_id='update_tutor_avatar_item_transform')
 def update_tutor_avatar_item_transform(request: HttpRequest, item_id: int, payload: UpdateAvatarItemTransformIn):
-    """Sets a wardrobe item's size/position fine-tuning and clothing stacking
-    order — see AvatarItem.scale/offset_x/offset_y/layer_order."""
+    """Sets a wardrobe item's size/position fine-tuning, clothing stacking
+    order, and Diamond shop price — see
+    AvatarItem.scale/offset_x/offset_y/layer_order/price."""
     require_csrf(request)
     ensure_is_tutor(request)
     item = get_object_or_404(AvatarItem, id=item_id)
@@ -727,5 +730,6 @@ def update_tutor_avatar_item_transform(request: HttpRequest, item_id: int, paylo
     item.offset_x = payload.offset_x
     item.offset_y = payload.offset_y
     item.layer_order = payload.layer_order
-    item.save(update_fields=['scale', 'offset_x', 'offset_y', 'layer_order'])
+    item.price = payload.price
+    item.save(update_fields=['scale', 'offset_x', 'offset_y', 'layer_order', 'price'])
     return _tutor_avatar_item_out(item, request)
