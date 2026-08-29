@@ -132,6 +132,24 @@ def revoke_refresh_token(raw_refresh_token: str) -> None:
     )
 
 
+# Diamond reward for the balloon-pop minigame's 100-balloon milestone (see
+# frontend/components/preschool/balloon-pop-game.tsx). Same intentionally
+# simple StudentProfile.diamond_balance_cache counter as
+# lessons.services.LESSON_COMPLETION_DIAMONDS — no append-only ledger, and no
+# server-side tracking of balloons popped, so this trusts the frontend to
+# call it once per milestone reached in a play session.
+BALLOON_POP_MILESTONE_DIAMONDS = 1
+
+
+def award_balloon_pop_diamond(student: StudentProfile) -> None:
+    """Same atomic F() update as _award_completion_diamonds, so this can run
+    concurrently with other requests touching the same StudentProfile."""
+    StudentProfile.objects.filter(pk=student.pk).update(
+        diamond_balance_cache=F('diamond_balance_cache') + BALLOON_POP_MILESTONE_DIAMONDS
+    )
+    student.refresh_from_db(fields=['diamond_balance_cache'])
+
+
 def is_item_unlocked(student: StudentProfile, item: AvatarItem) -> bool:
     """Free items are unlocked for everyone; priced ones need a purchase
     record. See docs/core/avatar.md section 2.2."""

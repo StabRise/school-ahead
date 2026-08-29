@@ -264,3 +264,19 @@ def purchase_avatar_item(request: HttpRequest, item_id: int):
     except services.InsufficientDiamonds as exc:
         raise HttpError(402, 'Not enough Diamonds') from exc
     return MeOut(user=_user_out(request, request.auth))
+
+
+@router.post(
+    '/me/balloon-pop-reward',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='reward_balloon_pop',
+)
+def reward_balloon_pop(request: HttpRequest):
+    """Awards a Diamond for reaching the balloon-pop minigame's 100-balloon
+    milestone (frontend/components/preschool/balloon-pop-game.tsx). See
+    accounts.services.award_balloon_pop_diamond for the trust model."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    services.award_balloon_pop_diamond(student)
+    return MeOut(user=_user_out(request, request.auth))

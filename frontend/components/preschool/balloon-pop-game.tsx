@@ -1,11 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
+import { getMeQueryKey, useRewardBalloonPop } from "@/lib/api/browser/auth/auth";
+import { mapApiUserToAuthUser } from "@/lib/api/map-user";
 import { prefetchVoice, speak, warmupSpeech, type SpeechLanguage as GameLanguage } from "@/lib/piper-tts";
 import { useBackgroundMusic } from "@/lib/use-background-music";
+import { useAuthStore } from "@/stores/auth-store";
 import { useBalloonPopGameStore, type BalloonMode } from "@/stores/balloon-pop-game-store";
 import { useGameMusicStore } from "@/stores/game-music-store";
+
+// Every DIAMOND_MILESTONE ruby balloons popped converts into 1 Diamond,
+// awarded via POST /auth/me/balloon-pop-reward and animated flying to the
+// header's DiamondBadge (components/header.tsx, marked with
+// data-diamond-badge for this to find).
+const DIAMOND_MILESTONE = 10;
 
 // Celebration reward minigame — triggers when every one of today's lessons
 // is Completed (evaluated by the caller on dashboard load). See
@@ -358,6 +369,82 @@ function playPopSound() {
   }
 }
 
+// Celebratory rising arpeggio for the DIAMOND_MILESTONE reward — distinct
+// from playPopSound's single blip so it reads as a bigger event.
+function playDiamondChime() {
+  const AudioContextClass =
+    window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextClass) return;
+  try {
+    const ctx = new AudioContextClass();
+    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+    notes.forEach((frequency, i) => {
+      const startTime = ctx.currentTime + i * 0.09;
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, startTime);
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.3, startTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.4);
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.start(startTime);
+      oscillator.stop(startTime + 0.42);
+    });
+    setTimeout(() => ctx.close(), (notes.length * 0.09 + 0.42) * 1000);
+  } catch {
+    // Best-effort only — never block the reward on audio failures.
+  }
+}
+
+// Flies a 💎 from `from` (viewport coordinates, e.g. the score badge at the
+// moment DIAMOND_MILESTONE is hit) to the header's DiamondBadge, then calls
+// onDone so the caller can drop it from state. Portaled to document.body so
+// its `fixed` positioning isn't affected by the game container's own
+// `overflow-hidden`, and so it renders above the header it's flying into.
+function FlyingDiamond({ from, onDone }: { from: { x: number; y: number }; onDone: () => void }) {
+  // Measured once via a lazy initializer (runs synchronously during the
+  // first render, before paint) rather than in an effect, so there's no
+  // in-between frame where the target isn't known yet.
+  const [target] = useState(() => {
+    const badgeRect = document.querySelector("[data-diamond-badge]")?.getBoundingClientRect();
+    return badgeRect
+      ? { x: badgeRect.left + badgeRect.width / 2, y: badgeRect.top + badgeRect.height / 2 }
+      : { x: window.innerWidth - 32, y: 32 };
+  });
+  const [flying, setFlying] = useState(false);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setFlying(true));
+    // Fallback in case onTransitionEnd never fires (e.g. reduced-motion
+    // settings drop the transition) so the diamond can't get stuck forever.
+    const fallback = setTimeout(onDone, 1200);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(fallback);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const point = flying ? target : from;
+  return createPortal(
+    <span
+      aria-hidden="true"
+      onTransitionEnd={onDone}
+      className="pointer-events-none fixed top-0 left-0 z-50 text-3xl"
+      style={{
+        transform: `translate(${point.x - 16}px, ${point.y - 16}px) scale(${flying ? 0.4 : 1.4})`,
+        opacity: flying ? 0.15 : 1,
+        transition: "transform 0.9s cubic-bezier(0.3, 0, 0.6, 1), opacity 0.9s ease-in",
+      }}
+    >
+      💎
+    </span>,
+    document.body,
+  );
+}
+
 function RubyIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-9 w-9 drop-shadow" aria-hidden="true">
@@ -507,6 +594,12 @@ export function BalloonPopGame() {
   const [score, setScore] = useState(0);
   const [scoreBump, setScoreBump] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [flyingDiamond, setFlyingDiamond] = useState<{ id: number; from: { x: number; y: number } } | null>(null);
+  const awardedMilestonesRef = useRef<Set<number>>(new Set());
+  const scoreBadgeRef = useRef<HTMLDivElement>(null);
+  const setUser = useAuthStore((s) => s.setUser);
+  const queryClient = useQueryClient();
+  const rewardBalloonPop = useRewardBalloonPop();
   const size = useBalloonPopGameStore((s) => s.size);
   const setSize = useBalloonPopGameStore((s) => s.setSize);
   const speed = useBalloonPopGameStore((s) => s.speed);
@@ -568,6 +661,33 @@ export function BalloonPopGame() {
     };
   }, [mode, language, muted]);
 
+  // Every DIAMOND_MILESTONE ruby balloons popped awards 1 Diamond — dedupes
+  // via awardedMilestonesRef so React's dev-mode double-invoked effects (or
+  // a re-render before the mutation settles) can't double-award the same
+  // milestone.
+  useEffect(() => {
+    if (score === 0 || score % DIAMOND_MILESTONE !== 0) return;
+    if (awardedMilestonesRef.current.has(score)) return;
+    awardedMilestonesRef.current.add(score);
+
+    playDiamondChime();
+    const badgeRect = scoreBadgeRef.current?.getBoundingClientRect();
+    const from = badgeRect
+      ? { x: badgeRect.left + badgeRect.width / 2, y: badgeRect.top + badgeRect.height / 2 }
+      : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    setFlyingDiamond({ id: score, from });
+
+    rewardBalloonPop.mutate(undefined, {
+      onSuccess: (response) => {
+        setUser(mapApiUserToAuthUser(response.user));
+        queryClient.invalidateQueries({ queryKey: getMeQueryKey() });
+      },
+    });
+    // rewardBalloonPop/setUser/queryClient are stable across renders; only
+    // re-run when the score itself changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [score]);
+
   const handleMissed = (balloonId: number) => {
     setBalloons((current) => current.filter((b) => b.id !== balloonId));
   };
@@ -611,6 +731,7 @@ export function BalloonPopGame() {
       </div>
 
       <div
+        ref={scoreBadgeRef}
         key={scoreBump}
         role="status"
         aria-label={t("score", { count: score })}
@@ -622,6 +743,14 @@ export function BalloonPopGame() {
           {score}
         </span>
       </div>
+
+      {flyingDiamond && (
+        <FlyingDiamond
+          key={flyingDiamond.id}
+          from={flyingDiamond.from}
+          onDone={() => setFlyingDiamond((current) => (current?.id === flyingDiamond.id ? null : current))}
+        />
+      )}
 
       <button
         type="button"

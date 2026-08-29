@@ -418,3 +418,29 @@ def test_multiple_headwear_and_accessories_equip_together_sorted_by_layer_order(
     assert response.status_code == 200
     assert [i['key'] for i in response.data['user']['equipped_headwear_items']] == ['beanie', 'flower-crown']
     assert [i['key'] for i in response.data['user']['equipped_accessory_items']] == ['glasses', 'backpack']
+
+
+def test_reward_balloon_pop_awards_one_diamond(api_client, auth_header):
+    user, student, _avatar = _make_student_with_avatar(diamonds=5)
+
+    response = api_client.post('/auth/me/balloon-pop-reward', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['diamond_balance'] == 6
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 6
+
+
+def test_reward_balloon_pop_can_be_awarded_repeatedly(api_client, auth_header):
+    """No server-side tracking of balloons popped (see accounts.services.
+    award_balloon_pop_diamond) — every call adds another Diamond, trusting
+    the frontend to only call this once per DIAMOND_MILESTONE reached."""
+    user, student, _avatar = _make_student_with_avatar(diamonds=0)
+
+    api_client.post('/auth/me/balloon-pop-reward', headers=auth_header(user))
+    response = api_client.post('/auth/me/balloon-pop-reward', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['diamond_balance'] == 2
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 2

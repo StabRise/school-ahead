@@ -57,6 +57,7 @@ function DiamondBadge({ count }: { count: number }) {
   const t = useTranslations("Header");
   return (
     <span
+      data-diamond-badge
       aria-label={t("diamondBalance", { count })}
       className="flex items-center gap-1 rounded-full bg-cyan-50 px-2 py-1 text-xs font-semibold text-cyan-700"
     >
