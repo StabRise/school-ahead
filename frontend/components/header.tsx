@@ -177,7 +177,9 @@ export function Header() {
                         {t("myProfile")}
                       </Link>
                     </DropdownMenu.Item>
-                    <PreschoolModeToggle />
+                    <div className="lg:hidden">
+                      <PreschoolModeToggle />
+                    </div>
                     <DropdownMenu.Separator className="my-1 h-px bg-gray-200" />
                   </>
                 )}

@@ -173,14 +173,38 @@ function vocabularyFor(mode: BalloonMode, language: GameLanguage): string[] {
   }
 }
 
-// Longer labels (color names, three-digit numbers) need a smaller font to
-// keep fitting inside the fixed balloon SVG viewBox.
-function labelFontSize(label: string): number {
-  if (label.length <= 2) return 14;
-  if (label.length <= 4) return 12;
-  if (label.length <= 6) return 10;
-  if (label.length <= 8) return 8;
-  return 6.5;
+// Multi-word labels (the "greetings" mode's phrases) wrap onto a second
+// line, balanced so neither line is much longer than the other, rather than
+// shrinking to fit one long unbroken line.
+function wrapBalloonLabel(label: string): string[] {
+  const words = label.split(" ").filter(Boolean);
+  if (words.length < 2) return [label];
+  let bestSplit = 1;
+  let bestScore = Infinity;
+  for (let i = 1; i < words.length; i++) {
+    const line1 = words.slice(0, i).join(" ");
+    const line2 = words.slice(i).join(" ");
+    const score = Math.max(line1.length, line2.length);
+    if (score < bestScore) {
+      bestScore = score;
+      bestSplit = i;
+    }
+  }
+  return [words.slice(0, bestSplit).join(" "), words.slice(bestSplit).join(" ")];
+}
+
+// Longer labels (color names, three-digit numbers, wrapped phrase lines)
+// need a smaller font to keep fitting inside the fixed balloon SVG viewBox.
+// Sized off the longest *line* rather than the raw label, so wrapping a
+// phrase into two lines lets it stay bigger than shrinking it as one string.
+function labelFontSize(lines: string[]): number {
+  const maxLineLength = Math.max(...lines.map((line) => line.length));
+  if (maxLineLength <= 2) return 14;
+  if (maxLineLength <= 4) return 12;
+  if (maxLineLength <= 6) return 10;
+  if (maxLineLength <= 8) return 8;
+  if (maxLineLength <= 10) return 6.5;
+  return 5.5;
 }
 
 // Synthesized "pop" — no audio asset pipeline exists in this project, and a
@@ -241,6 +265,8 @@ function BalloonNode({
   // fallback for keyboard activation (Enter/Space), guarded so a completed
   // mouse click doesn't pop the same balloon twice.
   const poppedRef = useRef(false);
+  const lines = wrapBalloonLabel(balloon.label);
+  const fontSize = labelFontSize(lines);
 
   const handlePop = () => {
     if (poppedRef.current) return;
@@ -275,9 +301,8 @@ function BalloonNode({
         <ellipse cx="14" cy="12" rx="4" ry="6" fill="white" opacity="0.35" />
         <text
           x="20"
-          y="24"
           textAnchor="middle"
-          fontSize={labelFontSize(balloon.label)}
+          fontSize={fontSize}
           fontWeight="700"
           fill="white"
           // Otherwise a precise tap directly on the glyph can be grabbed by
@@ -287,7 +312,20 @@ function BalloonNode({
           stroke="rgba(0,0,0,0.2)"
           strokeWidth="0.5"
         >
-          {balloon.label}
+          {lines.length === 2 ? (
+            <>
+              <tspan x="20" y={24 - fontSize * 0.6}>
+                {lines[0]}
+              </tspan>
+              <tspan x="20" y={24 + fontSize * 0.6}>
+                {lines[1]}
+              </tspan>
+            </>
+          ) : (
+            <tspan x="20" y="24">
+              {lines[0]}
+            </tspan>
+          )}
         </text>
         <path d="M20 40 L17 46 L23 46 Z" fill={balloon.color} />
         <line x1="20" y1="46" x2="20" y2="52" stroke="#94a3b8" strokeWidth="1" />
