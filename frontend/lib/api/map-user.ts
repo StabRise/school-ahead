@@ -15,6 +15,7 @@ function mapAvatarItem(item: AvatarItemOut): EquippedAvatarItem {
     scale: item.scale ?? 1,
     offsetX: item.offset_x ?? 0,
     offsetY: item.offset_y ?? 0,
+    layerOrder: item.layer_order ?? 0,
   };
 }
 
@@ -40,7 +41,7 @@ export function mapApiUserToAuthUser(user: UserOut): AuthUser {
     interfaceMode: (user.interface_mode as AuthUser["interfaceMode"]) ?? null,
     diamondBalance: user.diamond_balance ?? null,
     equippedAvatar: user.equipped_avatar ? mapAvatar(user.equipped_avatar) : null,
-    equippedClothing: user.equipped_clothing ? mapAvatarItem(user.equipped_clothing) : null,
+    equippedClothingItems: (user.equipped_clothing_items ?? []).map(mapAvatarItem),
     equippedHeadwear: user.equipped_headwear ? mapAvatarItem(user.equipped_headwear) : null,
     equippedAccessory: user.equipped_accessory ? mapAvatarItem(user.equipped_accessory) : null,
   };

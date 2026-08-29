@@ -20,7 +20,7 @@ describe("useAuthStore", () => {
       avatarUrl: "",
       interfaceMode: "default" as const,
       equippedAvatar: null,
-      equippedClothing: null,
+      equippedClothingItems: [],
       equippedHeadwear: null,
       equippedAccessory: null,
       diamondBalance: null,

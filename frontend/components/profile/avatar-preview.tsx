@@ -15,9 +15,12 @@ interface Layer {
 // stacking plain absolutely-positioned <img>s reproduces the layering
 // without any per-item offset math, beyond each layer's own scale/offset
 // (tuned from the tutor avatar editor — see components/tutor/avatar-editor).
+// Clothing can be several pieces worn together (t-shirt + pants + jacket,
+// ...); the store already has them pre-sorted by layerOrder (underwear/socks
+// first, backpack/bag last) — see accounts.api._user_out on the backend.
 export function AvatarPreview() {
   const equippedAvatar = useAuthStore((state) => state.user?.equippedAvatar);
-  const equippedClothing = useAuthStore((state) => state.user?.equippedClothing);
+  const equippedClothingItems = useAuthStore((state) => state.user?.equippedClothingItems);
   const equippedHeadwear = useAuthStore((state) => state.user?.equippedHeadwear);
   const equippedAccessory = useAuthStore((state) => state.user?.equippedAccessory);
 
@@ -25,9 +28,9 @@ export function AvatarPreview() {
     equippedAvatar?.image
       ? { image: equippedAvatar.image, scale: equippedAvatar.scale, offsetX: 0, offsetY: 0 }
       : null,
-    equippedClothing?.image
-      ? { image: equippedClothing.image, scale: equippedClothing.scale, offsetX: equippedClothing.offsetX, offsetY: equippedClothing.offsetY }
-      : null,
+    ...(equippedClothingItems ?? [])
+      .filter((item) => item.image)
+      .map((item) => ({ image: item.image as string, scale: item.scale, offsetX: item.offsetX, offsetY: item.offsetY })),
     equippedHeadwear?.image
       ? { image: equippedHeadwear.image, scale: equippedHeadwear.scale, offsetX: equippedHeadwear.offsetX, offsetY: equippedHeadwear.offsetY }
       : null,

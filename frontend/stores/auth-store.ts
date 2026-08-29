@@ -33,6 +33,10 @@ export interface EquippedAvatarItem {
   scale: number;
   offsetX: number;
   offsetY: number;
+  // Stacking order among simultaneously-equipped clothing items (lower draws
+  // first/closer to skin) — meaningless for headwear/accessory, which equip
+  // one at a time. See docs/core/avatar.md.
+  layerOrder: number;
 }
 
 export interface AuthUser {
@@ -48,8 +52,9 @@ export interface AuthUser {
   // docs/core/avatar.md.
   equippedAvatar: EquippedAvatar | null;
   // Only meaningful for role="student", and only once picked — see
-  // docs/core/avatar.md section 2.2.
-  equippedClothing: EquippedAvatarItem | null;
+  // docs/core/avatar.md section 2.2. Clothing is a list (several pieces worn
+  // together, e.g. a t-shirt + pants + jacket), pre-sorted by layerOrder.
+  equippedClothingItems: EquippedAvatarItem[];
   equippedHeadwear: EquippedAvatarItem | null;
   equippedAccessory: EquippedAvatarItem | null;
   // Only meaningful for role="student" — see docs/core/progress.md section 2.

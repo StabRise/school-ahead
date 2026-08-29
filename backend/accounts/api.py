@@ -39,6 +39,7 @@ def _avatar_item_out(item: AvatarItem | None, request: HttpRequest) -> AvatarIte
         scale=item.scale,
         offset_x=item.offset_x,
         offset_y=item.offset_y,
+        layer_order=item.layer_order,
     )
 
 
@@ -52,6 +53,11 @@ def _avatar_out(avatar: Avatar | None, request: HttpRequest) -> AvatarOut | None
 
 def _user_out(request: HttpRequest, user) -> UserOut:
     student_profile = getattr(user, 'student_profile', None)
+    clothing_items = (
+        student_profile.equipped_clothing_items.filter(is_active=True).order_by('layer_order', 'id')
+        if student_profile
+        else []
+    )
     return UserOut(
         id=user.id,
         email=user.email,
@@ -62,7 +68,7 @@ def _user_out(request: HttpRequest, user) -> UserOut:
         avatar_url=user.avatar_url,
         interface_mode=student_profile.interface_mode if student_profile else None,
         equipped_avatar=_avatar_out(student_profile.equipped_avatar, request) if student_profile else None,
-        equipped_clothing=_avatar_item_out(student_profile.equipped_clothing, request) if student_profile else None,
+        equipped_clothing_items=[_avatar_item_out(item, request) for item in clothing_items],
         equipped_headwear=_avatar_item_out(student_profile.equipped_headwear, request) if student_profile else None,
         equipped_accessory=_avatar_item_out(student_profile.equipped_accessory, request) if student_profile else None,
         diamond_balance=student_profile.diamond_balance_cache if student_profile else None,
@@ -180,6 +186,17 @@ def _resolve_slot_item(student, item_id: int | None, slot: str) -> AvatarItem | 
     return item
 
 
+def _resolve_clothing_items(student, item_ids: list[int]) -> list[AvatarItem]:
+    items = list(AvatarItem.objects.filter(id__in=item_ids, slot='clothing', is_active=True))
+    found_ids = {item.id for item in items}
+    missing = set(item_ids) - found_ids
+    if missing:
+        raise HttpError(404, f'Clothing item(s) not found: {sorted(missing)}')
+    if any(item.avatar_id != student.equipped_avatar_id for item in items):
+        raise HttpError(400, 'clothing item does not belong to the equipped avatar')
+    return items
+
+
 @router.patch(
     '/me/avatar-items',
     response=MeOut,
@@ -187,13 +204,14 @@ def _resolve_slot_item(student, item_id: int | None, slot: str) -> AvatarItem | 
     operation_id='update_avatar_items',
 )
 def update_avatar_items(request: HttpRequest, payload: UpdateAvatarItemsIn):
-    """Equips/unequips the wardrobe slots on top of the current
-    equipped_avatar — see docs/core/avatar.md section 2.2. Always sends the
-    full slot state (see UpdateAvatarItemsIn)."""
+    """Equips/unequips the wardrobe on top of the current equipped_avatar —
+    see docs/core/avatar.md section 2.2. Always sends the full wardrobe state
+    (see UpdateAvatarItemsIn): clothing can hold several pieces worn
+    together, headwear/accessory at most one each."""
     require_csrf(request)
     student = get_own_student_profile(request)
-    student.equipped_clothing = _resolve_slot_item(student, payload.clothing_item_id, 'clothing')
+    student.equipped_clothing_items.set(_resolve_clothing_items(student, payload.clothing_item_ids))
     student.equipped_headwear = _resolve_slot_item(student, payload.headwear_item_id, 'headwear')
     student.equipped_accessory = _resolve_slot_item(student, payload.accessory_item_id, 'accessory')
-    student.save(update_fields=['equipped_clothing', 'equipped_headwear', 'equipped_accessory'])
+    student.save(update_fields=['equipped_headwear', 'equipped_accessory'])
     return MeOut(user=_user_out(request, request.auth))

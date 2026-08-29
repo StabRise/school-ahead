@@ -22,6 +22,9 @@ class AvatarItemOut(Schema):
     scale: float = 1.0
     offset_x: float = 0.0
     offset_y: float = 0.0
+    # Stacking order among simultaneously-equipped clothing items — see
+    # AvatarItem.layer_order. Meaningless for headwear/accessory.
+    layer_order: int = 0
 
 
 class AvatarOut(Schema):
@@ -56,8 +59,10 @@ class UserOut(Schema):
     # docs/core/avatar.md.
     equipped_avatar: AvatarOut | None = None
     # Only set for role=student, and only once picked — see
-    # docs/core/avatar.md section 2.2.
-    equipped_clothing: AvatarItemOut | None = None
+    # docs/core/avatar.md section 2.2. Clothing is a list (multiple pieces
+    # worn together, e.g. a t-shirt + pants + jacket), pre-sorted by
+    # AvatarItem.layer_order for the frontend to render straight through.
+    equipped_clothing_items: list[AvatarItemOut] = []
     equipped_headwear: AvatarItemOut | None = None
     equipped_accessory: AvatarItemOut | None = None
     # Only set for role=student — see docs/core/progress.md section 2.
@@ -81,12 +86,14 @@ class UpdateAvatarIn(Schema):
 
 
 class UpdateAvatarItemsIn(Schema):
-    """Full replacement of the three wardrobe slots — the frontend always
-    sends its current picks for all three, not just the one that changed, so
-    `null` unambiguously means "unequip this slot" rather than "leave it
-    unchanged"."""
+    """Full replacement of the wardrobe — the frontend always sends its
+    current picks for every slot, not just the one that changed, so an empty
+    list/`null` unambiguously means "nothing equipped here" rather than
+    "leave it unchanged". clothing_item_ids may hold several ids at once
+    (e.g. a t-shirt + pants + jacket, worn together and stacked by
+    AvatarItem.layer_order); headwear/accessory still equip one at a time."""
 
-    clothing_item_id: int | None = None
+    clothing_item_ids: list[int] = []
     headwear_item_id: int | None = None
     accessory_item_id: int | None = None
 
@@ -103,3 +110,4 @@ class UpdateAvatarItemTransformIn(Schema):
     scale: float
     offset_x: float
     offset_y: float
+    layer_order: int

@@ -8,6 +8,7 @@ export function AvatarEditorSlider({
   min,
   max,
   step,
+  decimals = 2,
   onChange,
 }: {
   label: string;
@@ -15,13 +16,14 @@ export function AvatarEditorSlider({
   min: number;
   max: number;
   step: number;
+  decimals?: number;
   onChange: (value: number) => void;
 }) {
   return (
     <label className="flex flex-col gap-1 text-sm">
       <span className="flex items-center justify-between text-gray-700">
         <span>{label}</span>
-        <span className="tabular-nums text-gray-500">{value.toFixed(2)}</span>
+        <span className="tabular-nums text-gray-500">{value.toFixed(decimals)}</span>
       </span>
       <input
         type="range"

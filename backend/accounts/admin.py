@@ -41,11 +41,16 @@ class StudentProfileAdmin(admin.ModelAdmin):
 
     list_display = (
         "user", "school_class", "enrolled_at", "diamond_balance_cache", "interface_mode", "equipped_avatar",
-        "equipped_clothing", "equipped_headwear", "equipped_accessory",
+        "clothing_items_display", "equipped_headwear", "equipped_accessory",
     )
     list_filter = ("school_class", "enrolled_at", "interface_mode", "equipped_avatar")
     search_fields = ("user__email", "user__first_name", "user__last_name")
-    autocomplete_fields = ("user", "school_class", "equipped_avatar", "equipped_clothing", "equipped_headwear", "equipped_accessory")
+    autocomplete_fields = ("user", "school_class", "equipped_avatar", "equipped_headwear", "equipped_accessory")
+    filter_horizontal = ("equipped_clothing_items",)
+
+    @admin.display(description="Equipped clothing")
+    def clothing_items_display(self, obj):
+        return ", ".join(item.name for item in obj.equipped_clothing_items.all())
 
 
 @admin.register(Avatar)
@@ -64,7 +69,7 @@ class AvatarItemAdmin(admin.ModelAdmin):
     """Admin configuration for wardrobe pieces (clothing/headwear/accessory)
     layered on top of an Avatar. See docs/core/avatar.md."""
 
-    list_display = ("name", "key", "avatar", "slot", "order_index", "is_active")
+    list_display = ("name", "key", "avatar", "slot", "layer_order", "order_index", "is_active")
     list_filter = ("slot", "is_active", "avatar")
     search_fields = ("name", "key")
     autocomplete_fields = ("avatar",)

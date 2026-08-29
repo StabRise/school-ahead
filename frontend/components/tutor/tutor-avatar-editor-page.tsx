@@ -17,6 +17,7 @@ const SLOTS = ["clothing", "headwear", "accessory"] as const;
 
 const SCALE_RANGE = { min: 0.3, max: 2.5, step: 0.01 };
 const OFFSET_RANGE = { min: -50, max: 50, step: 0.5 };
+const LAYER_ORDER_RANGE = { min: 0, max: 6, step: 1 };
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -26,6 +27,7 @@ interface ItemDraft {
   scale: number;
   offsetX: number;
   offsetY: number;
+  layerOrder: number;
 }
 
 interface DragState {
@@ -58,7 +60,7 @@ export function TutorAvatarEditorPage() {
   const [selectedAvatarId, setSelectedAvatarId] = useState<number | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [avatarScale, setAvatarScale] = useState(1);
-  const [itemDraft, setItemDraft] = useState<ItemDraft>({ scale: 1, offsetX: 0, offsetY: 0 });
+  const [itemDraft, setItemDraft] = useState<ItemDraft>({ scale: 1, offsetX: 0, offsetY: 0, layerOrder: 0 });
   const previewRef = useRef<HTMLDivElement>(null);
   const dragStateRef = useRef<DragState | null>(null);
 
@@ -80,7 +82,12 @@ export function TutorAvatarEditorPage() {
   const [lastItemId, setLastItemId] = useState<number | null>(null);
   if ((item?.id ?? null) !== lastItemId) {
     setLastItemId(item?.id ?? null);
-    setItemDraft({ scale: item?.scale ?? 1, offsetX: item?.offset_x ?? 0, offsetY: item?.offset_y ?? 0 });
+    setItemDraft({
+      scale: item?.scale ?? 1,
+      offsetX: item?.offset_x ?? 0,
+      offsetY: item?.offset_y ?? 0,
+      layerOrder: item?.layer_order ?? 0,
+    });
   }
 
   const handleSelectAvatar = (id: number) => {
@@ -99,7 +106,15 @@ export function TutorAvatarEditorPage() {
   const handleSaveItem = () => {
     if (!item) return;
     updateItem.mutate(
-      { itemId: item.id, data: { scale: itemDraft.scale, offset_x: itemDraft.offsetX, offset_y: itemDraft.offsetY } },
+      {
+        itemId: item.id,
+        data: {
+          scale: itemDraft.scale,
+          offset_x: itemDraft.offsetX,
+          offset_y: itemDraft.offsetY,
+          layer_order: itemDraft.layerOrder,
+        },
+      },
       { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListTutorAvatarsQueryKey() }) },
     );
   };
@@ -266,6 +281,15 @@ export function TutorAvatarEditorPage() {
                       {...OFFSET_RANGE}
                       onChange={(offsetY) => setItemDraft((d) => ({ ...d, offsetY }))}
                     />
+                    {item.slot === "clothing" && (
+                      <AvatarEditorSlider
+                        label={t("layerOrder")}
+                        value={itemDraft.layerOrder}
+                        {...LAYER_ORDER_RANGE}
+                        decimals={0}
+                        onChange={(layerOrder) => setItemDraft((d) => ({ ...d, layerOrder }))}
+                      />
+                    )}
                     <button
                       type="button"
                       onClick={handleSaveItem}
