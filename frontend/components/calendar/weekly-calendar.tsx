@@ -340,7 +340,9 @@ function BacklogCard({ item, readOnly }: { item: BacklogItemOut; readOnly?: bool
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">{item.lesson_title}</p>
         <p className="truncate text-xs text-gray-500">{item.subject_name}</p>
-        <p className="truncate text-xs text-amber-700">{t("backlogOrigin", { label: item.origin_label })}</p>
+        <p className="truncate text-xs text-amber-700">
+          {t("backlogOrigin", { label: RANGE_DAY_FORMAT.format(new Date(`${item.origin_label}T00:00:00`)) })}
+        </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <GradeSquareBadge gradePoints={item.grade_points} gradeResult={item.grade_result} />

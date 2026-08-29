@@ -18,7 +18,7 @@ import { BalloonLearningCards } from "@/components/preschool/balloon-learning-ca
 // awarded via POST /auth/me/balloon-pop-reward and animated flying to the
 // header's DiamondBadge (components/header.tsx, marked with
 // data-diamond-badge for this to find).
-const DIAMOND_MILESTONE = 10;
+const DIAMOND_MILESTONE = 30;
 
 // Celebration reward minigame — triggers when every one of today's lessons
 // (tails included) is Completed, Pending Review, or Need Help (evaluated by

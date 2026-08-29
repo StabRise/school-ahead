@@ -128,9 +128,12 @@
     "empty": "На сьогодні уроків немає.",
     "backlogTitle": "Хвости",
     "backlogHint": "Уроки, які не завершено вчасно",
-    "backlogOrigin": "Мало бути виконано: {label}",
+    "backlogOrigin": "Дата: {label}",
     "statsTitle": "Прогрес по предметах",
-    "weeklyProgressTitle": "Виконано за тиждень"
+    "weeklyProgressTitle": "Виконано за тиждень",
+    "weeklyPercentLabel": "% тижня виконано",
+    "expandLesson": "Розгорнути",
+    "collapseLesson": "Згорнути"
   },
   "TutorDashboard": {
     "title": "Панель тьютора",

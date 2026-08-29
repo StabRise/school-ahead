@@ -4,6 +4,11 @@ import { useTranslations } from "next-intl";
 import type { BacklogItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { LessonBubble } from "@/components/preschool/lesson-bubble";
 
+// origin_label is a plain ISO date (see scheduling.services.backlog_label),
+// formatted here for display — same short shape as the tutor calendar's
+// RANGE_DAY_FORMAT (components/calendar/weekly-calendar.tsx).
+const ORIGIN_DATE_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" });
+
 // "Хвостики" — overdue lessons, shown the same way on both the calendar and
 // "My Today's Lessons" pages so a child never loses track of unfinished
 // work. See docs/interfaces/preschool.md.
@@ -22,7 +27,9 @@ export function PreschoolBacklogSection({ items }: { items: BacklogItemOut[] }) 
             <LessonBubble item={item} />
             <div className="min-w-0">
               <p className="truncate text-sm font-bold text-gray-800">{item.lesson_title}</p>
-              <p className="truncate text-xs text-amber-700">{t("origin", { label: item.origin_label })}</p>
+              <p className="truncate text-xs text-amber-700">
+                {t("origin", { label: ORIGIN_DATE_FORMAT.format(new Date(`${item.origin_label}T00:00:00`)) })}
+              </p>
             </div>
           </div>
         ))}

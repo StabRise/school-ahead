@@ -275,12 +275,11 @@ class TestReadEndpoints:
     def test_backlog_label_format(self, subject, student):
         lessons = _make_lessons(subject, 2)
         monday = datetime.date(2025, 9, 1)
-        assert monday.strftime('%A') == 'Monday'
         sl1 = StudentLesson.objects.create(student=student, lesson=lessons[0], scheduled_date=monday)
         sl2 = StudentLesson.objects.create(student=student, lesson=lessons[1], scheduled_date=monday)
 
-        assert services.backlog_label(sl1) == 'Mon #1'
-        assert services.backlog_label(sl2) == 'Mon #2'
+        assert services.backlog_label(sl1) == '2025-09-01'
+        assert services.backlog_label(sl2) == '2025-09-01'
 
 
 class TestApiEndpoints:

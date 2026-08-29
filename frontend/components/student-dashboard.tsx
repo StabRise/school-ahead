@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { BookOpen } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp } from "lucide-react";
 import { useGetToday, useGetWeeklyProgress } from "@/lib/api/browser/schedule/schedule";
 import { useListMyAchievements } from "@/lib/api/browser/achievements/achievements";
 import type { CalendarItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
@@ -47,6 +47,11 @@ function startOfWeek(date: Date): Date {
 
 const WEEKDAY_LABEL_FORMAT = new Intl.DateTimeFormat("uk-UA", { weekday: "short" });
 
+// Same short "24 серп." shape as topic-accordion-item.tsx's identical
+// SCHEDULED_DATE_FORMAT — origin_label is a plain ISO date (see
+// scheduling.services.backlog_label), formatted here for display.
+const ORIGIN_DATE_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" });
+
 // task_content is markdown/HTML — strip it down to a short plain-text
 // preview rather than rendering it in full (the full task is shown on the
 // lesson wizard's submission step). See NextLessonCard's identical helper.
@@ -85,14 +90,62 @@ function LessonIcon({ item }: { item: CalendarItemOut }) {
   );
 }
 
-// dateLabel is the backlog's origin-day label (e.g. "Пн #4" — see
-// services.backlog_label) for a "tail" lesson shown outside its original
-// day; omitted for today's own lessons, which need no such context.
+// dateLabel is the backlog's origin day, formatted for display (e.g.
+// "24 серп." — see origin_label/services.backlog_label) for a "tail" lesson
+// shown outside its original day; omitted for today's own lessons, which
+// need no such context.
 function LessonRow({ item, dateLabel }: { item: CalendarItemOut; dateLabel?: string }) {
   const tCalendar = useTranslations("Calendar");
   const tDashboard = useTranslations("StudentDashboard");
   const router = useRouter();
   const homework = item.lesson_type === "with_task" && item.task_content ? homeworkPreview(item.task_content) : null;
+
+  // Same "student's part is done" set as READY_FOR_GAME_STATUSES above —
+  // those lessons default to a collapsed one-line summary (subject, grade,
+  // status) so a long finished streak doesn't bury the lessons still
+  // needing attention (assigned/in_progress/revision_required, which never
+  // collapse) further down the list.
+  const isCollapsible = READY_FOR_GAME_STATUSES.includes(item.status);
+  const [isExpanded, setIsExpanded] = useState(!isCollapsible);
+
+  const toggleExpanded = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsExpanded((prev) => !prev);
+  };
+
+  if (isCollapsible && !isExpanded) {
+    return (
+      <li>
+        <Card
+          href={`/lessons/${item.id}`}
+          className="flex items-center juLessonRowstify-between gap-3 border-l-4"
+          style={{ borderLeftColor: item.subject_color ?? "#D1D5DB" }}
+        >
+          <span className="min-w-0 truncate font-medium text-gray-900">{item.subject_name}</span>
+          <div className="flex shrink-0 items-cМenter gap-2">
+            <GradeSquareBadge
+              gradePoints={item.grade_points}
+              gradeResult={item.grade_result}
+              sizeClassName="h-6 w-6"
+              compact
+            />
+            <StatusBadge status={item.status} />
+            <button
+              type="button"
+              onClick={toggleExpanded}
+              aria-expanded={isExpanded}
+              aria-label={tDashboard("expandLesson")}
+              title={tDashboard("expandLesson")}
+              className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </button>
+          </div>
+        </Card>
+      </li>
+    );
+  }
 
   return (
     <li>
@@ -105,14 +158,24 @@ function LessonRow({ item, dateLabel }: { item: CalendarItemOut; dateLabel?: str
           <div className="flex min-w-0 items-center gap-3">
             <LessonIcon item={item} />
             <div className="min-w-0">
-              <p className="truncate text-base font-semibold text-gray-900">{item.subject_name}</p>
+              <div className="flex min-w-0 items-center gap-1">
+                <p className="truncate text-base font-semibold text-gray-900">{item.subject_name}</p>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    router.push(`/subjects/${item.subject_id}`);
+                  }}
+                  title={tCalendar("viewSubject")}
+                  aria-label={tCalendar("viewSubject")}
+                  className="shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                >
+                  <BookOpen className="h-4 w-4" />
+                </button>
+              </div>
               <p className="truncate font-medium">{item.lesson_title}</p>
               <p className="line-clamp-2 text-xs text-gray-500">{item.topic_title}</p>
-              {dateLabel && (
-                <p className="truncate text-xs text-amber-700">
-                  {tDashboard("backlogOrigin", { label: dateLabel })}
-                </p>
-              )}
             </div>
           </div>
           {homework && (
@@ -125,21 +188,13 @@ function LessonRow({ item, dateLabel }: { item: CalendarItemOut; dateLabel?: str
         <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-2">
           <div className="flex min-w-0 items-center gap-2">
             <ContentTypeBadges lessonType={item.lesson_type} />
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                router.push(`/subjects/${item.subject_id}`);
-              }}
-              title={tCalendar("viewSubject")}
-              aria-label={tCalendar("viewSubject")}
-              className="shrink-0 rounded px-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-            >
-              <BookOpen className="h-4 w-4" />
-            </button>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {dateLabel && (
+              <span className="truncate text-xs text-amber-700">
+                {tDashboard("backlogOrigin", { label: dateLabel })}
+              </span>
+            )}
             <GradeSquareBadge
               gradePoints={item.grade_points}
               gradeResult={item.grade_result}
@@ -147,6 +202,18 @@ function LessonRow({ item, dateLabel }: { item: CalendarItemOut; dateLabel?: str
               compact
             />
             <StatusBadge status={item.status} />
+            {isCollapsible && (
+              <button
+                type="button"
+                onClick={toggleExpanded}
+                aria-expanded={isExpanded}
+                aria-label={tDashboard("collapseLesson")}
+                title={tDashboard("collapseLesson")}
+                className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              >
+                <ChevronUp className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
       </Card>
@@ -208,7 +275,7 @@ function WeeklyProgressCard() {
           <div key={day.date} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
             <span className="text-xs font-medium text-gray-700">{day.completed_count}</span>
             <div
-              className={`w-full rounded-t-sm ${day.completed_count > 0 ? "bg-blue-500" : "bg-gray-100"}`}
+              className={`w-full rounded-t-sm ${day.completed_count > 0 ? "bg-blue-200" : "bg-gray-100"}`}
               style={{
                 height: day.completed_count > 0 ? (day.completed_count / maxCount) * MAX_BAR_HEIGHT_PX : 2,
               }}
@@ -223,6 +290,7 @@ function WeeklyProgressCard() {
           </span>
         ))}
       </div>
+      <ProgressBar percent={data?.completed_percent ?? 0} label={t("weeklyPercentLabel")} />
     </div>
   );
 }
@@ -230,8 +298,9 @@ function WeeklyProgressCard() {
 function DashboardSidebar() {
   return (
     <aside className="flex w-full shrink-0 flex-col gap-6 lg:w-72 xl:w-80">
-      <SubjectStatsCard />
       <WeeklyProgressCard />
+      <SubjectStatsCard />
+
     </aside>
   );
 }
@@ -306,7 +375,11 @@ export function StudentDashboard() {
               <p className="-mt-1 mb-1 text-sm text-gray-500">{t("backlogHint")}</p>
               <ul className="flex flex-col gap-2">
                 {backlog.map((item) => (
-                  <LessonRow key={item.id} item={item} dateLabel={item.origin_label} />
+                  <LessonRow
+                    key={item.id}
+                    item={item}
+                    dateLabel={ORIGIN_DATE_FORMAT.format(new Date(`${item.origin_label}T00:00:00`))}
+                  />
                 ))}
               </ul>
             </div>

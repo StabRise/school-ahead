@@ -98,12 +98,11 @@ def backlog(request: HttpRequest):
 
 @router.get('/weekly-progress', response=WeeklyCompletionOut, operation_id='get_weekly_progress')
 def weekly_progress(request: HttpRequest, week_start: datetime.date):
-    """Mon-Sun histogram for the dashboard sidebar: how many lessons the
-    student actually completed each day of the given week. See
-    services.get_week_completion_counts."""
+    """Mon-Sun histogram plus the week's own completed_percent for the
+    dashboard sidebar. See services.get_week_completion_counts."""
     student = get_own_student_profile(request)
-    days = services.get_week_completion_counts(student, week_start)
-    return WeeklyCompletionOut(days=days)
+    result = services.get_week_completion_counts(student, week_start)
+    return WeeklyCompletionOut(**result)
 
 
 @router.get(

@@ -51,6 +51,10 @@ class DailyCompletionOut(Schema):
 
 class WeeklyCompletionOut(Schema):
     days: list[DailyCompletionOut]
+    # Of the lessons scheduled for this week (not completed_at-based like
+    # `days` above), what % are Completed. See
+    # services.get_week_completion_counts.
+    completed_percent: float
 
 
 class GenerateCalendarOut(Schema):
