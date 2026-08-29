@@ -16,7 +16,11 @@ export type BalloonMode =
   | "greetings"
   | "animals"
   | "animalsEx"
-  | "schoolSupplies";
+  | "schoolSupplies"
+  | "schoolSuppliesEx"
+  | "family"
+  | "bodyParts"
+  | "fruits";
 
 const DEFAULT_MODE: BalloonMode = "numbers10";
 const DEFAULT_LANGUAGE: SpeechLanguage = "en";

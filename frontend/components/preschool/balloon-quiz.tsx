@@ -3,30 +3,55 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { speak, type SpeechLanguage as GameLanguage } from "@/lib/piper-tts";
+import type { BalloonMode } from "@/stores/balloon-pop-game-store";
 
 // Bonus quiz opened by popping the heart-shaped "?" balloon in
 // balloon-pop-game.tsx. Purely client-side and ephemeral (no backend lesson
-// record) — a lightweight counting exercise for the "numbers10" mode, built
-// from scratch rather than reusing components/preschool/quiz-game.tsx, which
-// is tightly coupled to a real StudentLesson's QuizQuestion data. Visual
-// language borrows from that component and theory-check.tsx (gradient
-// banner, rounded-[2rem] white card, bold border-4 answer buttons).
+// record), built from scratch rather than reusing components/preschool/
+// quiz-game.tsx, which is tightly coupled to a real StudentLesson's
+// QuizQuestion data. Visual language borrows from that component and
+// theory-check.tsx (gradient banner, rounded-[2rem] white card, bold
+// border-4 answer buttons). Two question kinds, one per quiz-enabled mode
+// (see QUIZ_BALLOON_MODES in balloon-pop-game.tsx):
+// - "counting" ("numbers10"): "how many cats do you see?" over a row of
+//   mixed animal emojis, answered by picking a number.
+// - "picture" ("animalsEx"/"schoolSuppliesEx"/"family"/"bodyParts"/
+//   "fruits", see PICTURE_QUIZ_MODES below): "where is the X?" answered by
+//   picking the matching illustration out of a few from that mode's image
+//   list (BALLOON_ANIMALS_EX/BALLOON_SCHOOL_SUPPLIES_EX/BALLOON_FAMILY/
+//   BALLOON_BODY_PARTS/BALLOON_FRUITS).
 
 export type BalloonQuizAnimal = "cat" | "dog" | "monkey";
 
-export interface BalloonQuizQuestion {
+interface CountingQuestion {
+  kind: "counting";
   animal: BalloonQuizAnimal;
   emojis: string[];
   options: number[];
   correctAnswer: number;
 }
 
-const QUESTION_COUNT = 5;
+export interface BalloonQuizAnimalChoice {
+  name: string;
+  image: string;
+}
+
+interface PictureQuestion {
+  kind: "picture";
+  target: BalloonQuizAnimalChoice;
+  choices: BalloonQuizAnimalChoice[];
+  correctIndex: number;
+}
+
+export type BalloonQuizQuestion = CountingQuestion | PictureQuestion;
+
+const QUESTION_COUNT = 6;
 // Strictly greater than 60% — 4/6 (~66.7%) passes, 3/6 (50%) doesn't.
 const PASS_RATIO = 0.6;
 const MIN_EMOJIS = 3;
-const MAX_EMOJIS = 6;
-const FEEDBACK_DELAY_MS = 1200;
+const MAX_EMOJIS = 8;
+const MAX_PICTURE_CHOICES = 4;
+const FEEDBACK_DELAY_MS = 1500;
 
 const ANIMAL_EMOJI: Record<BalloonQuizAnimal, string> = {
   cat: "🐱",
@@ -71,7 +96,7 @@ function buildOptions(correct: number, total: number): number[] {
   return shuffle([...candidates]);
 }
 
-function buildQuestion(): BalloonQuizQuestion {
+function buildCountingQuestion(): CountingQuestion {
   const total = randomInt(MIN_EMOJIS, MAX_EMOJIS);
   const animal = randomFrom(ANIMALS);
   const otherAnimals = ANIMALS.filter((a) => a !== animal);
@@ -82,6 +107,7 @@ function buildQuestion(): BalloonQuizQuestion {
   for (let i = targetCount; i < total; i++) emojis.push(ANIMAL_EMOJI[randomFrom(otherAnimals)]);
 
   return {
+    kind: "counting",
     animal,
     emojis: shuffle(emojis),
     options: buildOptions(targetCount, total),
@@ -89,8 +115,50 @@ function buildQuestion(): BalloonQuizQuestion {
   };
 }
 
-export function buildBalloonQuizQuestions(): BalloonQuizQuestion[] {
-  return Array.from({ length: QUESTION_COUNT }, buildQuestion);
+// Case-insensitive dedupe, keeping the first occurrence — BALLOON_ANIMALS_EX
+// has a few casing duplicates (e.g. "Panda"/"panda") that would otherwise
+// show up as two indistinguishable choices in the same question.
+function uniqueByName(animals: BalloonQuizAnimalChoice[]): BalloonQuizAnimalChoice[] {
+  const seen = new Set<string>();
+  const result: BalloonQuizAnimalChoice[] = [];
+  for (const animal of animals) {
+    const key = animal.name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(animal);
+  }
+  return result;
+}
+
+function buildPictureQuestion(pool: BalloonQuizAnimalChoice[]): PictureQuestion {
+  const target = randomFrom(pool);
+  const distractorPool = pool.filter((a) => a.name.toLowerCase() !== target.name.toLowerCase());
+  const distractors = shuffle(distractorPool).slice(0, Math.min(MAX_PICTURE_CHOICES - 1, distractorPool.length));
+  const choices = shuffle([target, ...distractors]);
+  return {
+    kind: "picture",
+    target,
+    choices,
+    correctIndex: choices.findIndex((c) => c === target),
+  };
+}
+
+// Modes with a picture quiz — everything else falls back to the counting
+// quiz. `picturePool` (that mode's BALLOON_ANIMALS_EX/BALLOON_SCHOOL_
+// SUPPLIES_EX/BALLOON_FAMILY) is passed in by the caller rather than
+// imported from balloon-pop-game.tsx (which already imports this module) to
+// avoid a circular import — ignored for modes that don't need one.
+const PICTURE_QUIZ_MODES: BalloonMode[] = ["animalsEx", "schoolSuppliesEx", "family", "bodyParts", "fruits"];
+
+export function buildBalloonQuizQuestions(
+  mode: BalloonMode,
+  picturePool: BalloonQuizAnimalChoice[],
+): BalloonQuizQuestion[] {
+  if (PICTURE_QUIZ_MODES.includes(mode)) {
+    const pool = uniqueByName(picturePool);
+    return Array.from({ length: QUESTION_COUNT }, () => buildPictureQuestion(pool));
+  }
+  return Array.from({ length: QUESTION_COUNT }, buildCountingQuestion);
 }
 
 // "How many {animal} do you see?" per game language, with the animal name
@@ -102,14 +170,82 @@ const ANIMAL_NAMES: Record<GameLanguage, Record<BalloonQuizAnimal, string>> = {
   pl: { cat: "kotów", dog: "psów", monkey: "małp" },
 };
 
-const QUESTION_TEMPLATE: Record<GameLanguage, (animalName: string) => string> = {
+const COUNTING_QUESTION_TEMPLATE: Record<GameLanguage, (animalName: string) => string> = {
   en: (animalName) => `How many ${animalName} do you see?`,
   uk: (animalName) => `Скільки ${animalName} ти бачиш?`,
   pl: (animalName) => `Ile ${animalName} widzisz?`,
 };
 
-function questionText(animal: BalloonQuizAnimal, language: GameLanguage): string {
-  return QUESTION_TEMPLATE[language](ANIMAL_NAMES[language][animal]);
+function countingQuestionText(animal: BalloonQuizAnimal, language: GameLanguage): string {
+  return COUNTING_QUESTION_TEMPLATE[language](ANIMAL_NAMES[language][animal]);
+}
+
+// None of the PICTURE_QUIZ_MODES image lists have per-language variants
+// (same convention as BALLOON_ANIMALS/BALLOON_GREETINGS in
+// balloon-pop-game.tsx), so this stays plain English regardless of the
+// selected game language.
+function pictureQuestionText(targetName: string): string {
+  return `Where is a ${targetName}?`;
+}
+
+function questionText(question: BalloonQuizQuestion, language: GameLanguage): string {
+  return question.kind === "counting"
+    ? countingQuestionText(question.animal, language)
+    : pictureQuestionText(question.target.name);
+}
+
+// Cheerful two-note "ta-da" for a correct answer, and a short descending
+// buzz for a wrong one — same procedural Web Audio approach as
+// balloon-pop-game.tsx's playPopSound/playDiamondChime (no audio asset
+// pipeline exists in this project).
+function playCorrectSound() {
+  const AudioContextClass =
+    window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextClass) return;
+  try {
+    const ctx = new AudioContextClass();
+    const notes = [784, 988]; // G5, B5
+    notes.forEach((frequency, i) => {
+      const startTime = ctx.currentTime + i * 0.12;
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.type = "triangle";
+      oscillator.frequency.setValueAtTime(frequency, startTime);
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.3, startTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.3);
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.start(startTime);
+      oscillator.stop(startTime + 0.32);
+    });
+    setTimeout(() => ctx.close(), 500);
+  } catch {
+    // Best-effort only — never block feedback on audio failures.
+  }
+}
+
+function playIncorrectSound() {
+  const AudioContextClass =
+    window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextClass) return;
+  try {
+    const ctx = new AudioContextClass();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.type = "sawtooth";
+    oscillator.frequency.setValueAtTime(220, ctx.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(110, ctx.currentTime + 0.35);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.start();
+    oscillator.stop(ctx.currentTime + 0.42);
+    oscillator.onended = () => ctx.close();
+  } catch {
+    // Best-effort only — never block feedback on audio failures.
+  }
 }
 
 const OPTION_STYLES = [
@@ -137,20 +273,28 @@ export function BalloonQuiz({
 
   const finished = currentIndex >= questions.length;
   const passed = finished && correctCount / questions.length > PASS_RATIO;
+  const question = finished ? null : questions[currentIndex];
 
   // Reads each question aloud the instant it's shown — including the first,
   // since this effect also runs on mount.
   useEffect(() => {
-    if (muted || finished) return;
-    speak(questionText(questions[currentIndex].animal, language), language, "sentence");
-  }, [currentIndex, finished, questions, language, muted]);
+    if (muted || !question) return;
+    speak(questionText(question, language), language, "sentence");
+    // `question` is derived from `questions`/`currentIndex` every render, so
+    // depending on it directly would refire this on every render — depend on
+    // its actual identity-changing inputs instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, questions, language, muted]);
 
-  const handleSelect = (option: number) => {
-    if (selected !== null) return;
-    setSelected(option);
-    const question = questions[currentIndex];
-    const isCorrect = option === question.correctAnswer;
-    if (isCorrect) setCorrectCount((current) => current + 1);
+  const isCorrectValue = (q: BalloonQuizQuestion, value: number) =>
+    q.kind === "counting" ? value === q.correctAnswer : value === q.correctIndex;
+
+  const handleSelect = (value: number) => {
+    if (selected !== null || !question) return;
+    setSelected(value);
+    const correct = isCorrectValue(question, value);
+    if (correct) setCorrectCount((current) => current + 1);
+    if (!muted) (correct ? playCorrectSound : playIncorrectSound)();
     setTimeout(() => {
       setSelected(null);
       setCurrentIndex((current) => current + 1);
@@ -160,56 +304,108 @@ export function BalloonQuiz({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg overflow-hidden rounded-[2rem] bg-white shadow-2xl">
-        <div className="relative bg-gradient-to-r from-fuchsia-400 via-pink-400 to-amber-300 px-6 py-7 text-center">
-          <span className="text-4xl" aria-hidden="true">
-            💖
-          </span>
-          <p className="mt-1 text-lg font-extrabold text-white drop-shadow sm:text-xl">{t("title")}</p>
+        <div className="bg-gradient-to-r from-fuchsia-400 via-pink-400 to-amber-300 px-6 py-4 text-center">
+          <p className="text-sm font-bold text-white drop-shadow sm:text-base">{t("title")}</p>
         </div>
 
-        {!finished ? (
-          <div className="flex flex-col gap-5 p-6">
+        {question ? (
+          <div className="relative flex flex-col gap-5 p-6">
             <p className="text-center text-sm font-bold text-emerald-900 sm:text-base">
               {t("progress", { current: currentIndex + 1, total: questions.length })}
             </p>
-            <p className="text-center text-lg font-bold text-gray-800 sm:text-xl">
-              {questionText(questions[currentIndex].animal, language)}
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-gray-50 p-4 text-3xl sm:text-4xl">
-              {questions[currentIndex].emojis.map((emoji, i) => (
-                <span key={i} aria-hidden="true">
-                  {emoji}
-                </span>
-              ))}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {questions[currentIndex].options.map((option, i) => {
-                const isPicked = selected === option;
-                const isCorrectOption = option === questions[currentIndex].correctAnswer;
-                const revealed = selected !== null && (isPicked || isCorrectOption);
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    disabled={selected !== null}
-                    onClick={() => handleSelect(option)}
-                    className={`rounded-2xl border-4 py-4 text-2xl font-extrabold transition-transform active:scale-95 disabled:active:scale-100 ${
-                      revealed
-                        ? isCorrectOption
-                          ? "border-emerald-500 bg-emerald-100 text-emerald-900"
-                          : "border-rose-500 bg-rose-100 text-rose-900"
-                        : OPTION_STYLES[i % OPTION_STYLES.length]
-                    }`}
-                  >
-                    {option}
-                  </button>
-                );
-              })}
-            </div>
+            <p className="text-center text-lg font-bold text-gray-800 sm:text-xl">{questionText(question, language)}</p>
+
+            {question.kind === "counting" ? (
+              <>
+                <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-gray-50 p-4 text-3xl sm:text-4xl">
+                  {question.emojis.map((emoji, i) => (
+                    <span key={i} aria-hidden="true">
+                      {emoji}
+                    </span>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {question.options.map((option, i) => {
+                    const isPicked = selected === option;
+                    const isCorrectOption = option === question.correctAnswer;
+                    const revealed = selected !== null && (isPicked || isCorrectOption);
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        disabled={selected !== null}
+                        onClick={() => handleSelect(option)}
+                        className={`rounded-2xl border-4 py-4 text-2xl font-extrabold transition-transform active:scale-95 disabled:active:scale-100 ${
+                          revealed
+                            ? isCorrectOption
+                              ? "border-emerald-500 bg-emerald-100 text-emerald-900"
+                              : "border-rose-500 bg-rose-100 text-rose-900"
+                            : OPTION_STYLES[i % OPTION_STYLES.length]
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {question.choices.map((choice, i) => {
+                  const isPicked = selected === i;
+                  const isCorrectChoice = i === question.correctIndex;
+                  const revealed = selected !== null && (isPicked || isCorrectChoice);
+                  return (
+                    <button
+                      key={`${choice.name}-${i}`}
+                      type="button"
+                      disabled={selected !== null}
+                      onClick={() => handleSelect(i)}
+                      className={`overflow-hidden rounded-2xl border-4 p-1 transition-transform active:scale-95 disabled:active:scale-100 ${
+                        revealed
+                          ? isCorrectChoice
+                            ? "border-emerald-500 bg-emerald-100"
+                            : "border-rose-500 bg-rose-100"
+                          : "border-sky-300 bg-sky-50"
+                      }`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={choice.image} alt="" className="aspect-square w-full rounded-xl object-cover" />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {selected !== null && (
-              <p className="text-center text-base font-bold text-gray-700" role="status">
-                {selected === questions[currentIndex].correctAnswer ? t("correct") : t("incorrect")}
-              </p>
+              // Full-panel overlay (absolute, not part of the flex flow) so
+              // it can't shift the question/emoji row/buttons above it, and
+              // reads clearly centered regardless of what's underneath.
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-[2rem] bg-white/90 backdrop-blur-sm"
+                role="status"
+              >
+                {isCorrectValue(question, selected) ? (
+                  <div className="flex gap-2 text-5xl" aria-hidden="true">
+                    {[0, 1, 2].map((i) => (
+                      <span key={i} style={{ animation: `star-pop 0.5s ease-out ${i * 0.1}s backwards` }}>
+                        ⭐
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span
+                    className="text-8xl font-extrabold text-rose-500"
+                    style={{ animation: "sad-face-pop 0.5s ease-out" }}
+                    aria-hidden="true"
+                  >
+                    :(
+                  </span>
+                )}
+                <p className="text-lg font-bold text-gray-700">
+                  {isCorrectValue(question, selected) ? t("correct") : t("incorrect")}
+                </p>
+              </div>
             )}
           </div>
         ) : (

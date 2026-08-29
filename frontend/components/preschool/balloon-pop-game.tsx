@@ -204,6 +204,90 @@ const BALLOON_ANIMALS_EX: { name: string; image: string }[] = [
   { name: "zebra", image: "/preschool/animals/zebra.jpeg" },
 ];
 
+// "schoolSuppliesEx" mode — like "animalsEx", a photo/illustration hung
+// below the balloon instead of an emoji. Files live in
+// public/preschool/schoolSupplies, same static-asset convention as
+// public/preschool/animals above.
+const BALLOON_SCHOOL_SUPPLIES_EX: { name: string; image: string }[] = [
+  { name: "Backpack", image: "/preschool/schoolSupplies/backpack.jpeg" },
+  { name: "Book", image: "/preschool/schoolSupplies/book.jpeg" },
+  { name: "Calculator", image: "/preschool/schoolSupplies/calculator.jpeg" },
+  { name: "Eraser", image: "/preschool/schoolSupplies/eraser.jpeg" },
+  { name: "Glue stick", image: "/preschool/schoolSupplies/glue-stick.jpeg" },
+  { name: "Marker", image: "/preschool/schoolSupplies/marker.jpeg" },
+  { name: "Notebook", image: "/preschool/schoolSupplies/notebook.jpeg" },
+  { name: "Pen", image: "/preschool/schoolSupplies/pen.jpeg" },
+  { name: "Pencil", image: "/preschool/schoolSupplies/pencil.jpeg" },
+  { name: "Pencil case", image: "/preschool/schoolSupplies/pencil-case.jpeg" },
+  { name: "Ruler", image: "/preschool/schoolSupplies/ruler.jpeg" },
+  { name: "Scissors", image: "/preschool/schoolSupplies/scissors.jpeg" },
+];
+
+// "family" mode — a photo/illustration hung below the balloon instead of an
+// emoji, same as "animalsEx"/"schoolSuppliesEx". Files live in
+// public/preschool/family, same static-asset convention as those.
+const BALLOON_FAMILY: { name: string; image: string }[] = [
+  { name: "Mother", image: "/preschool/family/mother.jpeg" },
+  { name: "Daddy", image: "/preschool/family/daddy.jpeg" },
+  { name: "Grandma", image: "/preschool/family/grandma.jpeg" },
+  { name: "Sister", image: "/preschool/family/sister.jpeg" },
+  { name: "Brother", image: "/preschool/family/brother.jpeg" },
+  { name: "Baby", image: "/preschool/family/baby.jpeg" },
+];
+
+// "bodyParts" mode — a photo/illustration hung below the balloon instead of
+// an emoji, same as "animalsEx"/"schoolSuppliesEx"/"family". Files live in
+// public/preschool/body-parts, same static-asset convention as those.
+const BALLOON_BODY_PARTS: { name: string; image: string }[] = [
+  { name: "Head", image: "/preschool/body-parts/head.jpeg" },
+  { name: "Hair", image: "/preschool/body-parts/hair.jpeg" },
+  { name: "Eye", image: "/preschool/body-parts/eye.jpeg" },
+  { name: "Ear", image: "/preschool/body-parts/ear.jpeg" },
+  { name: "Nose", image: "/preschool/body-parts/nose.jpeg" },
+  { name: "Mouth", image: "/preschool/body-parts/mouth.jpeg" },
+  { name: "Shoulder", image: "/preschool/body-parts/shoulder.jpeg" },
+  { name: "Arm", image: "/preschool/body-parts/arm.jpeg" },
+  { name: "Hand", image: "/preschool/body-parts/hand.jpeg" },
+  { name: "Finger", image: "/preschool/body-parts/finger.jpeg" },
+  { name: "Back", image: "/preschool/body-parts/back.jpeg" },
+  { name: "Leg", image: "/preschool/body-parts/leg.jpeg" },
+  { name: "Knee", image: "/preschool/body-parts/knee.jpeg" },
+];
+
+// "fruits" mode — a photo/illustration hung below the balloon instead of an
+// emoji, same as "animalsEx"/"schoolSuppliesEx"/"family"/"bodyParts". Files
+// live in public/preschool/fruits, same static-asset convention as those.
+const BALLOON_FRUITS: { name: string; image: string }[] = [
+  { name: "Apple", image: "/preschool/fruits/apple.jpeg" },
+  { name: "Banana", image: "/preschool/fruits/banana.jpeg" },
+  { name: "Orange", image: "/preschool/fruits/orange.jpeg" },
+  { name: "Pear", image: "/preschool/fruits/pear.jpeg" },
+  { name: "Lemon", image: "/preschool/fruits/lemon.jpeg" },
+  { name: "Grapes", image: "/preschool/fruits/grapes.jpeg" },
+  { name: "Strawberry", image: "/preschool/fruits/strawberry.jpeg" },
+  { name: "Blueberry", image: "/preschool/fruits/blueberry.jpeg" },
+  { name: "Raspberry", image: "/preschool/fruits/raspberry.jpeg" },
+  { name: "Cherry", image: "/preschool/fruits/cherry.jpeg" },
+  { name: "Plum", image: "/preschool/fruits/plum.jpeg" },
+  { name: "Peach", image: "/preschool/fruits/peach.jpeg" },
+  { name: "Mango", image: "/preschool/fruits/mango.jpeg" },
+  { name: "Kiwi", image: "/preschool/fruits/kiwi.jpeg" },
+  { name: "Pineapple", image: "/preschool/fruits/pineapple.jpeg" },
+  { name: "Watermelon", image: "/preschool/fruits/watermelon.jpeg" },
+  { name: "Melon", image: "/preschool/fruits/melon.jpeg" },
+];
+
+// Image pool for each mode's "where is the X?" picture quiz (see
+// PICTURE_QUIZ_MODES in balloon-quiz.tsx) — passed to
+// buildBalloonQuizQuestions when the heart balloon is popped.
+const PICTURE_POOL_BY_MODE: Partial<Record<BalloonMode, { name: string; image: string }[]>> = {
+  animalsEx: BALLOON_ANIMALS_EX,
+  schoolSuppliesEx: BALLOON_SCHOOL_SUPPLIES_EX,
+  family: BALLOON_FAMILY,
+  bodyParts: BALLOON_BODY_PARTS,
+  fruits: BALLOON_FRUITS,
+};
+
 const BALLOON_MODES: BalloonMode[] = [
   "numbers10",
   "numbers20",
@@ -214,13 +298,27 @@ const BALLOON_MODES: BalloonMode[] = [
   "animals",
   "animalsEx",
   "schoolSupplies",
+  "schoolSuppliesEx",
+  "family",
+  "bodyParts",
+  "fruits",
 ];
 const GAME_LANGUAGES: GameLanguage[] = ["en", "uk", "pl"];
 
-// Modes with a bonus heart-shaped "?" quiz balloon (balloon-quiz.tsx) — only
-// "numbers10" has a question bank tuned for it so far. TODO: extend to
-// "animals"/"animalsEx" once there's a matching quiz for those vocabularies.
-const QUIZ_BALLOON_MODES: BalloonMode[] = ["numbers10"];
+// Modes with a bonus heart-shaped "?" quiz balloon (balloon-quiz.tsx) —
+// "numbers10" gets a counting quiz; "animalsEx"/"schoolSuppliesEx"/"family"/
+// "bodyParts"/"fruits" each get a "where is the X?" picture quiz built from
+// that mode's own image list (see PICTURE_POOL_BY_MODE below). TODO: extend
+// to "animals"/"schoolSupplies" once there's a matching quiz for those
+// emoji-only vocabularies too.
+const QUIZ_BALLOON_MODES: BalloonMode[] = [
+  "numbers10",
+  "animalsEx",
+  "schoolSuppliesEx",
+  "family",
+  "bodyParts",
+  "fruits",
+];
 // Checked once per spawn tick (independently of the normal balloon spawned
 // that same tick) while at most one quiz balloon is already on screen.
 const QUIZ_BALLOON_SPAWN_CHANCE = 0.1;
@@ -302,6 +400,22 @@ function generateBalloonContent(
       const item = randomFrom(BALLOON_SCHOOL_SUPPLIES);
       return { label: item.name, icon: item.emoji, color: randomColor(), speech: item.name };
     }
+    case "schoolSuppliesEx": {
+      const item = randomFrom(BALLOON_SCHOOL_SUPPLIES_EX);
+      return { label: item.name, image: item.image, color: randomColor(), speech: item.name };
+    }
+    case "family": {
+      const member = randomFrom(BALLOON_FAMILY);
+      return { label: member.name, image: member.image, color: randomColor(), speech: member.name };
+    }
+    case "bodyParts": {
+      const part = randomFrom(BALLOON_BODY_PARTS);
+      return { label: part.name, image: part.image, color: randomColor(), speech: part.name };
+    }
+    case "fruits": {
+      const fruit = randomFrom(BALLOON_FRUITS);
+      return { label: fruit.name, image: fruit.image, color: randomColor(), speech: fruit.name };
+    }
     case "numbers10":
     default: {
       const label = String(randomNumber(10));
@@ -336,6 +450,14 @@ function vocabularyFor(mode: BalloonMode, language: GameLanguage): string[] {
       return BALLOON_ANIMALS_EX.map((animal) => animal.name);
     case "schoolSupplies":
       return BALLOON_SCHOOL_SUPPLIES.map((item) => item.name);
+    case "schoolSuppliesEx":
+      return BALLOON_SCHOOL_SUPPLIES_EX.map((item) => item.name);
+    case "family":
+      return BALLOON_FAMILY.map((member) => member.name);
+    case "bodyParts":
+      return BALLOON_BODY_PARTS.map((part) => part.name);
+    case "fruits":
+      return BALLOON_FRUITS.map((fruit) => fruit.name);
     case "numbers10":
     default:
       return Array.from({ length: 10 }, (_, i) => String(i + 1));
@@ -555,7 +677,7 @@ function BalloonNode({
       <svg viewBox={`0 0 40 ${viewBoxHeight}`} className="w-full drop-shadow-md" aria-hidden="true">
         {balloon.isQuizBalloon ? (
           <path
-            d="M20,34.5 C20,34.5 4,24 4,15 C4,9.75 8.25,5.5 13.5,5.5 C16.5,5.5 19,7 20,9.5 C21,7 23.5,5.5 26.5,5.5 C31.75,5.5 36,9.75 36,15 C36,24 20,34.5 20,34.5 Z"
+            d="M20,40 C20,40 4,29.5 4,20.5 C4,15.25 8.25,11 13.5,11 C16.5,11 19,12.5 20,15 C21,12.5 23.5,11 26.5,11 C31.75,11 36,15.25 36,20.5 C36,29.5 20,40 20,40 Z"
             fill={balloon.color}
           />
         ) : (
@@ -578,7 +700,10 @@ function BalloonNode({
           strokeWidth="0.5"
         >
           {balloon.isQuizBalloon ? (
-            <tspan x="20" y="24">
+            // dominantBaseline="central" instead of the plain baseline the
+            // other tspans use — at this fontSize a baseline-anchored glyph
+            // sits well above the heart's visual center, not centered on it.
+            <tspan x="20" y="25" dominantBaseline="central">
               ?
             </tspan>
           ) : lines.length === 2 ? (
@@ -760,7 +885,7 @@ export function BalloonPopGame() {
       // Clears every other balloon too — a calm, empty screen behind the
       // quiz overlay instead of balloons drifting past its translucent scrim.
       setBalloons([]);
-      setQuizQuestions(buildBalloonQuizQuestions());
+      setQuizQuestions(buildBalloonQuizQuestions(mode, PICTURE_POOL_BY_MODE[mode] ?? []));
       return;
     }
 

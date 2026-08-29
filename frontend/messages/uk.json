@@ -61,7 +61,11 @@
       "greetings": "Greetings",
       "animals": "Animals",
       "animalsEx": "Animals (Photo)",
-      "schoolSupplies": "School Supplies"
+      "schoolSupplies": "School Supplies",
+      "schoolSuppliesEx": "School Supplies (Photo)",
+      "family": "Family",
+      "bodyParts": "Body Parts",
+      "fruits": "Fruits"
     },
     "languageLabel": "Мова",
     "language": {

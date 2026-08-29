@@ -59,6 +59,39 @@ body {
   }
 }
 
+/* Bonus heart-balloon quiz feedback (balloon-quiz.tsx). */
+@keyframes star-pop {
+  0% {
+    transform: scale(0) rotate(-15deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.25) rotate(10deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes sad-face-pop {
+  0% {
+    transform: scale(0.4) rotate(0deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.15) rotate(-8deg);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1) rotate(6deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
 /* Letter Train celebration minigame — docs/interfaces/preschool.md section 2.4. */
 @keyframes train-arrive {
   from {
