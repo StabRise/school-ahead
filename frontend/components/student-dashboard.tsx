@@ -1,8 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { BookOpen } from "lucide-react";
-import { useGetToday } from "@/lib/api/browser/schedule/schedule";
+import { useGetToday, useGetWeeklyProgress } from "@/lib/api/browser/schedule/schedule";
 import { useListMyAchievements } from "@/lib/api/browser/achievements/achievements";
 import type { CalendarItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { StatusBadge } from "@/components/status-badge";
@@ -32,6 +33,19 @@ function toLocalIsoDate(date: Date): string {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
+
+// Local Monday of the week containing `date` — same rule as the weekly
+// calendar's identical helper (components/calendar/weekly-calendar.tsx).
+function startOfWeek(date: Date): Date {
+  const result = new Date(date);
+  const weekday = result.getDay();
+  const diffToMonday = weekday === 0 ? -6 : 1 - weekday;
+  result.setDate(result.getDate() + diffToMonday);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+const WEEKDAY_LABEL_FORMAT = new Intl.DateTimeFormat("uk-UA", { weekday: "short" });
 
 // task_content is markdown/HTML — strip it down to a short plain-text
 // preview rather than rendering it in full (the full task is shown on the
@@ -140,12 +154,12 @@ function LessonRow({ item, dateLabel }: { item: CalendarItemOut; dateLabel?: str
   );
 }
 
-// Right-hand rail on the default (non-preschool) dashboard — reuses the
-// same "Мої досягнення" per-subject completion data (achievements.services)
-// as the achievements page, just rendered as compact bars instead of cards.
-// Renders nothing while loading/erroring/empty so it never pushes the
-// lesson list around with a placeholder.
-function SubjectStatsSidebar() {
+// One box of the right-hand rail on the default (non-preschool) dashboard —
+// reuses the same "Мої досягнення" per-subject completion data
+// (achievements.services) as the achievements page, just rendered as
+// compact bars instead of cards. Renders nothing while loading/erroring/
+// empty so it never pushes the sidebar around with a placeholder.
+function SubjectStatsCard() {
   const t = useTranslations("StudentDashboard");
   const { data } = useListMyAchievements();
   const subjects = data ?? [];
@@ -155,17 +169,69 @@ function SubjectStatsSidebar() {
   }
 
   return (
-    <aside className="w-full shrink-0 lg:w-72 xl:w-80">
-      <div className="flex flex-col gap-4 rounded-md border border-gray-200 p-4">
-        <h3 className="text-sm font-semibold text-gray-900">{t("statsTitle")}</h3>
-        <ul className="flex flex-col gap-3">
-          {subjects.map((subject) => (
-            <li key={subject.subject_id}>
-              <ProgressBar percent={subject.completed_percent} label={subject.subject_name} />
-            </li>
-          ))}
-        </ul>
+    <div className="flex flex-col gap-4 rounded-md border border-gray-200 p-4">
+      <h3 className="text-sm font-semibold text-gray-900">{t("statsTitle")}</h3>
+      <ul className="flex flex-col gap-3">
+        {subjects.map((subject) => (
+          <li key={subject.subject_id}>
+            <ProgressBar percent={subject.completed_percent} label={subject.subject_name} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// Second sidebar box — a Mon-Sun bar chart of how many lessons the student
+// actually completed each day (StudentLesson.completed_at), independent of
+// which day they were scheduled for. See scheduling.services
+// .get_week_completion_counts. Renders nothing while loading/erroring/empty,
+// same as SubjectStatsCard.
+function WeeklyProgressCard() {
+  const t = useTranslations("StudentDashboard");
+  const weekStart = useMemo(() => startOfWeek(new Date()), []);
+  const { data } = useGetWeeklyProgress({ week_start: toLocalIsoDate(weekStart) });
+  const days = data?.days ?? [];
+
+  if (days.length === 0) {
+    return null;
+  }
+
+  const maxCount = Math.max(1, ...days.map((day) => day.completed_count));
+  const MAX_BAR_HEIGHT_PX = 64;
+
+  return (
+    <div className="flex flex-col gap-4 rounded-md border border-gray-200 p-4">
+      <h3 className="text-sm font-semibold text-gray-900">{t("weeklyProgressTitle")}</h3>
+      <div className="flex items-end justify-between gap-2" style={{ height: MAX_BAR_HEIGHT_PX + 20 }}>
+        {days.map((day) => (
+          <div key={day.date} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+            <span className="text-xs font-medium text-gray-700">{day.completed_count}</span>
+            <div
+              className={`w-full rounded-t-sm ${day.completed_count > 0 ? "bg-blue-500" : "bg-gray-100"}`}
+              style={{
+                height: day.completed_count > 0 ? (day.completed_count / maxCount) * MAX_BAR_HEIGHT_PX : 2,
+              }}
+            />
+          </div>
+        ))}
       </div>
+      <div className="flex justify-between gap-2">
+        {days.map((day) => (
+          <span key={day.date} className="flex-1 text-center text-[10px] uppercase text-gray-400">
+            {WEEKDAY_LABEL_FORMAT.format(new Date(`${day.date}T00:00:00`))}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DashboardSidebar() {
+  return (
+    <aside className="flex w-full shrink-0 flex-col gap-6 lg:w-72 xl:w-80">
+      <SubjectStatsCard />
+      <WeeklyProgressCard />
     </aside>
   );
 }
@@ -247,7 +313,7 @@ export function StudentDashboard() {
           )}
         </div>
 
-        <SubjectStatsSidebar />
+        <DashboardSidebar />
       </div>
     </PageContainer>
   );

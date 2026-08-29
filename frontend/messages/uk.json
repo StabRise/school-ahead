@@ -129,7 +129,8 @@
     "backlogTitle": "Хвости",
     "backlogHint": "Уроки, які не завершено вчасно",
     "backlogOrigin": "Мало бути виконано: {label}",
-    "statsTitle": "Прогрес по предметах"
+    "statsTitle": "Прогрес по предметах",
+    "weeklyProgressTitle": "Виконано за тиждень"
   },
   "TutorDashboard": {
     "title": "Панель тьютора",

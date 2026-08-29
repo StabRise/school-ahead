@@ -1,6 +1,7 @@
 import datetime
 
 from django.db.models import Prefetch
+from django.utils import timezone
 
 from academics import services as academics_services
 from academics.models import Class, Subject
@@ -246,6 +247,32 @@ def get_today(student: StudentProfile, date: datetime.date) -> tuple[list[Studen
         .select_related('lesson').order_by('id')
     )
     return today_lessons, get_backlog(student, date)
+
+
+def get_week_completion_counts(student: StudentProfile, week_start: datetime.date) -> list[dict]:
+    """Mon-Sun histogram data for the dashboard's weekly-progress sidebar:
+    per calendar day, how many of the student's lessons were completed
+    (StudentLesson.completed_at) that day — independent of scheduled_date,
+    so a backlog lesson finished today counts under today, not under
+    whatever day it was originally scheduled for. completed_at is
+    converted to the local calendar day (see TIME_ZONE=UTC, USE_TZ=True in
+    settings) before bucketing."""
+    week_end = week_start + datetime.timedelta(days=6)
+    completed_at_values = StudentLesson.objects.filter(
+        student=student,
+        completed_at__date__gte=week_start,
+        completed_at__date__lte=week_end,
+    ).values_list('completed_at', flat=True)
+
+    counts = [0] * 7
+    for completed_at in completed_at_values:
+        day_index = timezone.localtime(completed_at).date().weekday()
+        counts[day_index] += 1
+
+    return [
+        {'date': week_start + datetime.timedelta(days=i), 'weekday': i, 'completed_count': counts[i]}
+        for i in range(7)
+    ]
 
 
 def backlog_label(student_lesson: StudentLesson) -> str:

@@ -39,6 +39,20 @@ class TodayOut(Schema):
     backlog: list[BacklogItemOut]
 
 
+class DailyCompletionOut(Schema):
+    """One day's worth of the weekly-progress histogram — how many of the
+    student's lessons were actually completed (StudentLesson.completed_at)
+    that calendar day, regardless of which day they'd been scheduled for."""
+
+    date: datetime.date
+    weekday: int  # 0=Monday .. 6=Sunday
+    completed_count: int
+
+
+class WeeklyCompletionOut(Schema):
+    days: list[DailyCompletionOut]
+
+
 class GenerateCalendarOut(Schema):
     lessons_scheduled: int
     students_affected: int

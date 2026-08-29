@@ -26,6 +26,7 @@ from .schemas import (
     GenerateClassScheduleOut,
     RescheduleIn,
     TodayOut,
+    WeeklyCompletionOut,
 )
 
 router = Router(tags=['schedule'], auth=CookieOrBearerJWTAuth())
@@ -93,6 +94,16 @@ def backlog(request: HttpRequest):
     student = get_own_student_profile(request)
     items = services.get_backlog(student, datetime.date.today())
     return [_backlog_item(request, sl) for sl in items]
+
+
+@router.get('/weekly-progress', response=WeeklyCompletionOut, operation_id='get_weekly_progress')
+def weekly_progress(request: HttpRequest, week_start: datetime.date):
+    """Mon-Sun histogram for the dashboard sidebar: how many lessons the
+    student actually completed each day of the given week. See
+    services.get_week_completion_counts."""
+    student = get_own_student_profile(request)
+    days = services.get_week_completion_counts(student, week_start)
+    return WeeklyCompletionOut(days=days)
 
 
 @router.get(
