@@ -4,9 +4,45 @@
 // the browser's Origin Private File System. Shared by the balloon-pop
 // minigame, the preschool quiz's "read aloud" button, and the lesson title.
 import * as piperTts from "@diffusionstudio/vits-web";
+import { HF_BASE, PATH_MAP } from "@diffusionstudio/vits-web";
 import type { VoiceId } from "@diffusionstudio/vits-web";
+import { PIPER_VOICE_PATHS } from "./piper-voices.generated";
+import type { PiperVoiceId } from "./piper-voices.generated";
+import { useTtsVoiceSettingsStore } from "@/stores/tts-voice-settings-store";
 
 export type SpeechLanguage = "en" | "uk" | "pl";
+
+// @diffusionstudio/vits-web (last published 1.0.3) hardcodes both its VoiceId
+// union and the model paths it knows about (PATH_MAP), and fetches them from
+// its own mirror (HF_BASE, huggingface.co/diffusionstudio/piper-voices) —
+// which lags the upstream rhasspy/piper-voices repo it's mirroring (111
+// voices vs. rhasspy's 175, e.g. missing uk_UA-mykyta-high entirely). To use
+// vits-web's inference/caching machinery with the full, current voice list
+// instead, piper-voices.generated.ts (see generate-piper-voices.mjs) is
+// generated straight from rhasspy's manifest, and used here in place of
+// vits-web's VoiceId/PATH_MAP wherever a voice is looked up.
+type AnyVoiceId = VoiceId | PiperVoiceId;
+const UPSTREAM_HF_BASE = "https://huggingface.co/rhasspy/piper-voices/resolve/main";
+
+// vits-web's predict()/download()/stored() all key off PATH_MAP and fetch
+// straight from HF_BASE with no way to override either from the outside, so
+// using rhasspy's full voice list means both patching the (mutable,
+// exported) PATH_MAP object with rhasspy's paths and rewriting HF_BASE
+// requests to rhasspy — safe to do unconditionally since every voice
+// vits-web ships also exists at rhasspy under the same relative path
+// (verified when piper-voices.generated.ts was written).
+let voicesRegistered = false;
+function ensureVoicesRegistered(): void {
+  if (voicesRegistered || typeof window === "undefined") return;
+  voicesRegistered = true;
+  Object.assign(PATH_MAP, PIPER_VOICE_PATHS);
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (url.startsWith(HF_BASE)) return originalFetch(UPSTREAM_HF_BASE + url.slice(HF_BASE.length), init);
+    return originalFetch(input, init);
+  };
+}
 
 // "short" is for single digits/letters/color words (the balloon-pop game);
 // "sentence" is for full phrases (quiz questions/answers, lesson titles).
@@ -32,23 +68,39 @@ export function toSpeechText(markdown: string): string {
     .trim();
 }
 
-const SHORT_VOICE_BY_LANGUAGE: Record<SpeechLanguage, VoiceId> = {
+// Used only as a fallback — see voiceIdFor() below — for any (language,
+// profile) pair the backend has no TtsVoiceSetting row for yet (a fresh DB
+// before the seed migration runs, or a language added here before an admin
+// configures it). The admin-configured value is what's actually used day to
+// day; keep these in sync with tts/migrations/0002_seed_default_voices.py's
+// seed data so a missing row falls back to the same voice it'd otherwise
+// default to.
+const SHORT_VOICE_BY_LANGUAGE: Record<SpeechLanguage, AnyVoiceId> = {
   en: "en_US-lessac-medium",
-  uk: "uk_UA-lada-x_low",
+  uk: "uk_UA-mykyta-high",
   pl: "pl_PL-gosia-medium",
 };
 
-// Full sentences need a voice with a fuller phoneme vocabulary. The tiny
-// x_low Ukrainian voice above is fine for single digits/letters, but throws
-// an ONNX "Gather ... indices element out of data bounds" error on some
-// ordinary multi-word sentences it was never trained to cover.
-const SENTENCE_VOICE_BY_LANGUAGE: Record<SpeechLanguage, VoiceId> = {
+// Full sentences need a voice with a fuller phoneme vocabulary than a tiny
+// x_low/low-quality model offers — those throw an ONNX "Gather ... indices
+// element out of data bounds" error on ordinary multi-word sentences they
+// were never trained to cover. Currently identical to SHORT_VOICE_BY_LANGUAGE
+// for every language, but kept separate since a language may need a lighter
+// voice for short utterances and a fuller one for sentences again later.
+const SENTENCE_VOICE_BY_LANGUAGE: Record<SpeechLanguage, AnyVoiceId> = {
   en: "en_US-lessac-medium",
-  uk: "uk_UA-lada-x_low",
+  uk: "uk_UA-mykyta-high",
   pl: "pl_PL-gosia-medium",
 };
 
-function voiceIdFor(language: SpeechLanguage, profile: VoiceProfile): VoiceId {
+// Admin-configured voice (System admin > Tts voice settings) takes priority
+// over the hardcoded defaults above — see
+// stores/tts-voice-settings-store.ts. Read via getState() rather than the
+// useTtsVoiceSettingsStore() hook since this runs from plain functions
+// (speak(), warmupSpeech(), ...), not React components.
+function voiceIdFor(language: SpeechLanguage, profile: VoiceProfile): AnyVoiceId {
+  const override = useTtsVoiceSettingsStore.getState().overrides[`${language}:${profile}`];
+  if (override) return override as AnyVoiceId;
   return profile === "short" ? SHORT_VOICE_BY_LANGUAGE[language] : SENTENCE_VOICE_BY_LANGUAGE[language];
 }
 
@@ -77,11 +129,11 @@ const AUDIO_CACHE_NAME = "piper-tts-audio-v1";
 // — voiceId is what actually determines the audio, and keying on it means a
 // future change to the language→voice mapping naturally stops reusing
 // stale audio from a since-replaced voice instead of silently serving it.
-function audioCacheUrl(voiceId: VoiceId, text: string): string {
+function audioCacheUrl(voiceId: AnyVoiceId, text: string): string {
   return `${location.origin}/__piper-tts-cache__/${encodeURIComponent(voiceId)}/${encodeURIComponent(text)}`;
 }
 
-async function getPersistedAudio(voiceId: VoiceId, text: string): Promise<Blob | undefined> {
+async function getPersistedAudio(voiceId: AnyVoiceId, text: string): Promise<Blob | undefined> {
   if (typeof caches === "undefined") return undefined;
   try {
     const cache = await caches.open(AUDIO_CACHE_NAME);
@@ -92,7 +144,7 @@ async function getPersistedAudio(voiceId: VoiceId, text: string): Promise<Blob |
   }
 }
 
-async function persistAudio(voiceId: VoiceId, text: string, wav: Blob): Promise<void> {
+async function persistAudio(voiceId: AnyVoiceId, text: string, wav: Blob): Promise<void> {
   if (typeof caches === "undefined") return;
   try {
     const cache = await caches.open(AUDIO_CACHE_NAME);
@@ -110,7 +162,8 @@ function getOrSynthesize(text: string, language: SpeechLanguage, profile: VoiceP
     cached = (async () => {
       const persisted = await getPersistedAudio(voiceId, text);
       if (persisted) return persisted;
-      const wav = await piperTts.predict({ text, voiceId });
+      ensureVoicesRegistered();
+      const wav = await piperTts.predict({ text, voiceId: voiceId as VoiceId });
       void persistAudio(voiceId, text, wav);
       return wav;
     })();
@@ -141,9 +194,10 @@ export function warmupSpeech(texts: string[], language: SpeechLanguage, profile:
 export async function prefetchVoice(language: SpeechLanguage, profile: VoiceProfile = "sentence"): Promise<void> {
   try {
     const voiceId = voiceIdFor(language, profile);
+    ensureVoicesRegistered();
     const alreadyStored = await piperTts.stored();
-    if (alreadyStored.includes(voiceId)) return;
-    await piperTts.download(voiceId);
+    if (alreadyStored.includes(voiceId as VoiceId)) return;
+    await piperTts.download(voiceId as VoiceId);
   } catch {
     // Best-effort only — offline or unsupported browsers just skip prefetching.
   }

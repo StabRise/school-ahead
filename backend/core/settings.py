@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'lessons',
     'tutoring',
     'scheduling',
+    'tts',
 ]
 
 MIDDLEWARE = [
