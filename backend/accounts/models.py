@@ -66,6 +66,10 @@ class Avatar(models.Model):
     image = models.FileField(upload_to=avatar_image_upload_to)
     order_index = models.PositiveSmallIntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    # Uniform size multiplier for the body layer, tuned from the tutor avatar
+    # editor (docs/core/avatar.md) so a body can be nudged to visually match
+    # its wardrobe items without re-authoring the SVG.
+    scale = models.FloatField(default=1.0)
 
     class Meta:
         ordering = ['order_index', 'id']
@@ -94,6 +98,15 @@ class AvatarItem(models.Model):
     image = models.FileField(upload_to=avatar_item_image_upload_to)
     order_index = models.PositiveSmallIntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    # Per-item fine-tuning set from the tutor avatar editor (docs/core/avatar.md)
+    # so an item can be scaled/nudged to line up with its avatar's body without
+    # re-authoring the SVG. offset_x/offset_y are percentages of the avatar
+    # canvas (so they stay correct at any render size); scale is a multiplier
+    # applied on top of the item's native size. Both origin at (0, 0)/1.0,
+    # i.e. "drawn exactly as authored" — see AvatarPreview on the frontend.
+    scale = models.FloatField(default=1.0)
+    offset_x = models.FloatField(default=0.0)
+    offset_y = models.FloatField(default=0.0)
 
     class Meta:
         ordering = ['slot', 'order_index', 'id']

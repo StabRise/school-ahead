@@ -12,6 +12,9 @@ function mapAvatarItem(item: AvatarItemOut): EquippedAvatarItem {
     key: item.key,
     name: item.name,
     image: item.image,
+    scale: item.scale ?? 1,
+    offsetX: item.offset_x ?? 0,
+    offsetY: item.offset_y ?? 0,
   };
 }
 
@@ -21,6 +24,7 @@ function mapAvatar(avatar: AvatarOut) {
     key: avatar.key,
     name: avatar.name,
     image: avatar.image,
+    scale: avatar.scale ?? 1,
     items: (avatar.items ?? []).map(mapAvatarItem),
   };
 }

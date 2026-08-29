@@ -28,7 +28,8 @@
     "calendar": "Календар",
     "tutorDashboard": "Панель тьютора",
     "preschoolMode": "Дитячий режим",
-    "diamondBalance": "{count, plural, one {# діамант} few {# діаманти} many {# діамантів} other {# діаманта}}"
+    "diamondBalance": "{count, plural, one {# діамант} few {# діаманти} many {# діамантів} other {# діаманта}}",
+    "avatarEditor": "Редактор аватарів"
   },
   "Home": {
     "welcomeBack": "З поверненням, {name}!",
@@ -489,7 +490,7 @@
     "lessonTooltip": "{topic}\n{lesson}",
     "previewAsStudent": "Переглянути урок як учень",
     "openSubject": "Відкрити предмет",
-  "viewSubject": "Переглянути предмет",
+    "viewSubject": "Переглянути предмет",
     "changeDate": "Змінити дату",
     "rescheduleTitle": "Змінити дату уроку",
     "rescheduleDateLabel": "Нова дата",
@@ -520,5 +521,16 @@
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити предмети.",
     "empty": "Книжок на полиці ще немає."
+  },
+  "TutorAvatarEditor": {
+    "title": "Редактор аватарів",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити аватари. Спробуйте ще раз.",
+    "bodySectionTitle": "Тіло персонажа",
+    "scale": "Масштаб",
+    "offsetX": "Зміщення по X",
+    "offsetY": "Зміщення по Y",
+    "save": "Зберегти",
+    "dragHint": "Перетягніть елемент мишкою, щоб змінити положення"
   }
 }

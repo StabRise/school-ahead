@@ -15,6 +15,13 @@ class AvatarItemOut(Schema):
     key: str
     name: str
     image: str | None
+    # Fine-tuning set from the tutor avatar editor — see AvatarItem.scale/
+    # offset_x/offset_y. Applied by the frontend as a CSS transform on top of
+    # this item's layer so every renderer (preview, wardrobe, ...) stays in
+    # sync without re-authoring the SVG.
+    scale: float = 1.0
+    offset_x: float = 0.0
+    offset_y: float = 0.0
 
 
 class AvatarOut(Schema):
@@ -28,6 +35,8 @@ class AvatarOut(Schema):
     key: str
     name: str
     image: str | None
+    # Fine-tuning set from the tutor avatar editor — see Avatar.scale.
+    scale: float = 1.0
     # This avatar's wardrobe catalog (active items only), for the frontend
     # to build the customization pickers from.
     items: list[AvatarItemOut] = []
@@ -80,3 +89,17 @@ class UpdateAvatarItemsIn(Schema):
     clothing_item_id: int | None = None
     headwear_item_id: int | None = None
     accessory_item_id: int | None = None
+
+
+class UpdateAvatarTransformIn(Schema):
+    """Tutor avatar editor — see docs/core/avatar.md."""
+
+    scale: float
+
+
+class UpdateAvatarItemTransformIn(Schema):
+    """Tutor avatar editor — see docs/core/avatar.md."""
+
+    scale: float
+    offset_x: float
+    offset_y: float

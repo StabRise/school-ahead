@@ -14,6 +14,8 @@ export interface EquippedAvatar {
   key: string;
   name: string;
   image: string | null;
+  // Size multiplier set from the tutor avatar editor — see AvatarPreview.
+  scale: number;
   items: EquippedAvatarItem[];
 }
 
@@ -26,6 +28,11 @@ export interface EquippedAvatarItem {
   key: string;
   name: string;
   image: string | null;
+  // Fine-tuning set from the tutor avatar editor — see AvatarPreview.
+  // offsetX/offsetY are percentages of the avatar canvas.
+  scale: number;
+  offsetX: number;
+  offsetY: number;
 }
 
 export interface AuthUser {

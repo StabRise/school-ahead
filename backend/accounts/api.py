@@ -30,7 +30,16 @@ def _avatar_item_out(item: AvatarItem | None, request: HttpRequest) -> AvatarIte
     if item is None:
         return None
     image_url = request.build_absolute_uri(item.image.url) if item.image else None
-    return AvatarItemOut(id=item.id, slot=item.slot, key=item.key, name=item.name, image=image_url)
+    return AvatarItemOut(
+        id=item.id,
+        slot=item.slot,
+        key=item.key,
+        name=item.name,
+        image=image_url,
+        scale=item.scale,
+        offset_x=item.offset_x,
+        offset_y=item.offset_y,
+    )
 
 
 def _avatar_out(avatar: Avatar | None, request: HttpRequest) -> AvatarOut | None:
@@ -38,7 +47,7 @@ def _avatar_out(avatar: Avatar | None, request: HttpRequest) -> AvatarOut | None
         return None
     image_url = request.build_absolute_uri(avatar.image.url) if avatar.image else None
     items = [_avatar_item_out(item, request) for item in avatar.items.filter(is_active=True)]
-    return AvatarOut(id=avatar.id, key=avatar.key, name=avatar.name, image=image_url, items=items)
+    return AvatarOut(id=avatar.id, key=avatar.key, name=avatar.name, image=image_url, scale=avatar.scale, items=items)
 
 
 def _user_out(request: HttpRequest, user) -> UserOut:
