@@ -19,6 +19,7 @@ interface FallingBalloon {
   delay: number; // seconds before starting
   size: number; // px
   label: string; // text printed on the balloon, depends on the selected mode
+  icon?: string; // optional emoji shown above the label, larger than its text
   speech: string; // text spoken via Piper TTS when the balloon is popped
 }
 
@@ -75,7 +76,76 @@ const BALLOON_GREETINGS = [
   "See you later",
 ];
 
-const BALLOON_MODES: BalloonMode[] = ["numbers10", "numbers20", "numbers100", "colors", "letters", "greetings"];
+// English animal names for the "animals" mode, paired with a representative
+// emoji shown on the balloon — like "greetings", no per-language variants
+// exist yet, so names are shown/spoken in English regardless of the
+// selected game language. Unicode has no dedicated emoji for every animal
+// here (e.g. cheetah/leopard, crocodile/alligator, walrus/seal, moose/deer/
+// reindeer), so closely related species intentionally share a glyph, and a
+// generic paw print stands in for the handful with no close match at all
+// (platypus, armadillo, meerkat).
+const BALLOON_ANIMALS: { name: string; emoji: string }[] = [
+  { name: "Elephant", emoji: "🐘" },
+  { name: "Lion", emoji: "🦁" },
+  { name: "Tiger", emoji: "🐅" },
+  { name: "Giraffe", emoji: "🦒" },
+  { name: "Zebra", emoji: "🦓" },
+  { name: "Hippopotamus", emoji: "🦛" },
+  { name: "Rhinoceros", emoji: "🦏" },
+  { name: "Cheetah", emoji: "🐆" },
+  { name: "Leopard", emoji: "🐆" },
+  { name: "Kangaroo", emoji: "🦘" },
+  { name: "Koala", emoji: "🐨" },
+  { name: "Panda", emoji: "🐼" },
+  { name: "Gorilla", emoji: "🦍" },
+  { name: "Chimpanzee", emoji: "🦧" },
+  { name: "Wolf", emoji: "🐺" },
+  { name: "Fox", emoji: "🦊" },
+  { name: "Bear", emoji: "🐻" },
+  { name: "Deer", emoji: "🦌" },
+  { name: "Moose", emoji: "🫎" },
+  { name: "Bison", emoji: "🦬" },
+  { name: "Camel", emoji: "🐪" },
+  { name: "Dolphin", emoji: "🐬" },
+  { name: "Whale", emoji: "🐋" },
+  { name: "Shark", emoji: "🦈" },
+  { name: "Octopus", emoji: "🐙" },
+  { name: "Eagle", emoji: "🦅" },
+  { name: "Owl", emoji: "🦉" },
+  { name: "Penguin", emoji: "🐧" },
+  { name: "Flamingo", emoji: "🦩" },
+  { name: "Parrot", emoji: "🦜" },
+  { name: "Crocodile", emoji: "🐊" },
+  { name: "Alligator", emoji: "🐊" },
+  { name: "Turtle", emoji: "🐢" },
+  { name: "Snake", emoji: "🐍" },
+  { name: "Iguana", emoji: "🦎" },
+  { name: "Frog", emoji: "🐸" },
+  { name: "Salamander", emoji: "🦎" },
+  { name: "Bat", emoji: "🦇" },
+  { name: "Squirrel", emoji: "🐿️" },
+  { name: "Hedgehog", emoji: "🦔" },
+  { name: "Otter", emoji: "🦦" },
+  { name: "Beaver", emoji: "🦫" },
+  { name: "Raccoon", emoji: "🦝" },
+  { name: "Platypus", emoji: "🐾" },
+  { name: "Sloth", emoji: "🦥" },
+  { name: "Armadillo", emoji: "🐾" },
+  { name: "Meerkat", emoji: "🐾" },
+  { name: "Walrus", emoji: "🦭" },
+  { name: "Seal", emoji: "🦭" },
+  { name: "Reindeer", emoji: "🦌" },
+];
+
+const BALLOON_MODES: BalloonMode[] = [
+  "numbers10",
+  "numbers20",
+  "numbers100",
+  "colors",
+  "letters",
+  "greetings",
+  "animals",
+];
 const GAME_LANGUAGES: GameLanguage[] = ["en", "uk", "pl"];
 
 const SPAWN_INTERVAL_MS = 850;
@@ -118,7 +188,7 @@ function randomFrom<T>(items: T[]): T {
 function generateBalloonContent(
   mode: BalloonMode,
   language: GameLanguage,
-): { label: string; color: string; speech: string } {
+): { label: string; icon?: string; color: string; speech: string } {
   switch (mode) {
     case "numbers20": {
       const label = String(randomNumber(20));
@@ -140,6 +210,10 @@ function generateBalloonContent(
     case "greetings": {
       const label = randomFrom(BALLOON_GREETINGS);
       return { label, color: randomColor(), speech: label };
+    }
+    case "animals": {
+      const animal = randomFrom(BALLOON_ANIMALS);
+      return { label: animal.name, icon: animal.emoji, color: randomColor(), speech: animal.name };
     }
     case "numbers10":
     default: {
@@ -167,6 +241,10 @@ function vocabularyFor(mode: BalloonMode, language: GameLanguage): string[] {
       return ALPHABETS[language].map((letter) => letter.charAt(0));
     case "greetings":
       return BALLOON_GREETINGS;
+    case "animals":
+      // 50 names is as much background synthesis as numbers100's 100 — skip
+      // proactive warmup and let pops cache lazily as each name comes up.
+      return [];
     case "numbers10":
     default:
       return Array.from({ length: 10 }, (_, i) => String(i + 1));
@@ -267,6 +345,11 @@ function BalloonNode({
   const poppedRef = useRef(false);
   const lines = wrapBalloonLabel(balloon.label);
   const fontSize = labelFontSize(lines);
+  // The icon (e.g. "animals" mode) reads as the primary thing to recognize,
+  // with its name as a caption — so it gets a fixed, larger size than the
+  // name text, and the name shifts down to make room for it.
+  const iconFontSize = 18;
+  const textBaseY = balloon.icon ? 31 : 24;
 
   const handlePop = () => {
     if (poppedRef.current) return;
@@ -299,6 +382,17 @@ function BalloonNode({
       <svg viewBox="0 0 40 52" className="w-full drop-shadow-md" aria-hidden="true">
         <ellipse cx="20" cy="20" rx="18" ry="20" fill={balloon.color} />
         <ellipse cx="14" cy="12" rx="4" ry="6" fill="white" opacity="0.35" />
+        {balloon.icon && (
+          <text
+            x="20"
+            y="14"
+            textAnchor="middle"
+            fontSize={iconFontSize}
+            style={{ pointerEvents: "none", userSelect: "none" }}
+          >
+            {balloon.icon}
+          </text>
+        )}
         <text
           x="20"
           textAnchor="middle"
@@ -314,15 +408,15 @@ function BalloonNode({
         >
           {lines.length === 2 ? (
             <>
-              <tspan x="20" y={24 - fontSize * 0.6}>
+              <tspan x="20" y={textBaseY - fontSize * 0.6}>
                 {lines[0]}
               </tspan>
-              <tspan x="20" y={24 + fontSize * 0.6}>
+              <tspan x="20" y={textBaseY + fontSize * 0.6}>
                 {lines[1]}
               </tspan>
             </>
           ) : (
-            <tspan x="20" y="24">
+            <tspan x="20" y={textBaseY}>
               {lines[0]}
             </tspan>
           )}
@@ -365,7 +459,7 @@ export function BalloonPopGame() {
     const interval = setInterval(() => {
       setBalloons((current) => {
         if (current.length >= maxOnScreen) return current;
-        const { label, color, speech } = generateBalloonContent(mode, language);
+        const { label, icon, color, speech } = generateBalloonContent(mode, language);
         const balloon: FallingBalloon = {
           id: nextBalloonId++,
           left: randomBetween(4, 82),
@@ -374,6 +468,7 @@ export function BalloonPopGame() {
           delay: 0,
           size: randomBetween(size * 0.75, size * 1.25),
           label,
+          icon,
           speech,
         };
         return [...current, balloon];
