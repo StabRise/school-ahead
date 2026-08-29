@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
 import { Lock } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -8,6 +8,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getMeQueryKey, usePurchaseAvatarItem, useUpdateAvatarItems } from "@/lib/api/browser/auth/auth";
 import { mapApiUserToAuthUser } from "@/lib/api/map-user";
 import { useAuthStore, type EquippedAvatarItem } from "@/stores/auth-store";
+import { useAvatarTryOnStore } from "@/stores/avatar-tryon-store";
+import { ConfirmPurchaseDialog } from "@/components/profile/confirm-purchase-dialog";
 import { NotEnoughDiamondsDialog } from "@/components/profile/not-enough-diamonds-dialog";
 
 const SLOTS = ["clothing", "headwear", "accessory"] as const;
@@ -59,18 +61,26 @@ function WardrobeItemButton({
 // AvatarPreview. The mutation always sends the full wardrobe state (see
 // UpdateAvatarItemsIn on the backend).
 //
-// A priced, not-yet-unlocked item shows a lock + price instead of equipping
-// on click — clicking it purchases first (docs/core/avatar.md's Diamond
-// shop), then equips it immediately on success. Insufficient balance shows
-// the "earn more Diamonds" dialog the doc calls for instead of equipping.
+// A priced, not-yet-unlocked item is "tried on" instead of equipped on
+// click: AvatarPreview shows it live (via useAvatarTryOnStore) while a
+// confirm-purchase dialog asks whether to buy it. Confirming buys it, then
+// equips it immediately; cancelling reverts the preview with nothing
+// charged. Insufficient balance swaps in the "earn more Diamonds" dialog
+// the doc calls for, keeping the try-on visible for a beat longer.
 export function AvatarWardrobe() {
   const t = useTranslations("Profile");
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
+  const tryOnItem = useAvatarTryOnStore((state) => state.tryOnItem);
+  const setTryOnItem = useAvatarTryOnStore((state) => state.setTryOnItem);
   const queryClient = useQueryClient();
   const updateItems = useUpdateAvatarItems();
   const purchaseItem = usePurchaseAvatarItem();
   const [notEnoughDiamonds, setNotEnoughDiamonds] = useState<{ itemName: string; price: number } | null>(null);
+
+  // Never leave a stray try-on preview showing elsewhere in the app if the
+  // student navigates away mid-decision.
+  useEffect(() => () => setTryOnItem(null), [setTryOnItem]);
 
   const items = user?.equippedAvatar?.items ?? [];
   const equippedIdsBySlot: Record<Slot, Set<number>> = {
@@ -115,15 +125,26 @@ export function AvatarWardrobe() {
     save({ ...equippedIdsBySlot, [slot]: new Set() });
   };
 
-  const handleBuy = (item: EquippedAvatarItem, onUnlocked: () => void) => {
+  const handleTryOn = (item: EquippedAvatarItem) => {
     if (isBusy) return;
+    setTryOnItem(item);
+  };
+
+  const handleCancelTryOn = () => {
+    setTryOnItem(null);
+  };
+
+  const handleConfirmPurchase = () => {
+    if (!tryOnItem) return;
+    const item = tryOnItem;
     purchaseItem.mutate(
       { itemId: item.id },
       {
         onSuccess: (response) => {
           setUser(mapApiUserToAuthUser(response.user));
           queryClient.invalidateQueries({ queryKey: getMeQueryKey() });
-          onUnlocked();
+          setTryOnItem(null);
+          handleToggle(item.slot, item.id);
         },
         onError: (error) => {
           if (isAxiosError(error) && error.response?.status === 402) {
@@ -132,6 +153,11 @@ export function AvatarWardrobe() {
         },
       },
     );
+  };
+
+  const handleCloseNotEnoughDiamonds = () => {
+    setNotEnoughDiamonds(null);
+    setTryOnItem(null);
   };
 
   if (items.length === 0) return null;
@@ -166,9 +192,7 @@ export function AvatarWardrobe() {
                   item={item}
                   isSelected={equippedIds.has(item.id)}
                   disabled={isBusy}
-                  onClick={() =>
-                    item.isUnlocked ? handleToggle(slot, item.id) : handleBuy(item, () => handleToggle(slot, item.id))
-                  }
+                  onClick={() => (item.isUnlocked ? handleToggle(slot, item.id) : handleTryOn(item))}
                 />
               ))}
             </div>
@@ -176,9 +200,18 @@ export function AvatarWardrobe() {
         );
       })}
 
+      <ConfirmPurchaseDialog
+        open={tryOnItem !== null && notEnoughDiamonds === null}
+        onOpenChange={(open) => !open && handleCancelTryOn()}
+        itemName={tryOnItem?.name ?? ""}
+        price={tryOnItem?.price ?? 0}
+        isPending={purchaseItem.isPending}
+        onConfirm={handleConfirmPurchase}
+      />
+
       <NotEnoughDiamondsDialog
         open={notEnoughDiamonds !== null}
-        onOpenChange={(open) => !open && setNotEnoughDiamonds(null)}
+        onOpenChange={(open) => !open && handleCloseNotEnoughDiamonds()}
         itemName={notEnoughDiamonds?.itemName ?? ""}
         price={notEnoughDiamonds?.price ?? 0}
         balance={user?.diamondBalance ?? 0}

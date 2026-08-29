@@ -434,7 +434,11 @@
     },
     "notEnoughDiamondsTitle": "Недостатньо діамантів",
     "notEnoughDiamondsBody": "{item} коштує 💎{price}, а в тебе {balance}. Виконуй уроки, щоб заробити більше діамантів!",
-    "notEnoughDiamondsClose": "Зрозуміло"
+    "notEnoughDiamondsClose": "Зрозуміло",
+    "confirmPurchaseTitle": "Приміряти та купити?",
+    "confirmPurchaseBody": "«{item}» коштує 💎{price}. Купити цю річ?",
+    "confirmPurchaseCancel": "Скасувати",
+    "confirmPurchaseBuy": "Купити за 💎{price}"
   },
   "SubjectDetail": {
     "loading": "Завантаження...",

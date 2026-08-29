@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuthStore, type EquippedAvatarItem } from "@/stores/auth-store";
+import { useAvatarTryOnStore } from "@/stores/avatar-tryon-store";
 
 interface Layer {
   image: string;
@@ -29,6 +30,7 @@ export function AvatarPreview() {
   const equippedClothingItems = useAuthStore((state) => state.user?.equippedClothingItems);
   const equippedHeadwearItems = useAuthStore((state) => state.user?.equippedHeadwearItems);
   const equippedAccessoryItems = useAuthStore((state) => state.user?.equippedAccessoryItems);
+  const tryOnItem = useAvatarTryOnStore((state) => state.tryOnItem);
 
   const layers: Layer[] = [
     ...(equippedAvatar?.image
@@ -37,6 +39,10 @@ export function AvatarPreview() {
     ...itemsToLayers(equippedClothingItems),
     ...itemsToLayers(equippedHeadwearItems),
     ...itemsToLayers(equippedAccessoryItems),
+    // A not-yet-purchased item being tried on renders last (on top of
+    // everything) so it's never hidden behind what's already equipped —
+    // see components/profile/avatar-wardrobe.tsx's purchase-confirm flow.
+    ...itemsToLayers(tryOnItem ? [tryOnItem] : undefined),
   ];
 
   return (
