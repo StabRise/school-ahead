@@ -7,7 +7,7 @@ import type { SpeechLanguage } from "@/lib/piper-tts";
 // a chosen mode/language/sizing/mute survives closing the tab instead of
 // resetting to defaults every session.
 
-export type BalloonMode = "numbers10" | "numbers20" | "numbers100" | "colors" | "letters";
+export type BalloonMode = "numbers10" | "numbers20" | "numbers100" | "colors" | "letters" | "greetings";
 
 const DEFAULT_MODE: BalloonMode = "numbers10";
 const DEFAULT_LANGUAGE: SpeechLanguage = "en";

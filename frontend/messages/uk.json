@@ -57,7 +57,8 @@
       "numbers20": "Числа 1-20",
       "numbers100": "Числа 1-100",
       "colors": "Кольори",
-      "letters": "Букви"
+      "letters": "Букви",
+      "greetings": "Greetings"
     },
     "languageLabel": "Мова",
     "language": {

@@ -60,7 +60,22 @@ const ALPHABETS: Record<GameLanguage, string[]> = {
   ]
 }
 
-const BALLOON_MODES: BalloonMode[] = ["numbers10", "numbers20", "numbers100", "colors", "letters"];
+// English greeting phrases for the "greetings" mode — no per-language
+// variants exist yet, so the list is shown/spoken in English regardless of
+// the selected game language.
+const BALLOON_GREETINGS = [
+  "Hello",
+  "Hi",
+  "Hey",
+  "Good morning",
+  "Good afternoon",
+  "Good evening",
+  "Bye",
+  "Goodbye",
+  "See you later",
+];
+
+const BALLOON_MODES: BalloonMode[] = ["numbers10", "numbers20", "numbers100", "colors", "letters", "greetings"];
 const GAME_LANGUAGES: GameLanguage[] = ["en", "uk", "pl"];
 
 const SPAWN_INTERVAL_MS = 850;
@@ -122,6 +137,10 @@ function generateBalloonContent(
       const label = randomFrom(ALPHABETS[language]);
       return { label, color: randomColor(), speech: label.charAt(0) };
     }
+    case "greetings": {
+      const label = randomFrom(BALLOON_GREETINGS);
+      return { label, color: randomColor(), speech: label };
+    }
     case "numbers10":
     default: {
       const label = String(randomNumber(10));
@@ -146,6 +165,8 @@ function vocabularyFor(mode: BalloonMode, language: GameLanguage): string[] {
       return COLOR_NAMES[language];
     case "letters":
       return ALPHABETS[language].map((letter) => letter.charAt(0));
+    case "greetings":
+      return BALLOON_GREETINGS;
     case "numbers10":
     default:
       return Array.from({ length: 10 }, (_, i) => String(i + 1));
