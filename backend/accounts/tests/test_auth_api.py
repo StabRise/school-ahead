@@ -245,6 +245,21 @@ def test_update_avatar_persists_and_returns_it(api_client, auth_header):
     assert student.equipped_avatar_id == avatar.id
 
 
+def test_update_avatar_unequips_on_null_avatar_id(api_client, auth_header):
+    user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
+    avatar = Avatar.objects.create(key='test-fox-3', name='Fox')
+    student = StudentProfile.objects.create(user=user, equipped_avatar=avatar)
+
+    response = api_client.patch(
+        '/auth/me/avatar', json={'avatar_id': None}, headers=auth_header(user),
+    )
+
+    assert response.status_code == 200
+    assert response.data['user']['equipped_avatar'] is None
+    student.refresh_from_db()
+    assert student.equipped_avatar_id is None
+
+
 def test_update_avatar_rejects_inactive_avatar(api_client, auth_header):
     user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
     StudentProfile.objects.create(user=user)

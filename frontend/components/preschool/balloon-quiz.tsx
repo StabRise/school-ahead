@@ -130,8 +130,9 @@ function uniqueByName(animals: BalloonQuizAnimalChoice[]): BalloonQuizAnimalChoi
   return result;
 }
 
-function buildPictureQuestion(pool: BalloonQuizAnimalChoice[]): PictureQuestion {
-  const target = randomFrom(pool);
+// `target` is passed in (rather than picked here) so buildBalloonQuizQuestions
+// can hand out a distinct target per question — see pickUniqueTargets.
+function buildPictureQuestion(pool: BalloonQuizAnimalChoice[], target: BalloonQuizAnimalChoice): PictureQuestion {
   const distractorPool = pool.filter((a) => a.name.toLowerCase() !== target.name.toLowerCase());
   const distractors = shuffle(distractorPool).slice(0, Math.min(MAX_PICTURE_CHOICES - 1, distractorPool.length));
   const choices = shuffle([target, ...distractors]);
@@ -141,6 +142,17 @@ function buildPictureQuestion(pool: BalloonQuizAnimalChoice[]): PictureQuestion 
     choices,
     correctIndex: choices.findIndex((c) => c === target),
   };
+}
+
+// One target per question, none repeated — as long as `pool` has at least
+// `count` items (guaranteed by MIN_CARD_COUNT in balloon-pop-game.tsx, since
+// `pool` is that mode's fixed, already-deduped subset picked at game init).
+// Only wraps around (repeating a target) if the pool is smaller than
+// `count`, which shouldn't happen given that guarantee.
+function pickUniqueTargets(pool: BalloonQuizAnimalChoice[], count: number): BalloonQuizAnimalChoice[] {
+  if (pool.length === 0) return [];
+  const shuffled = shuffle(pool);
+  return Array.from({ length: count }, (_, i) => shuffled[i % shuffled.length]);
 }
 
 // Modes with a picture quiz — everything else falls back to the counting
@@ -156,7 +168,8 @@ export function buildBalloonQuizQuestions(
 ): BalloonQuizQuestion[] {
   if (PICTURE_QUIZ_MODES.includes(mode)) {
     const pool = uniqueByName(picturePool);
-    return Array.from({ length: QUESTION_COUNT }, () => buildPictureQuestion(pool));
+    const targets = pickUniqueTargets(pool, QUESTION_COUNT);
+    return targets.map((target) => buildPictureQuestion(pool, target));
   }
   return Array.from({ length: QUESTION_COUNT }, buildCountingQuestion);
 }
@@ -248,6 +261,90 @@ function playIncorrectSound() {
   }
 }
 
+// Rising 4-note major arpeggio for passing the whole quiz (>PASS_RATIO) —
+// bigger and longer than playCorrectSound's two-note blip, since it marks
+// finishing the quiz well rather than just one right answer.
+function playPassSound() {
+  const AudioContextClass =
+    window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextClass) return;
+  try {
+    const ctx = new AudioContextClass();
+    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+    notes.forEach((frequency, i) => {
+      const startTime = ctx.currentTime + i * 0.11;
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.type = "triangle";
+      oscillator.frequency.setValueAtTime(frequency, startTime);
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.3, startTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.4);
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+      oscillator.start(startTime);
+      oscillator.stop(startTime + 0.42);
+    });
+    setTimeout(() => ctx.close(), (notes.length * 0.11 + 0.42) * 1000);
+  } catch {
+    // Best-effort only — never block the celebration on audio failures.
+  }
+}
+
+// One flying star's random trajectory — spreads out and up from the mascot,
+// like a small firework. Computed once per star (see CelebrationStars) so
+// it doesn't re-randomize on every render.
+interface StarBurst {
+  id: number;
+  dx: number;
+  dy: number;
+  rotate: number;
+  delay: number;
+}
+
+const CELEBRATION_STAR_COUNT = 14;
+
+function buildStarBursts(): StarBurst[] {
+  return Array.from({ length: CELEBRATION_STAR_COUNT }, (_, id) => {
+    const angle = Math.random() * Math.PI - Math.PI / 2 - Math.PI / 4; // upward arc, ±90° off straight up
+    const distance = 90 + Math.random() * 90;
+    return {
+      id,
+      dx: Math.cos(angle) * distance,
+      dy: Math.sin(angle) * distance,
+      rotate: Math.random() * 360 - 180,
+      delay: Math.random() * 0.3,
+    };
+  });
+}
+
+// Bursts of ⭐ flying outward from the mascot on the pass screen — see
+// celebration-star-fly in app/globals.css. Purely decorative (aria-hidden);
+// the pass/fail message itself is read by the parent's own text.
+function CelebrationStars() {
+  const [stars] = useState(buildStarBursts);
+  return (
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
+      {stars.map((star) => (
+        <span
+          key={star.id}
+          className="absolute text-2xl"
+          style={
+            {
+              animation: `celebration-star-fly 1.1s ease-out ${star.delay}s forwards`,
+              "--dx": `${star.dx}px`,
+              "--dy": `${star.dy}px`,
+              "--rotate": `${star.rotate}deg`,
+            } as React.CSSProperties
+          }
+        >
+          ⭐
+        </span>
+      ))}
+    </div>
+  );
+}
+
 const OPTION_STYLES = [
   "border-sky-400 bg-sky-50 text-sky-900",
   "border-amber-400 bg-amber-50 text-amber-900",
@@ -297,6 +394,14 @@ export function BalloonQuiz({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, questions, language, muted]);
 
+  // Fires once, the instant the finish screen appears with a passing score
+  // — `finished`/`passed` are derived from currentIndex/correctCount and
+  // never flip back once true, so this can't re-trigger on later re-renders.
+  useEffect(() => {
+    if (finished && passed && !muted) playPassSound();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished, passed]);
+
   const isCorrectValue = (q: BalloonQuizQuestion, value: number) =>
     q.kind === "counting" ? value === q.correctAnswer : value === q.correctIndex;
 
@@ -321,6 +426,14 @@ export function BalloonQuiz({
 
         {question ? (
           <div className="relative flex flex-col gap-5 p-6">
+            <button
+              type="button"
+              aria-label={t("readAloudButton")}
+              onClick={() => speak(questionText(question, language), language, "sentence")}
+              className="absolute left-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-xl shadow-md transition-transform active:scale-95"
+            >
+              🔊
+            </button>
             <p className="text-center text-sm font-bold text-emerald-900 sm:text-base">
               {t("progress", { current: currentIndex + 1, total: questions.length })}
             </p>
@@ -420,7 +533,8 @@ export function BalloonQuiz({
             )}
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-4 p-6 text-center">
+          <div className="relative flex flex-col items-center gap-4 p-6 text-center">
+            {passed && <CelebrationStars />}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={mascotForScore(correctCount)}

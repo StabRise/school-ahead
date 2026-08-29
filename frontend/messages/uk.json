@@ -76,8 +76,11 @@
     "mutedLabel": "Без озвучення",
     "sizeLabel": "Розмір кульок",
     "countLabel": "Кількість кульок",
+    "cardCountLabel": "Кількість карток",
     "speedLabel": "Швидкість",
-    "heartBalloon": "Кулька-сердечко з бонусним питанням"
+    "heartBalloon": "Кулька-сердечко з бонусним питанням",
+    "screenModeGame": "Гра",
+    "screenModeLearning": "Навчання"
   },
   "BalloonPopQuiz": {
     "title": "Бонусна вікторина!",
@@ -88,7 +91,8 @@
     "failedTitle": "Гарна спроба!",
     "passedMessage": "Ти отримуєш діамант!",
     "failedMessage": "Тренуйся далі — спробуй ще раз наступного разу!",
-    "continueButton": "Назад до кульок!"
+    "continueButton": "Назад до кульок!",
+    "readAloudButton": "Прочитати вголос"
   },
   "TrainsGame": {
     "title": "Потяг привіз букву!",
@@ -444,6 +448,7 @@
   "Profile": {
     "title": "Мій профіль",
     "avatarSectionTitle": "Обери свого персонажа",
+    "avatarNoneLabel": "Без персонажа",
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити персонажів. Спробуйте ще раз.",
     "wardrobeNone": "Немає",

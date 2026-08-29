@@ -134,11 +134,19 @@ function DayCard({ date, isToday, items }: { date: Date; isToday: boolean; items
 }
 
 // The student's chosen companion (docs/core/avatar.md) if they've picked
-// one — falls back to the raccoon mascot otherwise.
+// one — falls back to the raccoon mascot otherwise. Companion artwork
+// (e.g. the raccoon avatar) is portrait, not square — object-contain inside
+// a padded circle (same proportions as components/header.tsx's Avatar)
+// shows it in full instead of object-cover cropping its top/bottom to fill
+// a square box.
 function HeaderAvatar({ image }: { image: string | null | undefined }) {
   if (image) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={image} alt="" className="h-16 w-16 rounded-full object-cover" />;
+    return (
+      <span className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-white/70">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={image} alt="" className="h-12 w-12 object-contain" />
+      </span>
+    );
   }
   return <Raccoon mood="idle" className="h-16 w-16" />;
 }
