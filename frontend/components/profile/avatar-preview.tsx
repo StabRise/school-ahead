@@ -21,7 +21,7 @@ export function AvatarPreview() {
   ].filter((image): image is string => Boolean(image));
 
   return (
-    <div className="relative aspect-square w-40 shrink-0 overflow-hidden rounded-xl bg-gray-100">
+    <div className="relative aspect-square w-100 shrink-0 overflow-hidden rounded-xl bg-gray-100">
       {layers.map((image) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img key={image} src={image} alt="" className="absolute inset-0 h-full w-full" />
