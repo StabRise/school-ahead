@@ -30,11 +30,20 @@ function Avatar({
   equippedAvatarImage?: string | null;
 }) {
   // The chosen companion (docs/core/avatar.md) takes priority over the
-  // Google account picture once a student has picked one.
-  const image = equippedAvatarImage || avatarUrl;
-  if (image) {
+  // Google account picture once a student has picked one. Its SVG artwork
+  // has no margin baked in, so it's shown with object-contain and extra
+  // padding instead of the object-cover crop used for real account photos.
+  if (equippedAvatarImage) {
+    return (
+      <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gray-100">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={equippedAvatarImage} alt="" className="h-6 w-6 object-contain" />
+      </span>
+    );
+  }
+  if (avatarUrl) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={image} alt="" className="h-8 w-8 rounded-full object-cover" />;
+    return <img src={avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover" />;
   }
   return (
     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-700 text-xs font-medium text-white">
@@ -143,7 +152,7 @@ export function Header() {
               <DropdownMenu.Content
                 align="end"
                 sideOffset={8}
-                className="min-w-56 rounded-md border border-gray-200 bg-white p-1 shadow-lg"
+                className="z-50 min-w-56 rounded-md border border-gray-200 bg-white p-1 shadow-lg"
               >
                 <div className="px-3 py-2">
                   <p className="text-sm font-medium text-gray-900">{user.name || user.email}</p>

@@ -59,7 +59,7 @@ export function AvatarPicker() {
                 <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-gray-100">
                   {avatar.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={avatar.image} alt="" className="h-full w-full object-cover" />
+                    <img src={avatar.image} alt="" className="h-full w-full object-contain" />
                   ) : null}
                 </span>
                 <span className="text-xs font-medium text-gray-700">{avatar.name}</span>

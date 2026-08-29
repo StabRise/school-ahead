@@ -45,7 +45,7 @@ function AvatarThumb({ avatar }: { avatar: AvatarOut }) {
     <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100">
       {avatar.image ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={avatar.image} alt="" className="h-full w-full object-cover" />
+        <img src={avatar.image} alt="" className="h-full w-full object-contain" />
       ) : null}
     </span>
   );
@@ -188,31 +188,33 @@ export function TutorAvatarEditorPage() {
           {avatar && (
             <div className="flex flex-1 flex-col gap-6 sm:flex-row sm:items-start">
               <div className="flex shrink-0 flex-col gap-2">
-                <div ref={previewRef} className="relative aspect-square w-64 overflow-hidden rounded-xl bg-gray-100">
-                  {avatar.image && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={avatar.image}
-                      alt=""
-                      className="absolute inset-0 h-full w-full"
-                      style={{ transform: `scale(${avatarScale})` }}
-                    />
-                  )}
-                  {/* Only the item being edited is shown, so the tutor sees exactly
-                      what they're positioning instead of the whole stacked outfit. */}
-                  {item?.image && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={item.image}
-                      alt=""
-                      draggable={false}
-                      onPointerDown={handleItemPointerDown}
-                      onPointerMove={handleItemPointerMove}
-                      onPointerUp={handleItemPointerUp}
-                      className="absolute inset-0 h-full w-full cursor-grab touch-none active:cursor-grabbing"
-                      style={{ transform: `translate(${itemDraft.offsetX}%, ${itemDraft.offsetY}%) scale(${itemDraft.scale})` }}
-                    />
-                  )}
+                <div className="aspect-square w-64 shrink-0 rounded-xl bg-gray-100 p-8">
+                  <div ref={previewRef} className="relative h-full w-full overflow-hidden">
+                    {avatar.image && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={avatar.image}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-contain"
+                        style={{ transform: `scale(${avatarScale})` }}
+                      />
+                    )}
+                    {/* Only the item being edited is shown, so the tutor sees exactly
+                        what they're positioning instead of the whole stacked outfit. */}
+                    {item?.image && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.image}
+                        alt=""
+                        draggable={false}
+                        onPointerDown={handleItemPointerDown}
+                        onPointerMove={handleItemPointerMove}
+                        onPointerUp={handleItemPointerUp}
+                        className="absolute inset-0 h-full w-full cursor-grab touch-none object-contain active:cursor-grabbing"
+                        style={{ transform: `translate(${itemDraft.offsetX}%, ${itemDraft.offsetY}%) scale(${itemDraft.scale})` }}
+                      />
+                    )}
+                  </div>
                 </div>
                 {item && <p className="text-xs text-gray-500">{t("dragHint")}</p>}
               </div>

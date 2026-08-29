@@ -46,17 +46,19 @@ export function AvatarPreview() {
   ];
 
   return (
-    <div className="relative aspect-square w-100 shrink-0 overflow-hidden rounded-xl bg-gray-100">
-      {layers.map((layer) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          key={layer.image}
-          src={layer.image}
-          alt=""
-          className="absolute inset-0 h-full w-full"
-          style={{ transform: `translate(${layer.offsetX}%, ${layer.offsetY}%) scale(${layer.scale})` }}
-        />
-      ))}
+    <div className="aspect-square w-100 shrink-0 rounded-xl bg-gray-100 p-8">
+      <div className="relative h-full w-full overflow-hidden">
+        {layers.map((layer) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={layer.image}
+            src={layer.image}
+            alt=""
+            className="absolute inset-0 h-full w-full object-contain"
+            style={{ transform: `translate(${layer.offsetX}%, ${layer.offsetY}%) scale(${layer.scale})` }}
+          />
+        ))}
+      </div>
     </div>
   );
 }
