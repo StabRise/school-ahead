@@ -33,9 +33,8 @@ export interface EquippedAvatarItem {
   scale: number;
   offsetX: number;
   offsetY: number;
-  // Stacking order among simultaneously-equipped clothing items (lower draws
-  // first/closer to skin) — meaningless for headwear/accessory, which equip
-  // one at a time. See docs/core/avatar.md.
+  // Stacking order among simultaneously-equipped items in the same slot
+  // (lower draws first/closer to the body). See docs/core/avatar.md.
   layerOrder: number;
   // Diamond shop — see docs/core/avatar.md section 2.2. price=0 is free.
   // isUnlocked reflects the current student (always true for price=0);
@@ -58,11 +57,12 @@ export interface AuthUser {
   // docs/core/avatar.md.
   equippedAvatar: EquippedAvatar | null;
   // Only meaningful for role="student", and only once picked — see
-  // docs/core/avatar.md section 2.2. Clothing is a list (several pieces worn
-  // together, e.g. a t-shirt + pants + jacket), pre-sorted by layerOrder.
+  // docs/core/avatar.md section 2.2. Each slot is a list (several pieces
+  // worn together, e.g. a t-shirt + pants + jacket, or two stacked hats),
+  // pre-sorted by layerOrder.
   equippedClothingItems: EquippedAvatarItem[];
-  equippedHeadwear: EquippedAvatarItem | null;
-  equippedAccessory: EquippedAvatarItem | null;
+  equippedHeadwearItems: EquippedAvatarItem[];
+  equippedAccessoryItems: EquippedAvatarItem[];
   // Only meaningful for role="student" — see docs/core/progress.md section 2.
   diamondBalance: number | null;
 }

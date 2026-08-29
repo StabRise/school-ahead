@@ -41,16 +41,24 @@ class StudentProfileAdmin(admin.ModelAdmin):
 
     list_display = (
         "user", "school_class", "enrolled_at", "diamond_balance_cache", "interface_mode", "equipped_avatar",
-        "clothing_items_display", "equipped_headwear", "equipped_accessory",
+        "clothing_items_display", "headwear_items_display", "accessory_items_display",
     )
     list_filter = ("school_class", "enrolled_at", "interface_mode", "equipped_avatar")
     search_fields = ("user__email", "user__first_name", "user__last_name")
-    autocomplete_fields = ("user", "school_class", "equipped_avatar", "equipped_headwear", "equipped_accessory")
-    filter_horizontal = ("equipped_clothing_items", "unlocked_items")
+    autocomplete_fields = ("user", "school_class", "equipped_avatar")
+    filter_horizontal = ("equipped_clothing_items", "equipped_headwear_items", "equipped_accessory_items", "unlocked_items")
 
     @admin.display(description="Equipped clothing")
     def clothing_items_display(self, obj):
         return ", ".join(item.name for item in obj.equipped_clothing_items.all())
+
+    @admin.display(description="Equipped headwear")
+    def headwear_items_display(self, obj):
+        return ", ".join(item.name for item in obj.equipped_headwear_items.all())
+
+    @admin.display(description="Equipped accessories")
+    def accessory_items_display(self, obj):
+        return ", ".join(item.name for item in obj.equipped_accessory_items.all())
 
 
 @admin.register(Avatar)

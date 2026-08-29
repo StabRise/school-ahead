@@ -330,11 +330,11 @@ def test_free_item_is_always_unlocked_without_purchase(api_client, auth_header):
     item = AvatarItem.objects.create(avatar=avatar, slot='headwear', key='cap', name='Cap', price=0)
 
     response = api_client.patch(
-        '/auth/me/avatar-items', json={'headwear_item_id': item.id}, headers=auth_header(user),
+        '/auth/me/avatar-items', json={'headwear_item_ids': [item.id]}, headers=auth_header(user),
     )
 
     assert response.status_code == 200
-    assert response.data['user']['equipped_headwear']['key'] == 'cap'
+    assert [i['key'] for i in response.data['user']['equipped_headwear_items']] == ['cap']
 
 
 def test_equip_priced_item_requires_purchase_first(api_client, auth_header):
@@ -342,7 +342,7 @@ def test_equip_priced_item_requires_purchase_first(api_client, auth_header):
     item = AvatarItem.objects.create(avatar=avatar, slot='headwear', key='top-hat', name='Top Hat', price=30)
 
     response = api_client.patch(
-        '/auth/me/avatar-items', json={'headwear_item_id': item.id}, headers=auth_header(user),
+        '/auth/me/avatar-items', json={'headwear_item_ids': [item.id]}, headers=auth_header(user),
     )
     assert response.status_code == 403
 
@@ -350,10 +350,10 @@ def test_equip_priced_item_requires_purchase_first(api_client, auth_header):
     assert purchase.status_code == 200
 
     equip = api_client.patch(
-        '/auth/me/avatar-items', json={'headwear_item_id': item.id}, headers=auth_header(user),
+        '/auth/me/avatar-items', json={'headwear_item_ids': [item.id]}, headers=auth_header(user),
     )
     assert equip.status_code == 200
-    assert equip.data['user']['equipped_headwear']['key'] == 'top-hat'
+    assert [i['key'] for i in equip.data['user']['equipped_headwear_items']] == ['top-hat']
 
 
 def test_unlocked_item_survives_switching_avatar_and_back(api_client, auth_header):
@@ -389,3 +389,32 @@ def test_unlocked_item_survives_switching_avatar_and_back(api_client, auth_heade
 
     student.refresh_from_db()
     assert student.diamond_balance_cache == 70
+
+
+def test_multiple_headwear_and_accessories_equip_together_sorted_by_layer_order(api_client, auth_header):
+    user, student, avatar = _make_student_with_avatar(diamonds=0)
+    beanie = AvatarItem.objects.create(
+        avatar=avatar, slot='headwear', key='beanie', name='Beanie', layer_order=0
+    )
+    flower_crown = AvatarItem.objects.create(
+        avatar=avatar, slot='headwear', key='flower-crown', name='Flower Crown', layer_order=1
+    )
+    glasses = AvatarItem.objects.create(
+        avatar=avatar, slot='accessory', key='glasses', name='Glasses', layer_order=0
+    )
+    backpack = AvatarItem.objects.create(
+        avatar=avatar, slot='accessory', key='backpack', name='Backpack', layer_order=1
+    )
+
+    response = api_client.patch(
+        '/auth/me/avatar-items',
+        json={
+            'headwear_item_ids': [flower_crown.id, beanie.id],
+            'accessory_item_ids': [backpack.id, glasses.id],
+        },
+        headers=auth_header(user),
+    )
+
+    assert response.status_code == 200
+    assert [i['key'] for i in response.data['user']['equipped_headwear_items']] == ['beanie', 'flower-crown']
+    assert [i['key'] for i in response.data['user']['equipped_accessory_items']] == ['glasses', 'backpack']

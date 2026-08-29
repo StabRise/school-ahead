@@ -60,15 +60,16 @@ def _avatar_out(avatar: Avatar | None, request: HttpRequest, unlocked_ids: set[i
     return AvatarOut(id=avatar.id, key=avatar.key, name=avatar.name, image=image_url, scale=avatar.scale, items=items)
 
 
+def _equipped_items_out(student_profile, field_name: str, request: HttpRequest, unlocked_ids) -> list[AvatarItemOut]:
+    manager = getattr(student_profile, field_name)
+    items = manager.filter(is_active=True).order_by('layer_order', 'id')
+    return [_avatar_item_out(item, request, unlocked_ids) for item in items]
+
+
 def _user_out(request: HttpRequest, user) -> UserOut:
     student_profile = getattr(user, 'student_profile', None)
     unlocked_ids = (
         set(student_profile.unlocked_items.values_list('id', flat=True)) if student_profile else None
-    )
-    clothing_items = (
-        student_profile.equipped_clothing_items.filter(is_active=True).order_by('layer_order', 'id')
-        if student_profile
-        else []
     )
     return UserOut(
         id=user.id,
@@ -80,13 +81,15 @@ def _user_out(request: HttpRequest, user) -> UserOut:
         avatar_url=user.avatar_url,
         interface_mode=student_profile.interface_mode if student_profile else None,
         equipped_avatar=_avatar_out(student_profile.equipped_avatar, request, unlocked_ids) if student_profile else None,
-        equipped_clothing_items=[_avatar_item_out(item, request, unlocked_ids) for item in clothing_items],
-        equipped_headwear=_avatar_item_out(student_profile.equipped_headwear, request, unlocked_ids)
+        equipped_clothing_items=_equipped_items_out(student_profile, 'equipped_clothing_items', request, unlocked_ids)
         if student_profile
-        else None,
-        equipped_accessory=_avatar_item_out(student_profile.equipped_accessory, request, unlocked_ids)
+        else [],
+        equipped_headwear_items=_equipped_items_out(student_profile, 'equipped_headwear_items', request, unlocked_ids)
         if student_profile
-        else None,
+        else [],
+        equipped_accessory_items=_equipped_items_out(student_profile, 'equipped_accessory_items', request, unlocked_ids)
+        if student_profile
+        else [],
         diamond_balance=student_profile.diamond_balance_cache if student_profile else None,
     )
 
@@ -198,34 +201,23 @@ def update_avatar(request: HttpRequest, payload: UpdateAvatarIn):
     student = get_own_student_profile(request)
     avatar = get_object_or_404(Avatar, id=payload.avatar_id, is_active=True)
     student.equipped_avatar = avatar
-    student.equipped_headwear = None
-    student.equipped_accessory = None
-    student.save(update_fields=['equipped_avatar', 'equipped_headwear', 'equipped_accessory'])
+    student.save(update_fields=['equipped_avatar'])
     student.equipped_clothing_items.clear()
+    student.equipped_headwear_items.clear()
+    student.equipped_accessory_items.clear()
     return MeOut(user=_user_out(request, request.auth))
 
 
-def _resolve_slot_item(student, item_id: int | None, slot: str) -> AvatarItem | None:
-    if item_id is None:
-        return None
-    item = get_object_or_404(AvatarItem, id=item_id, slot=slot, is_active=True)
-    if item.avatar_id != student.equipped_avatar_id:
-        raise HttpError(400, f'{slot} item does not belong to the equipped avatar')
-    if not services.is_item_unlocked(student, item):
-        raise HttpError(403, f'{slot} item is not unlocked — purchase it first')
-    return item
-
-
-def _resolve_clothing_items(student, item_ids: list[int]) -> list[AvatarItem]:
-    items = list(AvatarItem.objects.filter(id__in=item_ids, slot='clothing', is_active=True))
+def _resolve_slot_items(student, item_ids: list[int], slot: str) -> list[AvatarItem]:
+    items = list(AvatarItem.objects.filter(id__in=item_ids, slot=slot, is_active=True))
     found_ids = {item.id for item in items}
     missing = set(item_ids) - found_ids
     if missing:
-        raise HttpError(404, f'Clothing item(s) not found: {sorted(missing)}')
+        raise HttpError(404, f'{slot} item(s) not found: {sorted(missing)}')
     if any(item.avatar_id != student.equipped_avatar_id for item in items):
-        raise HttpError(400, 'clothing item does not belong to the equipped avatar')
+        raise HttpError(400, f'{slot} item does not belong to the equipped avatar')
     if any(not services.is_item_unlocked(student, item) for item in items):
-        raise HttpError(403, 'clothing item is not unlocked — purchase it first')
+        raise HttpError(403, f'{slot} item is not unlocked — purchase it first')
     return items
 
 
@@ -238,15 +230,14 @@ def _resolve_clothing_items(student, item_ids: list[int]) -> list[AvatarItem]:
 def update_avatar_items(request: HttpRequest, payload: UpdateAvatarItemsIn):
     """Equips/unequips the wardrobe on top of the current equipped_avatar —
     see docs/core/avatar.md section 2.2. Always sends the full wardrobe state
-    (see UpdateAvatarItemsIn): clothing can hold several pieces worn
-    together, headwear/accessory at most one each. Every item must already
-    be unlocked (free, or bought via POST .../purchase)."""
+    (see UpdateAvatarItemsIn): every slot can hold several pieces worn
+    together at once, stacked by AvatarItem.layer_order. Every item must
+    already be unlocked (free, or bought via POST .../purchase)."""
     require_csrf(request)
     student = get_own_student_profile(request)
-    student.equipped_clothing_items.set(_resolve_clothing_items(student, payload.clothing_item_ids))
-    student.equipped_headwear = _resolve_slot_item(student, payload.headwear_item_id, 'headwear')
-    student.equipped_accessory = _resolve_slot_item(student, payload.accessory_item_id, 'accessory')
-    student.save(update_fields=['equipped_headwear', 'equipped_accessory'])
+    student.equipped_clothing_items.set(_resolve_slot_items(student, payload.clothing_item_ids, 'clothing'))
+    student.equipped_headwear_items.set(_resolve_slot_items(student, payload.headwear_item_ids, 'headwear'))
+    student.equipped_accessory_items.set(_resolve_slot_items(student, payload.accessory_item_ids, 'accessory'))
     return MeOut(user=_user_out(request, request.auth))
 
 

@@ -10,7 +10,8 @@ import { mapApiUserToAuthUser } from "@/lib/api/map-user";
 import { useAuthStore, type EquippedAvatarItem } from "@/stores/auth-store";
 import { NotEnoughDiamondsDialog } from "@/components/profile/not-enough-diamonds-dialog";
 
-const SINGLE_SLOTS = ["headwear", "accessory"] as const;
+const SLOTS = ["clothing", "headwear", "accessory"] as const;
+type Slot = (typeof SLOTS)[number];
 
 function WardrobeItemButton({
   item,
@@ -51,12 +52,12 @@ function WardrobeItemButton({
 }
 
 // Wardrobe pickers for the equipped avatar's wardrobe — see
-// docs/core/avatar.md section 2.2. Clothing is multi-select: several pieces
-// can be worn together (e.g. a t-shirt + pants + jacket), toggled on/off
-// independently and layered by AvatarItem.layer_order in AvatarPreview.
-// Headwear/accessory still equip at most one each (re-selecting the active
-// one, or picking "none", unequips it). The mutation always sends the full
-// wardrobe state (see UpdateAvatarItemsIn on the backend).
+// docs/core/avatar.md section 2.2. Every slot (clothing, headwear,
+// accessory) is multi-select: several pieces can be worn at once in each —
+// a t-shirt + pants + jacket, two hats stacked, glasses + a mask — toggled
+// on/off independently and layered by AvatarItem.layer_order in
+// AvatarPreview. The mutation always sends the full wardrobe state (see
+// UpdateAvatarItemsIn on the backend).
 //
 // A priced, not-yet-unlocked item shows a lock + price instead of equipping
 // on click — clicking it purchases first (docs/core/avatar.md's Diamond
@@ -72,17 +73,22 @@ export function AvatarWardrobe() {
   const [notEnoughDiamonds, setNotEnoughDiamonds] = useState<{ itemName: string; price: number } | null>(null);
 
   const items = user?.equippedAvatar?.items ?? [];
-  const clothingItems = items.filter((item) => item.slot === "clothing");
-  const equippedClothingIds = new Set((user?.equippedClothingItems ?? []).map((item) => item.id));
-  const equippedBySingleSlot: Record<(typeof SINGLE_SLOTS)[number], EquippedAvatarItem | null> = {
-    headwear: user?.equippedHeadwear ?? null,
-    accessory: user?.equippedAccessory ?? null,
+  const equippedIdsBySlot: Record<Slot, Set<number>> = {
+    clothing: new Set((user?.equippedClothingItems ?? []).map((item) => item.id)),
+    headwear: new Set((user?.equippedHeadwearItems ?? []).map((item) => item.id)),
+    accessory: new Set((user?.equippedAccessoryItems ?? []).map((item) => item.id)),
   };
   const isBusy = updateItems.isPending || purchaseItem.isPending;
 
-  const save = (clothingIds: number[], headwearId: number | null, accessoryId: number | null) => {
+  const save = (nextIdsBySlot: Record<Slot, Set<number>>) => {
     updateItems.mutate(
-      { data: { clothing_item_ids: clothingIds, headwear_item_id: headwearId, accessory_item_id: accessoryId } },
+      {
+        data: {
+          clothing_item_ids: [...nextIdsBySlot.clothing],
+          headwear_item_ids: [...nextIdsBySlot.headwear],
+          accessory_item_ids: [...nextIdsBySlot.accessory],
+        },
+      },
       {
         onSuccess: (response) => {
           setUser(mapApiUserToAuthUser(response.user));
@@ -92,26 +98,21 @@ export function AvatarWardrobe() {
     );
   };
 
-  const handleToggleClothing = (itemId: number) => {
+  const handleToggle = (slot: Slot, itemId: number) => {
     if (isBusy) return;
-    const nextIds = equippedClothingIds.has(itemId)
-      ? [...equippedClothingIds].filter((id) => id !== itemId)
-      : [...equippedClothingIds, itemId];
-    save(nextIds, equippedBySingleSlot.headwear?.id ?? null, equippedBySingleSlot.accessory?.id ?? null);
+    const current = equippedIdsBySlot[slot];
+    const next = new Set(current);
+    if (next.has(itemId)) {
+      next.delete(itemId);
+    } else {
+      next.add(itemId);
+    }
+    save({ ...equippedIdsBySlot, [slot]: next });
   };
 
-  const handleClearClothing = () => {
-    if (isBusy || equippedClothingIds.size === 0) return;
-    save([], equippedBySingleSlot.headwear?.id ?? null, equippedBySingleSlot.accessory?.id ?? null);
-  };
-
-  const handleSelectSingle = (slot: (typeof SINGLE_SLOTS)[number], itemId: number | null) => {
-    if (isBusy || equippedBySingleSlot[slot]?.id === itemId) return;
-    save(
-      [...equippedClothingIds],
-      slot === "headwear" ? itemId : (equippedBySingleSlot.headwear?.id ?? null),
-      slot === "accessory" ? itemId : (equippedBySingleSlot.accessory?.id ?? null),
-    );
+  const handleClear = (slot: Slot) => {
+    if (isBusy || equippedIdsBySlot[slot].size === 0) return;
+    save({ ...equippedIdsBySlot, [slot]: new Set() });
   };
 
   const handleBuy = (item: EquippedAvatarItem, onUnlocked: () => void) => {
@@ -137,44 +138,10 @@ export function AvatarWardrobe() {
 
   return (
     <div className="flex flex-col gap-5">
-      {clothingItems.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <h4 className="text-sm font-semibold text-gray-700">{t("wardrobeSlot.clothing")}</h4>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={handleClearClothing}
-              disabled={isBusy}
-              aria-pressed={equippedClothingIds.size === 0}
-              className={`flex h-14 w-14 items-center justify-center rounded-lg border text-xs text-gray-500 transition-colors disabled:cursor-default disabled:opacity-60 ${
-                equippedClothingIds.size === 0
-                  ? "border-gray-900 bg-gray-900/5"
-                  : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              {t("wardrobeNone")}
-            </button>
-            {clothingItems.map((item) => (
-              <WardrobeItemButton
-                key={item.id}
-                item={item}
-                isSelected={equippedClothingIds.has(item.id)}
-                disabled={isBusy}
-                onClick={() =>
-                  item.isUnlocked
-                    ? handleToggleClothing(item.id)
-                    : handleBuy(item, () => handleToggleClothing(item.id))
-                }
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {SINGLE_SLOTS.map((slot) => {
+      {SLOTS.map((slot) => {
         const slotItems = items.filter((item) => item.slot === slot);
         if (slotItems.length === 0) return null;
-        const equippedId = equippedBySingleSlot[slot]?.id ?? null;
+        const equippedIds = equippedIdsBySlot[slot];
 
         return (
           <div key={slot} className="flex flex-col gap-2">
@@ -182,11 +149,11 @@ export function AvatarWardrobe() {
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => handleSelectSingle(slot, null)}
+                onClick={() => handleClear(slot)}
                 disabled={isBusy}
-                aria-pressed={equippedId === null}
+                aria-pressed={equippedIds.size === 0}
                 className={`flex h-14 w-14 items-center justify-center rounded-lg border text-xs text-gray-500 transition-colors disabled:cursor-default disabled:opacity-60 ${
-                  equippedId === null
+                  equippedIds.size === 0
                     ? "border-gray-900 bg-gray-900/5"
                     : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                 }`}
@@ -197,12 +164,10 @@ export function AvatarWardrobe() {
                 <WardrobeItemButton
                   key={item.id}
                   item={item}
-                  isSelected={equippedId === item.id}
+                  isSelected={equippedIds.has(item.id)}
                   disabled={isBusy}
                   onClick={() =>
-                    item.isUnlocked
-                      ? handleSelectSingle(slot, item.id)
-                      : handleBuy(item, () => handleSelectSingle(slot, item.id))
+                    item.isUnlocked ? handleToggle(slot, item.id) : handleBuy(item, () => handleToggle(slot, item.id))
                   }
                 />
               ))}

@@ -88,11 +88,12 @@ class AvatarItem(models.Model):
     """A wardrobe piece for one Avatar — see docs/core/avatar.md section 2.2.
     Drawn as an SVG in the same canvas coordinate system as its `avatar`, so
     the frontend composites the equipped stack as plain absolutely-positioned
-    layers with no per-item offsets to track. headwear/accessory still equip
-    one at a time (StudentProfile.equipped_headwear/accessory), but clothing
-    is a many-to-many (StudentProfile.equipped_clothing_items) stacked by
-    `layer_order` — underwear/socks under a t-shirt/pants, under a sweater,
-    under a jacket, under a backpack, etc."""
+    layers with no per-item offsets to track. Every slot is many-to-many
+    (StudentProfile.equipped_{slot}_items) — several pieces can be worn at
+    once in each of clothing/headwear/accessory, stacked by `layer_order`:
+    underwear/socks under a t-shirt/pants, under a sweater, under a jacket,
+    under a backpack; two hats/pins stacked the same way; glasses under a
+    scarf; etc."""
 
     avatar = models.ForeignKey(Avatar, on_delete=models.CASCADE, related_name='items')
     slot = models.CharField(max_length=10, choices=AvatarItemSlot.choices)
@@ -110,11 +111,8 @@ class AvatarItem(models.Model):
     scale = models.FloatField(default=1.0)
     offset_x = models.FloatField(default=0.0)
     offset_y = models.FloatField(default=0.0)
-    # Stacking order for simultaneously-equipped clothing items — lower draws
-    # first (closer to skin), higher draws on top. Meaningless for
-    # headwear/accessory (only one of those is ever equipped at a time), but
-    # lives here rather than on a clothing-only model since AvatarItem is
-    # otherwise slot-agnostic.
+    # Stacking order among simultaneously-equipped items in the same slot —
+    # lower draws first (closer to the body/skin), higher draws on top.
     layer_order = models.PositiveSmallIntegerField(default=0)
     # Diamond shop price — see docs/core/avatar.md section 2.2. 0 means free:
     # every student can equip it without buying (see StudentProfile.
@@ -148,19 +146,20 @@ class StudentProfile(models.Model):
         Avatar, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipped_by'
     )
     # Wardrobe layered on top of `equipped_avatar` — see docs/core/avatar.md
-    # section 2.2. Clothing is many-to-many (multiple pieces worn together,
-    # stacked by AvatarItem.layer_order — see that model); headwear/accessory
-    # still equip at most one each. All expected to hold AvatarItems whose
-    # `slot`/`avatar` match `equipped_avatar` (enforced in accounts/api.py,
-    # not at the DB level). Empty/null is a valid "nothing equipped" state.
+    # section 2.2. Each slot is many-to-many (several pieces can be worn at
+    # once — a t-shirt + pants + jacket, two hats stacked, glasses + a mask),
+    # stacked by AvatarItem.layer_order — see that model. All expected to
+    # hold AvatarItems whose `slot`/`avatar` match `equipped_avatar`
+    # (enforced in accounts/api.py, not at the DB level). Empty is a valid
+    # "nothing equipped in this slot" state.
     equipped_clothing_items = models.ManyToManyField(
         AvatarItem, blank=True, related_name='equipped_as_clothing_by'
     )
-    equipped_headwear = models.ForeignKey(
-        AvatarItem, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipped_as_headwear'
+    equipped_headwear_items = models.ManyToManyField(
+        AvatarItem, blank=True, related_name='equipped_as_headwear_by'
     )
-    equipped_accessory = models.ForeignKey(
-        AvatarItem, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipped_as_accessory'
+    equipped_accessory_items = models.ManyToManyField(
+        AvatarItem, blank=True, related_name='equipped_as_accessory_by'
     )
     # Every priced AvatarItem this student has ever bought — see
     # docs/core/avatar.md section 2.2 and accounts.services.purchase_avatar_item.

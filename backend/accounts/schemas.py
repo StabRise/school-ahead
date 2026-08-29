@@ -22,8 +22,8 @@ class AvatarItemOut(Schema):
     scale: float = 1.0
     offset_x: float = 0.0
     offset_y: float = 0.0
-    # Stacking order among simultaneously-equipped clothing items — see
-    # AvatarItem.layer_order. Meaningless for headwear/accessory.
+    # Stacking order among simultaneously-equipped items in the same slot —
+    # see AvatarItem.layer_order.
     layer_order: int = 0
     # Diamond shop — see docs/core/avatar.md section 2.2. price=0 is free.
     # is_unlocked is relative to the requesting user (accounts.services.
@@ -65,12 +65,13 @@ class UserOut(Schema):
     # docs/core/avatar.md.
     equipped_avatar: AvatarOut | None = None
     # Only set for role=student, and only once picked — see
-    # docs/core/avatar.md section 2.2. Clothing is a list (multiple pieces
-    # worn together, e.g. a t-shirt + pants + jacket), pre-sorted by
-    # AvatarItem.layer_order for the frontend to render straight through.
+    # docs/core/avatar.md section 2.2. Each slot is a list (several pieces
+    # worn together, e.g. a t-shirt + pants + jacket, or two stacked hats),
+    # pre-sorted by AvatarItem.layer_order for the frontend to render
+    # straight through.
     equipped_clothing_items: list[AvatarItemOut] = []
-    equipped_headwear: AvatarItemOut | None = None
-    equipped_accessory: AvatarItemOut | None = None
+    equipped_headwear_items: list[AvatarItemOut] = []
+    equipped_accessory_items: list[AvatarItemOut] = []
     # Only set for role=student — see docs/core/progress.md section 2.
     diamond_balance: int | None = None
 
@@ -94,14 +95,14 @@ class UpdateAvatarIn(Schema):
 class UpdateAvatarItemsIn(Schema):
     """Full replacement of the wardrobe — the frontend always sends its
     current picks for every slot, not just the one that changed, so an empty
-    list/`null` unambiguously means "nothing equipped here" rather than
-    "leave it unchanged". clothing_item_ids may hold several ids at once
-    (e.g. a t-shirt + pants + jacket, worn together and stacked by
-    AvatarItem.layer_order); headwear/accessory still equip one at a time."""
+    list unambiguously means "nothing equipped in this slot" rather than
+    "leave it unchanged". Each slot may hold several ids at once (e.g. a
+    t-shirt + pants + jacket, or two stacked hats), worn together and
+    stacked by AvatarItem.layer_order."""
 
     clothing_item_ids: list[int] = []
-    headwear_item_id: int | None = None
-    accessory_item_id: int | None = None
+    headwear_item_ids: list[int] = []
+    accessory_item_ids: list[int] = []
 
 
 class UpdateAvatarTransformIn(Schema):

@@ -44,7 +44,7 @@ export function mapApiUserToAuthUser(user: UserOut): AuthUser {
     diamondBalance: user.diamond_balance ?? null,
     equippedAvatar: user.equipped_avatar ? mapAvatar(user.equipped_avatar) : null,
     equippedClothingItems: (user.equipped_clothing_items ?? []).map(mapAvatarItem),
-    equippedHeadwear: user.equipped_headwear ? mapAvatarItem(user.equipped_headwear) : null,
-    equippedAccessory: user.equipped_accessory ? mapAvatarItem(user.equipped_accessory) : null,
+    equippedHeadwearItems: (user.equipped_headwear_items ?? []).map(mapAvatarItem),
+    equippedAccessoryItems: (user.equipped_accessory_items ?? []).map(mapAvatarItem),
   };
 }

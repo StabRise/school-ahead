@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuthStore, type EquippedAvatarItem } from "@/stores/auth-store";
 
 interface Layer {
   image: string;
@@ -9,35 +9,35 @@ interface Layer {
   offsetY: number;
 }
 
+function itemsToLayers(items: EquippedAvatarItem[] | undefined): Layer[] {
+  return (items ?? [])
+    .filter((item) => item.image)
+    .map((item) => ({ image: item.image as string, scale: item.scale, offsetX: item.offsetX, offsetY: item.offsetY }));
+}
+
 // Composites the equipped SVG layers (body -> clothing -> headwear ->
 // accessory) into one live preview — see docs/core/avatar.md section 2:
 // every Avatar/AvatarItem is drawn in the same canvas coordinate system, so
 // stacking plain absolutely-positioned <img>s reproduces the layering
 // without any per-item offset math, beyond each layer's own scale/offset
 // (tuned from the tutor avatar editor — see components/tutor/avatar-editor).
-// Clothing can be several pieces worn together (t-shirt + pants + jacket,
-// ...); the store already has them pre-sorted by layerOrder (underwear/socks
-// first, backpack/bag last) — see accounts.api._user_out on the backend.
+// Every slot can hold several pieces worn together (a t-shirt + pants +
+// jacket, two stacked hats, ...); the store already has each slot's items
+// pre-sorted by layerOrder — see accounts.api._user_out on the backend.
 export function AvatarPreview() {
   const equippedAvatar = useAuthStore((state) => state.user?.equippedAvatar);
   const equippedClothingItems = useAuthStore((state) => state.user?.equippedClothingItems);
-  const equippedHeadwear = useAuthStore((state) => state.user?.equippedHeadwear);
-  const equippedAccessory = useAuthStore((state) => state.user?.equippedAccessory);
+  const equippedHeadwearItems = useAuthStore((state) => state.user?.equippedHeadwearItems);
+  const equippedAccessoryItems = useAuthStore((state) => state.user?.equippedAccessoryItems);
 
   const layers: Layer[] = [
-    equippedAvatar?.image
-      ? { image: equippedAvatar.image, scale: equippedAvatar.scale, offsetX: 0, offsetY: 0 }
-      : null,
-    ...(equippedClothingItems ?? [])
-      .filter((item) => item.image)
-      .map((item) => ({ image: item.image as string, scale: item.scale, offsetX: item.offsetX, offsetY: item.offsetY })),
-    equippedHeadwear?.image
-      ? { image: equippedHeadwear.image, scale: equippedHeadwear.scale, offsetX: equippedHeadwear.offsetX, offsetY: equippedHeadwear.offsetY }
-      : null,
-    equippedAccessory?.image
-      ? { image: equippedAccessory.image, scale: equippedAccessory.scale, offsetX: equippedAccessory.offsetX, offsetY: equippedAccessory.offsetY }
-      : null,
-  ].filter((layer): layer is Layer => layer !== null);
+    ...(equippedAvatar?.image
+      ? [{ image: equippedAvatar.image, scale: equippedAvatar.scale, offsetX: 0, offsetY: 0 }]
+      : []),
+    ...itemsToLayers(equippedClothingItems),
+    ...itemsToLayers(equippedHeadwearItems),
+    ...itemsToLayers(equippedAccessoryItems),
+  ];
 
   return (
     <div className="relative aspect-square w-100 shrink-0 overflow-hidden rounded-xl bg-gray-100">

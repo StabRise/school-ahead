@@ -290,15 +290,13 @@ export function TutorAvatarEditorPage() {
                       {...OFFSET_RANGE}
                       onChange={(offsetY) => setItemDraft((d) => ({ ...d, offsetY }))}
                     />
-                    {item.slot === "clothing" && (
-                      <AvatarEditorSlider
-                        label={t("layerOrder")}
-                        value={itemDraft.layerOrder}
-                        {...LAYER_ORDER_RANGE}
-                        decimals={0}
-                        onChange={(layerOrder) => setItemDraft((d) => ({ ...d, layerOrder }))}
-                      />
-                    )}
+                    <AvatarEditorSlider
+                      label={t("layerOrder")}
+                      value={itemDraft.layerOrder}
+                      {...LAYER_ORDER_RANGE}
+                      decimals={0}
+                      onChange={(layerOrder) => setItemDraft((d) => ({ ...d, layerOrder }))}
+                    />
                     <AvatarEditorSlider
                       label={t("price")}
                       value={itemDraft.price}
