@@ -255,6 +255,17 @@ const OPTION_STYLES = [
   "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-900",
 ];
 
+// Final-screen mascot — grows with the score rather than a flat pass/fail
+// icon: still hatching at the low end, up through a fire-breathing dragon,
+// to a wise graduate owl at the top. Independent of PASS_RATIO (the diamond
+// reward threshold in balloon-pop-game.tsx) — this is just encouragement,
+// not the pass/fail signal.
+function mascotForScore(correctCount: number): string {
+  if (correctCount <= 2) return "/preschool/quiz/chicken.jpeg";
+  if (correctCount <= 4) return "/preschool/quiz/dragon.jpeg";
+  return "/preschool/quiz/owl.jpeg";
+}
+
 export function BalloonQuiz({
   questions,
   language,
@@ -394,13 +405,13 @@ export function BalloonQuiz({
                     ))}
                   </div>
                 ) : (
-                  <span
-                    className="text-8xl font-extrabold text-rose-500"
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src="/preschool/quiz/sad-face.jpeg"
+                    alt=""
+                    className="h-28 w-28 rounded-full object-cover shadow-lg"
                     style={{ animation: "sad-face-pop 0.5s ease-out" }}
-                    aria-hidden="true"
-                  >
-                    :(
-                  </span>
+                  />
                 )}
                 <p className="text-lg font-bold text-gray-700">
                   {isCorrectValue(question, selected) ? t("correct") : t("incorrect")}
@@ -410,11 +421,18 @@ export function BalloonQuiz({
           </div>
         ) : (
           <div className="flex flex-col items-center gap-4 p-6 text-center">
-            <span className="text-5xl" aria-hidden="true">
-              {passed ? "🎉" : "💪"}
-            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={mascotForScore(correctCount)}
+              alt=""
+              className="h-24 w-24 rounded-full object-cover shadow-lg"
+            />
             <p className="text-xl font-extrabold text-gray-800">{passed ? t("passedTitle") : t("failedTitle")}</p>
-            <p className="text-base text-gray-600">{t("scoreResult", { correct: correctCount, total: questions.length })}</p>
+            <div className="flex gap-1 text-3xl" aria-hidden="true">
+              {Array.from({ length: questions.length }, (_, i) => (
+                <span key={i}>{i < correctCount ? "⭐" : "☆"}</span>
+              ))}
+            </div>
             <p className="text-base font-semibold text-gray-700">
               {passed ? t("passedMessage") : t("failedMessage")}
             </p>

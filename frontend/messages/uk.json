@@ -86,7 +86,6 @@
     "incorrect": "Не зовсім!",
     "passedTitle": "Чудова робота!",
     "failedTitle": "Гарна спроба!",
-    "scoreResult": "Правильно: {correct} із {total}",
     "passedMessage": "Ти отримуєш діамант!",
     "failedMessage": "Тренуйся далі — спробуй ще раз наступного разу!",
     "continueButton": "Назад до кульок!"
