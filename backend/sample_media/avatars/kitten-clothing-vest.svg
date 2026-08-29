@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kVest" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#9C8262"/>
+      <stop offset="100%" stop-color="#6E5A42"/>
+    </linearGradient>
+    <linearGradient id="kVestDark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5A4A36"/>
+      <stop offset="100%" stop-color="#463A2A"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#kVest)" d="M116,150 C150,150 176,161 187,181 C198,201 199,240 192,270 C186,290 168,294 116,294 C64,294 46,290 40,270 C33,240 34,201 45,181 C56,161 82,150 116,150 Z"/>
+  <path fill="#F4EFE9" d="M97,160 C104,172 110,186 111,200 L111,270 L121,270 L121,200 C122,186 128,172 135,160 C127,155 119,153 111,153 C107,155 101,157 97,160 Z"/>
+  <path fill="url(#kVestDark)" d="M97,160 C90,168 86,178 88,188 C94,181 102,176 111,173 C107,168 102,163 97,160 Z"/>
+  <path fill="url(#kVestDark)" d="M135,160 C142,168 146,178 144,188 C138,181 130,176 121,173 C125,168 130,163 135,160 Z"/>
+  <path d="M97,160 Q90,166 88,177" stroke="#3E3324" stroke-width="1.6" fill="none" opacity="0.7"/>
+  <path d="M135,160 Q142,166 144,177" stroke="#3E3324" stroke-width="1.6" fill="none" opacity="0.7"/>
+  <g fill="none" stroke="#463A2A" stroke-width="1.2" opacity="0.55">
+    <path d="M45,190 L192,190"/>
+    <path d="M42,215 L195,215"/>
+    <path d="M40,240 L193,240"/>
+    <path d="M64,160 L64,288"/>
+    <path d="M168,160 L168,288"/>
+  </g>
+  <circle cx="116" cy="212" r="3" fill="#3E3324"/>
+  <circle cx="116" cy="234" r="3" fill="#3E3324"/>
+  <circle cx="116" cy="256" r="3" fill="#3E3324"/>
+  <path d="M104,161 L116,172 L128,161 L122,158 L116,163 L110,158 Z" fill="#1F6B4A"/>
+  <path d="M104,161 L92,163 L96,170 L108,166 Z" fill="#1F6B4A"/>
+  <path d="M128,161 L140,163 L136,170 L124,166 Z" fill="#1F6B4A"/>
+  <circle cx="116" cy="163" r="3.4" fill="#154D34"/>
+</svg>

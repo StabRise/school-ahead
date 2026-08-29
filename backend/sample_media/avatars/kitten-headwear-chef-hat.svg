@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <radialGradient id="kChefPuff" cx="35%" cy="20%" r="90%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E2DFD8"/>
+    </radialGradient>
+  </defs>
+  <g fill="url(#kChefPuff)">
+    <circle cx="90" cy="30" r="26"/>
+    <circle cx="128" cy="18" r="30"/>
+    <circle cx="160" cy="34" r="24"/>
+    <circle cx="116" cy="12" r="22"/>
+    <circle cx="70" cy="42" r="18"/>
+    <circle cx="178" cy="46" r="16"/>
+  </g>
+  <rect x="28" y="54" width="176" height="22" rx="9" fill="#FFFFFF"/>
+  <path d="M28,64 L204,64" stroke="#D9D5CC" stroke-width="1.4" opacity="0.8"/>
+  <path d="M116,10 L116,54" stroke="#D9D5CC" stroke-width="1.6" opacity="0.5"/>
+  <path d="M78,18 Q98,38 92,56" stroke="#D9D5CC" stroke-width="1.6" fill="none" opacity="0.4"/>
+  <path d="M156,20 Q136,40 142,56" stroke="#D9D5CC" stroke-width="1.6" fill="none" opacity="0.4"/>
+</svg>

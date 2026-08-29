@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kChefCoat" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E4E1DA"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#kChefCoat)" d="M116,150 C150,150 176,161 187,181 C198,201 199,240 192,270 C186,290 168,294 116,294 C64,294 46,290 40,270 C33,240 34,201 45,181 C56,161 82,150 116,150 Z"/>
+  <path d="M97,160 C90,168 86,178 88,188 C94,181 102,176 111,173 C107,168 102,163 97,160 Z" fill="#D8D4CB"/>
+  <path d="M135,160 C142,168 146,178 144,188 C138,181 130,176 121,173 C125,168 130,163 135,160 Z" fill="#D8D4CB"/>
+  <path d="M116,163 L96,290" stroke="#CFCBC1" stroke-width="2" opacity="0.7"/>
+  <path d="M116,163 L136,290" stroke="#CFCBC1" stroke-width="2" opacity="0.7"/>
+  <g fill="#C9A227">
+    <circle cx="90" cy="190" r="3.4"/>
+    <circle cx="90" cy="216" r="3.4"/>
+    <circle cx="90" cy="242" r="3.4"/>
+    <circle cx="90" cy="268" r="3.4"/>
+    <circle cx="142" cy="190" r="3.4"/>
+    <circle cx="142" cy="216" r="3.4"/>
+    <circle cx="142" cy="242" r="3.4"/>
+    <circle cx="142" cy="268" r="3.4"/>
+  </g>
+  <path d="M104,160 Q116,168 128,160" stroke="#CFCBC1" stroke-width="3" fill="none" stroke-linecap="round"/>
+</svg>
