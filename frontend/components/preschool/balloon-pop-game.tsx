@@ -137,6 +137,28 @@ const BALLOON_ANIMALS: { name: string; emoji: string }[] = [
   { name: "Reindeer", emoji: "🦌" },
 ];
 
+// English names for the "schoolSupplies" mode, same pattern as
+// BALLOON_ANIMALS above. Unicode has no dedicated emoji for most of these
+// items, so each uses the closest visually-similar stand-in (e.g. a sponge
+// for "erase", an abacus for "calculate", a magnetic compass for the
+// geometry compass).
+const BALLOON_SCHOOL_SUPPLIES: { name: string; emoji: string }[] = [
+  { name: "Pencil", emoji: "✏️" },
+  { name: "Pen", emoji: "🖊️" },
+  { name: "Eraser", emoji: "🧽" },
+  { name: "Ruler", emoji: "📏" },
+  { name: "Notebook", emoji: "📓" },
+  { name: "Backpack", emoji: "🎒" },
+  { name: "Scissors", emoji: "✂️" },
+  { name: "Glue stick", emoji: "🧴" },
+  { name: "Marker", emoji: "🖍️" },
+  { name: "Highlighter", emoji: "🖌️" },
+  { name: "Pencil case", emoji: "🧳" },
+  { name: "Calculator", emoji: "🧮" },
+  { name: "Compass", emoji: "🧭" },
+  { name: "Colored pencils", emoji: "🎨" },
+];
+
 const BALLOON_MODES: BalloonMode[] = [
   "numbers10",
   "numbers20",
@@ -145,6 +167,7 @@ const BALLOON_MODES: BalloonMode[] = [
   "letters",
   "greetings",
   "animals",
+  "schoolSupplies",
 ];
 const GAME_LANGUAGES: GameLanguage[] = ["en", "uk", "pl"];
 
@@ -215,6 +238,10 @@ function generateBalloonContent(
       const animal = randomFrom(BALLOON_ANIMALS);
       return { label: animal.name, icon: animal.emoji, color: randomColor(), speech: animal.name };
     }
+    case "schoolSupplies": {
+      const item = randomFrom(BALLOON_SCHOOL_SUPPLIES);
+      return { label: item.name, icon: item.emoji, color: randomColor(), speech: item.name };
+    }
     case "numbers10":
     default: {
       const label = String(randomNumber(10));
@@ -245,6 +272,8 @@ function vocabularyFor(mode: BalloonMode, language: GameLanguage): string[] {
       // 50 names is as much background synthesis as numbers100's 100 — skip
       // proactive warmup and let pops cache lazily as each name comes up.
       return [];
+    case "schoolSupplies":
+      return BALLOON_SCHOOL_SUPPLIES.map((item) => item.name);
     case "numbers10":
     default:
       return Array.from({ length: 10 }, (_, i) => String(i + 1));
@@ -345,11 +374,12 @@ function BalloonNode({
   const poppedRef = useRef(false);
   const lines = wrapBalloonLabel(balloon.label);
   const fontSize = labelFontSize(lines);
-  // The icon (e.g. "animals" mode) reads as the primary thing to recognize,
-  // with its name as a caption — so it gets a fixed, larger size than the
-  // name text, and the name shifts down to make room for it.
-  const iconFontSize = 18;
-  const textBaseY = balloon.icon ? 31 : 24;
+  // The icon (e.g. "animals" mode) hangs below the balloon on its string,
+  // like the animal is dangling from it as it falls — not printed inside
+  // the balloon itself, which stays the same size regardless of icon.
+  const hasIcon = Boolean(balloon.icon);
+  const viewBoxHeight = hasIcon ? 74 : 52;
+  const stringEndY = hasIcon ? 60 : 52;
 
   const handlePop = () => {
     if (poppedRef.current) return;
@@ -379,20 +409,9 @@ function BalloonNode({
       }}
       onAnimationEnd={() => onMissed(balloon.id)}
     >
-      <svg viewBox="0 0 40 52" className="w-full drop-shadow-md" aria-hidden="true">
+      <svg viewBox={`0 0 40 ${viewBoxHeight}`} className="w-full drop-shadow-md" aria-hidden="true">
         <ellipse cx="20" cy="20" rx="18" ry="20" fill={balloon.color} />
         <ellipse cx="14" cy="12" rx="4" ry="6" fill="white" opacity="0.35" />
-        {balloon.icon && (
-          <text
-            x="20"
-            y="14"
-            textAnchor="middle"
-            fontSize={iconFontSize}
-            style={{ pointerEvents: "none", userSelect: "none" }}
-          >
-            {balloon.icon}
-          </text>
-        )}
         <text
           x="20"
           textAnchor="middle"
@@ -408,21 +427,32 @@ function BalloonNode({
         >
           {lines.length === 2 ? (
             <>
-              <tspan x="20" y={textBaseY - fontSize * 0.6}>
+              <tspan x="20" y={24 - fontSize * 0.6}>
                 {lines[0]}
               </tspan>
-              <tspan x="20" y={textBaseY + fontSize * 0.6}>
+              <tspan x="20" y={24 + fontSize * 0.6}>
                 {lines[1]}
               </tspan>
             </>
           ) : (
-            <tspan x="20" y={textBaseY}>
+            <tspan x="20" y="24">
               {lines[0]}
             </tspan>
           )}
         </text>
         <path d="M20 40 L17 46 L23 46 Z" fill={balloon.color} />
-        <line x1="20" y1="46" x2="20" y2="52" stroke="#94a3b8" strokeWidth="1" />
+        <line x1="20" y1="46" x2="20" y2={stringEndY} stroke="#94a3b8" strokeWidth="1" />
+        {hasIcon && (
+          <text
+            x="20"
+            y={stringEndY + 10}
+            textAnchor="middle"
+            fontSize="16"
+            style={{ pointerEvents: "none", userSelect: "none" }}
+          >
+            {balloon.icon}
+          </text>
+        )}
       </svg>
     </button>
   );
