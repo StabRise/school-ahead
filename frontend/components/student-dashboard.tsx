@@ -3,11 +3,13 @@
 import { useTranslations } from "next-intl";
 import { BookOpen } from "lucide-react";
 import { useGetToday } from "@/lib/api/browser/schedule/schedule";
+import { useListMyAchievements } from "@/lib/api/browser/achievements/achievements";
 import type { CalendarItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { StatusBadge } from "@/components/status-badge";
 import { GradeSquareBadge } from "@/components/grade-square-badge";
 import { Card } from "@/components/card";
 import { PageContainer } from "@/components/page-container";
+import { ProgressBar } from "@/components/progress-bar";
 import { PreschoolGameMap } from "@/components/preschool/game-map";
 import { PreschoolCelebration } from "@/components/preschool/game-choice";
 import { DefaultStepIcon } from "@/components/preschool/decorations";
@@ -89,8 +91,9 @@ function LessonRow({ item, dateLabel }: { item: CalendarItemOut; dateLabel?: str
           <div className="flex min-w-0 items-center gap-3">
             <LessonIcon item={item} />
             <div className="min-w-0">
+              <p className="truncate text-base font-semibold text-gray-900">{item.subject_name}</p>
               <p className="truncate font-medium">{item.lesson_title}</p>
-              <p className="truncate text-sm text-gray-500">{item.topic_title}</p>
+              <p className="line-clamp-2 text-xs text-gray-500">{item.topic_title}</p>
               {dateLabel && (
                 <p className="truncate text-xs text-amber-700">
                   {tDashboard("backlogOrigin", { label: dateLabel })}
@@ -134,6 +137,36 @@ function LessonRow({ item, dateLabel }: { item: CalendarItemOut; dateLabel?: str
         </div>
       </Card>
     </li>
+  );
+}
+
+// Right-hand rail on the default (non-preschool) dashboard — reuses the
+// same "Мої досягнення" per-subject completion data (achievements.services)
+// as the achievements page, just rendered as compact bars instead of cards.
+// Renders nothing while loading/erroring/empty so it never pushes the
+// lesson list around with a placeholder.
+function SubjectStatsSidebar() {
+  const t = useTranslations("StudentDashboard");
+  const { data } = useListMyAchievements();
+  const subjects = data ?? [];
+
+  if (subjects.length === 0) {
+    return null;
+  }
+
+  return (
+    <aside className="w-full shrink-0 lg:w-72 xl:w-80">
+      <div className="flex flex-col gap-4 rounded-md border border-gray-200 p-4">
+        <h3 className="text-sm font-semibold text-gray-900">{t("statsTitle")}</h3>
+        <ul className="flex flex-col gap-3">
+          {subjects.map((subject) => (
+            <li key={subject.subject_id}>
+              <ProgressBar percent={subject.completed_percent} label={subject.subject_name} />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </aside>
   );
 }
 
@@ -183,33 +216,39 @@ export function StudentDashboard() {
   }
 
   return (
-    <PageContainer title={t("title")}>
-      {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
-      {isError && <p className="text-sm text-red-600">{t("error")}</p>}
+    <PageContainer title={t("title")} maxWidthClassName="xl:max-w-7xl">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <div className="min-w-0 flex-1">
+          {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
+          {isError && <p className="text-sm text-red-600">{t("error")}</p>}
 
-      {!isLoading && !isError && lessons.length === 0 && (
-        <p className="text-sm text-gray-500">{t("empty")}</p>
-      )}
+          {!isLoading && !isError && lessons.length === 0 && (
+            <p className="text-sm text-gray-500">{t("empty")}</p>
+          )}
 
-      {lessons.length > 0 && (
-        <ul className="flex flex-col gap-2">
-          {lessons.map((item) => (
-            <LessonRow key={item.id} item={item} />
-          ))}
-        </ul>
-      )}
+          {lessons.length > 0 && (
+            <ul className="flex flex-col gap-2">
+              {lessons.map((item) => (
+                <LessonRow key={item.id} item={item} />
+              ))}
+            </ul>
+          )}
 
-      {!isLoading && !isError && backlog.length > 0 && (
-        <div className="mt-8 flex flex-col gap-2">
-          <h3 className="text-lg font-semibold">{t("backlogTitle")}</h3>
-          <p className="-mt-1 mb-1 text-sm text-gray-500">{t("backlogHint")}</p>
-          <ul className="flex flex-col gap-2">
-            {backlog.map((item) => (
-              <LessonRow key={item.id} item={item} dateLabel={item.origin_label} />
-            ))}
-          </ul>
+          {!isLoading && !isError && backlog.length > 0 && (
+            <div className="mt-8 flex flex-col gap-2">
+              <h3 className="text-lg font-semibold">{t("backlogTitle")}</h3>
+              <p className="-mt-1 mb-1 text-sm text-gray-500">{t("backlogHint")}</p>
+              <ul className="flex flex-col gap-2">
+                {backlog.map((item) => (
+                  <LessonRow key={item.id} item={item} dateLabel={item.origin_label} />
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
-      )}
+
+        <SubjectStatsSidebar />
+      </div>
     </PageContainer>
   );
 }
