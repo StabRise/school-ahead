@@ -72,7 +72,20 @@
     "mutedLabel": "Без озвучення",
     "sizeLabel": "Розмір кульок",
     "countLabel": "Кількість кульок",
-    "speedLabel": "Швидкість"
+    "speedLabel": "Швидкість",
+    "heartBalloon": "Кулька-сердечко з бонусним питанням"
+  },
+  "BalloonPopQuiz": {
+    "title": "Бонусна вікторина!",
+    "progress": "Питання {current} із {total}",
+    "correct": "Правильно! 🎉",
+    "incorrect": "Не зовсім!",
+    "passedTitle": "Чудова робота!",
+    "failedTitle": "Гарна спроба!",
+    "scoreResult": "Правильно: {correct} із {total}",
+    "passedMessage": "Ти отримуєш діамант!",
+    "failedMessage": "Тренуйся далі — спробуй ще раз наступного разу!",
+    "continueButton": "Назад до кульок!"
   },
   "TrainsGame": {
     "title": "Потяг привіз букву!",

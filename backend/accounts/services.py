@@ -150,6 +150,22 @@ def award_balloon_pop_diamond(student: StudentProfile) -> None:
     student.refresh_from_db(fields=['diamond_balance_cache'])
 
 
+# Diamond reward for passing the balloon-pop minigame's bonus "?" heart-
+# balloon quiz (see frontend/components/preschool/balloon-quiz.tsx) — awarded
+# once the student answers over 60% of the quiz's questions correctly. Same
+# trust model as BALLOON_POP_MILESTONE_DIAMONDS above: no server-side
+# tracking of quiz answers, the frontend calls this once per passed quiz.
+BALLOON_QUIZ_REWARD_DIAMONDS = 1
+
+
+def award_balloon_quiz_diamond(student: StudentProfile) -> None:
+    """Same atomic F() update as award_balloon_pop_diamond."""
+    StudentProfile.objects.filter(pk=student.pk).update(
+        diamond_balance_cache=F('diamond_balance_cache') + BALLOON_QUIZ_REWARD_DIAMONDS
+    )
+    student.refresh_from_db(fields=['diamond_balance_cache'])
+
+
 def is_item_unlocked(student: StudentProfile, item: AvatarItem) -> bool:
     """Free items are unlocked for everyone; priced ones need a purchase
     record. See docs/core/avatar.md section 2.2."""

@@ -280,3 +280,19 @@ def reward_balloon_pop(request: HttpRequest):
     student = get_own_student_profile(request)
     services.award_balloon_pop_diamond(student)
     return MeOut(user=_user_out(request, request.auth))
+
+
+@router.post(
+    '/me/balloon-quiz-reward',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='reward_balloon_quiz',
+)
+def reward_balloon_quiz(request: HttpRequest):
+    """Awards a Diamond for passing the balloon-pop minigame's bonus "?"
+    heart-balloon quiz (frontend/components/preschool/balloon-quiz.tsx). See
+    accounts.services.award_balloon_quiz_diamond for the trust model."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    services.award_balloon_quiz_diamond(student)
+    return MeOut(user=_user_out(request, request.auth))

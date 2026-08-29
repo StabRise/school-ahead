@@ -4,13 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { getMeQueryKey, useRewardBalloonPop } from "@/lib/api/browser/auth/auth";
+import { getMeQueryKey, useRewardBalloonPop, useRewardBalloonQuiz } from "@/lib/api/browser/auth/auth";
 import { mapApiUserToAuthUser } from "@/lib/api/map-user";
 import { prefetchVoice, speak, warmupSpeech, type SpeechLanguage as GameLanguage } from "@/lib/piper-tts";
 import { useBackgroundMusic } from "@/lib/use-background-music";
 import { useAuthStore } from "@/stores/auth-store";
 import { useBalloonPopGameStore, type BalloonMode } from "@/stores/balloon-pop-game-store";
 import { useGameMusicStore } from "@/stores/game-music-store";
+import { BalloonQuiz, buildBalloonQuizQuestions, type BalloonQuizQuestion } from "@/components/preschool/balloon-quiz";
 
 // Every DIAMOND_MILESTONE ruby balloons popped converts into 1 Diamond,
 // awarded via POST /auth/me/balloon-pop-reward and animated flying to the
@@ -34,6 +35,7 @@ interface FallingBalloon {
   icon?: string; // optional emoji hung below the balloon
   image?: string; // optional illustration hung below the balloon instead of `icon`
   speech: string; // text spoken via Piper TTS when the balloon is popped
+  isQuizBalloon?: boolean; // heart-shaped "?" balloon — pops into the bonus quiz instead of scoring
 }
 
 interface Particle {
@@ -178,8 +180,28 @@ const BALLOON_SCHOOL_SUPPLIES: { name: string; emoji: string }[] = [
 // public/preschool/animals, same static-asset convention as public/music
 // (see lib/use-background-music.ts).
 const BALLOON_ANIMALS_EX: { name: string; image: string }[] = [
+  { name: "Bear", image: "/preschool/animals/bear.jpeg" },
+  { name: "Butterfly", image: "/preschool/animals/butterfly.jpeg" },
+  { name: "Cheetah", image: "/preschool/animals/cheetah.jpeg" },
   { name: "Kitten", image: "/preschool/animals/kitten.jpeg" },
   { name: "Panda", image: "/preschool/animals/panda.jpeg" },
+  { name: "Chicken", image: "/preschool/animals/chicken.jpeg" },
+  { name: "fox", image: "/preschool/animals/fox.jpeg" },
+  { name: "frog", image: "/preschool/animals/frog.jpeg" },
+  { name: "goose", image: "/preschool/animals/goose.jpeg" },
+  { name: "hippo", image: "/preschool/animals/hippo.jpeg" },
+  { name: "horse", image: "/preschool/animals/horse.jpeg" },
+  { name: "goose", image: "/preschool/animals/goose.jpeg" },
+  { name: "kangaroo", image: "/preschool/animals/kangaroo.jpeg" },
+  { name: "kitten", image: "/preschool/animals/kitten.jpeg" },
+  { name: "koala", image: "/preschool/animals/koala.jpeg" },
+  { name: "lion", image: "/preschool/animals/lion.jpeg" },
+  { name: "monkey", image: "/preschool/animals/monkey.jpeg" },
+  { name: "owl", image: "/preschool/animals/owl.jpeg" },
+  { name: "panda", image: "/preschool/animals/panda.jpeg" },
+  { name: "squirrel", image: "/preschool/animals/squirrel.jpeg" },
+  { name: "whale", image: "/preschool/animals/whale.jpeg" },
+  { name: "zebra", image: "/preschool/animals/zebra.jpeg" },
 ];
 
 const BALLOON_MODES: BalloonMode[] = [
@@ -194,6 +216,15 @@ const BALLOON_MODES: BalloonMode[] = [
   "schoolSupplies",
 ];
 const GAME_LANGUAGES: GameLanguage[] = ["en", "uk", "pl"];
+
+// Modes with a bonus heart-shaped "?" quiz balloon (balloon-quiz.tsx) — only
+// "numbers10" has a question bank tuned for it so far. TODO: extend to
+// "animals"/"animalsEx" once there's a matching quiz for those vocabularies.
+const QUIZ_BALLOON_MODES: BalloonMode[] = ["numbers10"];
+// Checked once per spawn tick (independently of the normal balloon spawned
+// that same tick) while at most one quiz balloon is already on screen.
+const QUIZ_BALLOON_SPAWN_CHANCE = 0.1;
+const QUIZ_BALLOON_COLOR = "#f43f5e";
 
 const SPAWN_INTERVAL_MS = 850;
 const PARTICLES_PER_POP = 10;
@@ -211,6 +242,7 @@ const MAX_COUNT = 24;
 
 let nextBalloonId = 0;
 let nextParticleId = 0;
+let nextRewardId = 0;
 
 function randomBetween(min: number, max: number): number {
   return min + Math.random() * (max - min);
@@ -521,12 +553,21 @@ function BalloonNode({
       onAnimationEnd={() => onMissed(balloon.id)}
     >
       <svg viewBox={`0 0 40 ${viewBoxHeight}`} className="w-full drop-shadow-md" aria-hidden="true">
-        <ellipse cx="20" cy="20" rx="18" ry="20" fill={balloon.color} />
-        <ellipse cx="14" cy="12" rx="4" ry="6" fill="white" opacity="0.35" />
+        {balloon.isQuizBalloon ? (
+          <path
+            d="M20,34.5 C20,34.5 4,24 4,15 C4,9.75 8.25,5.5 13.5,5.5 C16.5,5.5 19,7 20,9.5 C21,7 23.5,5.5 26.5,5.5 C31.75,5.5 36,9.75 36,15 C36,24 20,34.5 20,34.5 Z"
+            fill={balloon.color}
+          />
+        ) : (
+          <>
+            <ellipse cx="20" cy="20" rx="18" ry="20" fill={balloon.color} />
+            <ellipse cx="14" cy="12" rx="4" ry="6" fill="white" opacity="0.35" />
+          </>
+        )}
         <text
           x="20"
           textAnchor="middle"
-          fontSize={fontSize}
+          fontSize={balloon.isQuizBalloon ? 20 : fontSize}
           fontWeight="700"
           fill="white"
           // Otherwise a precise tap directly on the glyph can be grabbed by
@@ -536,7 +577,11 @@ function BalloonNode({
           stroke="rgba(0,0,0,0.2)"
           strokeWidth="0.5"
         >
-          {lines.length === 2 ? (
+          {balloon.isQuizBalloon ? (
+            <tspan x="20" y="24">
+              ?
+            </tspan>
+          ) : lines.length === 2 ? (
             <>
               <tspan x="20" y={24 - fontSize * 0.6}>
                 {lines[0]}
@@ -596,11 +641,13 @@ export function BalloonPopGame() {
   const [scoreBump, setScoreBump] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [flyingDiamond, setFlyingDiamond] = useState<{ id: number; from: { x: number; y: number } } | null>(null);
+  const [quizQuestions, setQuizQuestions] = useState<BalloonQuizQuestion[] | null>(null);
   const awardedMilestonesRef = useRef<Set<number>>(new Set());
   const scoreBadgeRef = useRef<HTMLDivElement>(null);
   const setUser = useAuthStore((s) => s.setUser);
   const queryClient = useQueryClient();
   const rewardBalloonPop = useRewardBalloonPop();
+  const rewardBalloonQuiz = useRewardBalloonQuiz();
   const size = useBalloonPopGameStore((s) => s.size);
   const setSize = useBalloonPopGameStore((s) => s.setSize);
   const speed = useBalloonPopGameStore((s) => s.speed);
@@ -622,27 +669,39 @@ export function BalloonPopGame() {
   useBackgroundMusic();
 
   useEffect(() => {
+    // Paused while the bonus quiz overlay is open — no point spawning
+    // balloons the child can't see or reach behind it.
+    if (quizQuestions) return;
     const interval = setInterval(() => {
       setBalloons((current) => {
         if (current.length >= maxOnScreen) return current;
-        const { label, icon, image, color, speech } = generateBalloonContent(mode, language);
+
+        const canSpawnQuizBalloon =
+          QUIZ_BALLOON_MODES.includes(mode) &&
+          !current.some((b) => b.isQuizBalloon) &&
+          Math.random() < QUIZ_BALLOON_SPAWN_CHANCE;
+        const content = canSpawnQuizBalloon
+          ? { label: "?", color: QUIZ_BALLOON_COLOR, speech: "" }
+          : generateBalloonContent(mode, language);
+
         const balloon: FallingBalloon = {
           id: nextBalloonId++,
           left: randomBetween(4, 82),
-          color,
+          color: content.color,
           duration: randomBetween(6, 11) / speed,
           delay: 0,
           size: randomBetween(size * 0.75, size * 1.25),
-          label,
-          icon,
-          image,
-          speech,
+          label: content.label,
+          icon: "icon" in content ? content.icon : undefined,
+          image: "image" in content ? content.image : undefined,
+          speech: content.speech,
+          isQuizBalloon: canSpawnQuizBalloon,
         };
         return [...current, balloon];
       });
     }, SPAWN_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [size, speed, maxOnScreen, mode, language]);
+  }, [size, speed, maxOnScreen, mode, language, quizQuestions]);
 
   // Warms the voice model cache as soon as a language is selected, so the
   // first popped balloon doesn't stall on a multi-megabyte download — then
@@ -676,7 +735,7 @@ export function BalloonPopGame() {
     const from = badgeRect
       ? { x: badgeRect.left + badgeRect.width / 2, y: badgeRect.top + badgeRect.height / 2 }
       : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-    setFlyingDiamond({ id: score, from });
+    setFlyingDiamond({ id: nextRewardId++, from });
 
     rewardBalloonPop.mutate(undefined, {
       onSuccess: (response) => {
@@ -695,6 +754,15 @@ export function BalloonPopGame() {
 
   const handlePop = (balloon: FallingBalloon, rect: DOMRect) => {
     setBalloons((current) => current.filter((b) => b.id !== balloon.id));
+
+    if (balloon.isQuizBalloon) {
+      playPopSound();
+      // Clears every other balloon too — a calm, empty screen behind the
+      // quiz overlay instead of balloons drifting past its translucent scrim.
+      setBalloons([]);
+      setQuizQuestions(buildBalloonQuizQuestions());
+      return;
+    }
 
     const containerRect = containerRef.current?.getBoundingClientRect();
     const x = rect.left + rect.width / 2 - (containerRect?.left ?? 0);
@@ -722,6 +790,25 @@ export function BalloonPopGame() {
     if (!muted) speak(balloon.speech, language, "short");
     setScore((current) => current + 1);
     setScoreBump((current) => current + 1);
+  };
+
+  const handleQuizFinish = (passed: boolean) => {
+    setQuizQuestions(null);
+    if (!passed) return;
+
+    playDiamondChime();
+    const badgeRect = scoreBadgeRef.current?.getBoundingClientRect();
+    const from = badgeRect
+      ? { x: badgeRect.left + badgeRect.width / 2, y: badgeRect.top + badgeRect.height / 2 }
+      : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    setFlyingDiamond({ id: nextRewardId++, from });
+
+    rewardBalloonQuiz.mutate(undefined, {
+      onSuccess: (response) => {
+        setUser(mapApiUserToAuthUser(response.user));
+        queryClient.invalidateQueries({ queryKey: getMeQueryKey() });
+      },
+    });
   };
 
   return (
@@ -851,8 +938,18 @@ export function BalloonPopGame() {
       )}
 
       {balloons.map((balloon) => (
-        <BalloonNode key={balloon.id} balloon={balloon} label={t("balloon")} onPop={handlePop} onMissed={handleMissed} />
+        <BalloonNode
+          key={balloon.id}
+          balloon={balloon}
+          label={balloon.isQuizBalloon ? t("heartBalloon") : t("balloon")}
+          onPop={handlePop}
+          onMissed={handleMissed}
+        />
       ))}
+
+      {quizQuestions && (
+        <BalloonQuiz questions={quizQuestions} language={language} muted={muted} onFinish={handleQuizFinish} />
+      )}
 
       {particles.map((particle) => (
         <span

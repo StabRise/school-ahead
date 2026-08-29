@@ -444,3 +444,14 @@ def test_reward_balloon_pop_can_be_awarded_repeatedly(api_client, auth_header):
     assert response.data['user']['diamond_balance'] == 2
     student.refresh_from_db()
     assert student.diamond_balance_cache == 2
+
+
+def test_reward_balloon_quiz_awards_one_diamond(api_client, auth_header):
+    user, student, _avatar = _make_student_with_avatar(diamonds=5)
+
+    response = api_client.post('/auth/me/balloon-quiz-reward', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['diamond_balance'] == 6
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 6
