@@ -3,7 +3,7 @@ import uuid
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db import models
 
-from common.storage import avatar_image_upload_to
+from common.storage import avatar_image_upload_to, avatar_item_image_upload_to
 
 from .managers import UserManager
 
@@ -52,24 +52,79 @@ class InterfaceMode(models.TextChoices):
 
 
 class Avatar(models.Model):
-    """A selectable companion character — see docs/core/avatar.md. That doc
-    also specs a wardrobe/shop (cosmetics, Diamonds) and a home-decoration
-    system; neither is built yet. `key`/`is_active` exist now so those can
-    layer on later (e.g. an `AvatarUnlock` per-student table) without
-    reshaping this catalog. For now every active Avatar is available to
-    every student, unlocked or not."""
+    """A selectable companion character's base body — see docs/core/avatar.md.
+    Rendered as the bottom SVG layer, with a student's equipped `AvatarItem`s
+    stacked on top (clothing -> headwear -> accessory) in the same canvas
+    coordinate system. That doc also specs a shop (Diamond prices) and a
+    home-decoration system; neither is built yet. `key`/`is_active` exist now
+    so those can layer on later (e.g. an `AvatarUnlock` per-student table)
+    without reshaping this catalog. For now every active Avatar is available
+    to every student, unlocked or not."""
 
     key = models.SlugField(max_length=50, unique=True)
     name = models.CharField(max_length=100)
     image = models.FileField(upload_to=avatar_image_upload_to)
     order_index = models.PositiveSmallIntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    # Uniform size multiplier for the body layer, tuned from the tutor avatar
+    # editor (docs/core/avatar.md) so a body can be nudged to visually match
+    # its wardrobe items without re-authoring the SVG.
+    scale = models.FloatField(default=1.0)
 
     class Meta:
         ordering = ['order_index', 'id']
 
     def __str__(self):
         return self.name
+
+
+class AvatarItemSlot(models.TextChoices):
+    CLOTHING = 'clothing', 'Clothing'
+    HEADWEAR = 'headwear', 'Headwear'
+    ACCESSORY = 'accessory', 'Accessory'
+
+
+class AvatarItem(models.Model):
+    """A wardrobe piece for one Avatar — see docs/core/avatar.md section 2.2.
+    Drawn as an SVG in the same canvas coordinate system as its `avatar`, so
+    the frontend composites the equipped stack as plain absolutely-positioned
+    layers with no per-item offsets to track. Every slot is many-to-many
+    (StudentProfile.equipped_{slot}_items) — several pieces can be worn at
+    once in each of clothing/headwear/accessory, stacked by `layer_order`:
+    underwear/socks under a t-shirt/pants, under a sweater, under a jacket,
+    under a backpack; two hats/pins stacked the same way; glasses under a
+    scarf; etc."""
+
+    avatar = models.ForeignKey(Avatar, on_delete=models.CASCADE, related_name='items')
+    slot = models.CharField(max_length=10, choices=AvatarItemSlot.choices)
+    key = models.SlugField(max_length=50)
+    name = models.CharField(max_length=100)
+    image = models.FileField(upload_to=avatar_item_image_upload_to)
+    order_index = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    # Per-item fine-tuning set from the tutor avatar editor (docs/core/avatar.md)
+    # so an item can be scaled/nudged to line up with its avatar's body without
+    # re-authoring the SVG. offset_x/offset_y are percentages of the avatar
+    # canvas (so they stay correct at any render size); scale is a multiplier
+    # applied on top of the item's native size. Both origin at (0, 0)/1.0,
+    # i.e. "drawn exactly as authored" — see AvatarPreview on the frontend.
+    scale = models.FloatField(default=1.0)
+    offset_x = models.FloatField(default=0.0)
+    offset_y = models.FloatField(default=0.0)
+    # Stacking order among simultaneously-equipped items in the same slot —
+    # lower draws first (closer to the body/skin), higher draws on top.
+    layer_order = models.PositiveSmallIntegerField(default=0)
+    # Diamond shop price — see docs/core/avatar.md section 2.2. 0 means free:
+    # every student can equip it without buying (see StudentProfile.
+    # unlocked_items for the purchase record of priced items).
+    price = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['slot', 'order_index', 'id']
+        unique_together = [('avatar', 'key')]
+
+    def __str__(self):
+        return f'{self.avatar.key}:{self.key}'
 
 
 class StudentProfile(models.Model):
@@ -90,6 +145,29 @@ class StudentProfile(models.Model):
     equipped_avatar = models.ForeignKey(
         Avatar, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipped_by'
     )
+    # Wardrobe layered on top of `equipped_avatar` — see docs/core/avatar.md
+    # section 2.2. Each slot is many-to-many (several pieces can be worn at
+    # once — a t-shirt + pants + jacket, two hats stacked, glasses + a mask),
+    # stacked by AvatarItem.layer_order — see that model. All expected to
+    # hold AvatarItems whose `slot`/`avatar` match `equipped_avatar`
+    # (enforced in accounts/api.py, not at the DB level). Empty is a valid
+    # "nothing equipped in this slot" state.
+    equipped_clothing_items = models.ManyToManyField(
+        AvatarItem, blank=True, related_name='equipped_as_clothing_by'
+    )
+    equipped_headwear_items = models.ManyToManyField(
+        AvatarItem, blank=True, related_name='equipped_as_headwear_by'
+    )
+    equipped_accessory_items = models.ManyToManyField(
+        AvatarItem, blank=True, related_name='equipped_as_accessory_by'
+    )
+    # Every priced AvatarItem this student has ever bought — see
+    # docs/core/avatar.md section 2.2 and accounts.services.purchase_avatar_item.
+    # Deliberately independent of equipped_avatar/equipped_*: switching to a
+    # different companion and back must not lose access to items already
+    # paid for, so this is never touched by the equip endpoints, only by a
+    # purchase. Free items (AvatarItem.price == 0) don't need an entry here.
+    unlocked_items = models.ManyToManyField(AvatarItem, blank=True, related_name='unlocked_by')
 
     def __str__(self):
         # Same full_name-or-email fallback used everywhere a student's name

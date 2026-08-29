@@ -1,16 +1,35 @@
 import json
 
-from academics import services as academics_services
-from academics.models import Class, Subject, SubjectBlock, Topic
-from academics.schemas import SubjectOut, TopicOut, TopicsReorderIn
-from accounts.models import StudentProfile
-from common.auth import CookieOrBearerJWTAuth
-from common.csrf import require_csrf
 from django.db.models import Count
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
+from ninja import File, Form, Router
+from ninja.errors import HttpError
+from ninja.files import UploadedFile
+from ninja.pagination import paginate
+
+from academics import services as academics_services
+from academics.models import Class, Subject, SubjectBlock, Topic
+from academics.schemas import SubjectOut, TopicOut, TopicsReorderIn
+from accounts.models import Avatar, AvatarItem, StudentProfile
+from accounts.schemas import (
+    AvatarItemOut,
+    AvatarOut,
+    UpdateAvatarItemTransformIn,
+    UpdateAvatarTransformIn,
+)
+from common.auth import CookieOrBearerJWTAuth
+from common.csrf import require_csrf
+from common.permissions import ensure_is_tutor
 from lessons import services as lesson_services
-from lessons.models import GradingType, Lesson, LessonsJson, LessonType, StudentLesson, StudentLessonStatus
+from lessons.models import (
+    GradingType,
+    Lesson,
+    LessonsJson,
+    LessonType,
+    StudentLesson,
+    StudentLessonStatus,
+)
 from lessons.schemas import (
     AddCommentIn,
     LessonCommentOut,
@@ -19,10 +38,6 @@ from lessons.schemas import (
     LessonUpdateIn,
     ProcessLessonsJsonOut,
 )
-from ninja import File, Form, Router
-from ninja.errors import HttpError
-from ninja.files import UploadedFile
-from ninja.pagination import paginate
 
 from . import services
 from .models import TutorSubjectAssignment
@@ -658,3 +673,63 @@ def add_comment(request: HttpRequest, student_lesson_id: int, payload: AddCommen
     require_csrf(request)
     student_lesson = _get_scoped_student_lesson(request, student_lesson_id)
     return lesson_services.add_comment(student_lesson, request.auth, payload.body)
+
+
+def _tutor_avatar_item_out(item: AvatarItem, request: HttpRequest) -> AvatarItemOut:
+    image_url = request.build_absolute_uri(item.image.url) if item.image else None
+    return AvatarItemOut(
+        id=item.id,
+        slot=item.slot,
+        key=item.key,
+        name=item.name,
+        image=image_url,
+        scale=item.scale,
+        offset_x=item.offset_x,
+        offset_y=item.offset_y,
+        layer_order=item.layer_order,
+        price=item.price,
+        is_unlocked=True,
+    )
+
+
+def _tutor_avatar_out(avatar: Avatar, request: HttpRequest) -> AvatarOut:
+    image_url = request.build_absolute_uri(avatar.image.url) if avatar.image else None
+    items = [_tutor_avatar_item_out(item, request) for item in avatar.items.all()]
+    return AvatarOut(id=avatar.id, key=avatar.key, name=avatar.name, image=image_url, scale=avatar.scale, items=items)
+
+
+@router.get('/avatars', response=list[AvatarOut], operation_id='list_tutor_avatars')
+def list_tutor_avatars(request: HttpRequest):
+    """The full avatar catalog (every item, active or not) with its
+    scale/offset fine-tuning — powers the avatar editor page. See
+    docs/core/avatar.md."""
+    ensure_is_tutor(request)
+    return [_tutor_avatar_out(avatar, request) for avatar in Avatar.objects.all()]
+
+
+@router.patch('/avatars/{avatar_id}', response=AvatarOut, operation_id='update_tutor_avatar_transform')
+def update_tutor_avatar_transform(request: HttpRequest, avatar_id: int, payload: UpdateAvatarTransformIn):
+    """Sets a companion body's size multiplier — see Avatar.scale."""
+    require_csrf(request)
+    ensure_is_tutor(request)
+    avatar = get_object_or_404(Avatar, id=avatar_id)
+    avatar.scale = payload.scale
+    avatar.save(update_fields=['scale'])
+    return _tutor_avatar_out(avatar, request)
+
+
+@router.patch('/avatar-items/{item_id}', response=AvatarItemOut, operation_id='update_tutor_avatar_item_transform')
+def update_tutor_avatar_item_transform(request: HttpRequest, item_id: int, payload: UpdateAvatarItemTransformIn):
+    """Sets a wardrobe item's size/position fine-tuning, clothing stacking
+    order, and Diamond shop price — see
+    AvatarItem.scale/offset_x/offset_y/layer_order/price."""
+    require_csrf(request)
+    ensure_is_tutor(request)
+    item = get_object_or_404(AvatarItem, id=item_id)
+    item.scale = payload.scale
+    item.offset_x = payload.offset_x
+    item.offset_y = payload.offset_y
+    item.layer_order = payload.layer_order
+    item.price = payload.price
+    item.save(update_fields=['scale', 'offset_x', 'offset_y', 'layer_order', 'price'])
+    return _tutor_avatar_item_out(item, request)

@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.db.models import F
 from django.utils import timezone
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
@@ -6,7 +7,7 @@ from ninja_jwt.exceptions import TokenError
 from ninja_jwt.tokens import AccessToken
 from ninja_jwt.tokens import RefreshToken as JWTRefreshToken
 
-from .models import RefreshToken, Role, SocialAccount, User
+from .models import AvatarItem, RefreshToken, Role, SocialAccount, StudentProfile, User
 
 _google_request = google_requests.Request()
 
@@ -16,6 +17,14 @@ class InvalidGoogleToken(Exception):
 
 
 class RefreshTokenError(Exception):
+    pass
+
+
+class ItemAlreadyUnlocked(Exception):
+    pass
+
+
+class InsufficientDiamonds(Exception):
     pass
 
 
@@ -121,3 +130,66 @@ def revoke_refresh_token(raw_refresh_token: str) -> None:
     RefreshToken.objects.filter(id=jti, revoked_at__isnull=True).update(
         revoked_at=timezone.now()
     )
+
+
+# Diamond reward for the balloon-pop minigame's 100-balloon milestone (see
+# frontend/components/preschool/balloon-pop-game.tsx). Same intentionally
+# simple StudentProfile.diamond_balance_cache counter as
+# lessons.services.LESSON_COMPLETION_DIAMONDS — no append-only ledger, and no
+# server-side tracking of balloons popped, so this trusts the frontend to
+# call it once per milestone reached in a play session.
+BALLOON_POP_MILESTONE_DIAMONDS = 1
+
+
+def award_balloon_pop_diamond(student: StudentProfile) -> None:
+    """Same atomic F() update as _award_completion_diamonds, so this can run
+    concurrently with other requests touching the same StudentProfile."""
+    StudentProfile.objects.filter(pk=student.pk).update(
+        diamond_balance_cache=F('diamond_balance_cache') + BALLOON_POP_MILESTONE_DIAMONDS
+    )
+    student.refresh_from_db(fields=['diamond_balance_cache'])
+
+
+# Diamond reward for passing the balloon-pop minigame's bonus "?" heart-
+# balloon quiz (see frontend/components/preschool/balloon-quiz.tsx) — awarded
+# once the student answers over 60% of the quiz's questions correctly. Same
+# trust model as BALLOON_POP_MILESTONE_DIAMONDS above: no server-side
+# tracking of quiz answers, the frontend calls this once per passed quiz.
+BALLOON_QUIZ_REWARD_DIAMONDS = 1
+
+
+def award_balloon_quiz_diamond(student: StudentProfile) -> None:
+    """Same atomic F() update as award_balloon_pop_diamond."""
+    StudentProfile.objects.filter(pk=student.pk).update(
+        diamond_balance_cache=F('diamond_balance_cache') + BALLOON_QUIZ_REWARD_DIAMONDS
+    )
+    student.refresh_from_db(fields=['diamond_balance_cache'])
+
+
+def is_item_unlocked(student: StudentProfile, item: AvatarItem) -> bool:
+    """Free items are unlocked for everyone; priced ones need a purchase
+    record. See docs/core/avatar.md section 2.2."""
+    return item.price == 0 or student.unlocked_items.filter(pk=item.pk).exists()
+
+
+def purchase_avatar_item(student: StudentProfile, item: AvatarItem) -> None:
+    """Buys a wardrobe item for `student` — see docs/core/avatar.md section
+    2.2. The unlock is recorded on StudentProfile.unlocked_items, which is
+    never touched by the equip endpoints, so switching to a different
+    companion and back doesn't lose access to anything already paid for.
+
+    The balance check and deduction happen in one conditional UPDATE
+    (diamond_balance_cache__gte=item.price) so two concurrent purchase
+    requests can't both succeed off a stale in-memory balance — same
+    approach as lessons.services._award_completion_diamonds."""
+    if is_item_unlocked(student, item):
+        raise ItemAlreadyUnlocked()
+
+    updated = StudentProfile.objects.filter(
+        pk=student.pk, diamond_balance_cache__gte=item.price
+    ).update(diamond_balance_cache=F('diamond_balance_cache') - item.price)
+    if updated == 0:
+        raise InsufficientDiamonds()
+
+    student.unlocked_items.add(item)
+    student.refresh_from_db(fields=['diamond_balance_cache'])

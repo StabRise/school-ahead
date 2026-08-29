@@ -28,7 +28,8 @@
     "calendar": "Календар",
     "tutorDashboard": "Панель тьютора",
     "preschoolMode": "Дитячий режим",
-    "diamondBalance": "{count, plural, one {# діамант} few {# діаманти} many {# діамантів} other {# діаманта}}"
+    "diamondBalance": "{count, plural, one {# діамант} few {# діаманти} many {# діамантів} other {# діаманта}}",
+    "avatarEditor": "Редактор аватарів"
   },
   "Home": {
     "welcomeBack": "З поверненням, {name}!",
@@ -47,13 +48,24 @@
     "score": "{count, plural, one {Лопнуто # кульку} few {Лопнуто # кульки} many {Лопнуто # кульок} other {Лопнуто # кульки}}",
     "balloon": "Кулька",
     "settingsButton": "Налаштування гри",
+    "musicOnLabel": "Вимкнути музику",
+    "musicOffLabel": "Увімкнути музику",
+    "musicVolumeLabel": "Гучність музики",
     "modeLabel": "Що написано на кульках",
     "mode": {
       "numbers10": "Числа 1-10",
       "numbers20": "Числа 1-20",
       "numbers100": "Числа 1-100",
       "colors": "Кольори",
-      "letters": "Букви"
+      "letters": "Букви",
+      "greetings": "Greetings",
+      "animals": "Animals",
+      "animalsEx": "Animals (Photo)",
+      "schoolSupplies": "School Supplies",
+      "schoolSuppliesEx": "School Supplies (Photo)",
+      "family": "Family",
+      "bodyParts": "Body Parts",
+      "fruits": "Fruits"
     },
     "languageLabel": "Мова",
     "language": {
@@ -61,21 +73,39 @@
       "uk": "Українська",
       "pl": "Polski"
     },
+    "mutedLabel": "Без озвучення",
     "sizeLabel": "Розмір кульок",
     "countLabel": "Кількість кульок",
-    "speedLabel": "Швидкість"
+    "speedLabel": "Швидкість",
+    "heartBalloon": "Кулька-сердечко з бонусним питанням"
+  },
+  "BalloonPopQuiz": {
+    "title": "Бонусна вікторина!",
+    "progress": "Питання {current} із {total}",
+    "correct": "Правильно! 🎉",
+    "incorrect": "Не зовсім!",
+    "passedTitle": "Чудова робота!",
+    "failedTitle": "Гарна спроба!",
+    "scoreResult": "Правильно: {correct} із {total}",
+    "passedMessage": "Ти отримуєш діамант!",
+    "failedMessage": "Тренуйся далі — спробуй ще раз наступного разу!",
+    "continueButton": "Назад до кульок!"
   },
   "TrainsGame": {
     "title": "Потяг привіз букву!",
     "subtitle": "Зачекай на потяг 🚂",
     "instruction": "Натисни на клавіатурі букву {letter}",
     "settingsButton": "Налаштування гри",
+    "musicOnLabel": "Вимкнути музику",
+    "musicOffLabel": "Увімкнути музику",
+    "musicVolumeLabel": "Гучність музики",
     "languageLabel": "Мова",
     "language": {
       "en": "English",
       "uk": "Українська",
       "pl": "Polski"
     },
+    "speedLabel": "Швидкість",
     "collectedLabel": "Зібрані букви",
     "collected": "{count, plural, one {Зібрано # букву} few {Зібрано # букви} many {Зібрано # букв} other {Зібрано # букви}}"
   },
@@ -367,6 +397,8 @@
   "TaskStep": {
     "commentLabel": "Коментар",
     "fileLabel": "Файл (фото чи документ)",
+    "dropzoneHint": "Перетягніть файл сюди або натисніть, щоб обрати",
+    "removeFile": "Видалити",
     "requiredError": "Додайте файл або напишіть коментар.",
     "submitButton": "Надіслати на перевірку",
     "resubmitButton": "Надіслати виправлення"
@@ -414,7 +446,20 @@
     "title": "Мій профіль",
     "avatarSectionTitle": "Обери свого персонажа",
     "loading": "Завантаження...",
-    "error": "Не вдалося завантажити персонажів. Спробуйте ще раз."
+    "error": "Не вдалося завантажити персонажів. Спробуйте ще раз.",
+    "wardrobeNone": "Немає",
+    "wardrobeSlot": {
+      "clothing": "Одяг",
+      "headwear": "Головний убір",
+      "accessory": "Аксесуар"
+    },
+    "notEnoughDiamondsTitle": "Недостатньо діамантів",
+    "notEnoughDiamondsBody": "{item} коштує 💎{price}, а в тебе {balance}. Виконуй уроки, щоб заробити більше діамантів!",
+    "notEnoughDiamondsClose": "Зрозуміло",
+    "confirmPurchaseTitle": "Приміряти та купити?",
+    "confirmPurchaseBody": "«{item}» коштує 💎{price}. Купити цю річ?",
+    "confirmPurchaseCancel": "Скасувати",
+    "confirmPurchaseBuy": "Купити за 💎{price}"
   },
   "SubjectDetail": {
     "loading": "Завантаження...",
@@ -473,7 +518,7 @@
     "lessonTooltip": "{topic}\n{lesson}",
     "previewAsStudent": "Переглянути урок як учень",
     "openSubject": "Відкрити предмет",
-  "viewSubject": "Переглянути предмет",
+    "viewSubject": "Переглянути предмет",
     "changeDate": "Змінити дату",
     "rescheduleTitle": "Змінити дату уроку",
     "rescheduleDateLabel": "Нова дата",
@@ -504,5 +549,18 @@
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити предмети.",
     "empty": "Книжок на полиці ще немає."
+  },
+  "TutorAvatarEditor": {
+    "title": "Редактор аватарів",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити аватари. Спробуйте ще раз.",
+    "bodySectionTitle": "Тіло персонажа",
+    "scale": "Масштаб",
+    "offsetX": "Зміщення по X",
+    "offsetY": "Зміщення по Y",
+    "save": "Зберегти",
+    "dragHint": "Перетягніть елемент мишкою, щоб змінити положення",
+    "layerOrder": "Порядок шару",
+    "price": "Ціна (💎)"
   }
 }

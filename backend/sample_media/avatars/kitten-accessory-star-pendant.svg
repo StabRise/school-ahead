@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <radialGradient id="kStarGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#D48CF5" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#D48CF5" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="kStarFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#B04FE0"/>
+      <stop offset="100%" stop-color="#6E1FA0"/>
+    </linearGradient>
+  </defs>
+  <path d="M60,158 L88,168 Q116,182 116,178 Q116,182 144,168 L172,158" fill="none" stroke="#3A2E28" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="123" cy="180" r="26" fill="url(#kStarGlow)"/>
+  <polygon points="123,165 126.82,174.74 137.27,175.36 129.18,182.01 131.82,192.14 123,186.5 114.18,192.14 116.82,182.01 108.73,175.36 119.18,174.74" fill="url(#kStarFill)" stroke="#4A1470" stroke-width="1.4" stroke-linejoin="round"/>
+</svg>

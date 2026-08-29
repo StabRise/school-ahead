@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kSweaterBase" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#CFE3F2"/>
+      <stop offset="100%" stop-color="#AECBE3"/>
+    </linearGradient>
+    <clipPath id="kSweaterClip">
+      <path d="M116,150 C150,150 176,161 187,181 C198,201 199,240 192,270 C186,290 168,294 116,294 C64,294 46,290 40,270 C33,240 34,201 45,181 C56,161 82,150 116,150 Z"/>
+    </clipPath>
+  </defs>
+  <path fill="url(#kSweaterBase)" d="M116,150 C150,150 176,161 187,181 C198,201 199,240 192,270 C186,290 168,294 116,294 C64,294 46,290 40,270 C33,240 34,201 45,181 C56,161 82,150 116,150 Z"/>
+  <g clip-path="url(#kSweaterClip)" fill="#F4EFE9">
+    <rect x="0" y="178" width="246.55" height="14"/>
+    <rect x="0" y="204" width="246.55" height="14"/>
+    <rect x="0" y="230" width="246.55" height="14"/>
+    <rect x="0" y="256" width="246.55" height="14"/>
+    <rect x="0" y="282" width="246.55" height="12"/>
+  </g>
+  <path d="M97,160 C90,168 86,178 88,188 C94,181 102,176 111,173 C107,168 102,163 97,160 Z" fill="#9CB9D3"/>
+  <path d="M135,160 C142,168 146,178 144,188 C138,181 130,176 121,173 C125,168 130,163 135,160 Z" fill="#9CB9D3"/>
+  <path d="M99,160 Q116,175 133,160" stroke="#7C9FBF" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <circle cx="116" cy="197" r="2.6" fill="#7C9FBF"/>
+  <circle cx="116" cy="223" r="2.6" fill="#7C9FBF"/>
+  <circle cx="116" cy="249" r="2.6" fill="#7C9FBF"/>
+  <path d="M116,192 L116,255" stroke="#7C9FBF" stroke-width="1.4" opacity="0.6"/>
+</svg>

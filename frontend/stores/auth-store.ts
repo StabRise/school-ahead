@@ -6,14 +6,42 @@ import { create } from "zustand";
 
 export type InterfaceMode = "default" | "preschool";
 
-// The chosen companion character (Raccoon, Fox, ...) — see
-// docs/core/avatar.md. Distinct from `avatarUrl` below, which is the
-// Google-account profile picture.
+// The chosen companion character (Raccoon, ...) — see docs/core/avatar.md.
+// Distinct from `avatarUrl` below, which is the Google-account profile
+// picture. `items` is its wardrobe catalog (see EquippedAvatarItem).
 export interface EquippedAvatar {
   id: number;
   key: string;
   name: string;
   image: string | null;
+  // Size multiplier set from the tutor avatar editor — see AvatarPreview.
+  scale: number;
+  items: EquippedAvatarItem[];
+}
+
+// A wardrobe piece (clothing/headwear/accessory) — either catalog entry (on
+// EquippedAvatar.items) or the one currently equipped in a slot — see
+// docs/core/avatar.md section 2.2.
+export interface EquippedAvatarItem {
+  id: number;
+  slot: "clothing" | "headwear" | "accessory";
+  key: string;
+  name: string;
+  image: string | null;
+  // Fine-tuning set from the tutor avatar editor — see AvatarPreview.
+  // offsetX/offsetY are percentages of the avatar canvas.
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+  // Stacking order among simultaneously-equipped items in the same slot
+  // (lower draws first/closer to the body). See docs/core/avatar.md.
+  layerOrder: number;
+  // Diamond shop — see docs/core/avatar.md section 2.2. price=0 is free.
+  // isUnlocked reflects the current student (always true for price=0);
+  // equipping requires it, and the wardrobe offers a purchase flow when
+  // it's false.
+  price: number;
+  isUnlocked: boolean;
 }
 
 export interface AuthUser {
@@ -28,6 +56,13 @@ export interface AuthUser {
   // Only meaningful for role="student", and only once one is chosen — see
   // docs/core/avatar.md.
   equippedAvatar: EquippedAvatar | null;
+  // Only meaningful for role="student", and only once picked — see
+  // docs/core/avatar.md section 2.2. Each slot is a list (several pieces
+  // worn together, e.g. a t-shirt + pants + jacket, or two stacked hats),
+  // pre-sorted by layerOrder.
+  equippedClothingItems: EquippedAvatarItem[];
+  equippedHeadwearItems: EquippedAvatarItem[];
+  equippedAccessoryItems: EquippedAvatarItem[];
   // Only meaningful for role="student" — see docs/core/progress.md section 2.
   diamondBalance: number | null;
 }

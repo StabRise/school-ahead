@@ -10,13 +10,15 @@ from common.permissions import get_own_student_profile
 
 from . import services
 from .cookies import clear_auth_cookies, set_auth_cookies
-from .models import Avatar, InterfaceMode
+from .models import Avatar, AvatarItem, InterfaceMode
 from .schemas import (
+    AvatarItemOut,
     AvatarOut,
     GoogleLoginIn,
     GoogleLoginOut,
     MeOut,
     UpdateAvatarIn,
+    UpdateAvatarItemsIn,
     UpdateInterfaceModeIn,
     UserOut,
 )
@@ -24,15 +26,51 @@ from .schemas import (
 router = Router(tags=['auth'])
 
 
-def _avatar_out(avatar: Avatar | None, request: HttpRequest) -> AvatarOut | None:
+def _avatar_item_out(
+    item: AvatarItem | None, request: HttpRequest, unlocked_ids: set[int] | None
+) -> AvatarItemOut | None:
+    if item is None:
+        return None
+    image_url = request.build_absolute_uri(item.image.url) if item.image else None
+    # unlocked_ids is None for a viewer with no shop-gating concept (no
+    # StudentProfile) — everything reads as unlocked. Otherwise gated by
+    # accounts.services.is_item_unlocked's rule, inlined here since we
+    # already have the id set precomputed for the whole response.
+    is_unlocked = unlocked_ids is None or item.price == 0 or item.id in unlocked_ids
+    return AvatarItemOut(
+        id=item.id,
+        slot=item.slot,
+        key=item.key,
+        name=item.name,
+        image=image_url,
+        scale=item.scale,
+        offset_x=item.offset_x,
+        offset_y=item.offset_y,
+        layer_order=item.layer_order,
+        price=item.price,
+        is_unlocked=is_unlocked,
+    )
+
+
+def _avatar_out(avatar: Avatar | None, request: HttpRequest, unlocked_ids: set[int] | None) -> AvatarOut | None:
     if avatar is None:
         return None
     image_url = request.build_absolute_uri(avatar.image.url) if avatar.image else None
-    return AvatarOut(id=avatar.id, key=avatar.key, name=avatar.name, image=image_url)
+    items = [_avatar_item_out(item, request, unlocked_ids) for item in avatar.items.filter(is_active=True)]
+    return AvatarOut(id=avatar.id, key=avatar.key, name=avatar.name, image=image_url, scale=avatar.scale, items=items)
+
+
+def _equipped_items_out(student_profile, field_name: str, request: HttpRequest, unlocked_ids) -> list[AvatarItemOut]:
+    manager = getattr(student_profile, field_name)
+    items = manager.filter(is_active=True).order_by('layer_order', 'id')
+    return [_avatar_item_out(item, request, unlocked_ids) for item in items]
 
 
 def _user_out(request: HttpRequest, user) -> UserOut:
     student_profile = getattr(user, 'student_profile', None)
+    unlocked_ids = (
+        set(student_profile.unlocked_items.values_list('id', flat=True)) if student_profile else None
+    )
     return UserOut(
         id=user.id,
         email=user.email,
@@ -42,7 +80,16 @@ def _user_out(request: HttpRequest, user) -> UserOut:
         locale=user.locale,
         avatar_url=user.avatar_url,
         interface_mode=student_profile.interface_mode if student_profile else None,
-        equipped_avatar=_avatar_out(student_profile.equipped_avatar, request) if student_profile else None,
+        equipped_avatar=_avatar_out(student_profile.equipped_avatar, request, unlocked_ids) if student_profile else None,
+        equipped_clothing_items=_equipped_items_out(student_profile, 'equipped_clothing_items', request, unlocked_ids)
+        if student_profile
+        else [],
+        equipped_headwear_items=_equipped_items_out(student_profile, 'equipped_headwear_items', request, unlocked_ids)
+        if student_profile
+        else [],
+        equipped_accessory_items=_equipped_items_out(student_profile, 'equipped_accessory_items', request, unlocked_ids)
+        if student_profile
+        else [],
         diamond_balance=student_profile.diamond_balance_cache if student_profile else None,
     )
 
@@ -129,8 +176,13 @@ def update_interface_mode(request: HttpRequest, payload: UpdateInterfaceModeIn):
 def list_avatars(request: HttpRequest):
     """The companion-character catalog a student can pick from — see
     docs/core/avatar.md. Every active Avatar is available to everyone for
-    now; a future per-student unlock table would filter this."""
-    return [_avatar_out(a, request) for a in Avatar.objects.filter(is_active=True)]
+    now (only its wardrobe items are shop-gated); a future per-student
+    unlock table would filter the avatars themselves too."""
+    student_profile = getattr(request.auth, 'student_profile', None)
+    unlocked_ids = (
+        set(student_profile.unlocked_items.values_list('id', flat=True)) if student_profile else None
+    )
+    return [_avatar_out(a, request, unlocked_ids) for a in Avatar.objects.filter(is_active=True)]
 
 
 @router.patch(
@@ -140,10 +192,107 @@ def list_avatars(request: HttpRequest):
     operation_id='update_avatar',
 )
 def update_avatar(request: HttpRequest, payload: UpdateAvatarIn):
-    """Equips a companion character — see docs/core/avatar.md section 2.1."""
+    """Equips a companion character — see docs/core/avatar.md section 2.1.
+    Clears the wardrobe: equipped clothing/headwear/accessory belong to the
+    previous avatar's catalog and wouldn't make sense on the new body. This
+    only unequips them — purchased items stay in unlocked_items and are
+    equippable again the moment the student switches back."""
     require_csrf(request)
     student = get_own_student_profile(request)
     avatar = get_object_or_404(Avatar, id=payload.avatar_id, is_active=True)
     student.equipped_avatar = avatar
     student.save(update_fields=['equipped_avatar'])
+    student.equipped_clothing_items.clear()
+    student.equipped_headwear_items.clear()
+    student.equipped_accessory_items.clear()
+    return MeOut(user=_user_out(request, request.auth))
+
+
+def _resolve_slot_items(student, item_ids: list[int], slot: str) -> list[AvatarItem]:
+    items = list(AvatarItem.objects.filter(id__in=item_ids, slot=slot, is_active=True))
+    found_ids = {item.id for item in items}
+    missing = set(item_ids) - found_ids
+    if missing:
+        raise HttpError(404, f'{slot} item(s) not found: {sorted(missing)}')
+    if any(item.avatar_id != student.equipped_avatar_id for item in items):
+        raise HttpError(400, f'{slot} item does not belong to the equipped avatar')
+    if any(not services.is_item_unlocked(student, item) for item in items):
+        raise HttpError(403, f'{slot} item is not unlocked — purchase it first')
+    return items
+
+
+@router.patch(
+    '/me/avatar-items',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='update_avatar_items',
+)
+def update_avatar_items(request: HttpRequest, payload: UpdateAvatarItemsIn):
+    """Equips/unequips the wardrobe on top of the current equipped_avatar —
+    see docs/core/avatar.md section 2.2. Always sends the full wardrobe state
+    (see UpdateAvatarItemsIn): every slot can hold several pieces worn
+    together at once, stacked by AvatarItem.layer_order. Every item must
+    already be unlocked (free, or bought via POST .../purchase)."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    student.equipped_clothing_items.set(_resolve_slot_items(student, payload.clothing_item_ids, 'clothing'))
+    student.equipped_headwear_items.set(_resolve_slot_items(student, payload.headwear_item_ids, 'headwear'))
+    student.equipped_accessory_items.set(_resolve_slot_items(student, payload.accessory_item_ids, 'accessory'))
+    return MeOut(user=_user_out(request, request.auth))
+
+
+@router.post(
+    '/me/avatar-items/{item_id}/purchase',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='purchase_avatar_item',
+)
+def purchase_avatar_item(request: HttpRequest, item_id: int):
+    """Buys a wardrobe item with Diamonds — see docs/core/avatar.md section
+    2.2. Unlocks persist independent of equipped_avatar (accounts.services.
+    purchase_avatar_item), so switching companions and back never loses
+    something already paid for. 409 if already unlocked, 402 if the
+    student's diamond_balance_cache can't cover the price (the frontend
+    shows the "earn more Diamonds" prompt the doc calls for)."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    item = get_object_or_404(AvatarItem, id=item_id, is_active=True)
+    try:
+        services.purchase_avatar_item(student, item)
+    except services.ItemAlreadyUnlocked as exc:
+        raise HttpError(409, 'Item already unlocked') from exc
+    except services.InsufficientDiamonds as exc:
+        raise HttpError(402, 'Not enough Diamonds') from exc
+    return MeOut(user=_user_out(request, request.auth))
+
+
+@router.post(
+    '/me/balloon-pop-reward',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='reward_balloon_pop',
+)
+def reward_balloon_pop(request: HttpRequest):
+    """Awards a Diamond for reaching the balloon-pop minigame's 100-balloon
+    milestone (frontend/components/preschool/balloon-pop-game.tsx). See
+    accounts.services.award_balloon_pop_diamond for the trust model."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    services.award_balloon_pop_diamond(student)
+    return MeOut(user=_user_out(request, request.auth))
+
+
+@router.post(
+    '/me/balloon-quiz-reward',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='reward_balloon_quiz',
+)
+def reward_balloon_quiz(request: HttpRequest):
+    """Awards a Diamond for passing the balloon-pop minigame's bonus "?"
+    heart-balloon quiz (frontend/components/preschool/balloon-quiz.tsx). See
+    accounts.services.award_balloon_quiz_diamond for the trust model."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    services.award_balloon_quiz_diamond(student)
     return MeOut(user=_user_out(request, request.auth))

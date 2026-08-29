@@ -11,6 +11,13 @@ import { PreschoolGameMap } from "@/components/preschool/game-map";
 import { PreschoolCelebration } from "@/components/preschool/game-choice";
 import { useAuthStore } from "@/stores/auth-store";
 
+// Lesson statuses that no longer block the preschool minigame — the
+// student's own part is done (Completed) or the ball is in someone else's
+// court (Pending Review, Need Help). Assigned, In Progress, and Revision
+// Required all mean there's still something for the student to do, so they
+// keep the game locked.
+const READY_FOR_GAME_STATUSES = ["completed", "pending_review", "need_help"];
+
 // Local (not UTC) YYYY-MM-DD — avoids toISOString() shifting the date near
 // midnight in timezones behind UTC.
 function toLocalIsoDate(date: Date): string {
@@ -74,34 +81,42 @@ export function StudentDashboard() {
   if (isPreschool) {
     // The road walks through overdue "tails" first, then today's lessons —
     // one continuous path instead of a separate list. See
-    // docs/interfaces/preschool.md.
+    // docs/views/preschool/README.md.
     const roadItems = [...backlog, ...lessons];
 
-    // Trigger condition evaluated on dashboard load — only once every tail
-    // is cleared too, not just today's lessons. See docs/interfaces/
-    // preschool.md section 2.4.
-    const hasAnyItems = lessons.length > 0 || backlog.length > 0;
-    const allTodayCompleted =
-      hasAnyItems && backlog.length === 0 && lessons.every((item) => item.status === "completed");
+    // Trigger condition evaluated on dashboard load — unlocks once every
+    // tail and every one of today's lessons is at a READY_FOR_GAME status,
+    // not just today's. `.every()` is vacuously true on an empty array, so
+    // a day (and backlog) with no lessons at all unlocks the game too. See
+    // docs/views/preschool/README.md.
+    const canPlayGame =
+      backlog.every((item) => READY_FOR_GAME_STATUSES.includes(item.status)) &&
+      lessons.every((item) => READY_FOR_GAME_STATUSES.includes(item.status));
 
     // Full-bleed gradient — fills the whole viewport below the header, not
     // just a boxed card, matching the "adventure map" theme.
     return (
       <div className="relative flex flex-1 flex-col bg-gradient-to-b from-sky-200 via-emerald-100 to-lime-200">
-        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-6">
-          {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
-          {isError && <p className="text-sm text-red-600">{t("error")}</p>}
-          {/* No separate backlog section here — tails are already walked
-              into `roadItems` above, so listing them again would just
-              duplicate what's on the road. See docs/interfaces/preschool.md. */}
-          {!isLoading && !isError && (allTodayCompleted ? <PreschoolCelebration /> : <PreschoolGameMap items={roadItems} />)}
-        </div>
+        {!isLoading && !isError && canPlayGame ? (
+          // The celebration minigames want the full screen width to play
+          // in — no side margins, unlike the boxed max-w-5xl content below.
+          <PreschoolCelebration />
+        ) : (
+          <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-6">
+            {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
+            {isError && <p className="text-sm text-red-600">{t("error")}</p>}
+            {/* No separate backlog section here — tails are already walked
+                into `roadItems` above, so listing them again would just
+                duplicate what's on the road. See docs/views/preschool/README.md. */}
+            {!isLoading && !isError && <PreschoolGameMap items={roadItems} />}
+          </div>
+        )}
       </div>
     );
   }
 
   return (
-    <PageContainer title={t("title")} maxWidthClassName="xl:max-w-3xl">
+    <PageContainer title={t("title")}>
       {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
       {isError && <p className="text-sm text-red-600">{t("error")}</p>}
 

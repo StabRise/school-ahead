@@ -4,6 +4,7 @@ import pytest
 
 from accounts.models import (
     Avatar,
+    AvatarItem,
     InterfaceMode,
     RefreshToken,
     Role,
@@ -279,3 +280,178 @@ def test_logout_via_bearer_exempt_from_csrf(mock_verify, api_client):
         headers={'Authorization': f'Bearer {access_token}'},
     )
     assert response.status_code == 204
+
+
+def _make_student_with_avatar(diamonds=0):
+    user = User.objects.create_user(email='shopper@example.com', role=Role.STUDENT)
+    avatar = Avatar.objects.create(key='test-shop-avatar', name='Shop Avatar')
+    student = StudentProfile.objects.create(
+        user=user, equipped_avatar=avatar, diamond_balance_cache=diamonds
+    )
+    return user, student, avatar
+
+
+def test_purchase_avatar_item_deducts_diamonds_and_unlocks(api_client, auth_header):
+    user, student, avatar = _make_student_with_avatar(diamonds=50)
+    item = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='jacket', name='Jacket', price=30)
+
+    response = api_client.post(f'/auth/me/avatar-items/{item.id}/purchase', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['diamond_balance'] == 20
+    student.refresh_from_db()
+    assert student.unlocked_items.filter(pk=item.pk).exists()
+
+
+def test_purchase_avatar_item_rejects_insufficient_balance(api_client, auth_header):
+    user, student, avatar = _make_student_with_avatar(diamonds=10)
+    item = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='jacket', name='Jacket', price=30)
+
+    response = api_client.post(f'/auth/me/avatar-items/{item.id}/purchase', headers=auth_header(user))
+
+    assert response.status_code == 402
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 10
+    assert not student.unlocked_items.filter(pk=item.pk).exists()
+
+
+def test_purchase_avatar_item_rejects_already_unlocked(api_client, auth_header):
+    user, student, avatar = _make_student_with_avatar(diamonds=100)
+    item = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='jacket', name='Jacket', price=30)
+    student.unlocked_items.add(item)
+
+    response = api_client.post(f'/auth/me/avatar-items/{item.id}/purchase', headers=auth_header(user))
+
+    assert response.status_code == 409
+
+
+def test_free_item_is_always_unlocked_without_purchase(api_client, auth_header):
+    user, student, avatar = _make_student_with_avatar(diamonds=0)
+    item = AvatarItem.objects.create(avatar=avatar, slot='headwear', key='cap', name='Cap', price=0)
+
+    response = api_client.patch(
+        '/auth/me/avatar-items', json={'headwear_item_ids': [item.id]}, headers=auth_header(user),
+    )
+
+    assert response.status_code == 200
+    assert [i['key'] for i in response.data['user']['equipped_headwear_items']] == ['cap']
+
+
+def test_equip_priced_item_requires_purchase_first(api_client, auth_header):
+    user, student, avatar = _make_student_with_avatar(diamonds=100)
+    item = AvatarItem.objects.create(avatar=avatar, slot='headwear', key='top-hat', name='Top Hat', price=30)
+
+    response = api_client.patch(
+        '/auth/me/avatar-items', json={'headwear_item_ids': [item.id]}, headers=auth_header(user),
+    )
+    assert response.status_code == 403
+
+    purchase = api_client.post(f'/auth/me/avatar-items/{item.id}/purchase', headers=auth_header(user))
+    assert purchase.status_code == 200
+
+    equip = api_client.patch(
+        '/auth/me/avatar-items', json={'headwear_item_ids': [item.id]}, headers=auth_header(user),
+    )
+    assert equip.status_code == 200
+    assert [i['key'] for i in equip.data['user']['equipped_headwear_items']] == ['top-hat']
+
+
+def test_unlocked_item_survives_switching_avatar_and_back(api_client, auth_header):
+    """The exact scenario from docs/core/avatar.md section 2.2: a purchased
+    item must stay available even after equipping a different companion and
+    then switching back to the original one."""
+    user, student, avatar = _make_student_with_avatar(diamonds=100)
+    other_avatar = Avatar.objects.create(key='test-other-avatar', name='Other Avatar')
+    item = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='jacket', name='Jacket', price=30)
+
+    api_client.post(f'/auth/me/avatar-items/{item.id}/purchase', headers=auth_header(user))
+    api_client.patch('/auth/me/avatar-items', json={'clothing_item_ids': [item.id]}, headers=auth_header(user))
+
+    # Switch away — the wardrobe clears (it belongs to the old avatar)...
+    switch_away = api_client.patch(
+        '/auth/me/avatar', json={'avatar_id': other_avatar.id}, headers=auth_header(user),
+    )
+    assert switch_away.status_code == 200
+    assert switch_away.data['user']['equipped_clothing_items'] == []
+
+    # ...and switch back: the item is still unlocked and equippable again,
+    # without paying for it a second time.
+    switch_back = api_client.patch(
+        '/auth/me/avatar', json={'avatar_id': avatar.id}, headers=auth_header(user),
+    )
+    assert switch_back.status_code == 200
+
+    re_equip = api_client.patch(
+        '/auth/me/avatar-items', json={'clothing_item_ids': [item.id]}, headers=auth_header(user),
+    )
+    assert re_equip.status_code == 200
+    assert [i['key'] for i in re_equip.data['user']['equipped_clothing_items']] == ['jacket']
+
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 70
+
+
+def test_multiple_headwear_and_accessories_equip_together_sorted_by_layer_order(api_client, auth_header):
+    user, student, avatar = _make_student_with_avatar(diamonds=0)
+    beanie = AvatarItem.objects.create(
+        avatar=avatar, slot='headwear', key='beanie', name='Beanie', layer_order=0
+    )
+    flower_crown = AvatarItem.objects.create(
+        avatar=avatar, slot='headwear', key='flower-crown', name='Flower Crown', layer_order=1
+    )
+    glasses = AvatarItem.objects.create(
+        avatar=avatar, slot='accessory', key='glasses', name='Glasses', layer_order=0
+    )
+    backpack = AvatarItem.objects.create(
+        avatar=avatar, slot='accessory', key='backpack', name='Backpack', layer_order=1
+    )
+
+    response = api_client.patch(
+        '/auth/me/avatar-items',
+        json={
+            'headwear_item_ids': [flower_crown.id, beanie.id],
+            'accessory_item_ids': [backpack.id, glasses.id],
+        },
+        headers=auth_header(user),
+    )
+
+    assert response.status_code == 200
+    assert [i['key'] for i in response.data['user']['equipped_headwear_items']] == ['beanie', 'flower-crown']
+    assert [i['key'] for i in response.data['user']['equipped_accessory_items']] == ['glasses', 'backpack']
+
+
+def test_reward_balloon_pop_awards_one_diamond(api_client, auth_header):
+    user, student, _avatar = _make_student_with_avatar(diamonds=5)
+
+    response = api_client.post('/auth/me/balloon-pop-reward', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['diamond_balance'] == 6
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 6
+
+
+def test_reward_balloon_pop_can_be_awarded_repeatedly(api_client, auth_header):
+    """No server-side tracking of balloons popped (see accounts.services.
+    award_balloon_pop_diamond) — every call adds another Diamond, trusting
+    the frontend to only call this once per DIAMOND_MILESTONE reached."""
+    user, student, _avatar = _make_student_with_avatar(diamonds=0)
+
+    api_client.post('/auth/me/balloon-pop-reward', headers=auth_header(user))
+    response = api_client.post('/auth/me/balloon-pop-reward', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['diamond_balance'] == 2
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 2
+
+
+def test_reward_balloon_quiz_awards_one_diamond(api_client, auth_header):
+    user, student, _avatar = _make_student_with_avatar(diamonds=5)
+
+    response = api_client.post('/auth/me/balloon-quiz-reward', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['diamond_balance'] == 6
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 6

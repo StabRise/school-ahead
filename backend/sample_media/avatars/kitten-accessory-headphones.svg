@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kCup" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4A4F58"/>
+      <stop offset="100%" stop-color="#2B2E34"/>
+    </linearGradient>
+  </defs>
+  <path d="M18,72 C18,30 60,2 116,2 C172,2 214,30 214,72" stroke="#3A3E45" stroke-width="9" fill="none" stroke-linecap="round"/>
+  <path d="M26,68 C26,34 65,12 116,12 C167,12 206,34 206,68" stroke="#6EC8DC" stroke-width="2.5" fill="none" opacity="0.6"/>
+  <rect x="4" y="66" width="24" height="42" rx="9" fill="url(#kCup)"/>
+  <rect x="204" y="66" width="24" height="42" rx="9" fill="url(#kCup)"/>
+  <circle cx="16" cy="86" r="7" fill="#6EC8DC" opacity="0.8"/>
+  <circle cx="216" cy="86" r="7" fill="#6EC8DC" opacity="0.8"/>
+  <path d="M9,104 Q16,118 28,114" stroke="#1E2024" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+</svg>

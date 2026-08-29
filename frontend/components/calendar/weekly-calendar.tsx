@@ -106,14 +106,23 @@ function formatWeekRange(start: Date, end: Date): string {
   return `${startLabel} – ${RANGE_DAY_YEAR_FORMAT.format(end)}`;
 }
 
-// href omitted (readOnly) for a tutor viewing a student's calendar — /lessons/{id}
-// is the student wizard, not a page a tutor can open. `canManage` (tutor
-// view, not-completed lesson) turns the card into a drag source and adds
-// the "change date" button — see WeeklyCalendar's handleDrop/rescheduleTarget.
-// `showTutorLinks` (tutor viewing a student's calendar) adds the "preview
-// as student" and "subject details" icon links regardless of lesson status
-// — unlike `canManage`, which additionally requires the lesson to not be
-// completed and gates drag-and-drop + the reschedule button.
+// Single lesson card shared by the student's own /calendar and the tutor's
+// view of a student's calendar (/tutor/students/{id}/calendar) — same
+// pastel-status layout in both places: subject name up top, the lesson
+// title clamped to 2 lines below it, then a footer row with the status icon
+// on the left and — only when a grade exists — a small grade badge on the
+// right. The whole card's pastel border color encodes the lesson's status
+// too, echoed by the footer's status icon's color.
+//
+// href is omitted (readOnly) for a tutor viewing a student's calendar —
+// /lessons/{id} is the student wizard, not a page a tutor can open.
+// `canManage` (tutor view, not-completed lesson) turns the card into a drag
+// source and adds the "change date" header button — see WeeklyCalendar's
+// handleDrop/rescheduleTarget. `showTutorLinks` (tutor viewing a student's
+// calendar) adds the "preview as student" and "subject details" header
+// icons regardless of lesson status, and swaps the footer's "view subject"
+// link (which points at the student-facing /subjects/{id} page) out in
+// favor of that header's subject-details link.
 function LessonCard({
   item,
   readOnly,
@@ -130,8 +139,13 @@ function LessonCard({
   onRequestDelete?: (item: CalendarItemOut) => void;
 }) {
   const t = useTranslations("Calendar");
+  const tStatus = useTranslations("LessonStatus");
   const router = useRouter();
+  const pastel = statusPastel(item.status);
+  const StatusIcon = STATUS_ICON[item.status] ?? Circle;
+  const statusLabel = tStatus(STATUS_LABEL_KEY[item.status] ?? "statusAssigned");
   const showStudentSubjectLink = !showTutorLinks;
+  const showHeaderRow = showTutorLinks || canManage;
 
   // Keeps a click/tap on one of the header icon links from being swallowed
   // by the card's own native HTML5 drag (draggable="true" on the parent).
@@ -154,116 +168,65 @@ function LessonCard({
           : undefined
       }
     >
-      <div className="flex items-center justify-end gap-1">
-        {showTutorLinks && (
-          <>
-            <Link
-              href={`/tutor/lessons/${item.lesson_id}`}
+      {showHeaderRow && (
+        <div className="flex items-center justify-end gap-1">
+          {showTutorLinks && (
+            <>
+              <Link
+                href={`/tutor/lessons/${item.lesson_id}`}
+                onMouseDown={stopDragStart}
+                title={t("previewAsStudent")}
+                aria-label={t("previewAsStudent")}
+                className={iconButtonClasses}
+              >
+                <Eye className="h-4 w-4" />
+              </Link>
+              <Link
+                href={`/tutor/subjects/${item.subject_id}`}
+                onMouseDown={stopDragStart}
+                title={t("openSubject")}
+                aria-label={t("openSubject")}
+                className={iconButtonClasses}
+              >
+                <BookOpen className="h-4 w-4" />
+              </Link>
+            </>
+          )}
+          {canManage && (
+            <button
+              type="button"
               onMouseDown={stopDragStart}
-              title={t("previewAsStudent")}
-              aria-label={t("previewAsStudent")}
-              className={iconButtonClasses}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onRequestReschedule?.(item);
+              }}
+              title={t("changeDate")}
+              aria-label={t("changeDate")}
+              className={`shrink-0 ${iconButtonClasses}`}
             >
-              <Eye className="h-4 w-4" />
-            </Link>
-            <Link
-              href={`/tutor/subjects/${item.subject_id}`}
+              <CalendarClock className="h-4 w-4" />
+            </button>
+          )}
+          {showTutorLinks && item.status === "assigned" && (
+            <button
+              type="button"
               onMouseDown={stopDragStart}
-              title={t("openSubject")}
-              aria-label={t("openSubject")}
-              className={iconButtonClasses}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onRequestDelete?.(item);
+              }}
+              title={t("removeLesson")}
+              aria-label={t("removeLesson")}
+              className="shrink-0 rounded px-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-red-600"
             >
-              <BookOpen className="h-4 w-4" />
-            </Link>
-          </>
-        )}
-        {canManage && (
-          <button
-            type="button"
-            onMouseDown={stopDragStart}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onRequestReschedule?.(item);
-            }}
-            title={t("changeDate")}
-            aria-label={t("changeDate")}
-            className={`shrink-0 ${iconButtonClasses}`}
-          >
-            <CalendarClock className="h-4 w-4" />
-          </button>
-        )}
-        {showTutorLinks && item.status === "assigned" && (
-          <button
-            type="button"
-            onMouseDown={stopDragStart}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onRequestDelete?.(item);
-            }}
-            title={t("removeLesson")}
-            aria-label={t("removeLesson")}
-            className="shrink-0 rounded px-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-red-600"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        )}
-        {showStudentSubjectLink && (
-          <button
-            type="button"
-            onMouseDown={stopDragStart}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              router.push(`/subjects/${item.subject_id}`);
-            }}
-            title={t("viewSubject")}
-            aria-label={t("viewSubject")}
-            className={`shrink-0 ${iconButtonClasses}`}
-          >
-            <BookOpen className="h-4 w-4" />
-          </button>
-        )}
-      </div>
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
 
-      <div className="flex items-center gap-2">
-        {item.subject_icon && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.subject_icon} alt="" className="h-5 w-5 shrink-0 rounded object-cover" />
-        )}
-        <p className="truncate text-sm font-semibold text-gray-900">{item.subject_name}</p>
-      </div>
-      <p
-        className="truncate text-xs text-gray-500"
-        title={t("lessonTooltip", { topic: item.topic_title, lesson: item.lesson_title })}
-      >
-        {item.lesson_title}
-      </p>
-      <div className="flex items-center gap-2">
-        <StatusBadge status={item.status} />
-        <GradeSquareBadge gradePoints={item.grade_points} gradeResult={item.grade_result} />
-      </div>
-    </Card>
-  );
-}
-
-// The student's own /calendar default view — a simpler card than LessonCard
-// (no tutor icons, no drag-and-drop): subject name up top, the lesson title
-// clamped to 2 lines below it, then a footer row with the status icon + the
-// "view subject" link on the left and — only when a grade exists — a small
-// grade badge on the right. The whole card's pastel border color encodes
-// the lesson's status too, echoed by the footer's status icon's color.
-function StudentLessonCard({ item }: { item: CalendarItemOut }) {
-  const t = useTranslations("Calendar");
-  const tStatus = useTranslations("LessonStatus");
-  const router = useRouter();
-  const pastel = statusPastel(item.status);
-  const StatusIcon = STATUS_ICON[item.status] ?? Circle;
-  const statusLabel = tStatus(STATUS_LABEL_KEY[item.status] ?? "statusAssigned");
-
-  return (
-    <Card href={`/lessons/${item.id}`} className="flex flex-col gap-1 border border-l-4" style={{ borderLeftColor: item.subject_color ?? "#D1D5DB" }}>
       <p className="truncate text-base font-semibold text-gray-900">{item.subject_name}</p>
       <p
         className="line-clamp-2 text-xs text-gray-500"
@@ -276,20 +239,22 @@ function StudentLessonCard({ item }: { item: CalendarItemOut }) {
           <span role="img" aria-label={statusLabel} title={statusLabel} className="shrink-0">
             <StatusIcon aria-hidden="true" className={`h-4 w-4 ${pastel.iconClass}`} />
           </span>
-          <button
-            type="button"
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              router.push(`/subjects/${item.subject_id}`);
-            }}
-            title={t("viewSubject")}
-            aria-label={t("viewSubject")}
-            className="shrink-0 rounded px-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-          >
-            <BookOpen className="h-4 w-4" />
-          </button>
+          {showStudentSubjectLink && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                router.push(`/subjects/${item.subject_id}`);
+              }}
+              title={t("viewSubject")}
+              aria-label={t("viewSubject")}
+              className="shrink-0 rounded px-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+            >
+              <BookOpen className="h-4 w-4" />
+            </button>
+          )}
         </div>
         <GradeSquareBadge
           gradePoints={item.grade_points}
@@ -501,7 +466,7 @@ export function WeeklyCalendar({ studentId }: { studentId?: number } = {}) {
   };
 
   return (
-    <PageContainer title={t("title")} maxWidthClassName="xl:max-w-7xl">
+    <PageContainer title={t("title")}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <NavButton onClick={() => setWeekStart((prev) => addDays(prev, -7))} label={t("previousWeek")}>
@@ -576,35 +541,30 @@ export function WeeklyCalendar({ studentId }: { studentId?: number } = {}) {
                 </div>
                 <div className="flex flex-col gap-2">
                   {dayItems.length === 0 && <p className="text-xs text-gray-400">{t("noLessons")}</p>}
-                  {isTutorView
-                    ? dayItems.map((item) => (
-                        <LessonCard
-                          key={item.id}
-                          item={item}
-                          readOnly={isTutorView}
-                          canManage={isTutorView && item.status !== "completed"}
-                          showTutorLinks={isTutorView}
-                          onRequestReschedule={setRescheduleTarget}
-                          onRequestDelete={handleDeleteStudentLesson}
-                        />
-                      ))
-                    : (() => {
-                        const activeItems = dayItems.filter((item) => ACTIVE_STATUSES.has(item.status));
-                        const otherItems = dayItems.filter((item) => !ACTIVE_STATUSES.has(item.status));
-                        return (
-                          <>
-                            {activeItems.map((item) => (
-                              <StudentLessonCard key={item.id} item={item} />
-                            ))}
-                            {activeItems.length > 0 && otherItems.length > 0 && (
-                              <hr className="border-gray-200" />
-                            )}
-                            {otherItems.map((item) => (
-                              <StudentLessonCard key={item.id} item={item} />
-                            ))}
-                          </>
-                        );
-                      })()}
+                  {(() => {
+                    const activeItems = dayItems.filter((item) => ACTIVE_STATUSES.has(item.status));
+                    const otherItems = dayItems.filter((item) => !ACTIVE_STATUSES.has(item.status));
+                    const renderCard = (item: CalendarItemOut) => (
+                      <LessonCard
+                        key={item.id}
+                        item={item}
+                        readOnly={isTutorView}
+                        canManage={isTutorView && item.status !== "completed"}
+                        showTutorLinks={isTutorView}
+                        onRequestReschedule={setRescheduleTarget}
+                        onRequestDelete={handleDeleteStudentLesson}
+                      />
+                    );
+                    return (
+                      <>
+                        {activeItems.map(renderCard)}
+                        {activeItems.length > 0 && otherItems.length > 0 && (
+                          <hr className="border-gray-200" />
+                        )}
+                        {otherItems.map(renderCard)}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             );

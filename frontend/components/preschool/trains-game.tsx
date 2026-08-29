@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { prefetchVoice, speak, type SpeechLanguage as GameLanguage } from "@/lib/piper-tts";
+import { useBackgroundMusic } from "@/lib/use-background-music";
+import { useTrainsGameStore } from "@/stores/trains-game-store";
+import { useGameMusicStore } from "@/stores/game-music-store";
 
 // Celebration reward minigame, alternative to BalloonPopGame — same trigger
-// (every one of today's lessons, tails included, is Completed) but themed
-// around a train that arrives carrying a letter and waits for the matching
-// physical keyboard key. See docs/interfaces/preschool.md section 2.4 and
+// (every one of today's lessons, tails included, is Completed, Pending
+// Review, or Need Help) but themed around a train that arrives carrying a
+// letter and waits for the matching physical keyboard key. See
+// components/student-dashboard.tsx's READY_FOR_GAME_STATUSES check and
 // docs/views/preschool/README.md ("Letter Train celebration").
 
 type TrainPhase = "arriving" | "waiting" | "departing";
@@ -39,6 +43,10 @@ const DEFAULT_LANGUAGE: GameLanguage = "en";
 
 const ARRIVE_DURATION_S = 2.2;
 const DEPART_DURATION_S = 1.8;
+const CHUG_INTERVAL_MS = 260;
+
+const MIN_SPEED = 0.5;
+const MAX_SPEED = 3;
 
 function randomColor(): string {
   return WAGON_COLOR_HEXES[Math.floor(Math.random() * WAGON_COLOR_HEXES.length)];
@@ -84,6 +92,29 @@ function playChime() {
   }
 }
 
+// Short percussive "chuff" — a synthesized low thump standing in for a steam
+// train's chug, repeated on an interval while the train is moving (see the
+// chug effect in TrainsGame). Reuses one AudioContext across chuffs (unlike
+// playChime, which is a one-off) since this fires several times a second.
+function playChug(ctx: AudioContext) {
+  try {
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.type = "square";
+    oscillator.frequency.setValueAtTime(120, ctx.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.09);
+    gain.gain.setValueAtTime(0.001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.11);
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.start();
+    oscillator.stop(ctx.currentTime + 0.12);
+  } catch {
+    // Best-effort only — never block on audio failures.
+  }
+}
+
 function TrainNode({ letter, color }: { letter: string; color: string }) {
   // The whole node travels left-to-right (see train-arrive/train-depart in
   // globals.css), so its leading edge is the right side — the locomotive
@@ -100,7 +131,7 @@ function TrainNode({ letter, color }: { letter: string; color: string }) {
       <rect x="126" y="34" width="90" height="52" rx="10" fill="#ef4444" />
       <rect x="134" y="14" width="26" height="26" rx="4" fill="#ef4444" />
       <rect x="136" y="18" width="20" height="14" fill="#bae6fd" opacity="0.9" />
-      <rect x="168" y="6" width="14" height="20" rx="3" fill="#7f1d1d" />
+      <rect x="168" y="6" width="14" height="28" rx="3" fill="#7f1d1d" />
       <circle cx="206" cy="50" r="8" fill="#fde68a" />
       <text
         x="54"
@@ -131,6 +162,15 @@ export function TrainsGame() {
   const [wagonColor, setWagonColor] = useState<string>(WAGON_COLOR_HEXES[0]);
   const [collected, setCollected] = useState<string[]>([]);
   const [collectedBump, setCollectedBump] = useState(0);
+  const speed = useTrainsGameStore((s) => s.speed);
+  const setSpeed = useTrainsGameStore((s) => s.setSpeed);
+  const musicEnabled = useGameMusicStore((s) => s.musicEnabled);
+  const setMusicEnabled = useGameMusicStore((s) => s.setMusicEnabled);
+  const musicVolume = useGameMusicStore((s) => s.volume);
+  const setMusicVolume = useGameMusicStore((s) => s.setVolume);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  useBackgroundMusic();
 
   // Picks the very first letter client-side only, after mount — doing this
   // in a useState initializer would run during server render too and mismatch
@@ -151,13 +191,17 @@ export function TrainsGame() {
   }, [language]);
 
   useEffect(() => {
-    if (phase === "waiting" && currentLetter) {
+    if (phase !== "arriving" || !currentLetter) return;
+    const timeout = setTimeout(() => {
       speak(currentLetter, language, "short");
-    }
+    }, 800); // Delay interval
+    return () => clearTimeout(timeout);
   }, [phase, currentLetter, language]);
 
+  // Accepted as soon as the train is on screen and readable — arriving as
+  // well as stopped-and-waiting — not only once it comes to a stop.
   useEffect(() => {
-    if (phase !== "waiting" || !currentLetter) return;
+    if (phase === "departing" || !currentLetter) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key.length !== 1) return;
@@ -170,6 +214,33 @@ export function TrainsGame() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [phase, currentLetter]);
+
+  // Chugging sound while the train is actually moving (arriving or
+  // departing), silent while it's stopped and waiting for the key. One
+  // AudioContext is reused across chuffs and torn down on unmount.
+  useEffect(() => {
+    if (phase === "waiting") return;
+    const AudioContextClass =
+      window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!audioCtxRef.current) {
+      try {
+        audioCtxRef.current = new AudioContextClass();
+      } catch {
+        return;
+      }
+    }
+    const ctx = audioCtxRef.current;
+    playChug(ctx);
+    const interval = setInterval(() => playChug(ctx), CHUG_INTERVAL_MS / speed);
+    return () => clearInterval(interval);
+  }, [phase, speed]);
+
+  useEffect(() => {
+    return () => {
+      void audioCtxRef.current?.close();
+    };
+  }, []);
 
   const handleAnimationEnd = () => {
     if (phase === "arriving") {
@@ -184,9 +255,9 @@ export function TrainsGame() {
 
   const animation =
     phase === "arriving"
-      ? `train-arrive ${ARRIVE_DURATION_S}s ease-out forwards`
+      ? `train-arrive ${ARRIVE_DURATION_S / speed}s ease-out forwards`
       : phase === "departing"
-        ? `train-depart ${DEPART_DURATION_S}s ease-in forwards`
+        ? `train-depart ${DEPART_DURATION_S / speed}s ease-in forwards`
         : undefined;
 
   return (
@@ -194,7 +265,7 @@ export function TrainsGame() {
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-center gap-1 pt-6 text-center">
         <p className="text-xl font-bold text-gray-700">{t("title")}</p>
         <p className="text-sm text-gray-500">
-          {phase === "waiting" && currentLetter ? t("instruction", { letter: currentLetter }) : t("subtitle")}
+          {phase !== "departing" && currentLetter ? t("instruction", { letter: currentLetter }) : t("subtitle")}
         </p>
       </div>
 
@@ -234,6 +305,15 @@ export function TrainsGame() {
         ⚙️
       </button>
 
+      <button
+        type="button"
+        aria-label={musicEnabled ? t("musicOnLabel") : t("musicOffLabel")}
+        onClick={() => setMusicEnabled(!musicEnabled)}
+        className="absolute left-16 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+      >
+        {musicEnabled ? "🎵" : "🔇"}
+      </button>
+
       {settingsOpen && (
         <div className="absolute left-4 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200">
           <label className="flex flex-col gap-1">
@@ -249,6 +329,28 @@ export function TrainsGame() {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="font-medium text-gray-700">{t("musicVolumeLabel")}</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={musicVolume}
+              onChange={(e) => setMusicVolume(Number(e.target.value))}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="font-medium text-gray-700">{t("speedLabel")}</span>
+            <input
+              type="range"
+              min={MIN_SPEED}
+              max={MAX_SPEED}
+              step={0.1}
+              value={speed}
+              onChange={(e) => setSpeed(Number(e.target.value))}
+            />
           </label>
         </div>
       )}

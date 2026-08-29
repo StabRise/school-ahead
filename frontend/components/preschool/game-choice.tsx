@@ -7,7 +7,8 @@ import { BalloonPopGame } from "@/components/preschool/balloon-pop-game";
 import { TrainsGame } from "@/components/preschool/trains-game";
 
 // Celebration screen shown once every one of today's lessons (tails
-// included) is Completed — see docs/interfaces/preschool.md section 2.4 and
+// included) is Completed, Pending Review, or Need Help — see
+// components/student-dashboard.tsx's READY_FOR_GAME_STATUSES check and
 // docs/views/preschool/README.md. Lets the child pick which reward minigame
 // to play instead of always jumping straight into Balloon Pop; Balloons
 // stays the visually recommended/default pick.

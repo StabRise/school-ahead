@@ -16,10 +16,12 @@ const nextConfig: NextConfig = {
     // @diffusionstudio/vits-web's emscripten-generated piper.js has a
     // `require("fs")`/`require("path")` guarded by a Node-only runtime
     // check that never runs in Next.js's client/edge bundles, but Turbopack
-    // still resolves it statically at build time. Stub both out.
+    // still resolves it statically at build time. Stub both out — scoped to
+    // the `browser` condition only, so server code (e.g. Route Handlers)
+    // keeps the real Node modules.
     resolveAlias: {
-      fs: "./lib/stubs/empty-node-module.js",
-      path: "./lib/stubs/empty-node-module.js",
+      fs: { browser: "./lib/stubs/empty-node-module.js" },
+      path: { browser: "./lib/stubs/empty-node-module.js" },
     },
   },
 };
