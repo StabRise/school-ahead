@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kLens" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6FB7D9"/>
+      <stop offset="100%" stop-color="#2E6E8E"/>
+    </linearGradient>
+  </defs>
+  <path d="M40,88 Q57,78 74,88" stroke="#2B2621" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M157,88 Q174,78 191,88" stroke="#2B2621" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M95,92 L136,92" stroke="#2B2621" stroke-width="4" fill="none"/>
+  <circle cx="74" cy="96" r="21" fill="url(#kLens)" stroke="#2B2621" stroke-width="4"/>
+  <circle cx="157" cy="96" r="21" fill="url(#kLens)" stroke="#2B2621" stroke-width="4"/>
+  <path d="M64,88 A10,7 0 0 1 82,84" stroke="#FFFFFF" stroke-width="3" fill="none" opacity="0.6" stroke-linecap="round"/>
+  <path d="M147,88 A10,7 0 0 1 165,84" stroke="#FFFFFF" stroke-width="3" fill="none" opacity="0.6" stroke-linecap="round"/>
+</svg>

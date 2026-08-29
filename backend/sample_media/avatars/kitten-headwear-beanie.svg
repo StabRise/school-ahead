@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <radialGradient id="kBeanieTop" cx="35%" cy="15%" r="90%">
+      <stop offset="0%" stop-color="#6B7280"/>
+      <stop offset="100%" stop-color="#464C56"/>
+    </radialGradient>
+    <linearGradient id="kBeanieCuff" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3E434C"/>
+      <stop offset="100%" stop-color="#2B2F36"/>
+    </linearGradient>
+  </defs>
+  <path d="M116,4 C160,4 194,26 199,58 L33,58 C38,26 72,4 116,4 Z" fill="url(#kBeanieTop)"/>
+  <rect x="30" y="52" width="172" height="24" rx="8" fill="url(#kBeanieCuff)"/>
+  <path d="M116,8 L116,56" stroke="#3B4048" stroke-width="3" opacity="0.5"/>
+  <path d="M74,14 Q94,36 90,56" stroke="#3B4048" stroke-width="3" fill="none" opacity="0.4"/>
+  <path d="M158,14 Q138,36 142,56" stroke="#3B4048" stroke-width="3" fill="none" opacity="0.4"/>
+  <circle cx="116" cy="6" r="6" fill="#8B93A0"/>
+</svg>

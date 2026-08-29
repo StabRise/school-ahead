@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kHoodie" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E14B3F"/>
+      <stop offset="100%" stop-color="#A8291F"/>
+    </linearGradient>
+    <linearGradient id="kHoodieDark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2B2E34"/>
+      <stop offset="100%" stop-color="#1B1D21"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#kHoodie)" d="M116,150 C150,150 176,161 187,181 C198,201 199,240 192,270 C186,290 168,294 116,294 C64,294 46,290 40,270 C33,240 34,201 45,181 C56,161 82,150 116,150 Z"/>
+  <path fill="url(#kHoodieDark)" d="M85,157 C75,168 71,181 74,194 C86,185 102,180 118,179 C113,171 106,163 98,158 C94,156 89,156 85,157 Z"/>
+  <path fill="url(#kHoodieDark)" d="M147,157 C157,168 161,181 158,194 C146,185 130,180 114,179 C119,171 126,163 134,158 C138,156 143,156 147,157 Z"/>
+  <path d="M116,179 L116,270" stroke="#1B1D21" stroke-width="2.5" opacity="0.6"/>
+  <circle cx="116" cy="197" r="2.3" fill="#1B1D21"/>
+  <circle cx="116" cy="220" r="2.3" fill="#1B1D21"/>
+  <circle cx="116" cy="243" r="2.3" fill="#1B1D21"/>
+  <path d="M104,181 Q104,197 100,209" stroke="#F4EFE9" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M128,181 Q128,197 132,209" stroke="#F4EFE9" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M78,232 Q116,244 154,232" stroke="url(#kHoodieDark)" stroke-width="9" fill="none" stroke-linecap="round"/>
+</svg>
