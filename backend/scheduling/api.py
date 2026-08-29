@@ -61,6 +61,8 @@ def _calendar_item(request: HttpRequest, student_lesson: StudentLesson) -> Calen
         lesson_icon=_absolute_file_url(student_lesson.lesson.icon, request),
         subject_icon=_absolute_file_url(subject.icon, request),
         subject_color=subject.color or None,
+        lesson_type=student_lesson.lesson.lesson_type,
+        task_content=student_lesson.lesson.task_content,
     )
 
 

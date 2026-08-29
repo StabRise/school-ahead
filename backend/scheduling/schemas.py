@@ -22,6 +22,12 @@ class CalendarItemOut(Schema):
     subject_icon: str | None
     # Subject.color left-border accent on the calendar's lesson cards.
     subject_color: str | None
+    # theory / with_quiz / with_task — drives the lesson-type icon on the
+    # student dashboard's LessonRow. See Lesson.lesson_type.
+    lesson_type: str
+    # Only non-empty when lesson_type=with_task — shown as the row's task
+    # preview. See Lesson.task_content.
+    task_content: str
 
 
 class BacklogItemOut(CalendarItemOut):

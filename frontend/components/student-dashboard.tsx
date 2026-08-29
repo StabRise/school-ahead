@@ -1,15 +1,19 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { BookOpen } from "lucide-react";
 import { useGetToday } from "@/lib/api/browser/schedule/schedule";
-import type { BacklogItemOut, CalendarItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
+import type { CalendarItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { StatusBadge } from "@/components/status-badge";
-import { GradePoints } from "@/components/grade-points";
+import { GradeSquareBadge } from "@/components/grade-square-badge";
 import { Card } from "@/components/card";
 import { PageContainer } from "@/components/page-container";
 import { PreschoolGameMap } from "@/components/preschool/game-map";
 import { PreschoolCelebration } from "@/components/preschool/game-choice";
+import { DefaultStepIcon } from "@/components/preschool/decorations";
+import { ContentTypeBadges } from "@/components/subjects/content-type-badges";
 import { useAuthStore } from "@/stores/auth-store";
+import { useRouter } from "@/i18n/navigation";
 
 // Lesson statuses that no longer block the preschool minigame — the
 // student's own part is done (Completed) or the ball is in someone else's
@@ -27,43 +31,106 @@ function toLocalIsoDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function LessonRow({ item }: { item: CalendarItemOut }) {
+// task_content is markdown/HTML — strip it down to a short plain-text
+// preview rather than rendering it in full (the full task is shown on the
+// lesson wizard's submission step). See NextLessonCard's identical helper.
+function homeworkPreview(taskContent: string, maxLength = 140): string {
+  const plain = taskContent
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+    .replace(/[#*_`>~-]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return plain.length > maxLength ? `${plain.slice(0, maxLength)}…` : plain;
+}
+
+// Mirrors LessonBubble's round subject/lesson icon (see
+// components/preschool/lesson-bubble.tsx) but as a plain div — the row
+// itself is already the clickable link, so the icon can't be a nested one.
+function LessonIcon({ item }: { item: CalendarItemOut }) {
+  const isCompleted = item.status === "completed";
+  const src = item.lesson_icon ?? item.subject_icon;
+
   return (
-    <li>
-      <Card href={`/lessons/${item.id}`} className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <p className="truncate font-medium">{item.lesson_title}</p>
-          <p className="truncate text-sm text-gray-500">{item.subject_name}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {item.grade_points != null && <GradePoints points={item.grade_points} />}
-          <StatusBadge status={item.status} />
-        </div>
-      </Card>
-    </li>
+    <div
+      className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-white bg-white shadow-sm ${
+        isCompleted ? "opacity-60 grayscale" : ""
+      }`}
+    >
+      <div className="h-9 w-9 overflow-hidden rounded-full">
+        {src ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={src} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <DefaultStepIcon />
+        )}
+      </div>
+    </div>
   );
 }
 
-// "Tails" — lessons that passed their scheduled date without reaching
-// Completed. See docs/interfaces/student/calendar.md ("Backlog Block") and
-// today.md ("Backlog Section"): shown separately, with the original
-// scheduled-day origin label (e.g. "Mon #4") preserved for context.
-function BacklogRow({ item }: { item: BacklogItemOut }) {
-  const t = useTranslations("StudentDashboard");
+// dateLabel is the backlog's origin-day label (e.g. "Пн #4" — see
+// services.backlog_label) for a "tail" lesson shown outside its original
+// day; omitted for today's own lessons, which need no such context.
+function LessonRow({ item, dateLabel }: { item: CalendarItemOut; dateLabel?: string }) {
+  const tCalendar = useTranslations("Calendar");
+  const tDashboard = useTranslations("StudentDashboard");
+  const router = useRouter();
+  const homework = item.lesson_type === "with_task" && item.task_content ? homeworkPreview(item.task_content) : null;
 
   return (
     <li>
-      <Card href={`/lessons/${item.id}`} className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <p className="truncate font-medium">{item.lesson_title}</p>
-          <p className="truncate text-sm text-gray-500">{item.subject_name}</p>
-          <p className="truncate text-xs text-amber-700">
-            {t("backlogOrigin", { label: item.origin_label })}
-          </p>
+      <Card
+        href={`/lessons/${item.id}`}
+        className="flex flex-col gap-2 border-l-4"
+        style={{ borderLeftColor: item.subject_color ?? "#D1D5DB" }}
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <LessonIcon item={item} />
+            <div className="min-w-0">
+              <p className="truncate font-medium">{item.lesson_title}</p>
+              <p className="truncate text-sm text-gray-500">{item.topic_title}</p>
+              {dateLabel && (
+                <p className="truncate text-xs text-amber-700">
+                  {tDashboard("backlogOrigin", { label: dateLabel })}
+                </p>
+              )}
+            </div>
+          </div>
+          {homework && (
+            <p className="min-w-0 border-l-2 border-gray-200 pl-2 text-sm text-gray-600 sm:max-w-xs sm:shrink-0">
+              📌 {homework}
+            </p>
+          )}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {item.grade_points != null && <GradePoints points={item.grade_points} />}
-          <StatusBadge status={item.status} />
+
+        <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <ContentTypeBadges lessonType={item.lesson_type} />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                router.push(`/subjects/${item.subject_id}`);
+              }}
+              title={tCalendar("viewSubject")}
+              aria-label={tCalendar("viewSubject")}
+              className="shrink-0 rounded px-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+            >
+              <BookOpen className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <GradeSquareBadge
+              gradePoints={item.grade_points}
+              gradeResult={item.grade_result}
+              sizeClassName="h-6 w-6"
+              compact
+            />
+            <StatusBadge status={item.status} />
+          </div>
         </div>
       </Card>
     </li>
@@ -138,7 +205,7 @@ export function StudentDashboard() {
           <p className="-mt-1 mb-1 text-sm text-gray-500">{t("backlogHint")}</p>
           <ul className="flex flex-col gap-2">
             {backlog.map((item) => (
-              <BacklogRow key={item.id} item={item} />
+              <LessonRow key={item.id} item={item} dateLabel={item.origin_label} />
             ))}
           </ul>
         </div>
