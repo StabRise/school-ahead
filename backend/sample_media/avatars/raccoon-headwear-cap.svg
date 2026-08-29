@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 896 1216" width="896" height="1216">
+  <defs>
+    <radialGradient id="capCrown" cx="35%" cy="18%" r="85%">
+      <stop offset="0%" stop-color="#E8623F"/>
+      <stop offset="100%" stop-color="#C0432A"/>
+    </radialGradient>
+    <linearGradient id="capBrim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#B03D26"/>
+      <stop offset="100%" stop-color="#8F2F1C"/>
+    </linearGradient>
+  </defs>
+
+  <ellipse cx="448" cy="185" rx="290" ry="150" fill="url(#capCrown)"/>
+  <path d="M190,275 Q448,225 706,275 Q690,375 448,398 Q206,375 190,275 Z" fill="url(#capBrim)"/>
+  <path d="M190,275 Q448,225 706,275" stroke="#F4A688" stroke-width="8" fill="none" opacity="0.55"/>
+
+  <path d="M448,45 C448,140 448,240 448,300" stroke="#B03D26" stroke-width="8" fill="none" opacity="0.5"/>
+  <path d="M290,80 C330,150 375,230 415,295" stroke="#B03D26" stroke-width="8" fill="none" opacity="0.35"/>
+  <path d="M606,80 C566,150 521,230 481,295" stroke="#B03D26" stroke-width="8" fill="none" opacity="0.35"/>
+
+  <circle cx="448" cy="46" r="26" fill="#C0432A"/>
+  <circle cx="448" cy="46" r="26" fill="none" stroke="#8F2F1C" stroke-width="5"/>
+</svg>

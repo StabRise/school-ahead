@@ -14,8 +14,8 @@ OLD_AVATAR_KEYS = ['raccoon', 'fox', 'unicorn', 'owl', 'hedgehog', 'rabbit']
 
 RACCOON_ITEMS = [
     # (slot, key, display name, source file in sample_media/avatars/)
-    ('clothing', 'hoodie', 'Светшот', 'raccoon-clothing-hoodie.svg'),
-    ('headwear', 'beanie', 'Шапка', 'raccoon-headwear-beanie.svg'),
+    ('clothing', 'sweater', 'Смугастий светр', 'raccoon-clothing-sweater.svg'),
+    ('headwear', 'cap', 'Кепка', 'raccoon-headwear-cap.svg'),
     ('accessory', 'glasses', 'Окуляри', 'raccoon-accessory-glasses.svg'),
     ('accessory', 'book', 'Книжка', 'raccoon-accessory-book.svg'),
 ]
