@@ -8,9 +8,10 @@ import { useTrainsGameStore } from "@/stores/trains-game-store";
 import { useGameMusicStore } from "@/stores/game-music-store";
 
 // Celebration reward minigame, alternative to BalloonPopGame — same trigger
-// (every one of today's lessons, tails included, is Completed) but themed
-// around a train that arrives carrying a letter and waits for the matching
-// physical keyboard key. See docs/interfaces/preschool.md section 2.4 and
+// (every one of today's lessons, tails included, is Completed, Pending
+// Review, or Need Help) but themed around a train that arrives carrying a
+// letter and waits for the matching physical keyboard key. See
+// components/student-dashboard.tsx's READY_FOR_GAME_STATUSES check and
 // docs/views/preschool/README.md ("Letter Train celebration").
 
 type TrainPhase = "arriving" | "waiting" | "departing";

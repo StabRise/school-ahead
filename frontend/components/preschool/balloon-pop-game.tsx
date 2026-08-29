@@ -19,8 +19,9 @@ import { useGameMusicStore } from "@/stores/game-music-store";
 const DIAMOND_MILESTONE = 10;
 
 // Celebration reward minigame — triggers when every one of today's lessons
-// is Completed (evaluated by the caller on dashboard load). See
-// docs/interfaces/preschool.md section 2.4.
+// (tails included) is Completed, Pending Review, or Need Help (evaluated by
+// the caller on dashboard load — see components/student-dashboard.tsx's
+// READY_FOR_GAME_STATUSES check). See docs/views/preschool/README.md.
 
 interface FallingBalloon {
   id: number;

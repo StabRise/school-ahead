@@ -76,11 +76,16 @@ Component: `game-choice.tsx` → `PreschoolCelebration`. Trigger, computed in
 `student-dashboard.tsx`:
 
 ```
-hasAnyItems && backlog.length === 0 && today.every(item => item.status === "completed")
+const READY_FOR_GAME_STATUSES = ["completed", "pending_review", "need_help"];
+backlog.every(item => READY_FOR_GAME_STATUSES.includes(item.status)) &&
+  today.every(item => READY_FOR_GAME_STATUSES.includes(item.status))
 ```
 
-i.e. not just today's lessons — every tail has to be cleared too, and there
-has to be at least one item (an empty day never celebrates).
+i.e. not just today's lessons — every tail has to be cleared too. A lesson
+counts as cleared once it's Completed or waiting on someone else (Pending
+Review, Need Help); Assigned/In Progress/Revision Required still block it.
+`.every()` is vacuously true on an empty array, so a day (and backlog) with
+no lessons at all celebrates too.
 
 `PreschoolCelebration` first shows a game picker (two big cards — Balloons
 is the visually highlighted default) and, once the child taps one, renders
