@@ -10,13 +10,15 @@ from common.permissions import get_own_student_profile
 
 from . import services
 from .cookies import clear_auth_cookies, set_auth_cookies
-from .models import Avatar, InterfaceMode
+from .models import Avatar, AvatarItem, InterfaceMode
 from .schemas import (
+    AvatarItemOut,
     AvatarOut,
     GoogleLoginIn,
     GoogleLoginOut,
     MeOut,
     UpdateAvatarIn,
+    UpdateAvatarItemsIn,
     UpdateInterfaceModeIn,
     UserOut,
 )
@@ -24,11 +26,19 @@ from .schemas import (
 router = Router(tags=['auth'])
 
 
+def _avatar_item_out(item: AvatarItem | None, request: HttpRequest) -> AvatarItemOut | None:
+    if item is None:
+        return None
+    image_url = request.build_absolute_uri(item.image.url) if item.image else None
+    return AvatarItemOut(id=item.id, slot=item.slot, key=item.key, name=item.name, image=image_url)
+
+
 def _avatar_out(avatar: Avatar | None, request: HttpRequest) -> AvatarOut | None:
     if avatar is None:
         return None
     image_url = request.build_absolute_uri(avatar.image.url) if avatar.image else None
-    return AvatarOut(id=avatar.id, key=avatar.key, name=avatar.name, image=image_url)
+    items = [_avatar_item_out(item, request) for item in avatar.items.filter(is_active=True)]
+    return AvatarOut(id=avatar.id, key=avatar.key, name=avatar.name, image=image_url, items=items)
 
 
 def _user_out(request: HttpRequest, user) -> UserOut:
@@ -43,6 +53,9 @@ def _user_out(request: HttpRequest, user) -> UserOut:
         avatar_url=user.avatar_url,
         interface_mode=student_profile.interface_mode if student_profile else None,
         equipped_avatar=_avatar_out(student_profile.equipped_avatar, request) if student_profile else None,
+        equipped_clothing=_avatar_item_out(student_profile.equipped_clothing, request) if student_profile else None,
+        equipped_headwear=_avatar_item_out(student_profile.equipped_headwear, request) if student_profile else None,
+        equipped_accessory=_avatar_item_out(student_profile.equipped_accessory, request) if student_profile else None,
         diamond_balance=student_profile.diamond_balance_cache if student_profile else None,
     )
 
@@ -146,4 +159,32 @@ def update_avatar(request: HttpRequest, payload: UpdateAvatarIn):
     avatar = get_object_or_404(Avatar, id=payload.avatar_id, is_active=True)
     student.equipped_avatar = avatar
     student.save(update_fields=['equipped_avatar'])
+    return MeOut(user=_user_out(request, request.auth))
+
+
+def _resolve_slot_item(student, item_id: int | None, slot: str) -> AvatarItem | None:
+    if item_id is None:
+        return None
+    item = get_object_or_404(AvatarItem, id=item_id, slot=slot, is_active=True)
+    if item.avatar_id != student.equipped_avatar_id:
+        raise HttpError(400, f'{slot} item does not belong to the equipped avatar')
+    return item
+
+
+@router.patch(
+    '/me/avatar-items',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='update_avatar_items',
+)
+def update_avatar_items(request: HttpRequest, payload: UpdateAvatarItemsIn):
+    """Equips/unequips the wardrobe slots on top of the current
+    equipped_avatar — see docs/core/avatar.md section 2.2. Always sends the
+    full slot state (see UpdateAvatarItemsIn)."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    student.equipped_clothing = _resolve_slot_item(student, payload.clothing_item_id, 'clothing')
+    student.equipped_headwear = _resolve_slot_item(student, payload.headwear_item_id, 'headwear')
+    student.equipped_accessory = _resolve_slot_item(student, payload.accessory_item_id, 'accessory')
+    student.save(update_fields=['equipped_clothing', 'equipped_headwear', 'equipped_accessory'])
     return MeOut(user=_user_out(request, request.auth))

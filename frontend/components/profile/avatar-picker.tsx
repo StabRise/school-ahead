@@ -7,9 +7,10 @@ import { mapApiUserToAuthUser } from "@/lib/api/map-user";
 import { useAuthStore } from "@/stores/auth-store";
 
 // Character-companion picker — docs/core/avatar.md section 2.1 ("Initial
-// Selection"). The wardrobe/shop and home-decoration systems that doc also
-// describes aren't built yet; this is deliberately just the selection step,
-// on its own catalog (Avatar) and endpoint so those can layer on later.
+// Selection"). The wardrobe (clothing/headwear/accessory — see
+// AvatarWardrobe) and home-decoration systems that doc also describes are
+// separate sections; this is deliberately just the base-body selection
+// step, on its own catalog (Avatar) and endpoint so those can layer on top.
 export function AvatarPicker() {
   const t = useTranslations("Profile");
   const user = useAuthStore((state) => state.user);

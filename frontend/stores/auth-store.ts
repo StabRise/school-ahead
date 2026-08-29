@@ -6,11 +6,23 @@ import { create } from "zustand";
 
 export type InterfaceMode = "default" | "preschool";
 
-// The chosen companion character (Raccoon, Fox, ...) — see
-// docs/core/avatar.md. Distinct from `avatarUrl` below, which is the
-// Google-account profile picture.
+// The chosen companion character (Raccoon, ...) — see docs/core/avatar.md.
+// Distinct from `avatarUrl` below, which is the Google-account profile
+// picture. `items` is its wardrobe catalog (see EquippedAvatarItem).
 export interface EquippedAvatar {
   id: number;
+  key: string;
+  name: string;
+  image: string | null;
+  items: EquippedAvatarItem[];
+}
+
+// A wardrobe piece (clothing/headwear/accessory) — either catalog entry (on
+// EquippedAvatar.items) or the one currently equipped in a slot — see
+// docs/core/avatar.md section 2.2.
+export interface EquippedAvatarItem {
+  id: number;
+  slot: "clothing" | "headwear" | "accessory";
   key: string;
   name: string;
   image: string | null;
@@ -28,6 +40,11 @@ export interface AuthUser {
   // Only meaningful for role="student", and only once one is chosen — see
   // docs/core/avatar.md.
   equippedAvatar: EquippedAvatar | null;
+  // Only meaningful for role="student", and only once picked — see
+  // docs/core/avatar.md section 2.2.
+  equippedClothing: EquippedAvatarItem | null;
+  equippedHeadwear: EquippedAvatarItem | null;
+  equippedAccessory: EquippedAvatarItem | null;
   // Only meaningful for role="student" — see docs/core/progress.md section 2.
   diamondBalance: number | null;
 }

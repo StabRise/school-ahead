@@ -3,7 +3,7 @@ import uuid
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db import models
 
-from common.storage import avatar_image_upload_to
+from common.storage import avatar_image_upload_to, avatar_item_image_upload_to
 
 from .managers import UserManager
 
@@ -52,12 +52,14 @@ class InterfaceMode(models.TextChoices):
 
 
 class Avatar(models.Model):
-    """A selectable companion character — see docs/core/avatar.md. That doc
-    also specs a wardrobe/shop (cosmetics, Diamonds) and a home-decoration
-    system; neither is built yet. `key`/`is_active` exist now so those can
-    layer on later (e.g. an `AvatarUnlock` per-student table) without
-    reshaping this catalog. For now every active Avatar is available to
-    every student, unlocked or not."""
+    """A selectable companion character's base body — see docs/core/avatar.md.
+    Rendered as the bottom SVG layer, with a student's equipped `AvatarItem`s
+    stacked on top (clothing -> headwear -> accessory) in the same canvas
+    coordinate system. That doc also specs a shop (Diamond prices) and a
+    home-decoration system; neither is built yet. `key`/`is_active` exist now
+    so those can layer on later (e.g. an `AvatarUnlock` per-student table)
+    without reshaping this catalog. For now every active Avatar is available
+    to every student, unlocked or not."""
 
     key = models.SlugField(max_length=50, unique=True)
     name = models.CharField(max_length=100)
@@ -70,6 +72,35 @@ class Avatar(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class AvatarItemSlot(models.TextChoices):
+    CLOTHING = 'clothing', 'Clothing'
+    HEADWEAR = 'headwear', 'Headwear'
+    ACCESSORY = 'accessory', 'Accessory'
+
+
+class AvatarItem(models.Model):
+    """A wardrobe piece for one Avatar — see docs/core/avatar.md section 2.2.
+    Drawn as an SVG in the same canvas coordinate system as its `avatar`, so
+    the frontend composites the equipped stack as plain absolutely-positioned
+    layers with no per-item offsets to track. Only one item per slot can be
+    equipped at a time (StudentProfile.equipped_clothing/headwear/accessory)."""
+
+    avatar = models.ForeignKey(Avatar, on_delete=models.CASCADE, related_name='items')
+    slot = models.CharField(max_length=10, choices=AvatarItemSlot.choices)
+    key = models.SlugField(max_length=50)
+    name = models.CharField(max_length=100)
+    image = models.FileField(upload_to=avatar_item_image_upload_to)
+    order_index = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['slot', 'order_index', 'id']
+        unique_together = [('avatar', 'key')]
+
+    def __str__(self):
+        return f'{self.avatar.key}:{self.key}'
 
 
 class StudentProfile(models.Model):
@@ -89,6 +120,20 @@ class StudentProfile(models.Model):
     # with none picked and the frontend falls back to a default look.
     equipped_avatar = models.ForeignKey(
         Avatar, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipped_by'
+    )
+    # Wardrobe slots layered on top of `equipped_avatar` — see
+    # docs/core/avatar.md section 2.2. Each nullable/blank: a slot can be
+    # left empty, and each is expected to hold an AvatarItem whose `slot`
+    # and `avatar` match `equipped_avatar` (enforced in accounts/api.py, not
+    # at the DB level).
+    equipped_clothing = models.ForeignKey(
+        AvatarItem, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipped_as_clothing'
+    )
+    equipped_headwear = models.ForeignKey(
+        AvatarItem, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipped_as_headwear'
+    )
+    equipped_accessory = models.ForeignKey(
+        AvatarItem, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipped_as_accessory'
     )
 
     def __str__(self):

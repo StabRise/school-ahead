@@ -5,6 +5,18 @@ class GoogleLoginIn(Schema):
     id_token: str
 
 
+class AvatarItemOut(Schema):
+    """A wardrobe piece (clothing/headwear/accessory) for one Avatar — see
+    docs/core/avatar.md section 2.2. Same "always built explicitly" rule as
+    AvatarOut below applies here."""
+
+    id: int
+    slot: str
+    key: str
+    name: str
+    image: str | None
+
+
 class AvatarOut(Schema):
     """A selectable companion character — see docs/core/avatar.md. Always
     built explicitly via accounts.api._avatar_out (never returned straight
@@ -16,6 +28,9 @@ class AvatarOut(Schema):
     key: str
     name: str
     image: str | None
+    # This avatar's wardrobe catalog (active items only), for the frontend
+    # to build the customization pickers from.
+    items: list[AvatarItemOut] = []
 
 
 class UserOut(Schema):
@@ -31,6 +46,11 @@ class UserOut(Schema):
     # Only set for role=student, and only once one is chosen — see
     # docs/core/avatar.md.
     equipped_avatar: AvatarOut | None = None
+    # Only set for role=student, and only once picked — see
+    # docs/core/avatar.md section 2.2.
+    equipped_clothing: AvatarItemOut | None = None
+    equipped_headwear: AvatarItemOut | None = None
+    equipped_accessory: AvatarItemOut | None = None
     # Only set for role=student — see docs/core/progress.md section 2.
     diamond_balance: int | None = None
 
@@ -49,3 +69,14 @@ class UpdateInterfaceModeIn(Schema):
 
 class UpdateAvatarIn(Schema):
     avatar_id: int
+
+
+class UpdateAvatarItemsIn(Schema):
+    """Full replacement of the three wardrobe slots — the frontend always
+    sends its current picks for all three, not just the one that changed, so
+    `null` unambiguously means "unequip this slot" rather than "leave it
+    unchanged"."""
+
+    clothing_item_id: int | None = None
+    headwear_item_id: int | None = None
+    accessory_item_id: int | None = None

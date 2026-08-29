@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <!-- tail (behind body, peeking out from the right side) -->
+  <g transform="translate(178,145) rotate(35)">
+    <rect x="-13" y="-48" width="26" height="85" rx="13" fill="#9CA0A8"/>
+    <circle cx="0" cy="-37" r="12" fill="#4B4038"/>
+    <rect x="-13" y="-19" width="26" height="11" fill="#4B4038"/>
+    <rect x="-13" y="2" width="26" height="11" fill="#4B4038"/>
+    <rect x="-13" y="23" width="26" height="11" fill="#4B4038"/>
+  </g>
+
+  <!-- legs -->
+  <ellipse cx="95" cy="215" rx="17" ry="11" fill="#ADB4BC"/>
+  <ellipse cx="145" cy="215" rx="17" ry="11" fill="#ADB4BC"/>
+
+  <!-- arms -->
+  <ellipse cx="58" cy="158" rx="18" ry="24" fill="#ADB4BC"/>
+  <ellipse cx="182" cy="158" rx="18" ry="24" fill="#ADB4BC"/>
+  <ellipse cx="52" cy="186" rx="13" ry="11" fill="#F6EFE4"/>
+  <ellipse cx="188" cy="186" rx="13" ry="11" fill="#F6EFE4"/>
+
+  <!-- torso -->
+  <rect x="55" y="125" width="130" height="95" rx="45" fill="#ADB4BC"/>
+  <ellipse cx="120" cy="176" rx="42" ry="40" fill="#F6EFE4"/>
+
+  <!-- head -->
+  <circle cx="120" cy="88" r="55" fill="#ADB4BC"/>
+
+  <!-- ears -->
+  <circle cx="76" cy="45" r="22" fill="#767C86"/>
+  <circle cx="164" cy="45" r="22" fill="#767C86"/>
+  <circle cx="76" cy="48" r="11" fill="#F6EFE4"/>
+  <circle cx="164" cy="48" r="11" fill="#F6EFE4"/>
+
+  <!-- mask -->
+  <ellipse cx="97" cy="82" rx="24" ry="17" fill="#4B4038" transform="rotate(-12 97 82)"/>
+  <ellipse cx="143" cy="82" rx="24" ry="17" fill="#4B4038" transform="rotate(12 143 82)"/>
+
+  <!-- muzzle -->
+  <ellipse cx="120" cy="108" rx="30" ry="22" fill="#F6EFE4"/>
+
+  <!-- eyes -->
+  <circle cx="97" cy="85" r="9" fill="#FFFFFF"/>
+  <circle cx="143" cy="85" r="9" fill="#FFFFFF"/>
+  <circle cx="98.5" cy="87" r="4.5" fill="#1F2937"/>
+  <circle cx="141.5" cy="87" r="4.5" fill="#1F2937"/>
+  <circle cx="100" cy="85.5" r="1.5" fill="#FFFFFF"/>
+  <circle cx="140" cy="85.5" r="1.5" fill="#FFFFFF"/>
+
+  <!-- nose + mouth -->
+  <ellipse cx="120" cy="100" rx="7" ry="5" fill="#2B2622"/>
+  <path d="M108,118 Q120,126 132,118" stroke="#2B2622" stroke-width="3" fill="none" stroke-linecap="round"/>
+</svg>

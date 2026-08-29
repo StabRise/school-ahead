@@ -1,5 +1,29 @@
-import type { UserOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
-import type { AuthUser } from "@/stores/auth-store";
+import type {
+  AvatarItemOut,
+  AvatarOut,
+  UserOut,
+} from "@/lib/api/browser/schoolAheadAPI.schemas";
+import type { AuthUser, EquippedAvatarItem } from "@/stores/auth-store";
+
+function mapAvatarItem(item: AvatarItemOut): EquippedAvatarItem {
+  return {
+    id: item.id,
+    slot: item.slot as EquippedAvatarItem["slot"],
+    key: item.key,
+    name: item.name,
+    image: item.image,
+  };
+}
+
+function mapAvatar(avatar: AvatarOut) {
+  return {
+    id: avatar.id,
+    key: avatar.key,
+    name: avatar.name,
+    image: avatar.image,
+    items: (avatar.items ?? []).map(mapAvatarItem),
+  };
+}
 
 export function mapApiUserToAuthUser(user: UserOut): AuthUser {
   return {
@@ -11,13 +35,9 @@ export function mapApiUserToAuthUser(user: UserOut): AuthUser {
     avatarUrl: user.avatar_url,
     interfaceMode: (user.interface_mode as AuthUser["interfaceMode"]) ?? null,
     diamondBalance: user.diamond_balance ?? null,
-    equippedAvatar: user.equipped_avatar
-      ? {
-          id: user.equipped_avatar.id,
-          key: user.equipped_avatar.key,
-          name: user.equipped_avatar.name,
-          image: user.equipped_avatar.image,
-        }
-      : null,
+    equippedAvatar: user.equipped_avatar ? mapAvatar(user.equipped_avatar) : null,
+    equippedClothing: user.equipped_clothing ? mapAvatarItem(user.equipped_clothing) : null,
+    equippedHeadwear: user.equipped_headwear ? mapAvatarItem(user.equipped_headwear) : null,
+    equippedAccessory: user.equipped_accessory ? mapAvatarItem(user.equipped_accessory) : null,
   };
 }
