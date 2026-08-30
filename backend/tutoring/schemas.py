@@ -105,10 +105,6 @@ class GradeIn(Schema):
     feedback: str = ''
 
 
-class RequestRevisionIn(Schema):
-    feedback: str
-
-
 class ResolveNeedHelpIn(Schema):
     to_status: str  # "in_progress" or "completed"
     grade_points: int | None = None

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { User } from "lucide-react";
+import { File as FileIcon, User, X } from "lucide-react";
 import {
   getListTutorLessonCommentsQueryKey,
   getTutoringApiGetSubmissionQueryKey,
@@ -12,12 +12,14 @@ import {
   useTutoringApiRequestRevision,
   useTutoringApiResolveNeedHelp,
 } from "@/lib/api/browser/tutor/tutor";
-import type { LessonSubmissionOut, SubmissionDetailOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
+import type { SubmissionDetailOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Link } from "@/i18n/navigation";
 import { StatusBadge } from "@/components/status-badge";
 import { PageContainer } from "@/components/page-container";
 import { Markdown } from "@/components/markdown";
-import { ImageLightbox } from "@/components/image-lightbox";
+import { SubmissionThread } from "@/components/submission-thread";
+import { FileDropzone } from "@/components/file-dropzone";
+import { AnnotatableImageLightbox } from "./annotatable-image-lightbox";
 import { SubmissionComments } from "./submission-comments";
 
 const DUE_DATE_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" });
@@ -28,18 +30,6 @@ const SUBMITTED_AT_FORMAT = new Intl.DateTimeFormat("uk-UA", {
   minute: "2-digit",
 });
 
-const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"]);
-
-function fileNameFromUrl(url: string): string {
-  const path = url.split(/[?#]/)[0];
-  return path.split("/").pop() || path;
-}
-
-function isImageFile(url: string): boolean {
-  const extension = fileNameFromUrl(url).split(".").pop()?.toLowerCase();
-  return !!extension && IMAGE_EXTENSIONS.has(extension);
-}
-
 // Invalidated (not just refetched) on every mutation below so the tutor
 // dashboard's Need Help / Pending Review columns drop the item the next
 // time they're viewed — the mutations themselves already return the fresh
@@ -47,6 +37,29 @@ function isImageFile(url: string): boolean {
 function invalidateFeeds(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ["/api/tutor/need-help"] });
   queryClient.invalidateQueries({ queryKey: ["/api/tutor/pending-review"] });
+}
+
+// A live preview URL for a File the tutor has attached but not yet sent.
+// Creation and revocation happen inside the *same* effect run (not a
+// useMemo'd creation paired with a differently-scoped cleanup) — React's
+// dev-mode Strict Mode double-invokes effects (mount → cleanup → mount)
+// without re-running useMemo, so a memoized URL gets revoked out from under
+// itself on the phantom first mount, leaving a broken <img> forever. Pairing
+// create+revoke 1:1 per effect run survives that double-invoke correctly.
+function useObjectUrl(file: File | null): string | null {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!file) {
+      const clear = () => setUrl(null);
+      clear();
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    const applyUrl = () => setUrl(objectUrl);
+    applyUrl();
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
+  return url;
 }
 
 function GradeFields({
@@ -106,6 +119,53 @@ function GradeFields({
         onChange={(e) => setGradePoints(e.target.value)}
         className="w-24 rounded-md border border-gray-300 p-2 text-sm"
       />
+    </div>
+  );
+}
+
+// One pending attachment's thumbnail + remove button in PendingReviewPanel
+// — its own component (rather than inline in a .map()) purely so
+// useObjectUrl can be called once per file, which a bare loop can't do.
+// Two sources feed the same list: AnnotatableImageLightbox's drawn PNGs
+// (named after whichever of the student's images they came from) and
+// whatever the tutor picks straight from their computer below — so this
+// only shows a real thumbnail for images and falls back to a generic file
+// icon for anything else (a PDF, a doc, ...). Captioned with the file's own
+// name and the student's, e.g. "photo-annotated.png - Діана Мельник".
+function AttachedFilePreview({
+  file,
+  studentName,
+  onRemove,
+}: {
+  file: File;
+  studentName: string;
+  onRemove: () => void;
+}) {
+  const t = useTranslations("SubmissionReview");
+  const isImage = file.type.startsWith("image/");
+  const url = useObjectUrl(isImage ? file : null);
+
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 p-2">
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt="" className="h-12 w-12 shrink-0 rounded object-cover" />
+      ) : (
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded bg-gray-200 text-gray-500">
+          <FileIcon className="h-5 w-5" />
+        </div>
+      )}
+      <span className="min-w-0 flex-1 truncate text-xs text-gray-600">
+        {t("attachedFileLabel", { fileName: file.name, studentName })}
+      </span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={t("removeAttachedFile")}
+        className="shrink-0 text-gray-400 hover:text-red-600"
+      >
+        <X className="h-4 w-4" />
+      </button>
     </div>
   );
 }
@@ -219,34 +279,53 @@ function NeedHelpPanel({ detail }: { detail: SubmissionDetailOut }) {
 
 // Left panel's content for status=pending_review — grade the latest
 // submission (shown on the right panel) or send it back for revision.
-function PendingReviewPanel({ detail }: { detail: SubmissionDetailOut }) {
+// `feedback`/`attachedFiles` (and their setters) are lifted to
+// SubmissionReview, not owned here — AnnotatableImageLightbox's "Send for
+// revision" shortcut needs to trigger the exact same request-revision call
+// this panel's own button does, using whatever's already in this form plus
+// the newly-drawn image, so the submit action has to live one level up
+// where both this panel and every AnnotatableImageLightbox instance (one
+// per image, rendered via SubmissionThread's renderImage below) can reach it.
+function PendingReviewPanel({
+  detail,
+  feedback,
+  onFeedbackChange,
+  attachedFiles,
+  onAttachedFilesChange,
+  onRequestRevision,
+  isRequestRevisionPending,
+  onResult,
+}: {
+  detail: SubmissionDetailOut;
+  feedback: string;
+  onFeedbackChange: (value: string) => void;
+  attachedFiles: File[];
+  onAttachedFilesChange: (files: File[]) => void;
+  onRequestRevision: () => void;
+  isRequestRevisionPending: boolean;
+  onResult: (result: SubmissionDetailOut) => void;
+}) {
   const t = useTranslations("SubmissionReview");
-  const queryClient = useQueryClient();
-  const [feedback, setFeedback] = useState("");
   const grade = useGradeFieldsState(detail.grading_type);
   const gradeSubmission = useTutoringApiGrade();
-  const requestRevision = useTutoringApiRequestRevision();
-
-  const applyResult = (result: SubmissionDetailOut) => {
-    queryClient.setQueryData(getTutoringApiGetSubmissionQueryKey(detail.student_lesson_id), result);
-    invalidateFeeds(queryClient);
-  };
 
   const handleGrade = () => {
     gradeSubmission.mutate(
       { studentLessonId: detail.student_lesson_id, data: { feedback, ...grade.payload } },
-      { onSuccess: applyResult },
+      { onSuccess: onResult },
     );
   };
 
-  const handleRequestRevision = () => {
-    requestRevision.mutate(
-      { studentLessonId: detail.student_lesson_id, data: { feedback } },
-      { onSuccess: applyResult },
-    );
+  // Picking/dropping more files adds to the current selection — same as
+  // TaskStep's dropzone on the student side — rather than replacing it, so
+  // the tutor can build up several attachments across multiple picks.
+  const addFiles = (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    onAttachedFilesChange([...attachedFiles, ...Array.from(fileList)]);
   };
 
-  const isPending = gradeSubmission.isPending || requestRevision.isPending;
+  const isPending = gradeSubmission.isPending || isRequestRevisionPending;
+  const canRequestRevision = feedback.trim().length > 0 || attachedFiles.length > 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -259,10 +338,21 @@ function PendingReviewPanel({ detail }: { detail: SubmissionDetailOut }) {
         <textarea
           id="review-feedback"
           value={feedback}
-          onChange={(e) => setFeedback(e.target.value)}
+          onChange={(e) => onFeedbackChange(e.target.value)}
           rows={2}
           className="rounded-md border border-gray-300 p-2 text-sm"
         />
+
+        <FileDropzone hint={t("uploadFileHint")} onFilesSelected={addFiles} />
+
+        {attachedFiles.map((file, index) => (
+          <AttachedFilePreview
+            key={`${file.name}-${index}`}
+            file={file}
+            studentName={detail.student_name}
+            onRemove={() => onAttachedFilesChange(attachedFiles.filter((_, i) => i !== index))}
+          />
+        ))}
       </div>
 
       <div className="flex gap-2">
@@ -276,8 +366,8 @@ function PendingReviewPanel({ detail }: { detail: SubmissionDetailOut }) {
         </button>
         <button
           type="button"
-          disabled={!feedback.trim() || isPending}
-          onClick={handleRequestRevision}
+          disabled={!canRequestRevision || isPending}
+          onClick={onRequestRevision}
           className="cursor-pointer rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
         >
           {t("requestRevisionButton")}
@@ -287,80 +377,20 @@ function PendingReviewPanel({ detail }: { detail: SubmissionDetailOut }) {
   );
 }
 
-// One submission's attachment/comment in the right panel — an image gets an
-// inline click-to-zoom preview (ImageLightbox) on top of the same file's
-// entry in the compact "Files" row below it (open in a new tab / attempt a
-// download; the download attribute is only honored by browsers for
-// same-origin files — Django's media host being cross-origin from the
-// Next.js app, it degrades to opening the file, same as the view link).
-// The tutor's past reply threads directly under the submission it answers,
-// same as the student wizard's own SubmissionThread.
-function SubmissionAttachmentEntry({ submission }: { submission: LessonSubmissionOut }) {
-  const t = useTranslations("SubmissionReview");
-  // latestBadge/noFile/tutorReplyLabel are shared with the student-facing
-  // SubmissionThread (components/submission-thread.tsx) rather than
-  // duplicated under SubmissionReview.
-  const tThread = useTranslations("SubmissionThread");
-
-  return (
-    <li className="rounded-md border border-gray-200 p-3 text-sm">
-      <div className="flex items-center justify-between gap-2">
-        <time className="text-xs text-gray-400">{new Date(submission.submitted_at).toLocaleString()}</time>
-        {submission.is_latest && (
-          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-            {tThread("latestBadge")}
-          </span>
-        )}
-      </div>
-
-      {submission.comment && <p className="mt-1 whitespace-pre-wrap">{submission.comment}</p>}
-
-      {submission.file && isImageFile(submission.file) && (
-        <ImageLightbox src={submission.file} alt={fileNameFromUrl(submission.file)} />
-      )}
-
-      {submission.file ? (
-        <div className="mt-2">
-          <p className="text-xs font-medium text-gray-500">{t("filesTitle")}</p>
-          <div className="mt-1 flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2">
-            <span className="min-w-0 flex-1 truncate text-gray-700">{fileNameFromUrl(submission.file)}</span>
-            <div className="flex shrink-0 gap-3">
-              <a
-                href={submission.file}
-                target="_blank"
-                rel="noreferrer"
-                className="text-blue-600 underline hover:no-underline"
-              >
-                {t("viewLink")}
-              </a>
-              <a href={submission.file} download className="text-blue-600 underline hover:no-underline">
-                {t("downloadLink")}
-              </a>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <p className="mt-1 text-gray-500">{tThread("noFile")}</p>
-      )}
-
-      {submission.tutor_feedback && (
-        <div className="mt-3 ml-4 border-l-2 border-blue-300 pl-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-blue-700">{tThread("tutorReplyLabel")}</p>
-            {submission.feedback_at && (
-              <time className="text-xs text-gray-400">{new Date(submission.feedback_at).toLocaleString()}</time>
-            )}
-          </div>
-          <p className="mt-1 whitespace-pre-wrap">{submission.tutor_feedback}</p>
-        </div>
-      )}
-    </li>
-  );
-}
-
 export function SubmissionReview({ studentLessonId }: { studentLessonId: number }) {
   const t = useTranslations("SubmissionReview");
+  const queryClient = useQueryClient();
   const { data, isLoading, isError } = useTutoringApiGetSubmission(studentLessonId);
+  // Lifted above both panels: any submission's image (left panel) can feed
+  // this one pending reply — drawing on several images and attaching each
+  // one piles them all up here, same as files the tutor picks straight from
+  // their computer in PendingReviewPanel's own upload control — which
+  // either that panel's submit button or AnnotatableImageLightbox's own
+  // "Send for revision" shortcut can send, so the request-revision call
+  // itself lives here too rather than inside either of those.
+  const [attachedFeedbackFiles, setAttachedFeedbackFiles] = useState<File[]>([]);
+  const [feedback, setFeedback] = useState("");
+  const requestRevision = useTutoringApiRequestRevision();
 
   if (isLoading) {
     return <p className="p-6 text-sm text-gray-500">{t("loading")}</p>;
@@ -371,6 +401,35 @@ export function SubmissionReview({ studentLessonId }: { studentLessonId: number 
 
   const isActionable = data.status === "need_help" || data.status === "pending_review";
   const latestSubmission = data.submissions.find((s) => s.is_latest);
+
+  // Shared by grading and both revision paths (PendingReviewPanel's own
+  // button, and AnnotatableImageLightbox's "Send for revision" shortcut) —
+  // resets the draft reply once whichever action actually goes through.
+  const applyResult = (result: SubmissionDetailOut) => {
+    queryClient.setQueryData(getTutoringApiGetSubmissionQueryKey(studentLessonId), result);
+    invalidateFeeds(queryClient);
+    setAttachedFeedbackFiles([]);
+    setFeedback("");
+  };
+
+  const handleRequestRevision = () => {
+    requestRevision.mutate(
+      { studentLessonId, data: { feedback, images: attachedFeedbackFiles } },
+      { onSuccess: applyResult },
+    );
+  };
+
+  // AnnotatableImageLightbox's "Send for revision" — attach this image and
+  // submit right away with whatever's already in the form, instead of
+  // making the tutor close the dialog and hit Send separately.
+  const handleAttachAndSend = (file: File) => {
+    const nextFiles = [...attachedFeedbackFiles, file];
+    setAttachedFeedbackFiles(nextFiles);
+    requestRevision.mutate(
+      { studentLessonId, data: { feedback, images: nextFiles } },
+      { onSuccess: applyResult },
+    );
+  };
 
   return (
     <PageContainer>
@@ -432,11 +491,18 @@ export function SubmissionReview({ studentLessonId }: { studentLessonId: number 
 
           {data.submissions.length > 0 && (
             <div className="border-t border-gray-100 pt-3">
-              <ul className="flex flex-col gap-3">
-                {data.submissions.map((submission) => (
-                  <SubmissionAttachmentEntry key={submission.id} submission={submission} />
-                ))}
-              </ul>
+              <SubmissionThread
+                submissions={data.submissions}
+                renderImage={(file, alt) => (
+                  <AnnotatableImageLightbox
+                    src={file}
+                    alt={alt}
+                    canAttach={data.status === "pending_review"}
+                    onAttach={(f) => setAttachedFeedbackFiles((prev) => [...prev, f])}
+                    onAttachAndSend={handleAttachAndSend}
+                  />
+                )}
+              />
             </div>
           )}
         </div>
@@ -445,13 +511,24 @@ export function SubmissionReview({ studentLessonId }: { studentLessonId: number 
         <div className="flex w-full flex-col bg-white gap-4 rounded-md border border-gray-200 p-4 lg:w-96 lg:shrink-0">
           <h3 className="text-sm font-semibold">{t("tutorFeedbackTitle")}</h3>
           {data.status === "need_help" && <NeedHelpPanel detail={data} />}
-          {data.status === "pending_review" && <PendingReviewPanel detail={data} />}
+          {data.status === "pending_review" && (
+            <PendingReviewPanel
+              detail={data}
+              feedback={feedback}
+              onFeedbackChange={setFeedback}
+              attachedFiles={attachedFeedbackFiles}
+              onAttachedFilesChange={setAttachedFeedbackFiles}
+              onRequestRevision={handleRequestRevision}
+              isRequestRevisionPending={requestRevision.isPending}
+              onResult={applyResult}
+            />
+          )}
           {!isActionable && <p className="text-sm text-gray-500">{t("notActionable")}</p>}
-        </div>
-      </div>
 
-      <div className="mt-6">
-        <SubmissionComments studentLessonId={studentLessonId} />
+          <div className="border-t border-gray-100 pt-4">
+            <SubmissionComments studentLessonId={studentLessonId} />
+          </div>
+        </div>
       </div>
     </PageContainer>
   );

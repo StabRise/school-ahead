@@ -7,9 +7,13 @@ import { ImageLightbox } from "@/components/image-lightbox";
 
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"]);
 
-function isImageFile(url: string): boolean {
+function fileNameFromUrl(url: string): string {
   const path = url.split(/[?#]/)[0];
-  const extension = path.split(".").pop()?.toLowerCase();
+  return path.split("/").pop() || path;
+}
+
+function isImageFile(url: string): boolean {
+  const extension = fileNameFromUrl(url).split(".").pop()?.toLowerCase();
   return !!extension && IMAGE_EXTENSIONS.has(extension);
 }
 
@@ -37,47 +41,60 @@ function SubmissionBadge({ submission }: { submission: LessonSubmissionOut }) {
   return null;
 }
 
-// Renders a StudentLesson's practical-work submissions in chronological
-// order, each immediately followed by the tutor's reply to *that*
-// submission (if any) — visually tied to it in its own highlighted box, so
-// a resubmit round never reads as an answer to the wrong attempt. Shared by
-// the student lesson wizard and the tutor submission review screen.
-function SubmissionEntry({ submission }: { submission: LessonSubmissionOut }) {
+// Renders one round-trip — the student's upload plus the tutor's check of
+// it — as one card labeled by its chronological attempt number ("Спроба
+// N"), independent of where SubmissionThread below actually places the
+// card (newest first, so attempt 1 ends up at the bottom). Shared by the
+// student lesson page and the tutor submission review page — `renderImage`
+// is how the tutor page swaps in its editable AnnotatableImageLightbox for
+// the student's own uploaded images (defaults to the plain, view-only
+// ImageLightbox everyone else gets); past tutor replies (tutor_feedback_
+// images) always stay view-only either way, since they're already sent.
+function SubmissionEntry({
+  submission,
+  attemptNumber,
+  renderImage,
+}: {
+  submission: LessonSubmissionOut;
+  attemptNumber: number;
+  renderImage: (file: string, alt: string) => React.ReactNode;
+}) {
   const t = useTranslations("SubmissionThread");
 
   return (
     <li className="rounded-md border border-gray-200 p-4 text-sm">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-semibold text-gray-900">{t("attemptLabel", { number: attemptNumber })}</span>
         <SubmissionBadge submission={submission} />
       </div>
 
-      <div className="mt-2 flex items-start gap-3">
-        {submission.file && isImageFile(submission.file) && (
-          <div className="shrink-0">
-            <ImageLightbox src={submission.file} alt={t("fileLabel")} />
+      <div className="mt-2">
+        <time className="text-xs text-gray-400">{new Date(submission.submitted_at).toLocaleString()}</time>
+        {submission.comment && <p className="mt-1 whitespace-pre-wrap">{submission.comment}</p>}
+        {submission.files.length > 0 ? (
+          <div className="mt-2 flex flex-wrap items-start gap-3">
+            {submission.files.map((file, index) =>
+              isImageFile(file) ? (
+                <span key={file}>{renderImage(file, fileNameFromUrl(file))}</span>
+              ) : (
+                <a
+                  key={file}
+                  href={file}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-block text-blue-600 underline hover:no-underline"
+                >
+                  {t("fileLabel")} {index + 1}
+                </a>
+              ),
+            )}
           </div>
+        ) : (
+          <p className="mt-1 text-gray-500">{t("noFile")}</p>
         )}
-        <div className="flex-1">
-          <time className="text-xs text-gray-400">{new Date(submission.submitted_at).toLocaleString()}</time>
-          {submission.comment && <p className="mt-1 whitespace-pre-wrap">{submission.comment}</p>}
-          {submission.file ? (
-            !isImageFile(submission.file) && (
-              <a
-                href={submission.file}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1 inline-block text-blue-600 underline hover:no-underline"
-              >
-                {t("fileLabel")}
-              </a>
-            )
-          ) : (
-            <p className="mt-1 text-gray-500">{t("noFile")}</p>
-          )}
-        </div>
       </div>
 
-      {submission.tutor_feedback && (
+      {(submission.tutor_feedback || submission.tutor_feedback_images.length > 0) && (
         <div className="mt-3 flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
           <div>
@@ -87,7 +104,28 @@ function SubmissionEntry({ submission }: { submission: LessonSubmissionOut }) {
                 <time className="text-xs text-blue-400">{new Date(submission.feedback_at).toLocaleString()}</time>
               )}
             </div>
-            <p className="mt-0.5 whitespace-pre-wrap text-blue-900">{submission.tutor_feedback}</p>
+            {submission.tutor_feedback_images.length > 0 && (
+              <div className="mt-1 flex flex-wrap items-start gap-2">
+                {submission.tutor_feedback_images.map((image, index) =>
+                  isImageFile(image) ? (
+                    <ImageLightbox key={image} src={image} alt={t("tutorReplyLabel")} />
+                  ) : (
+                    <a
+                      key={image}
+                      href={image}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-block text-blue-600 underline hover:no-underline"
+                    >
+                      {t("fileLabel")} {index + 1}
+                    </a>
+                  ),
+                )}
+              </div>
+            )}
+            {submission.tutor_feedback && (
+              <p className="mt-0.5 whitespace-pre-wrap text-blue-900">{submission.tutor_feedback}</p>
+            )}
           </div>
         </div>
       )}
@@ -95,13 +133,39 @@ function SubmissionEntry({ submission }: { submission: LessonSubmissionOut }) {
   );
 }
 
-export function SubmissionThread({ submissions }: { submissions: LessonSubmissionOut[] }) {
+function defaultRenderImage(file: string, alt: string) {
+  return <ImageLightbox src={file} alt={alt} />;
+}
+
+// `renderImage` lets the tutor submission review page swap in its editable
+// AnnotatableImageLightbox for the student's own uploaded images — omit it
+// (as the student lesson page does) to get the plain view-only lightbox.
+export function SubmissionThread({
+  submissions,
+  renderImage = defaultRenderImage,
+}: {
+  submissions: LessonSubmissionOut[];
+  renderImage?: (file: string, alt: string) => React.ReactNode;
+}) {
   if (submissions.length === 0) return null;
+
+  // `submissions` arrives oldest-first (see StudentLessonOut.resolve_
+  // submissions) — that's what "attempt 1" is numbered from — but the
+  // newest attempt is what a student actually cares about seeing first, so
+  // the list itself renders newest-first (attempt 1 pushed to the bottom).
+  const newestFirst = submissions
+    .map((submission, index) => ({ submission, attemptNumber: index + 1 }))
+    .reverse();
 
   return (
     <ul className="flex flex-col gap-3">
-      {submissions.map((submission) => (
-        <SubmissionEntry key={submission.id} submission={submission} />
+      {newestFirst.map(({ submission, attemptNumber }) => (
+        <SubmissionEntry
+          key={submission.id}
+          submission={submission}
+          attemptNumber={attemptNumber}
+          renderImage={renderImage}
+        />
       ))}
     </ul>
   );

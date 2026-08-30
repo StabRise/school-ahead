@@ -48,7 +48,6 @@ from .schemas import (
     AssignStudentIn,
     GradeIn,
     LessonStudentOut,
-    RequestRevisionIn,
     ResolveNeedHelpIn,
     SetSubjectFilledIn,
     SetTopicBlockIn,
@@ -712,11 +711,16 @@ def grade(request: HttpRequest, student_lesson_id: int, payload: GradeIn):
 
 
 @router.post('/submissions/{student_lesson_id}/request-revision', response=SubmissionDetailOut)
-def request_revision(request: HttpRequest, student_lesson_id: int, payload: RequestRevisionIn):
+def request_revision(
+    request: HttpRequest,
+    student_lesson_id: int,
+    feedback: str = Form(''),
+    images: list[UploadedFile] = File([]),
+):
     require_csrf(request)
     student_lesson = _get_scoped_student_lesson(request, student_lesson_id)
     try:
-        lesson_services.request_revision(student_lesson, request.auth, payload.feedback)
+        lesson_services.request_revision(student_lesson, request.auth, feedback, images=images)
     except lesson_services.InvalidTransition as exc:
         raise HttpError(409, str(exc)) from exc
     return get_submission(request, student_lesson_id)

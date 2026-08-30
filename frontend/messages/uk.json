@@ -321,21 +321,34 @@
     "passOption": "Залік",
     "failOption": "Незалік",
     "feedbackLabel": "Коментар",
+    "attachedFileLabel": "{fileName} - {studentName}",
+    "removeAttachedFile": "Прибрати файл",
+    "uploadFileHint": "Прикріпити файл",
     "completeButton": "Завершити з оцінкою",
     "requestRevisionButton": "Повернути на доопрацювання",
     "taskContentTitle": "Завдання",
     "dueDateLabel": "Дата виконання",
-    "submissionDateLabel": "Дата подання",
-    "filesTitle": "Файли",
-    "viewLink": "Переглянути",
-    "downloadLink": "Завантажити"
+    "submissionDateLabel": "Дата подання"
   },
   "SubmissionThread": {
+    "attemptLabel": "Спроба {number}",
     "latestBadge": "Остання спроба",
     "reviewedBadge": "Перевірено",
     "fileLabel": "Відкрити файл",
     "noFile": "Без файлу",
     "tutorReplyLabel": "Відповідь тьютора"
+  },
+  "AnnotatableImage": {
+    "penTool": "Олівець",
+    "arrowTool": "Стрілка",
+    "textTool": "Текст",
+    "undoButton": "Скасувати",
+    "clearButton": "Очистити все",
+    "downloadButton": "Завантажити з позначками",
+    "attachButton": "Додати у відповідь",
+    "attachAndSendButton": "Повернути на доопрацювання",
+    "closeLabel": "Закрити",
+    "textPlaceholder": "Текст…"
   },
   "LessonStatus": {
     "statusAssigned": "Призначено",
@@ -414,8 +427,8 @@
   },
   "TaskStep": {
     "commentLabel": "Коментар",
-    "fileLabel": "Файл (фото чи документ)",
-    "dropzoneHint": "Перетягніть файл сюди або натисніть, щоб обрати",
+    "fileLabel": "Файли (фото чи документи)",
+    "dropzoneHint": "Перетягніть файли сюди або натисніть, щоб обрати",
     "removeFile": "Видалити",
     "requiredError": "Додайте файл або напишіть коментар.",
     "submitButton": "Надіслати на перевірку",

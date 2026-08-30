@@ -122,7 +122,7 @@ function AssessmentStep({
         <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,380px)_1fr]">
           <Card className="flex flex-col gap-4 bg-gray-50">
             <h2 className="text-sm font-semibold text-gray-900">{t("uploadTaskTitle")}</h2>
-            {tutorFeedbackBanner}
+            {/*{tutorFeedbackBanner}*/}
             {interactiveContent}
           </Card>
           {submissions.length > 0 && (

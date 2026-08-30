@@ -111,12 +111,12 @@ def submit_task(
     request: HttpRequest,
     student_lesson_id: int,
     comment: str = Form(''),
-    file: UploadedFile | None = File(None),
+    files: list[UploadedFile] = File([]),
 ):
     require_csrf(request)
     student_lesson = _get_owned(request, student_lesson_id)
     try:
-        services.submit_task(student_lesson, request.auth, file=file, comment=comment)
+        services.submit_task(student_lesson, request.auth, files=files, comment=comment)
     except services.InvalidTransition as exc:
         raise HttpError(409, str(exc)) from exc
     return student_lesson
@@ -138,12 +138,12 @@ def resubmit(
     request: HttpRequest,
     student_lesson_id: int,
     comment: str = Form(''),
-    file: UploadedFile | None = File(None),
+    files: list[UploadedFile] = File([]),
 ):
     require_csrf(request)
     student_lesson = _get_owned(request, student_lesson_id)
     try:
-        services.resubmit(student_lesson, request.auth, file=file, comment=comment)
+        services.resubmit(student_lesson, request.auth, files=files, comment=comment)
     except services.InvalidTransition as exc:
         raise HttpError(409, str(exc)) from exc
     return student_lesson

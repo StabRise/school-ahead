@@ -35,6 +35,10 @@ def lesson_submission_upload_to(instance, filename: str) -> str:
     return _unique_path('lesson_submissions', filename)
 
 
+def tutor_feedback_image_upload_to(instance, filename: str) -> str:
+    return _unique_path('tutor_feedback_images', filename)
+
+
 def lesson_icon_upload_to(instance, filename: str) -> str:
     return _unique_path('lesson_icons', filename)
 

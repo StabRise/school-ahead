@@ -7,6 +7,7 @@ from common.storage import (
     lesson_submission_upload_to,
     lessons_json_upload_to,
     quiz_choice_image_upload_to,
+    tutor_feedback_image_upload_to,
 )
 from django.db import models
 
@@ -143,7 +144,6 @@ class StudentLesson(TimeStampedModel):
 
 class LessonSubmission(models.Model):
     student_lesson = models.ForeignKey(StudentLesson, on_delete=models.CASCADE, related_name='submissions')
-    file = models.FileField(upload_to=lesson_submission_upload_to, blank=True)
     comment = models.TextField(blank=True)
     submitted_at = models.DateTimeField(auto_now_add=True)
     is_latest = models.BooleanField(default=True)
@@ -156,6 +156,29 @@ class LessonSubmission(models.Model):
 
     class Meta:
         ordering = ['-submitted_at']
+
+
+class LessonSubmissionFile(models.Model):
+    """One of possibly several files a student attached to a single
+    LessonSubmission — see submit_task/resubmit, which accept a list of
+    uploads rather than one."""
+    submission = models.ForeignKey(LessonSubmission, on_delete=models.CASCADE, related_name='files')
+    file = models.FileField(upload_to=lesson_submission_upload_to)
+
+    class Meta:
+        ordering = ['id']
+
+
+class LessonSubmissionFeedbackImage(models.Model):
+    """One of possibly several marked-up screenshots (freehand pen/arrows/
+    text) the tutor drew instead of — or alongside — a written reply. See
+    components/tutor/annotatable-image-lightbox.tsx, which lets the tutor
+    attach more than one."""
+    submission = models.ForeignKey(LessonSubmission, on_delete=models.CASCADE, related_name='tutor_feedback_images')
+    file = models.FileField(upload_to=tutor_feedback_image_upload_to)
+
+    class Meta:
+        ordering = ['id']
 
 
 class StudentLessonStatusEvent(models.Model):
