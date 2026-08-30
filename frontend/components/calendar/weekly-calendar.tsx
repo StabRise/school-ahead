@@ -33,6 +33,7 @@ import { Card } from "@/components/card";
 import { StatusBadge, STATUS_LABEL_KEY } from "@/components/status-badge";
 import { GradeSquareBadge } from "@/components/grade-square-badge";
 import { PageContainer } from "@/components/page-container";
+import { AddDayLessonDialog } from "@/components/calendar/add-day-lesson-dialog";
 
 // dataTransfer MIME type carrying the dragged StudentLesson id between a
 // LessonCard and a day column — see LessonCard's onDragStart and
@@ -534,12 +535,21 @@ export function WeeklyCalendar({ studentId }: { studentId?: number } = {}) {
                 }
                 onDrop={isTutorView ? (e) => handleDrop(e, dateKey) : undefined}
               >
-                <div
-                  className={`inline-block w-fit rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                    isToday ? "bg-blue-600 text-white" : "text-gray-500"
-                  }`}
-                >
-                  {DAY_LABEL_FORMAT.format(day)}
+                <div className="flex items-center justify-between gap-1.5">
+                  <div
+                    className={`inline-block w-fit rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                      isToday ? "bg-blue-600 text-white" : "text-gray-500"
+                    }`}
+                  >
+                    {DAY_LABEL_FORMAT.format(day)}
+                  </div>
+                  {isTutorView && (
+                    <AddDayLessonDialog
+                      studentId={studentId!}
+                      scheduledDate={dateKey}
+                      onAssigned={invalidateCalendar}
+                    />
+                  )}
                 </div>
                 <div className="flex flex-col gap-2">
                   {dayItems.length === 0 && <p className="text-xs text-gray-400">{t("noLessons")}</p>}

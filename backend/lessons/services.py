@@ -83,6 +83,32 @@ def _award_completion_diamonds(student_lesson: StudentLesson) -> None:
     )
 
 
+def _update_completion_percent_cache(student_lesson: StudentLesson) -> None:
+    """Refreshes StudentProfile.completed_lessons_percent_cache — the
+    percentage of every Lesson across every Subject in the student's
+    school_class (not just their assigned ones) that's Completed. Powers the
+    tutor dashboard's "Мої учні" list (tutoring.api's TutorStudentOut).
+    Recomputed from scratch (two aggregate queries) rather than incremented
+    like diamond_balance_cache, since the denominator itself can change
+    (subjects/lessons added to the curriculum) independently of any single
+    completion."""
+    class_id = student_lesson.student.school_class_id
+    if class_id is None:
+        return
+    total = Lesson.objects.filter(topic__subject__school_class_id=class_id).count()
+    if total == 0:
+        return
+    completed = StudentLesson.objects.filter(
+        student_id=student_lesson.student_id,
+        status=StudentLessonStatus.COMPLETED,
+        lesson__topic__subject__school_class_id=class_id,
+    ).count()
+    percent = round(completed / total * 100, 2)
+    StudentProfile.objects.filter(pk=student_lesson.student_id).update(
+        completed_lessons_percent_cache=percent
+    )
+
+
 def mark_completed(
     student_lesson: StudentLesson,
     actor: User,
@@ -96,6 +122,7 @@ def mark_completed(
     student_lesson.grade_result = grade_result
     student_lesson.save()
     _award_completion_diamonds(student_lesson)
+    _update_completion_percent_cache(student_lesson)
 
 
 def start(student_lesson: StudentLesson, actor: User) -> None:
@@ -171,11 +198,16 @@ def request_help(student_lesson: StudentLesson, actor: User, note: str = '') -> 
     )
 
 
+SELF_RESOLVED_NOTE = 'Учень сам розібрався'
+
+
 def resolve_own_help_request(student_lesson: StudentLesson, actor: User) -> None:
     """Student-initiated self-resolution: "I no longer need help" — NeedHelp
     -> InProgress, and the originating help_request comment is marked
-    resolved. Distinct from tutoring's tutor-driven resolve_need_help. See
-    section 2.3 ("Resolution Workflow")."""
+    resolved, with a fixed SELF_RESOLVED_NOTE reply threaded onto it so the
+    tutor's feed (tutoring.api.need_help) shows how the question was closed
+    without a tutor ever having to reply. Distinct from tutoring's
+    tutor-driven resolve_need_help. See section 2.3 ("Resolution Workflow")."""
     _guard_status(student_lesson, StudentLessonStatus.NEED_HELP)
     _transition(student_lesson, actor, StudentLessonStatus.IN_PROGRESS)
     student_lesson.save()
@@ -188,6 +220,13 @@ def resolve_own_help_request(student_lesson: StudentLesson, actor: User) -> None
         latest_help_request.is_resolved = True
         latest_help_request.resolved_at = timezone.now()
         latest_help_request.save(update_fields=['is_resolved', 'resolved_at'])
+        LessonComment.objects.create(
+            student_lesson=student_lesson,
+            author=actor,
+            body=SELF_RESOLVED_NOTE,
+            kind=LessonCommentKind.GENERAL,
+            reply_to=latest_help_request,
+        )
 
 
 def add_comment(
@@ -393,6 +432,52 @@ def assign_student(lesson: Lesson, student: StudentProfile, scheduled_date) -> S
         raise InvalidTransition('Student already has this lesson assigned')
     return StudentLesson.objects.create(
         student=student, lesson=lesson, scheduled_date=scheduled_date, is_manually_scheduled=True
+    )
+
+
+# Title of the catch-all Topic a tutor's one-off lessons land under — see
+# get_or_create_extra_topic.
+EXTRA_TOPIC_TITLE = 'Extra'
+
+
+def get_or_create_extra_topic(subject: Subject) -> Topic:
+    """Gets-or-creates the tutor's freeform "Extra" topic in a subject's most
+    recent semester block — used when a tutor assigns a one-off lesson that
+    isn't part of the generated curriculum (tutoring.api.assign_day_lesson,
+    is_new=true branch). Pinned to that block
+    (Topic.subject_block_manually_set) so a later reorder/recompute
+    (academics.services.assign_topics_to_blocks) can't drift it into an
+    earlier semester."""
+    academics_services.ensure_subject_blocks(subject)
+    last_block = subject.blocks.order_by('-index').first()
+    topic = Topic.objects.filter(subject=subject, title=EXTRA_TOPIC_TITLE, subject_block=last_block).first()
+    if topic is not None:
+        return topic
+    return Topic.objects.create(
+        subject=subject,
+        title=EXTRA_TOPIC_TITLE,
+        order_index=_next_order_index(Topic.objects.filter(subject=subject)),
+        subject_block=last_block,
+        subject_block_manually_set=True,
+    )
+
+
+def create_extra_lesson(subject: Subject, *, title: str, content: str, task_content: str = '') -> Lesson:
+    """Creates a one-off Lesson under get_or_create_extra_topic, for the
+    tutor's "assign a lesson to this day" popup's is_new=true branch
+    (tutoring.api.assign_day_lesson). Type is with_task when task_content is
+    given, otherwise theory; grading is binary (pass/fail), matching every
+    other non-quiz lesson (see import_topics_and_lessons)."""
+    topic = get_or_create_extra_topic(subject)
+    lesson_type = LessonType.WITH_TASK if task_content else LessonType.THEORY
+    return Lesson.objects.create(
+        topic=topic,
+        order_index=_next_order_index(Lesson.objects.filter(topic=topic)),
+        title=title,
+        lesson_type=lesson_type,
+        grading_type=GradingType.BINARY,
+        content=content,
+        task_content=task_content,
     )
 
 

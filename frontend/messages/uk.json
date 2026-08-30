@@ -144,7 +144,15 @@
     "needHelpEmpty": "Запитів на допомогу немає.",
     "pendingReviewTitle": "На перевірці",
     "pendingReviewEmpty": "Робіт на перевірку немає.",
-    "error": "Не вдалося завантажити дані. Спробуйте ще раз."
+    "error": "Не вдалося завантажити дані. Спробуйте ще раз.",
+    "myStudentsTitle": "Мої учні",
+    "noStudents": "Немає учнів.",
+    "classLabel": "Клас {name}",
+    "markHelpedButton": "Учитель допоміг",
+    "markHelpedPending": "Зберігаємо...",
+    "markHelpedComment": "Питання вирішено з учителем",
+    "markHelpedError": "Не вдалося зберегти. Спробуйте ще раз.",
+    "viewLink": "Переглянути"
   },
   "TutorSubjects": {
     "title": "Мої предмети",
@@ -320,7 +328,8 @@
     "failOption": "Незалік",
     "feedbackLabel": "Відгук тьютора",
     "completeButton": "Завершити з оцінкою",
-    "requestRevisionButton": "Повернути на доопрацювання"
+    "requestRevisionButton": "Повернути на доопрацювання",
+    "taskContentTitle": "Завдання"
   },
   "SubmissionThread": {
     "latestBadge": "Остання спроба",
@@ -536,7 +545,21 @@
     "rescheduleError": "Не вдалося перенести урок. Спробуйте ще раз.",
     "removeLesson": "Прибрати урок",
     "removeLessonConfirm": "Прибрати урок «{title}» у цього учня? Цю дію не можна скасувати.",
-    "removeLessonError": "Не вдалося прибрати урок. Спробуйте ще раз."
+    "removeLessonError": "Не вдалося прибрати урок. Спробуйте ще раз.",
+    "addLesson": "Додати урок",
+    "addLessonTitle": "Призначити урок на цей день",
+    "addLessonSubjectLabel": "Предмет",
+    "addLessonSubjectPlaceholder": "Немає доступних предметів",
+    "addLessonNoSubjects": "У цього учня немає предметів, які ви викладаєте.",
+    "addLessonIsNewLabel": "Новий урок",
+    "addLessonTitleLabel": "Назва",
+    "addLessonContentLabel": "Зміст",
+    "addLessonTaskContentLabel": "Завдання (необов'язково)",
+    "addLessonExistingLabel": "Урок",
+    "addLessonExistingPlaceholder": "Немає непризначених уроків",
+    "addLessonNoAssignableLessons": "Усі уроки цього предмета вже призначені цьому учню.",
+    "addLessonSubmit": "Призначити",
+    "addLessonError": "Не вдалося призначити урок. Спробуйте ще раз."
   },
   "PreschoolCalendar": {
     "title": "Мій тиждень",

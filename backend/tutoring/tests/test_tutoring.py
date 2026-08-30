@@ -1002,3 +1002,161 @@ class TestDeleteLesson:
 
         assert response.status_code == 409
         assert Lesson.objects.filter(id=lesson.id).exists()
+
+
+class TestListStudentSubjects:
+    def test_lists_only_subjects_this_tutor_teaches_in_students_class(
+        self, api_client, auth_header, tutor, subject, other_subject, student
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = api_client.get(f'/tutor/students/{student.id}/subjects', headers=auth_header(tutor.user))
+
+        assert response.status_code == 200
+        assert [item['subject_id'] for item in response.data] == [subject.id]
+
+    def test_rejected_for_tutor_outside_students_class(self, api_client, auth_header, tutor, student):
+        response = api_client.get(f'/tutor/students/{student.id}/subjects', headers=auth_header(tutor.user))
+        assert response.status_code == 403
+
+
+class TestListStudentAssignableLessons:
+    def test_excludes_already_assigned_and_orders_by_topic_then_lesson(
+        self, api_client, auth_header, tutor, subject, student
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic1 = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        topic2 = Topic.objects.create(subject=subject, title='Decimals', order_index=2)
+        lesson1 = Lesson.objects.create(
+            topic=topic1, order_index=2, title='Second', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+        lesson0 = Lesson.objects.create(
+            topic=topic1, order_index=1, title='First', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+        lesson2 = Lesson.objects.create(
+            topic=topic2, order_index=1, title='Third', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+        StudentLesson.objects.create(student=student, lesson=lesson0, scheduled_date=datetime.date.today())
+
+        response = api_client.get(
+            f'/tutor/students/{student.id}/subjects/{subject.id}/assignable-lessons',
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert [item['id'] for item in response.data] == [lesson1.id, lesson2.id]
+
+    def test_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject, student):
+        response = api_client.get(
+            f'/tutor/students/{student.id}/subjects/{subject.id}/assignable-lessons',
+            headers=auth_header(tutor.user),
+        )
+        assert response.status_code == 403
+
+
+class TestAssignDayLesson:
+    def test_assigns_existing_lesson_to_day(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.post(
+            f'/tutor/students/{student.id}/day-lessons',
+            json={'subject_id': subject.id, 'scheduled_date': '2026-02-01', 'is_new': False, 'lesson_id': lesson.id},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['scheduled_date'] == '2026-02-01'
+        sl = StudentLesson.objects.get(student=student, lesson=lesson)
+        assert sl.is_manually_scheduled is True
+
+    def test_creates_new_lesson_under_extra_topic_with_task(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = api_client.post(
+            f'/tutor/students/{student.id}/day-lessons',
+            json={
+                'subject_id': subject.id,
+                'scheduled_date': '2026-02-01',
+                'is_new': True,
+                'title': 'Extra practice',
+                'content': '# Content',
+                'task_content': '# Do this',
+            },
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        sl = StudentLesson.objects.get(student=student)
+        assert sl.lesson.title == 'Extra practice'
+        assert sl.lesson.topic.title == 'Extra'
+        assert sl.lesson.lesson_type == LessonType.WITH_TASK
+        assert sl.lesson.grading_type == 'binary'
+        assert sl.is_manually_scheduled is True
+
+    def test_creates_new_theory_lesson_without_task_content(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = api_client.post(
+            f'/tutor/students/{student.id}/day-lessons',
+            json={
+                'subject_id': subject.id,
+                'scheduled_date': '2026-02-01',
+                'is_new': True,
+                'title': 'Extra theory',
+                'content': '# Content',
+            },
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        sl = StudentLesson.objects.get(student=student)
+        assert sl.lesson.lesson_type == LessonType.THEORY
+
+    def test_new_lessons_reuse_the_same_extra_topic_in_last_block(
+        self, api_client, auth_header, tutor, subject, student, other_student
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        for target, title in [(student, 'One'), (other_student, 'Two')]:
+            response = api_client.post(
+                f'/tutor/students/{target.id}/day-lessons',
+                json={
+                    'subject_id': subject.id, 'scheduled_date': '2026-02-01', 'is_new': True,
+                    'title': title, 'content': 'c',
+                },
+                headers=auth_header(tutor.user),
+            )
+            assert response.status_code == 200
+
+        topics = Topic.objects.filter(subject=subject, title='Extra')
+        assert topics.count() == 1
+        last_block = subject.blocks.order_by('-index').first()
+        assert topics.first().subject_block_id == last_block.id
+
+    def test_new_lesson_requires_content_and_title(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = api_client.post(
+            f'/tutor/students/{student.id}/day-lessons',
+            json={'subject_id': subject.id, 'scheduled_date': '2026-02-01', 'is_new': True, 'title': 'No content'},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 400
+
+    def test_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject, student):
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.post(
+            f'/tutor/students/{student.id}/day-lessons',
+            json={'subject_id': subject.id, 'scheduled_date': '2026-02-01', 'is_new': False, 'lesson_id': lesson.id},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 403

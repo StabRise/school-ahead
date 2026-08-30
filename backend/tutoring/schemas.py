@@ -49,6 +49,7 @@ class TutorFeedItemOut(Schema):
     status: str
     help_note: str
     scheduled_date: datetime.date
+    updated_at: datetime.datetime
 
 
 class TutorStudentOut(Schema):
@@ -56,6 +57,10 @@ class TutorStudentOut(Schema):
     name: str
     class_id: int
     class_name: str
+    # Denormalized on StudentProfile (same pattern as diamond_balance_cache) —
+    # see lessons.services._update_completion_percent_cache, refreshed on
+    # every lesson completion rather than computed here on every request.
+    completed_percent: float
 
 
 class TutorClassOut(Schema):
@@ -75,13 +80,18 @@ class TutorClassDetailOut(TutorClassOut):
 
 class SubmissionDetailOut(Schema):
     student_lesson_id: int
+    student_id: int
     student_name: str
+    class_id: int
     class_name: str
+    subject_id: int
     subject_name: str
+    lesson_id: int
     lesson_title: str
     status: str
     grading_type: str
     help_note: str
+    task_content: str
     submissions: list[LessonSubmissionOut]
 
 
@@ -105,6 +115,32 @@ class ResolveNeedHelpIn(Schema):
 class AssignStudentIn(Schema):
     student_id: int
     scheduled_date: datetime.date
+
+
+class AssignableLessonOut(Schema):
+    """One not-yet-assigned Lesson for a student in a given subject — powers
+    the "existing lesson" picker in the calendar day's "+" popup, listed in
+    curriculum order (topic order_index, then lesson order_index)."""
+
+    id: int
+    title: str
+    topic_title: str
+    lesson_type: str
+
+
+class AssignDayLessonIn(Schema):
+    """Payload for the calendar day's "+" popup (tutoring.api.assign_day_lesson).
+    is_new=false picks an existing not-yet-assigned lesson (lesson_id);
+    is_new=true creates a one-off lesson under the subject's "Extra" topic
+    from title/content/task_content."""
+
+    subject_id: int
+    scheduled_date: datetime.date
+    is_new: bool
+    lesson_id: int | None = None
+    title: str | None = None
+    content: str | None = None
+    task_content: str = ''
 
 
 class SetTopicBlockIn(Schema):
