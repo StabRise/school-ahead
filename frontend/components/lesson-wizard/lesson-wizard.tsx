@@ -119,18 +119,18 @@ function AssessmentStep({
   if (lesson.lesson_type === "with_task") {
     return (
       <div className="flex flex-col gap-5">
-        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,380px)_1fr]">
-          <Card className="flex flex-col gap-4 bg-gray-50">
-            <h2 className="text-sm font-semibold text-gray-900">{t("uploadTaskTitle")}</h2>
-            {/*{tutorFeedbackBanner}*/}
-            {interactiveContent}
-          </Card>
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_minmax(0,380px)]">
           {submissions.length > 0 && (
             <Card className="flex flex-col gap-3">
               <h2 className="text-sm font-semibold text-gray-900">{t("submissionHistoryTitle")}</h2>
               <SubmissionThread submissions={submissions} />
             </Card>
           )}
+          <Card className="flex flex-col gap-4 bg-gray-50">
+            <h2 className="text-sm font-semibold text-gray-900">{t("uploadTaskTitle")}</h2>
+            {/*{tutorFeedbackBanner}*/}
+            {interactiveContent}
+          </Card>
         </div>
       </div>
     );

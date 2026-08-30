@@ -343,8 +343,10 @@ const MIN_COUNT = 3;
 const MAX_COUNT = 24;
 // How many random items a picture-pool mode's game/learning screens draw
 // from (see selectedPictureItems below) — MIN_CARD_COUNT keeps the picture
-// quiz's 4-choice questions (buildBalloonQuizQuestions) always solvable.
-const MIN_CARD_COUNT = 6;
+// quiz's 4-choice questions (buildBalloonQuizQuestions) always solvable (a
+// pool of 4 already gives a full target + 3 distractors, so 4 is the true
+// floor, not just a margin above it).
+const MIN_CARD_COUNT = 4;
 const MAX_CARD_COUNT = 20;
 
 let nextBalloonId = 0;
@@ -832,6 +834,25 @@ export function BalloonPopGame() {
   const musicVolume = useGameMusicStore((s) => s.volume);
   const setMusicVolume = useGameMusicStore((s) => s.setVolume);
   const containerRef = useRef<HTMLDivElement>(null);
+  const settingsPanelRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Closes the settings panel on a click/tap anywhere outside it — a child
+  // poking around the screen while it's open shouldn't leave it stuck open
+  // over the game. The toggle button is excluded so tapping it while open
+  // just closes the panel once, instead of this handler closing it and the
+  // button's own onClick immediately reopening it.
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (settingsPanelRef.current?.contains(target)) return;
+      if (settingsButtonRef.current?.contains(target)) return;
+      setSettingsOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [settingsOpen]);
 
   const picturePool = PICTURE_POOL_BY_MODE[mode];
   const isPictureMode = Boolean(picturePool);
@@ -1027,6 +1048,7 @@ export function BalloonPopGame() {
       )}
 
       <button
+        ref={settingsButtonRef}
         type="button"
         aria-label={t("settingsButton")}
         onClick={() => setSettingsOpen((current) => !current)}
@@ -1045,7 +1067,10 @@ export function BalloonPopGame() {
       </button>
 
       {settingsOpen && (
-        <div className="absolute left-4 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200">
+        <div
+          ref={settingsPanelRef}
+          className="absolute left-4 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200"
+        >
           <label className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("modeLabel")}</span>
             <select
