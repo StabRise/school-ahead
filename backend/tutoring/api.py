@@ -83,6 +83,7 @@ def _feed_item(student_lesson: StudentLesson) -> TutorFeedItemOut:
         status=student_lesson.status,
         help_note=student_lesson.help_note,
         scheduled_date=student_lesson.scheduled_date,
+        updated_at=student_lesson.updated_at,
     )
 
 

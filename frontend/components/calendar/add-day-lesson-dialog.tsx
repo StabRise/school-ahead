@@ -112,7 +112,7 @@ export function AddDayLessonDialog({
             type="button"
             title={t("addLesson")}
             aria-label={t("addLesson")}
-            className="rounded-full px-1.5 text-xs font-medium text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+            className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full text-base font-semibold leading-none text-gray-400 hover:bg-gray-100 hover:text-gray-700"
           >
             +
           </button>

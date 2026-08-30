@@ -144,7 +144,14 @@
     "needHelpEmpty": "Запитів на допомогу немає.",
     "pendingReviewTitle": "На перевірці",
     "pendingReviewEmpty": "Робіт на перевірку немає.",
-    "error": "Не вдалося завантажити дані. Спробуйте ще раз."
+    "error": "Не вдалося завантажити дані. Спробуйте ще раз.",
+    "myStudentsTitle": "Мої учні",
+    "noStudents": "Немає учнів.",
+    "markHelpedButton": "Учитель допоміг",
+    "markHelpedPending": "Зберігаємо...",
+    "markHelpedComment": "Питання вирішено з учителем",
+    "markHelpedError": "Не вдалося зберегти. Спробуйте ще раз.",
+    "viewLink": "Переглянути"
   },
   "TutorSubjects": {
     "title": "Мої предмети",

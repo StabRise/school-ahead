@@ -260,6 +260,11 @@ class TestComments:
         assert comment.is_resolved is True
         assert comment.resolved_at is not None
 
+        reply = sl.comments.get(kind=LessonCommentKind.GENERAL)
+        assert reply.body == services.SELF_RESOLVED_NOTE
+        assert reply.author == student.user
+        assert reply.reply_to_id == comment.id
+
     def test_self_resolve_requires_need_help_status(self, topic, student):
         sl = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
         services.start(sl, student.user)

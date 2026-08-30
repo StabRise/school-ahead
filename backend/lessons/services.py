@@ -171,11 +171,16 @@ def request_help(student_lesson: StudentLesson, actor: User, note: str = '') -> 
     )
 
 
+SELF_RESOLVED_NOTE = 'Учень сам розібрався'
+
+
 def resolve_own_help_request(student_lesson: StudentLesson, actor: User) -> None:
     """Student-initiated self-resolution: "I no longer need help" — NeedHelp
     -> InProgress, and the originating help_request comment is marked
-    resolved. Distinct from tutoring's tutor-driven resolve_need_help. See
-    section 2.3 ("Resolution Workflow")."""
+    resolved, with a fixed SELF_RESOLVED_NOTE reply threaded onto it so the
+    tutor's feed (tutoring.api.need_help) shows how the question was closed
+    without a tutor ever having to reply. Distinct from tutoring's
+    tutor-driven resolve_need_help. See section 2.3 ("Resolution Workflow")."""
     _guard_status(student_lesson, StudentLessonStatus.NEED_HELP)
     _transition(student_lesson, actor, StudentLessonStatus.IN_PROGRESS)
     student_lesson.save()
@@ -188,6 +193,13 @@ def resolve_own_help_request(student_lesson: StudentLesson, actor: User) -> None
         latest_help_request.is_resolved = True
         latest_help_request.resolved_at = timezone.now()
         latest_help_request.save(update_fields=['is_resolved', 'resolved_at'])
+        LessonComment.objects.create(
+            student_lesson=student_lesson,
+            author=actor,
+            body=SELF_RESOLVED_NOTE,
+            kind=LessonCommentKind.GENERAL,
+            reply_to=latest_help_request,
+        )
 
 
 def add_comment(

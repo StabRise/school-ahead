@@ -535,7 +535,7 @@ export function WeeklyCalendar({ studentId }: { studentId?: number } = {}) {
                 }
                 onDrop={isTutorView ? (e) => handleDrop(e, dateKey) : undefined}
               >
-                <div className="flex items-center gap-1">
+                <div className="flex items-center justify-between gap-1.5">
                   <div
                     className={`inline-block w-fit rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
                       isToday ? "bg-blue-600 text-white" : "text-gray-500"

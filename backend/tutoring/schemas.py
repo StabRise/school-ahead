@@ -49,6 +49,7 @@ class TutorFeedItemOut(Schema):
     status: str
     help_note: str
     scheduled_date: datetime.date
+    updated_at: datetime.datetime
 
 
 class TutorStudentOut(Schema):
