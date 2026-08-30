@@ -76,8 +76,11 @@ def _feed_item(student_lesson: StudentLesson) -> TutorFeedItemOut:
     subject = student_lesson.lesson.topic.subject
     return TutorFeedItemOut(
         student_lesson_id=student_lesson.id,
+        student_id=student_lesson.student_id,
         student_name=student_user.full_name or student_user.email,
+        class_id=subject.school_class_id,
         class_name=subject.school_class.name,
+        subject_id=subject.id,
         subject_name=subject.name,
         lesson_title=student_lesson.lesson.title,
         status=student_lesson.status,

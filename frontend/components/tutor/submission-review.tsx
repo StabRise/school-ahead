@@ -209,7 +209,7 @@ function NeedHelpPanel({ detail }: { detail: SubmissionDetailOut }) {
         type="button"
         disabled={!canSubmit || resolve.isPending}
         onClick={handleSubmit}
-        className="self-start rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        className="self-start cursor-pointer rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-gray-900"
       >
         {t("resolveButton")}
       </button>
@@ -270,7 +270,7 @@ function PendingReviewPanel({ detail }: { detail: SubmissionDetailOut }) {
           type="button"
           disabled={!grade.isValid || isPending}
           onClick={handleGrade}
-          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="cursor-pointer rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-gray-900"
         >
           {t("completeButton")}
         </button>
@@ -278,7 +278,7 @@ function PendingReviewPanel({ detail }: { detail: SubmissionDetailOut }) {
           type="button"
           disabled={!feedback.trim() || isPending}
           onClick={handleRequestRevision}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-50"
+          className="cursor-pointer rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
         >
           {t("requestRevisionButton")}
         </button>
@@ -430,17 +430,15 @@ export function SubmissionReview({ studentLessonId }: { studentLessonId: number 
             </div>
           </div>
 
-          <div className="border-t border-gray-100 pt-3">
-            {data.submissions.length === 0 ? (
-              <p className="text-sm text-gray-500">{t("noSubmissions")}</p>
-            ) : (
+          {data.submissions.length > 0 && (
+            <div className="border-t border-gray-100 pt-3">
               <ul className="flex flex-col gap-3">
                 {data.submissions.map((submission) => (
                   <SubmissionAttachmentEntry key={submission.id} submission={submission} />
                 ))}
               </ul>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Right panel: the tutor's response/grading action */}

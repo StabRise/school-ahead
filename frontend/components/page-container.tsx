@@ -7,7 +7,7 @@ export function PageContainer({
   title,
   children,
   maxWidthClassName = "xl:max-w-6xl",
-  bgClassName = "bg-white",
+  bgClassName = "",
 }: {
   title?: string;
   children: React.ReactNode;
