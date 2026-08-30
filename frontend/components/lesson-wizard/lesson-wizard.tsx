@@ -112,9 +112,26 @@ function AssessmentStep({
   );
 }
 
+// Which tab a student should land on without having clicked anything yet —
+// need_help sends them straight to "Пояснення" (the question they need
+// answered) and pending_review/revision_required to "Завдання" (their
+// submission's current state); every other status keeps the usual
+// "Теорія" landing tab. Returns null for that "usual" case since the
+// component's own `step` state already defaults there.
+function initialStepForStatus(status: string): WizardStep | null {
+  if (status === "need_help") return "explanation";
+  if (status === "pending_review" || status === "revision_required") return "assessment";
+  return null;
+}
+
 export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   const t = useTranslations("LessonWizard");
-  const [step, setStep] = useState<WizardStep>("materials");
+  const [step, setStep] = useState<WizardStep | null>(null);
+  // Whether the status-based landing tab (see initialStepForStatus) has been
+  // applied yet — tracked as state, not a ref, so setting it below is a
+  // normal render-time state adjustment rather than an effect (see
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes).
+  const [landingTabApplied, setLandingTabApplied] = useState(false);
   // The backend auto-transitions Assigned -> InProgress the moment this GET
   // resolves (see lessons/services.ensure_started), so there is no explicit
   // "Start Lesson" action here anymore — see the "State Transition & UI
@@ -122,6 +139,16 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   const { data, isLoading, isError, refetch } = useGetStudentLesson(studentLessonId);
   const { data: comments } = useListLessonComments(studentLessonId);
   const hasExplanation = (comments ?? []).some((comment) => comment.kind === "help_request");
+
+  // Applies the status-based landing tab exactly once, the first render
+  // `data` is available — `landingTabApplied` staying true afterwards means
+  // a later status change (e.g. resolving the question while already on
+  // "Пояснення") never yanks the tab away.
+  if (data && !landingTabApplied) {
+    setLandingTabApplied(true);
+    const initialStep = initialStepForStatus(data.status);
+    if (initialStep) setStep(initialStep);
+  }
 
   if (isLoading) {
     return <p className="p-6 text-sm text-gray-500">{t("loading")}</p>;
@@ -136,6 +163,7 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
     ...(data.lesson.subject_block_label ? [{ label: data.lesson.subject_block_label }] : []),
     { label: data.lesson.title },
   ];
+  const effectiveStep: WizardStep = step ?? "materials";
 
   return (
     <PageContainer>
@@ -150,14 +178,14 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
           </div>
         </div>
         <StepSwitcher
-          step={step}
+          step={effectiveStep}
           lessonType={data.lesson.lesson_type}
           hasExplanation={hasExplanation}
           onChange={setStep}
         />
       </div>
 
-      {step === "materials" ? (
+      {effectiveStep === "materials" ? (
         <div className="flex flex-col gap-4">
           <LessonContent content={data.lesson.content} materials={data.lesson.materials} />
           <div className="flex justify-end">
@@ -171,9 +199,9 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
             </button>
           </div>
         </div>
-      ) : step === "assessment" ? (
+      ) : effectiveStep === "assessment" ? (
         <AssessmentStep studentLesson={data} onChanged={refetch} />
-      ) : step === "comments" ? (
+      ) : effectiveStep === "comments" ? (
         <LessonComments studentLessonId={studentLessonId} comments={comments} />
       ) : (
         <ExplanationThread
