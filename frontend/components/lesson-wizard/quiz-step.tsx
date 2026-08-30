@@ -2,19 +2,24 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { useSubmitQuiz } from "@/lib/api/browser/student-lessons/student-lessons";
+import { CheckCircle2, XCircle } from "lucide-react";
+import { getQuizQuestionHint, useSubmitQuiz } from "@/lib/api/browser/student-lessons/student-lessons";
 import type { QuizQuestionOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Markdown } from "@/components/markdown";
+import { QuizAnswerButton, QuizBanner, QuizCard, QuizChoiceContent, QuizFeedbackOverlay } from "@/components/quiz-ui";
 
 const PASS_THRESHOLD_PERCENT = 60;
-// Brief pause so the student sees their tap register before the quiz moves
-// on — long enough to read as feedback, short enough not to feel laggy.
-const ADVANCE_DELAY_MS = 350;
+// Long enough for the student to read whether they got it right before the
+// quiz moves on to the next question.
+const FEEDBACK_DELAY_MS = 1600;
 
-// One question at a time — answering a question immediately advances to the
-// next, all the way through the last one (which submits the quiz). Shared by
-// both interface modes (regular and preschool) since they render the same
-// lesson wizard. See docs/interfaces/student/preschool/lesson.md.
+type Feedback = "correct" | "incorrect" | null;
+
+// One question at a time in the same big-card format as the preschool quiz
+// (components/preschool/quiz-game.tsx) and the balloon-pop bonus quiz
+// (components/preschool/balloon-quiz.tsx) — answering a question reveals
+// whether it was right, then advances to the next, all the way through the
+// last one (which submits the quiz). See docs/interfaces/student/lesson.md.
 export function QuizStep({
   studentLessonId,
   questions,
@@ -28,6 +33,8 @@ export function QuizStep({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [selectedChoiceId, setSelectedChoiceId] = useState<number | null>(null);
+  const [correctChoiceId, setCorrectChoiceId] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<Feedback>(null);
   const [lastScore, setLastScore] = useState<number | null>(null);
   const submitQuiz = useSubmitQuiz();
 
@@ -35,12 +42,23 @@ export function QuizStep({
   const isLastQuestion = currentIndex === questions.length - 1;
   const isAnswered = lastScore !== null;
 
-  const handleSelect = (choiceId: number) => {
+  const handleSelect = async (choiceId: number) => {
     if (selectedChoiceId !== null || submitQuiz.isPending) return;
 
     setSelectedChoiceId(choiceId);
     const nextAnswers = { ...answers, [currentQuestion.id]: choiceId };
     setAnswers(nextAnswers);
+
+    let correctId: number | null = null;
+    try {
+      const hint = await getQuizQuestionHint(currentQuestion.id);
+      correctId = hint.correct_choice_id;
+      setCorrectChoiceId(correctId);
+    } catch {
+      // If the hint call fails, still let the student move on without a
+      // right/wrong flourish — the real score is graded server-side.
+    }
+    setFeedback(correctId !== null && correctId === choiceId ? "correct" : "incorrect");
 
     window.setTimeout(() => {
       if (isLastQuestion) {
@@ -57,12 +75,16 @@ export function QuizStep({
       }
       setCurrentIndex((index) => index + 1);
       setSelectedChoiceId(null);
-    }, ADVANCE_DELAY_MS);
+      setCorrectChoiceId(null);
+      setFeedback(null);
+    }, FEEDBACK_DELAY_MS);
   };
 
   const handleRetry = () => {
     setAnswers({});
     setSelectedChoiceId(null);
+    setCorrectChoiceId(null);
+    setFeedback(null);
     setCurrentIndex(0);
     setLastScore(null);
   };
@@ -71,77 +93,78 @@ export function QuizStep({
 
   if (isAnswered) {
     return (
-      <div className="flex flex-col gap-3">
-        <h3 className="text-lg font-semibold">{t("title")}</h3>
-        <p className="text-sm font-medium">{t("scoreResult", { score: lastScore })}</p>
-        {failed ? (
-          <>
-            <p className="text-sm text-red-600">{t("failedMessage")}</p>
+      <QuizCard>
+        <QuizBanner>
+          <p className="text-xl font-extrabold text-white drop-shadow sm:text-2xl">{t("scoreResult", { score: lastScore })}</p>
+        </QuizBanner>
+        <div className="flex flex-col items-center gap-3 px-6 py-8">
+          {failed ? <XCircle className="h-16 w-16 text-red-500" /> : <CheckCircle2 className="h-16 w-16 text-emerald-500" />}
+          <p className={failed ? "text-base text-red-700" : "text-lg font-bold text-emerald-700"}>
+            {failed ? t("failedMessage") : t("passedMessage")}
+          </p>
+          {failed && (
             <button
               type="button"
               onClick={handleRetry}
-              className="self-start rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700"
+              className="rounded-full bg-amber-400 px-6 py-3 text-lg font-bold text-amber-950 shadow-lg transition-transform active:scale-95"
             >
               {t("retryButton")}
             </button>
-          </>
-        ) : (
-          <p className="text-sm text-green-700">{t("passedMessage")}</p>
-        )}
-      </div>
+          )}
+        </div>
+      </QuizCard>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">{t("title")}</h3>
-        <span className="text-xs font-medium text-gray-500">
-          {t("progress", { current: currentIndex + 1, total: questions.length })}
-        </span>
-      </div>
-
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
-        <div
-          className="h-full rounded-full bg-gray-900 transition-all duration-300"
-          style={{ width: `${(currentIndex / questions.length) * 100}%` }}
-        />
-      </div>
-
-      <fieldset key={currentQuestion.id} className="flex flex-col gap-2">
-        <legend className="mb-1 text-sm font-medium">
+    <QuizCard>
+      <p className="px-6 pt-6 pb-2 text-center text-sm font-bold text-gray-500">
+        {t("progress", { current: currentIndex + 1, total: questions.length })}
+      </p>
+      <QuizBanner>
+        <div className="text-lg font-extrabold text-white drop-shadow [&_p]:m-0 [&_p]:text-lg sm:[&_p]:text-xl">
           <Markdown content={currentQuestion.prompt} />
-        </legend>
-        {currentQuestion.choices.map((choice) => {
-          const isSelected = selectedChoiceId === choice.id;
-          const isDisabled = selectedChoiceId !== null || submitQuiz.isPending;
-          return (
-            <label
-              key={choice.id}
-              className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${
-                isSelected ? "border-gray-900 bg-gray-900/5" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-              } ${isDisabled ? "cursor-default" : "cursor-pointer"}`}
-            >
-              <input
-                type="radio"
-                name={`question-${currentQuestion.id}`}
-                checked={isSelected}
-                disabled={isDisabled}
-                onChange={() => handleSelect(choice.id)}
-                className="mt-1"
-              />
-              {choice.image ? (
-                <div className="flex flex-col gap-1">
-                  <img src={choice.image} alt="" className="h-16 w-16 object-contain" />
+        </div>
+      </QuizBanner>
+
+      <div className="relative">
+        <div className="flex flex-wrap justify-center gap-4 p-6">
+          {currentQuestion.choices.map((choice, index) => {
+            const isSelected = selectedChoiceId === choice.id;
+            const isWrongPick = feedback === "incorrect" && isSelected;
+            const isRightPick = feedback === "correct" && isSelected;
+            const showAsCorrect = isRightPick || (feedback === "incorrect" && choice.id === correctChoiceId);
+            const isDimmed = !isSelected && selectedChoiceId !== null && !showAsCorrect;
+            const status = showAsCorrect ? "correct" : isWrongPick ? "incorrect" : isDimmed ? "dimmed" : "default";
+
+            return (
+              <QuizAnswerButton
+                key={choice.id}
+                index={index}
+                status={status}
+                disabled={selectedChoiceId !== null || submitQuiz.isPending}
+                onClick={() => handleSelect(choice.id)}
+              >
+                <QuizChoiceContent image={choice.image}>
                   <Markdown content={choice.text} />
-                </div>
+                </QuizChoiceContent>
+              </QuizAnswerButton>
+            );
+          })}
+        </div>
+
+        {feedback && (
+          <QuizFeedbackOverlay
+            mascot={
+              feedback === "correct" ? (
+                <CheckCircle2 className="h-16 w-16 text-emerald-500" />
               ) : (
-                <Markdown content={choice.text} />
-              )}
-            </label>
-          );
-        })}
-      </fieldset>
-    </div>
+                <XCircle className="h-16 w-16 text-red-500" />
+              )
+            }
+          />
+        )}
+      </div>
+    </QuizCard>
   );
 }

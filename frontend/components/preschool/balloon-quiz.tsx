@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { speak, type SpeechLanguage as GameLanguage } from "@/lib/piper-tts";
 import type { BalloonMode } from "@/stores/balloon-pop-game-store";
+import { QuizAnswerButton, QuizBanner, QuizCard, QuizFeedbackOverlay, QuizReadAloudButton } from "@/components/quiz-ui";
 
 // Bonus quiz opened by popping the heart-shaped "?" balloon in
 // balloon-pop-game.tsx. Purely client-side and ephemeral (no backend lesson
@@ -345,13 +346,6 @@ function CelebrationStars() {
   );
 }
 
-const OPTION_STYLES = [
-  "border-sky-400 bg-sky-50 text-sky-900",
-  "border-amber-400 bg-amber-50 text-amber-900",
-  "border-emerald-400 bg-emerald-50 text-emerald-900",
-  "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-900",
-];
-
 // Final-screen mascot — grows with the score rather than a flat pass/fail
 // icon: still hatching at the low end, up through a fire-breathing dragon,
 // to a wise graduate owl at the top. Independent of PASS_RATIO (the diamond
@@ -419,120 +413,112 @@ export function BalloonQuiz({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg overflow-hidden rounded-[2rem] bg-white shadow-2xl">
-        <div className="bg-gradient-to-r from-fuchsia-400 via-pink-400 to-amber-300 px-6 py-4 text-center">
-          <p className="text-sm font-bold text-white drop-shadow sm:text-base">{t("title")}</p>
-        </div>
+      <div className="w-full max-w-lg">
+        <QuizCard>
+          <QuizBanner>
+            <QuizReadAloudButton
+              label={t("readAloudButton")}
+              onClick={() => question && speak(questionText(question, language), language, "sentence")}
+            />
+            <p className="text-sm font-bold text-white drop-shadow sm:text-base">{t("title")}</p>
+          </QuizBanner>
 
-        {question ? (
-          <div className="relative flex flex-col gap-5 p-6">
-            <button
-              type="button"
-              aria-label={t("readAloudButton")}
-              onClick={() => speak(questionText(question, language), language, "sentence")}
-              className="absolute left-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-xl shadow-md transition-transform active:scale-95"
-            >
-              🔊
-            </button>
-            <p className="text-center text-sm font-bold text-emerald-900 sm:text-base">
-              {t("progress", { current: currentIndex + 1, total: questions.length })}
-            </p>
-            <p className="text-center text-lg font-bold text-gray-800 sm:text-xl">{questionText(question, language)}</p>
+          {question ? (
+            <div className="relative flex flex-col gap-5 p-6">
+              <p className="text-center text-sm font-bold text-emerald-900 sm:text-base">
+                {t("progress", { current: currentIndex + 1, total: questions.length })}
+              </p>
+              <p className="text-center text-lg font-bold text-gray-800 sm:text-xl">
+                {questionText(question, language)}
+              </p>
 
-            {question.kind === "counting" ? (
-              <>
-                <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-gray-50 p-4 text-3xl sm:text-4xl">
-                  {question.emojis.map((emoji, i) => (
-                    <span key={i} aria-hidden="true">
-                      {emoji}
-                    </span>
-                  ))}
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {question.options.map((option, i) => {
-                    const isPicked = selected === option;
-                    const isCorrectOption = option === question.correctAnswer;
-                    const revealed = selected !== null && (isPicked || isCorrectOption);
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        disabled={selected !== null}
-                        onClick={() => handleSelect(option)}
-                        className={`rounded-2xl border-4 py-4 text-2xl font-extrabold transition-transform active:scale-95 disabled:active:scale-100 ${
-                          revealed
-                            ? isCorrectOption
-                              ? "border-emerald-500 bg-emerald-100 text-emerald-900"
-                              : "border-rose-500 bg-rose-100 text-rose-900"
-                            : OPTION_STYLES[i % OPTION_STYLES.length]
-                        }`}
-                      >
-                        {option}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {question.choices.map((choice, i) => {
-                  const isPicked = selected === i;
-                  const isCorrectChoice = i === question.correctIndex;
-                  const revealed = selected !== null && (isPicked || isCorrectChoice);
-                  return (
-                    <button
-                      key={`${choice.name}-${i}`}
-                      type="button"
-                      disabled={selected !== null}
-                      onClick={() => handleSelect(i)}
-                      className={`overflow-hidden rounded-2xl border-4 p-1 transition-transform active:scale-95 disabled:active:scale-100 ${
-                        revealed
-                          ? isCorrectChoice
-                            ? "border-emerald-500 bg-emerald-100"
-                            : "border-rose-500 bg-rose-100"
-                          : "border-sky-300 bg-sky-50"
-                      }`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={choice.image} alt="" className="aspect-square w-full rounded-xl object-cover" />
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {selected !== null && (
-              // Full-panel overlay (absolute, not part of the flex flow) so
-              // it can't shift the question/emoji row/buttons above it, and
-              // reads clearly centered regardless of what's underneath.
-              <div
-                className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-[2rem] bg-white/90 backdrop-blur-sm"
-                role="status"
-              >
-                {isCorrectValue(question, selected) ? (
-                  <div className="flex gap-2 text-5xl" aria-hidden="true">
-                    {[0, 1, 2].map((i) => (
-                      <span key={i} style={{ animation: `star-pop 0.5s ease-out ${i * 0.1}s backwards` }}>
-                        ⭐
+              {question.kind === "counting" ? (
+                <>
+                  <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-gray-50 p-4 text-3xl sm:text-4xl">
+                    {question.emojis.map((emoji, i) => (
+                      <span key={i} aria-hidden="true">
+                        {emoji}
                       </span>
                     ))}
                   </div>
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src="/preschool/quiz/sad-face.jpeg"
-                    alt=""
-                    className="h-28 w-28 rounded-full object-cover shadow-lg"
-                    style={{ animation: "sad-face-pop 0.5s ease-out" }}
-                  />
-                )}
-                <p className="text-lg font-bold text-gray-700">
-                  {isCorrectValue(question, selected) ? t("correct") : t("incorrect")}
-                </p>
-              </div>
-            )}
-          </div>
-        ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    {question.options.map((option, i) => {
+                      const isPicked = selected === option;
+                      const isCorrectOption = option === question.correctAnswer;
+                      const revealed = selected !== null && (isPicked || isCorrectOption);
+                      const isDimmed = selected !== null && !revealed;
+                      const status = revealed ? (isCorrectOption ? "correct" : "incorrect") : isDimmed ? "dimmed" : "default";
+                      return (
+                        <QuizAnswerButton
+                          key={option}
+                          index={i}
+                          status={status}
+                          disabled={selected !== null}
+                          onClick={() => handleSelect(option)}
+                          className="py-4 text-2xl font-extrabold text-gray-900"
+                        >
+                          {option}
+                        </QuizAnswerButton>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {question.choices.map((choice, i) => {
+                    const isPicked = selected === i;
+                    const isCorrectChoice = i === question.correctIndex;
+                    const revealed = selected !== null && (isPicked || isCorrectChoice);
+                    const isDimmed = selected !== null && !revealed;
+                    const status = revealed ? (isCorrectChoice ? "correct" : "incorrect") : isDimmed ? "dimmed" : "default";
+                    return (
+                      <QuizAnswerButton
+                        key={`${choice.name}-${i}`}
+                        index={i}
+                        status={status}
+                        disabled={selected !== null}
+                        onClick={() => handleSelect(i)}
+                        className="overflow-hidden p-1"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={choice.image} alt="" className="aspect-square w-full rounded-xl object-cover" />
+                      </QuizAnswerButton>
+                    );
+                  })}
+                </div>
+              )}
+
+              {selected !== null && (
+                <QuizFeedbackOverlay
+                  roundedClassName="rounded-[2rem]"
+                  mascot={
+                    isCorrectValue(question, selected) ? (
+                      <div className="flex gap-2 text-5xl" aria-hidden="true">
+                        {[0, 1, 2].map((i) => (
+                          <span key={i} style={{ animation: `star-pop 0.5s ease-out ${i * 0.1}s backwards` }}>
+                            ⭐
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src="/preschool/quiz/sad-face.jpeg"
+                        alt=""
+                        className="h-28 w-28 rounded-full object-cover shadow-lg"
+                        style={{ animation: "sad-face-pop 0.5s ease-out" }}
+                      />
+                    )
+                  }
+                  message={
+                    <p className="text-lg font-bold text-gray-700">
+                      {isCorrectValue(question, selected) ? t("correct") : t("incorrect")}
+                    </p>
+                  }
+                />
+              )}
+            </div>
+          ) : (
           <div className="relative flex flex-col items-center gap-4 p-6 text-center">
             {passed && <CelebrationStars />}
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -558,7 +544,8 @@ export function BalloonQuiz({
               {t("continueButton")}
             </button>
           </div>
-        )}
+          )}
+        </QuizCard>
       </div>
     </div>
   );

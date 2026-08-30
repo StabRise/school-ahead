@@ -43,8 +43,6 @@
     "done": "Зроблено!"
   },
   "BalloonPopGame": {
-    "title": "Усі уроки зроблено!",
-    "subtitle": "Лопай кульки, поки не набридне 🎈",
     "score": "{count, plural, one {Лопнуто # кульку} few {Лопнуто # кульки} many {Лопнуто # кульок} other {Лопнуто # кульки}}",
     "balloon": "Кулька",
     "settingsButton": "Налаштування гри",
@@ -401,7 +399,6 @@
     "noFeedback": "Нічого страшного, покличемо тьютора!"
   },
   "QuizStep": {
-    "title": "Тест",
     "progress": "Питання {current} із {total}",
     "scoreResult": "Результат: {score}%",
     "passedMessage": "Чудово, тест складено!",

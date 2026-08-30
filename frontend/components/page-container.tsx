@@ -6,7 +6,7 @@
 export function PageContainer({
   title,
   children,
-  maxWidthClassName = "xl:max-w-6xl",
+  maxWidthClassName = "xl:max-w-8xl",
   bgClassName = "",
 }: {
   title?: string;

@@ -185,7 +185,7 @@ const BALLOON_ANIMALS_EX: { name: string; image: string }[] = [
   { name: "Butterfly", image: "/preschool/animals/butterfly.jpeg" },
   { name: "Cheetah", image: "/preschool/animals/cheetah.jpeg" },
   { name: "Kitten", image: "/preschool/animals/kitten.jpeg" },
-  { name: "Panda", image: "/preschool/animals/panda.jpeg" },
+  { name: "Sheep", image: "/preschool/animals/sheep.jpeg" },
   { name: "Chicken", image: "/preschool/animals/chicken.jpeg" },
   { name: "fox", image: "/preschool/animals/fox.jpeg" },
   { name: "frog", image: "/preschool/animals/frog.jpeg" },
@@ -197,7 +197,7 @@ const BALLOON_ANIMALS_EX: { name: string; image: string }[] = [
   { name: "lion", image: "/preschool/animals/lion.jpeg" },
   { name: "monkey", image: "/preschool/animals/monkey.jpeg" },
   { name: "owl", image: "/preschool/animals/owl.jpeg" },
-  { name: "panda", image: "/preschool/animals/panda.jpeg" },
+  { name: "racoon", image: "/preschool/animals/racoon.jpeg" },
   { name: "squirrel", image: "/preschool/animals/squirrel.jpeg" },
   { name: "whale", image: "/preschool/animals/whale.jpeg" },
   { name: "zebra", image: "/preschool/animals/zebra.jpeg" },
@@ -227,8 +227,13 @@ const BALLOON_SCHOOL_SUPPLIES_EX: { name: string; image: string }[] = [
 // public/preschool/family, same static-asset convention as those.
 const BALLOON_FAMILY: { name: string; image: string }[] = [
   { name: "Mother", image: "/preschool/family/mother.jpeg" },
+  { name: "Mommy", image: "/preschool/family/mother.jpeg" },
+  { name: "Father", image: "/preschool/family/daddy.jpeg" },
   { name: "Daddy", image: "/preschool/family/daddy.jpeg" },
   { name: "Grandma", image: "/preschool/family/grandma.jpeg" },
+  { name: "Grandpa", image: "/preschool/family/grandpa.jpeg" },
+  { name: "Grandmother", image: "/preschool/family/grandma.jpeg" },
+  { name: "Grandfather", image: "/preschool/family/grandpa.jpeg" },
   { name: "Sister", image: "/preschool/family/sister.jpeg" },
   { name: "Brother", image: "/preschool/family/brother.jpeg" },
   { name: "Baby", image: "/preschool/family/baby.jpeg" },
@@ -997,8 +1002,6 @@ export function BalloonPopGame() {
   return (
     <div ref={containerRef} className="relative min-h-[32rem] flex-1 overflow-hidden">
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-center gap-1 pt-6 text-center">
-        <p className="text-xl font-bold text-gray-700">{t("title")}</p>
-        <p className="text-sm text-gray-500">{t("subtitle")}</p>
       </div>
 
       <div

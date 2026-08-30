@@ -93,6 +93,12 @@ function AssessmentStep({
     }
   })();
 
+  // The quiz step renders its own big gradient-banner card (see quiz-ui.tsx)
+  // — nesting that inside the plain bordered Card below would double-box it,
+  // so it's rendered directly instead, same as every other actionable
+  // interfaceMode's quiz step.
+  const isActionableQuiz = lesson.lesson_type === "with_quiz" && (status === "assigned" || status === "in_progress");
+
   return (
     <div className="flex flex-col gap-5">
       {tutor_feedback && (
@@ -102,12 +108,16 @@ function AssessmentStep({
         </div>
       )}
 
-      <Card className="flex flex-col gap-4">
-        {lesson.lesson_type === "with_task" && submissions.length > 0 && (
-          <SubmissionThread submissions={submissions} />
-        )}
-        {interactiveContent}
-      </Card>
+      {isActionableQuiz ? (
+        interactiveContent
+      ) : (
+        <Card className="flex flex-col gap-4">
+          {lesson.lesson_type === "with_task" && submissions.length > 0 && (
+            <SubmissionThread submissions={submissions} />
+          )}
+          {interactiveContent}
+        </Card>
+      )}
     </div>
   );
 }
