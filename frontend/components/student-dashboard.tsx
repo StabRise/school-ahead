@@ -66,15 +66,26 @@ function homeworkPreview(taskContent: string, maxLength = 140): string {
 }
 
 // Mirrors LessonBubble's round subject/lesson icon (see
-// components/preschool/lesson-bubble.tsx) but as a plain div — the row
-// itself is already the clickable link, so the icon can't be a nested one.
+// components/preschool/lesson-bubble.tsx) but as a button nested inside the
+// row's own Link — clicking it goes to the subject instead of the lesson,
+// same preventDefault/stopPropagation pattern as the header's BookOpen link.
 function LessonIcon({ item }: { item: CalendarItemOut }) {
+  const tCalendar = useTranslations("Calendar");
+  const router = useRouter();
   const isCompleted = item.status === "completed";
   const src = item.lesson_icon ?? item.subject_icon;
 
   return (
-    <div
-      className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-white bg-white shadow-sm ${
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        router.push(`/subjects/${item.subject_id}`);
+      }}
+      title={tCalendar("viewSubject")}
+      aria-label={tCalendar("viewSubject")}
+      className={`relative flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-white shadow-sm ${
         isCompleted ? "opacity-60 grayscale" : ""
       }`}
     >
@@ -86,7 +97,7 @@ function LessonIcon({ item }: { item: CalendarItemOut }) {
           <DefaultStepIcon />
         )}
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -119,11 +130,11 @@ function LessonRow({ item, dateLabel }: { item: CalendarItemOut; dateLabel?: str
       <li>
         <Card
           href={`/lessons/${item.id}`}
-          className="flex items-center juLessonRowstify-between gap-3 border-l-4"
+          className="flex items-center justify-between gap-3 border-l-4"
           style={{ borderLeftColor: item.subject_color ?? "#D1D5DB" }}
         >
           <span className="min-w-0 truncate font-medium text-gray-900">{item.subject_name}</span>
-          <div className="flex shrink-0 items-cМenter gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <GradeSquareBadge
               gradePoints={item.grade_points}
               gradeResult={item.grade_result}
@@ -137,7 +148,7 @@ function LessonRow({ item, dateLabel }: { item: CalendarItemOut; dateLabel?: str
               aria-expanded={isExpanded}
               aria-label={tDashboard("expandLesson")}
               title={tDashboard("expandLesson")}
-              className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              className="shrink-0 cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
             >
               <ChevronDown className="h-4 w-4" />
             </button>
@@ -209,7 +220,7 @@ function LessonRow({ item, dateLabel }: { item: CalendarItemOut; dateLabel?: str
                 aria-expanded={isExpanded}
                 aria-label={tDashboard("collapseLesson")}
                 title={tDashboard("collapseLesson")}
-                className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                className="shrink-0 cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
               >
                 <ChevronUp className="h-4 w-4" />
               </button>
