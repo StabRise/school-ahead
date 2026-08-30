@@ -78,7 +78,7 @@ export function TopicAccordionItem({
   const t = useTranslations("SubjectDetail");
 
   return (
-    <div className="overflow-hidden rounded-md border border-gray-200">
+    <div id={`topic-${topic.id}`} className="scroll-mt-4 overflow-hidden rounded-md border border-gray-200">
       <button
         type="button"
         onClick={onToggle}

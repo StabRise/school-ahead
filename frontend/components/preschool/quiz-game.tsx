@@ -97,16 +97,16 @@ function QuestionRound({
 
   return (
     <>
-      <QuizBanner>
-        <p className="text-center text-sm font-bold text-gray-900/70 sm:text-base">{progress}</p>
-      </QuizBanner>
+      <p className="text-center text-sm font-bold my-2 text-gray-900/70 sm:text-base">{progress}</p>
 
-      <div className="flex items-center mt-4 justify-center gap-2">
-        <div className="text-center text-xl font-extrabold uppercase text-gray-900 [&_p]:m-0 [&_p]:text-xl sm:[&_p]:text-2xl">
-          <Markdown content={question.prompt} />
+      <QuizBanner>
+        <div className="flex items-center mt-4 justify-center gap-2">
+          <div className="text-center text-xl font-extrabold uppercase text-gray-900 [&_p]:m-0 [&_p]:text-xl sm:[&_p]:text-2xl">
+            <Markdown content={question.prompt} />
+          </div>
+          <QuizReadAloudButton label={t("readAloudButton")} onClick={handleReadAloud} />
         </div>
-        <QuizReadAloudButton label={t("readAloudButton")} onClick={handleReadAloud} />
-      </div>
+      </QuizBanner>
 
       {/* `relative` so the post-answer raccoon can overlay this area instead
           of adding height below it — an added block there used to make the
@@ -221,7 +221,7 @@ export function PreschoolQuizGame({
           <QuizCard>
             <QuizBanner>
               <p className="text-xl font-extrabold uppercase text-gray-900 sm:text-2xl">
-                {t("scoreResult", { score: lastScore })}
+                {t("scoreResult", { score: Math.round(lastScore!) })}
               </p>
             </QuizBanner>
             <div className="flex flex-col items-center gap-3 px-6 py-8">

@@ -2,24 +2,28 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { Check, CheckCircle2, X, XCircle } from "lucide-react";
 import { getQuizQuestionHint, useSubmitQuiz } from "@/lib/api/browser/student-lessons/student-lessons";
 import type { QuizQuestionOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Markdown } from "@/components/markdown";
-import { QuizAnswerButton, QuizBanner, QuizCard, QuizChoiceContent, QuizFeedbackOverlay } from "@/components/quiz-ui";
 
 const PASS_THRESHOLD_PERCENT = 60;
 // Long enough for the student to read whether they got it right before the
 // quiz moves on to the next question.
-const FEEDBACK_DELAY_MS = 1600;
+const FEEDBACK_DELAY_MS = 1400;
 
 type Feedback = "correct" | "incorrect" | null;
 
-// One question at a time in the same big-card format as the preschool quiz
-// (components/preschool/quiz-game.tsx) and the balloon-pop bonus quiz
-// (components/preschool/balloon-quiz.tsx) — answering a question reveals
-// whether it was right, then advances to the next, all the way through the
-// last one (which submits the quiz). See docs/interfaces/student/lesson.md.
+// A restrained, exam-like quiz — a progress bar, one question at a time,
+// plain bordered answer rows. Deliberately understated (no mascots,
+// gradients, or oversized touch targets): this is the default (non-
+// preschool) interface, aimed at teens and older students rather than young
+// children — contrast components/preschool/quiz-game.tsx and balloon-quiz.tsx,
+// which share this component's immediate-feedback interaction model but use
+// a much more playful visual language for their younger audience.
+// Answering a question reveals whether it was right, then advances to the
+// next, all the way through the last one (which submits the quiz). See
+// docs/interfaces/student/lesson.md.
 export function QuizStep({
   studentLessonId,
   questions,
@@ -93,78 +97,98 @@ export function QuizStep({
 
   if (isAnswered) {
     return (
-      <QuizCard>
-        <QuizBanner>
-          <p className="text-xl font-extrabold text-white drop-shadow sm:text-2xl">{t("scoreResult", { score: lastScore })}</p>
-        </QuizBanner>
-        <div className="flex flex-col items-center gap-3 px-6 py-8">
-          {failed ? <XCircle className="h-16 w-16 text-red-500" /> : <CheckCircle2 className="h-16 w-16 text-emerald-500" />}
-          <p className={failed ? "text-base text-red-700" : "text-lg font-bold text-emerald-700"}>
-            {failed ? t("failedMessage") : t("passedMessage")}
-          </p>
-          {failed && (
-            <button
-              type="button"
-              onClick={handleRetry}
-              className="rounded-full bg-amber-400 px-6 py-3 text-lg font-bold text-amber-950 shadow-lg transition-transform active:scale-95"
-            >
-              {t("retryButton")}
-            </button>
+      <div className="flex flex-col gap-4">
+        <div
+          className={`flex items-start gap-3 rounded-md border px-4 py-4 ${
+            failed ? "border-red-200 bg-red-50" : "border-emerald-200 bg-emerald-50"
+          }`}
+        >
+          {failed ? (
+            <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+          ) : (
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
           )}
+          <div>
+            <p className={`text-sm font-semibold ${failed ? "text-red-800" : "text-emerald-800"}`}>
+              {t("scoreResult", { score: Math.round(lastScore!) })}
+            </p>
+            <p className={`mt-0.5 text-sm ${failed ? "text-red-700" : "text-emerald-700"}`}>
+              {failed ? t("failedMessage") : t("passedMessage")}
+            </p>
+          </div>
         </div>
-      </QuizCard>
+        {failed && (
+          <button
+            type="button"
+            onClick={handleRetry}
+            className="self-start rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          >
+            {t("retryButton")}
+          </button>
+        )}
+      </div>
     );
   }
 
   return (
-    <QuizCard>
-      <p className="px-6 pt-6 pb-2 text-center text-sm font-bold text-gray-500">
-        {t("progress", { current: currentIndex + 1, total: questions.length })}
-      </p>
-      <QuizBanner>
-        <div className="text-lg font-extrabold text-white drop-shadow [&_p]:m-0 [&_p]:text-lg sm:[&_p]:text-xl">
-          <Markdown content={currentQuestion.prompt} />
-        </div>
-      </QuizBanner>
-
-      <div className="relative">
-        <div className="flex flex-wrap justify-center gap-4 p-6">
-          {currentQuestion.choices.map((choice, index) => {
-            const isSelected = selectedChoiceId === choice.id;
-            const isWrongPick = feedback === "incorrect" && isSelected;
-            const isRightPick = feedback === "correct" && isSelected;
-            const showAsCorrect = isRightPick || (feedback === "incorrect" && choice.id === correctChoiceId);
-            const isDimmed = !isSelected && selectedChoiceId !== null && !showAsCorrect;
-            const status = showAsCorrect ? "correct" : isWrongPick ? "incorrect" : isDimmed ? "dimmed" : "default";
-
-            return (
-              <QuizAnswerButton
-                key={choice.id}
-                index={index}
-                status={status}
-                disabled={selectedChoiceId !== null || submitQuiz.isPending}
-                onClick={() => handleSelect(choice.id)}
-              >
-                <QuizChoiceContent image={choice.image}>
-                  <Markdown content={choice.text} />
-                </QuizChoiceContent>
-              </QuizAnswerButton>
-            );
-          })}
-        </div>
-
-        {feedback && (
-          <QuizFeedbackOverlay
-            mascot={
-              feedback === "correct" ? (
-                <CheckCircle2 className="h-16 w-16 text-emerald-500" />
-              ) : (
-                <XCircle className="h-16 w-16 text-red-500" />
-              )
-            }
-          />
-        )}
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+          {t("progress", { current: currentIndex + 1, total: questions.length })}
+        </span>
       </div>
-    </QuizCard>
+
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+        <div
+          className="h-full rounded-full bg-gray-900 transition-all duration-300"
+          style={{ width: `${(currentIndex / questions.length) * 100}%` }}
+        />
+      </div>
+
+      <div className="text-base font-medium text-gray-900 [&_p]:m-0">
+        <Markdown content={currentQuestion.prompt} />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {currentQuestion.choices.map((choice) => {
+          const isSelected = selectedChoiceId === choice.id;
+          const isCorrectChoice = correctChoiceId !== null && choice.id === correctChoiceId;
+          const revealCorrect = (feedback === "correct" && isSelected) || (feedback === "incorrect" && isCorrectChoice);
+          const revealWrong = feedback === "incorrect" && isSelected;
+          const isDimmed = feedback !== null && !isSelected && !isCorrectChoice;
+          const disabled = selectedChoiceId !== null || submitQuiz.isPending;
+
+          const stateClasses = revealCorrect
+            ? "border-emerald-500 bg-emerald-50"
+            : revealWrong
+              ? "border-red-500 bg-red-50"
+              : isSelected
+                ? "border-gray-900 bg-gray-50"
+                : "border-gray-200 hover:border-gray-300 hover:bg-gray-50";
+
+          return (
+            <button
+              key={choice.id}
+              type="button"
+              disabled={disabled}
+              onClick={() => handleSelect(choice.id)}
+              className={`flex items-center gap-3 rounded-md border px-4 py-3 text-left text-sm transition-colors disabled:cursor-default focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${stateClasses} ${
+                isDimmed ? "opacity-60" : ""
+              }`}
+            >
+              {choice.image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={choice.image} alt="" className="h-10 w-10 shrink-0 rounded object-contain" />
+              )}
+              <span className="flex-1 text-gray-900 [&_p]:m-0">
+                <Markdown content={choice.text} />
+              </span>
+              {revealCorrect && <Check className="h-4 w-4 shrink-0 text-emerald-600" />}
+              {revealWrong && <X className="h-4 w-4 shrink-0 text-red-600" />}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ChevronRight } from "lucide-react";
 import {
@@ -23,6 +24,16 @@ import { NeedHelpButton } from "./need-help-button";
 import { ResolveNeedHelpButton } from "./resolve-need-help-button";
 import { StepSwitcher, type WizardStep } from "./step-switcher";
 import { PageContainer } from "@/components/page-container";
+import { Link, useRouter, usePathname } from "@/i18n/navigation";
+
+const WIZARD_STEPS: WizardStep[] = ["materials", "assessment", "comments", "explanation"];
+
+// Reads the active tab back out of `?step=...` — e.g. after an F5 reload,
+// which loses any in-memory React state. Invalid/missing values fall back
+// to null (the "materials" default), same as a fresh visit.
+function parseStepParam(value: string | null): WizardStep | null {
+  return value !== null && (WIZARD_STEPS as string[]).includes(value) ? (value as WizardStep) : null;
+}
 
 // The wizard's second page — feedback from the tutor, the task/quiz
 // interaction (only shown while actionable; otherwise a read-only status
@@ -93,12 +104,6 @@ function AssessmentStep({
     }
   })();
 
-  // The quiz step renders its own big gradient-banner card (see quiz-ui.tsx)
-  // — nesting that inside the plain bordered Card below would double-box it,
-  // so it's rendered directly instead, same as every other actionable
-  // interfaceMode's quiz step.
-  const isActionableQuiz = lesson.lesson_type === "with_quiz" && (status === "assigned" || status === "in_progress");
-
   return (
     <div className="flex flex-col gap-5">
       {tutor_feedback && (
@@ -108,16 +113,12 @@ function AssessmentStep({
         </div>
       )}
 
-      {isActionableQuiz ? (
-        interactiveContent
-      ) : (
-        <Card className="flex flex-col gap-4">
-          {lesson.lesson_type === "with_task" && submissions.length > 0 && (
-            <SubmissionThread submissions={submissions} />
-          )}
-          {interactiveContent}
-        </Card>
-      )}
+      <Card className="flex flex-col gap-4">
+        {lesson.lesson_type === "with_task" && submissions.length > 0 && (
+          <SubmissionThread submissions={submissions} />
+        )}
+        {interactiveContent}
+      </Card>
     </div>
   );
 }
@@ -136,12 +137,34 @@ function initialStepForStatus(status: string): WizardStep | null {
 
 export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   const t = useTranslations("LessonWizard");
-  const [step, setStep] = useState<WizardStep | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const stepFromUrl = parseStepParam(searchParams.get("step"));
+
+  const [step, setStepState] = useState<WizardStep | null>(stepFromUrl);
   // Whether the status-based landing tab (see initialStepForStatus) has been
   // applied yet — tracked as state, not a ref, so setting it below is a
   // normal render-time state adjustment rather than an effect (see
   // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes).
-  const [landingTabApplied, setLandingTabApplied] = useState(false);
+  // Starts true when the URL already names a step (e.g. an F5 reload) so
+  // that doesn't get overridden by the status-based landing tab below.
+  const [landingTabApplied, setLandingTabApplied] = useState(stepFromUrl !== null);
+
+  // Keeps `?step=...` in sync with the active tab (omitted for the
+  // "materials" default) so reloading — or sharing the link — lands back on
+  // the same step instead of always resetting to "Матеріали".
+  const setStep = (next: WizardStep) => {
+    setStepState(next);
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "materials") {
+      params.delete("step");
+    } else {
+      params.set("step", next);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
   // The backend auto-transitions Assigned -> InProgress the moment this GET
   // resolves (see lessons/services.ensure_started), so there is no explicit
   // "Start Lesson" action here anymore — see the "State Transition & UI
@@ -157,7 +180,7 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   if (data && !landingTabApplied) {
     setLandingTabApplied(true);
     const initialStep = initialStepForStatus(data.status);
-    if (initialStep) setStep(initialStep);
+    if (initialStep) setStepState(initialStep);
   }
 
   if (isLoading) {
@@ -181,7 +204,15 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
       <div className="flex flex-col gap-3 border-b border-gray-200 pb-4 pt-4">
 
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h1 className="text-xl font-semibold text-gray-900">{data.lesson.title}</h1>
+          <div className="flex flex-col gap-0.5">
+            <h1 className="text-xl font-semibold text-gray-900">{data.lesson.title}</h1>
+            <Link
+              href={`/subjects/${data.lesson.subject_id}#topic-${data.lesson.topic_id}`}
+              className="text-sm text-gray-500 hover:text-gray-700 hover:underline"
+            >
+              {data.lesson.topic_title}
+            </Link>
+          </div>
           <div className="flex items-center gap-2">
             <StatusBadge status={data.status} />
             <ScoreBadge gradePoints={data.grade_points} gradeResult={data.grade_result} />

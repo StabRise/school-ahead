@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { List, Rows3 } from "lucide-react";
@@ -105,6 +105,21 @@ export function CoursePlan({ subjectId }: { subjectId: number }) {
     setTopicsExpandedPreference(next);
     setOverrides(Object.fromEntries(topics.map((topic) => [topic.id, next])));
   };
+
+  // Deep-linked from a lesson page (`/subjects/{id}#topic-{topicId}`, see
+  // lesson-wizard.tsx) — force that topic open and scroll it into view once
+  // its accordion item actually exists in the DOM. Runs again if `topics`
+  // grows from empty to loaded (the only time its length changes), so a
+  // hash present before the topics query resolves still gets handled.
+  useEffect(() => {
+    if (topics.length === 0) return;
+    const match = /^#topic-(\d+)$/.exec(window.location.hash);
+    if (!match) return;
+    const topicId = Number(match[1]);
+    const expandLinkedTopic = () => setOverrides((prev) => (prev[topicId] ? prev : { ...prev, [topicId]: true }));
+    expandLinkedTopic();
+    document.getElementById(`topic-${topicId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [topics.length]);
 
   const isLoading = topicsQuery.isLoading || lessonsQuery.isLoading;
   const isError = topicsQuery.isError || lessonsQuery.isError;
