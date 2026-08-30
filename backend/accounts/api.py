@@ -192,15 +192,20 @@ def list_avatars(request: HttpRequest):
     operation_id='update_avatar',
 )
 def update_avatar(request: HttpRequest, payload: UpdateAvatarIn):
-    """Equips a companion character — see docs/core/avatar.md section 2.1.
-    Clears the wardrobe: equipped clothing/headwear/accessory belong to the
-    previous avatar's catalog and wouldn't make sense on the new body. This
-    only unequips them — purchased items stay in unlocked_items and are
+    """Equips a companion character, or unequips it entirely when avatar_id
+    is null (the frontend then falls back to the Google account picture, or
+    initials if there isn't one — see components/header.tsx) — see
+    docs/core/avatar.md section 2.1. Clears the wardrobe either way:
+    equipped clothing/headwear/accessory belong to the previous avatar's
+    catalog and wouldn't make sense on the new body (or on no body at all).
+    This only unequips them — purchased items stay in unlocked_items and are
     equippable again the moment the student switches back."""
     require_csrf(request)
     student = get_own_student_profile(request)
-    avatar = get_object_or_404(Avatar, id=payload.avatar_id, is_active=True)
-    student.equipped_avatar = avatar
+    if payload.avatar_id is None:
+        student.equipped_avatar = None
+    else:
+        student.equipped_avatar = get_object_or_404(Avatar, id=payload.avatar_id, is_active=True)
     student.save(update_fields=['equipped_avatar'])
     student.equipped_clothing_items.clear()
     student.equipped_headwear_items.clear()

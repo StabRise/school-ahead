@@ -1,6 +1,7 @@
 import datetime
 
 from django.db.models import Prefetch
+from django.utils import timezone
 
 from academics import services as academics_services
 from academics.models import Class, Subject
@@ -248,14 +249,47 @@ def get_today(student: StudentProfile, date: datetime.date) -> tuple[list[Studen
     return today_lessons, get_backlog(student, date)
 
 
-def backlog_label(student_lesson: StudentLesson) -> str:
-    """'Mon #4' — weekday abbreviation + ordinal position among that day's
-    lessons. See docs/interfaces/student/calendar.md and today.md."""
-    weekday_abbrev = student_lesson.scheduled_date.strftime('%a')
-    same_day_ids = list(
-        StudentLesson.objects.filter(
-            student_id=student_lesson.student_id, scheduled_date=student_lesson.scheduled_date
-        ).order_by('id').values_list('id', flat=True)
+def get_week_completion_counts(student: StudentProfile, week_start: datetime.date) -> dict:
+    """Data for the dashboard's weekly-progress sidebar:
+    - 'days': Mon-Sun histogram — per calendar day, how many of the
+      student's lessons were completed (StudentLesson.completed_at) that
+      day, independent of scheduled_date, so a backlog lesson finished
+      today counts under today, not under whatever day it was originally
+      scheduled for. completed_at is converted to the local calendar day
+      (see TIME_ZONE=UTC, USE_TZ=True in settings) before bucketing.
+    - 'completed_percent': of the lessons actually scheduled for this week
+      (scheduled_date, not completed_at), what fraction are Completed —
+      the week's own overall progress bar, same completed/total shape as
+      lessons.services.compute_completion."""
+    week_end = week_start + datetime.timedelta(days=6)
+    completed_at_values = StudentLesson.objects.filter(
+        student=student,
+        completed_at__date__gte=week_start,
+        completed_at__date__lte=week_end,
+    ).values_list('completed_at', flat=True)
+
+    counts = [0] * 7
+    for completed_at in completed_at_values:
+        day_index = timezone.localtime(completed_at).date().weekday()
+        counts[day_index] += 1
+
+    days = [
+        {'date': week_start + datetime.timedelta(days=i), 'weekday': i, 'completed_count': counts[i]}
+        for i in range(7)
+    ]
+
+    scheduled_this_week = StudentLesson.objects.filter(
+        student=student, scheduled_date__gte=week_start, scheduled_date__lte=week_end
     )
-    position = same_day_ids.index(student_lesson.id) + 1
-    return f'{weekday_abbrev} #{position}'
+    total_scheduled = scheduled_this_week.count()
+    total_completed = scheduled_this_week.filter(status=StudentLessonStatus.COMPLETED).count()
+    completed_percent = round(total_completed / total_scheduled * 100, 1) if total_scheduled else 0.0
+
+    return {'days': days, 'completed_percent': completed_percent}
+
+
+def backlog_label(student_lesson: StudentLesson) -> str:
+    """ISO date the lesson was originally scheduled for — the frontend
+    formats it for display (see docs/interfaces/student/calendar.md and
+    today.md), same as every other date field in this API."""
+    return student_lesson.scheduled_date.isoformat()

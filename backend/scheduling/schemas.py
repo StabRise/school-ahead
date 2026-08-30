@@ -22,6 +22,12 @@ class CalendarItemOut(Schema):
     subject_icon: str | None
     # Subject.color left-border accent on the calendar's lesson cards.
     subject_color: str | None
+    # theory / with_quiz / with_task — drives the lesson-type icon on the
+    # student dashboard's LessonRow. See Lesson.lesson_type.
+    lesson_type: str
+    # Only non-empty when lesson_type=with_task — shown as the row's task
+    # preview. See Lesson.task_content.
+    task_content: str
 
 
 class BacklogItemOut(CalendarItemOut):
@@ -31,6 +37,24 @@ class BacklogItemOut(CalendarItemOut):
 class TodayOut(Schema):
     today: list[CalendarItemOut]
     backlog: list[BacklogItemOut]
+
+
+class DailyCompletionOut(Schema):
+    """One day's worth of the weekly-progress histogram — how many of the
+    student's lessons were actually completed (StudentLesson.completed_at)
+    that calendar day, regardless of which day they'd been scheduled for."""
+
+    date: datetime.date
+    weekday: int  # 0=Monday .. 6=Sunday
+    completed_count: int
+
+
+class WeeklyCompletionOut(Schema):
+    days: list[DailyCompletionOut]
+    # Of the lessons scheduled for this week (not completed_at-based like
+    # `days` above), what % are Completed. See
+    # services.get_week_completion_counts.
+    completed_percent: float
 
 
 class GenerateCalendarOut(Schema):

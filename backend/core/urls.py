@@ -15,6 +15,7 @@ from accounts.api import router as accounts_router
 from achievements.api import router as achievements_router
 from lessons.api import router as lessons_router
 from scheduling.api import router as scheduling_router
+from tts.api import router as tts_router
 from tutoring.api import router as tutoring_router
 
 api = NinjaAPI(title='school-ahead API')
@@ -24,6 +25,7 @@ api.add_router('/student-lessons', lessons_router)
 api.add_router('/tutor', tutoring_router)
 api.add_router('/schedule', scheduling_router)
 api.add_router('/achievements', achievements_router)
+api.add_router('/tts', tts_router)
 
 urlpatterns = [
     path('admin/', admin.site.urls),

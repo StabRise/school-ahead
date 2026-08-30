@@ -89,7 +89,8 @@ class UpdateInterfaceModeIn(Schema):
 
 
 class UpdateAvatarIn(Schema):
-    avatar_id: int
+    # null unequips the current avatar entirely — see update_avatar in api.py.
+    avatar_id: int | None = None
 
 
 class UpdateAvatarItemsIn(Schema):

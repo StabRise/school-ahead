@@ -24,11 +24,20 @@ import { useAuthStore } from "@/stores/auth-store";
 // one — falls back to the raccoon mascot otherwise. Stands next to the
 // current node, the next lesson the child needs to do. `className` is
 // positioning/sizing only — the circular frame only makes sense around a
-// photo, not around the raccoon's own shape.
+// photo, not around the raccoon's own shape. Companion artwork (e.g. the
+// raccoon avatar) is portrait, not square — padding the frame and using
+// object-contain shows it in full instead of object-cover cropping its
+// top/bottom to fill a square frame.
 function CompanionAvatar({ image, className }: { image: string | null | undefined; className: string }) {
   if (image) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={image} alt="" className={`rounded-full border-[3px] border-white object-cover shadow-md ${className}`} />;
+    return (
+      <span
+        className={`flex items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-white/70 p-1.5 shadow-md ${className}`}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={image} alt="" className="h-full w-full object-contain" />
+      </span>
+    );
   }
   return <Raccoon mood="idle" className={className} />;
 }

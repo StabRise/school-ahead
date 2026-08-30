@@ -1,0 +1,16 @@
+#tts-test-voice-widget {
+  margin-top: 8px;
+}
+
+#tts-test-voice-widget .tts-test-text {
+  width: 24em;
+  margin-right: 8px;
+}
+
+#tts-test-voice-widget .tts-test-status {
+  margin-left: 8px;
+}
+
+#tts-test-voice-widget .tts-test-status.tts-test-error {
+  color: #ba2121;
+}

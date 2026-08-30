@@ -28,6 +28,15 @@ const DEFAULT_SIZE = 112;
 const DEFAULT_SPEED = 1;
 const DEFAULT_COUNT = 9;
 
+// For modes with a picture pool (animalsEx/schoolSuppliesEx/family/
+// bodyParts/fruits, see PICTURE_POOL_BY_MODE in balloon-pop-game.tsx) —
+// how many random items from that mode's pool the "game" (balloons) and
+// "learning" (flashcards) screens both draw from, chosen once per
+// (mode, cardCount) so switching between the two never reshuffles it.
+export type BalloonScreenMode = "game" | "learning";
+const DEFAULT_SCREEN_MODE: BalloonScreenMode = "game";
+const DEFAULT_CARD_COUNT = 6;
+
 interface BalloonPopGameState {
   mode: BalloonMode;
   setMode: (mode: BalloonMode) => void;
@@ -43,6 +52,10 @@ interface BalloonPopGameState {
   // still plays, since it isn't tied to the language setting.
   muted: boolean;
   setMuted: (muted: boolean) => void;
+  screenMode: BalloonScreenMode;
+  setScreenMode: (screenMode: BalloonScreenMode) => void;
+  cardCount: number;
+  setCardCount: (cardCount: number) => void;
 }
 
 export const useBalloonPopGameStore = create<BalloonPopGameState>()(
@@ -60,6 +73,10 @@ export const useBalloonPopGameStore = create<BalloonPopGameState>()(
       setMaxOnScreen: (maxOnScreen) => set({ maxOnScreen }),
       muted: false,
       setMuted: (muted) => set({ muted }),
+      screenMode: DEFAULT_SCREEN_MODE,
+      setScreenMode: (screenMode) => set({ screenMode }),
+      cardCount: DEFAULT_CARD_COUNT,
+      setCardCount: (cardCount) => set({ cardCount }),
     }),
     { name: "balloon-pop-game-store" },
   ),

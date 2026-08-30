@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "orval:generate": "orval"
+    "orval:generate": "orval",
+    "piper-voices:generate": "node scripts/generate-piper-voices.mjs"
   },
   "dependencies": {
     "@diffusionstudio/vits-web": "^1.0.3",

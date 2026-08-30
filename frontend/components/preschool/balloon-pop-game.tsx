@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,12 +12,13 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useBalloonPopGameStore, type BalloonMode } from "@/stores/balloon-pop-game-store";
 import { useGameMusicStore } from "@/stores/game-music-store";
 import { BalloonQuiz, buildBalloonQuizQuestions, type BalloonQuizQuestion } from "@/components/preschool/balloon-quiz";
+import { BalloonLearningCards } from "@/components/preschool/balloon-learning-cards";
 
 // Every DIAMOND_MILESTONE ruby balloons popped converts into 1 Diamond,
 // awarded via POST /auth/me/balloon-pop-reward and animated flying to the
 // header's DiamondBadge (components/header.tsx, marked with
 // data-diamond-badge for this to find).
-const DIAMOND_MILESTONE = 10;
+const DIAMOND_MILESTONE = 30;
 
 // Celebration reward minigame — triggers when every one of today's lessons
 // (tails included) is Completed, Pending Review, or Need Help (evaluated by
@@ -188,12 +189,10 @@ const BALLOON_ANIMALS_EX: { name: string; image: string }[] = [
   { name: "Chicken", image: "/preschool/animals/chicken.jpeg" },
   { name: "fox", image: "/preschool/animals/fox.jpeg" },
   { name: "frog", image: "/preschool/animals/frog.jpeg" },
-  { name: "goose", image: "/preschool/animals/goose.jpeg" },
   { name: "hippo", image: "/preschool/animals/hippo.jpeg" },
   { name: "horse", image: "/preschool/animals/horse.jpeg" },
   { name: "goose", image: "/preschool/animals/goose.jpeg" },
   { name: "kangaroo", image: "/preschool/animals/kangaroo.jpeg" },
-  { name: "kitten", image: "/preschool/animals/kitten.jpeg" },
   { name: "koala", image: "/preschool/animals/koala.jpeg" },
   { name: "lion", image: "/preschool/animals/lion.jpeg" },
   { name: "monkey", image: "/preschool/animals/monkey.jpeg" },
@@ -337,6 +336,11 @@ const MIN_SPEED = 0.5;
 const MAX_SPEED = 3;
 const MIN_COUNT = 3;
 const MAX_COUNT = 24;
+// How many random items a picture-pool mode's game/learning screens draw
+// from (see selectedPictureItems below) — MIN_CARD_COUNT keeps the picture
+// quiz's 4-choice questions (buildBalloonQuizQuestions) always solvable.
+const MIN_CARD_COUNT = 6;
+const MAX_CARD_COUNT = 20;
 
 let nextBalloonId = 0;
 let nextParticleId = 0;
@@ -358,6 +362,30 @@ function randomFrom<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
 
+function shuffle<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+// Case-insensitive dedupe, keeping the first occurrence — BALLOON_ANIMALS_EX
+// has a few casing duplicates (e.g. "Panda"/"panda") that would otherwise
+// count as two distinct items when sampling a fixed subset of a mode's pool.
+function uniqueByName<T extends { name: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const item of items) {
+    const key = item.name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(item);
+  }
+  return result;
+}
+
 // Picks the label (and, for "colors" mode, the color that must match it) for
 // a newly spawned balloon. `speech` is what gets read aloud on pop — for
 // "letters" that's just the capital letter, since speaking the "Aa" pair as
@@ -365,6 +393,11 @@ function randomFrom<T>(items: T[]): T {
 function generateBalloonContent(
   mode: BalloonMode,
   language: GameLanguage,
+  // For the 5 picture-pool modes — the fixed subset selectedPictureItems
+  // picked for this mode/cardCount (see BalloonPopGame), so balloons only
+  // ever show the same items the "learning" card grid does. Undefined for
+  // every other mode, which always draws from its full static list.
+  picturePool?: { name: string; image: string }[],
 ): { label: string; icon?: string; image?: string; color: string; speech: string } {
   switch (mode) {
     case "numbers20": {
@@ -393,7 +426,7 @@ function generateBalloonContent(
       return { label: animal.name, icon: animal.emoji, color: randomColor(), speech: animal.name };
     }
     case "animalsEx": {
-      const animal = randomFrom(BALLOON_ANIMALS_EX);
+      const animal = randomFrom(picturePool ?? BALLOON_ANIMALS_EX);
       return { label: animal.name, image: animal.image, color: randomColor(), speech: animal.name };
     }
     case "schoolSupplies": {
@@ -401,19 +434,19 @@ function generateBalloonContent(
       return { label: item.name, icon: item.emoji, color: randomColor(), speech: item.name };
     }
     case "schoolSuppliesEx": {
-      const item = randomFrom(BALLOON_SCHOOL_SUPPLIES_EX);
+      const item = randomFrom(picturePool ?? BALLOON_SCHOOL_SUPPLIES_EX);
       return { label: item.name, image: item.image, color: randomColor(), speech: item.name };
     }
     case "family": {
-      const member = randomFrom(BALLOON_FAMILY);
+      const member = randomFrom(picturePool ?? BALLOON_FAMILY);
       return { label: member.name, image: member.image, color: randomColor(), speech: member.name };
     }
     case "bodyParts": {
-      const part = randomFrom(BALLOON_BODY_PARTS);
+      const part = randomFrom(picturePool ?? BALLOON_BODY_PARTS);
       return { label: part.name, image: part.image, color: randomColor(), speech: part.name };
     }
     case "fruits": {
-      const fruit = randomFrom(BALLOON_FRUITS);
+      const fruit = randomFrom(picturePool ?? BALLOON_FRUITS);
       return { label: fruit.name, image: fruit.image, color: randomColor(), speech: fruit.name };
     }
     case "numbers10":
@@ -785,18 +818,43 @@ export function BalloonPopGame() {
   const setLanguage = useBalloonPopGameStore((s) => s.setLanguage);
   const muted = useBalloonPopGameStore((s) => s.muted);
   const setMuted = useBalloonPopGameStore((s) => s.setMuted);
+  const screenMode = useBalloonPopGameStore((s) => s.screenMode);
+  const setScreenMode = useBalloonPopGameStore((s) => s.setScreenMode);
+  const cardCount = useBalloonPopGameStore((s) => s.cardCount);
+  const setCardCount = useBalloonPopGameStore((s) => s.setCardCount);
   const musicEnabled = useGameMusicStore((s) => s.musicEnabled);
   const setMusicEnabled = useGameMusicStore((s) => s.setMusicEnabled);
   const musicVolume = useGameMusicStore((s) => s.volume);
   const setMusicVolume = useGameMusicStore((s) => s.setVolume);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const picturePool = PICTURE_POOL_BY_MODE[mode];
+  const isPictureMode = Boolean(picturePool);
+
+  // The fixed subset of `mode`'s picture pool that both the "game" (balloon)
+  // and "learning" (flashcard) screens draw from — re-picked only when
+  // `mode` or `cardCount` changes, so toggling between the two screens never
+  // reshuffles it. `null` for modes with no picture pool at all.
+  const selectedPictureItems = useMemo(() => {
+    if (!picturePool) return null;
+    const unique = uniqueByName(picturePool);
+    return shuffle(unique).slice(0, Math.min(cardCount, unique.length));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, cardCount]);
+
+  // "Learning" only makes sense for picture-pool modes — falls back to
+  // "game" if the mode changes to one without a card grid to show (e.g. the
+  // settings panel's mode dropdown is switched away mid-session).
+  useEffect(() => {
+    if (!isPictureMode && screenMode === "learning") setScreenMode("game");
+  }, [isPictureMode, screenMode, setScreenMode]);
+
   useBackgroundMusic();
 
   useEffect(() => {
-    // Paused while the bonus quiz overlay is open — no point spawning
-    // balloons the child can't see or reach behind it.
-    if (quizQuestions) return;
+    // Paused while the bonus quiz overlay is open, or while showing the
+    // static "learning" card grid instead of falling balloons.
+    if (quizQuestions || screenMode === "learning") return;
     const interval = setInterval(() => {
       setBalloons((current) => {
         if (current.length >= maxOnScreen) return current;
@@ -807,7 +865,7 @@ export function BalloonPopGame() {
           Math.random() < QUIZ_BALLOON_SPAWN_CHANCE;
         const content = canSpawnQuizBalloon
           ? { label: "?", color: QUIZ_BALLOON_COLOR, speech: "" }
-          : generateBalloonContent(mode, language);
+          : generateBalloonContent(mode, language, selectedPictureItems ?? undefined);
 
         const balloon: FallingBalloon = {
           id: nextBalloonId++,
@@ -826,7 +884,7 @@ export function BalloonPopGame() {
       });
     }, SPAWN_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [size, speed, maxOnScreen, mode, language, quizQuestions]);
+  }, [size, speed, maxOnScreen, mode, language, quizQuestions, screenMode, selectedPictureItems]);
 
   // Warms the voice model cache as soon as a language is selected, so the
   // first popped balloon doesn't stall on a multi-megabyte download — then
@@ -885,7 +943,7 @@ export function BalloonPopGame() {
       // Clears every other balloon too — a calm, empty screen behind the
       // quiz overlay instead of balloons drifting past its translucent scrim.
       setBalloons([]);
-      setQuizQuestions(buildBalloonQuizQuestions(mode, PICTURE_POOL_BY_MODE[mode] ?? []));
+      setQuizQuestions(buildBalloonQuizQuestions(mode, selectedPictureItems ?? []));
       return;
     }
 
@@ -999,6 +1057,20 @@ export function BalloonPopGame() {
               ))}
             </select>
           </label>
+          {isPictureMode && (
+            <label className="flex flex-col gap-1">
+              <span className="font-medium text-gray-700">
+                {t("cardCountLabel")} ({cardCount})
+              </span>
+              <input
+                type="range"
+                min={MIN_CARD_COUNT}
+                max={MAX_CARD_COUNT}
+                value={cardCount}
+                onChange={(e) => setCardCount(Number(e.target.value))}
+              />
+            </label>
+          )}
           <label className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("languageLabel")}</span>
             <select
@@ -1062,18 +1134,51 @@ export function BalloonPopGame() {
         </div>
       )}
 
-      {balloons.map((balloon) => (
-        <BalloonNode
-          key={balloon.id}
-          balloon={balloon}
-          label={balloon.isQuizBalloon ? t("heartBalloon") : t("balloon")}
-          onPop={handlePop}
-          onMissed={handleMissed}
-        />
-      ))}
+      {screenMode === "learning" && selectedPictureItems ? (
+        <BalloonLearningCards items={selectedPictureItems} language={language} muted={muted} />
+      ) : (
+        balloons.map((balloon) => (
+          <BalloonNode
+            key={balloon.id}
+            balloon={balloon}
+            label={balloon.isQuizBalloon ? t("heartBalloon") : t("balloon")}
+            onPop={handlePop}
+            onMissed={handleMissed}
+          />
+        ))
+      )}
 
       {quizQuestions && (
         <BalloonQuiz questions={quizQuestions} language={language} muted={muted} onFinish={handleQuizFinish} />
+      )}
+
+      {isPictureMode && (
+        <div className="absolute bottom-4 right-4 z-10 flex overflow-hidden rounded-full bg-white p-1 text-sm font-bold shadow-lg ring-2 ring-gray-200">
+          <button
+            type="button"
+            onClick={() => setScreenMode("game")}
+            className={`rounded-full px-3 py-1.5 transition-colors ${
+              screenMode === "game" ? "bg-emerald-500 text-white" : "text-gray-600"
+            }`}
+          >
+            {t("screenModeGame")}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              // Empties any falling balloons behind the card grid — same as
+              // popping the bonus-quiz heart balloon does — rather than
+              // leaving them to keep drifting/landing underneath it.
+              setBalloons([]);
+              setScreenMode("learning");
+            }}
+            className={`rounded-full px-3 py-1.5 transition-colors ${
+              screenMode === "learning" ? "bg-emerald-500 text-white" : "text-gray-600"
+            }`}
+          >
+            {t("screenModeLearning")}
+          </button>
+        </div>
       )}
 
       {particles.map((particle) => (

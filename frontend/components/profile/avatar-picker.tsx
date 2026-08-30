@@ -18,9 +18,10 @@ export function AvatarPicker() {
   const queryClient = useQueryClient();
   const { data: avatars, isLoading, isError } = useListAvatars();
   const updateAvatar = useUpdateAvatar();
+  const isNoneSelected = !user?.equippedAvatar;
 
-  const handleSelect = (avatarId: number) => {
-    if (updateAvatar.isPending || user?.equippedAvatar?.id === avatarId) return;
+  const handleSelect = (avatarId: number | null) => {
+    if (updateAvatar.isPending || (user?.equippedAvatar?.id ?? null) === avatarId) return;
     updateAvatar.mutate(
       { data: { avatar_id: avatarId } },
       {
@@ -41,6 +42,26 @@ export function AvatarPicker() {
 
       {avatars && avatars.length > 0 && (
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+          <button
+            type="button"
+            onClick={() => handleSelect(null)}
+            disabled={updateAvatar.isPending}
+            aria-pressed={isNoneSelected}
+            className={`flex flex-col items-center gap-1.5 rounded-lg border p-2 text-center transition-colors disabled:cursor-default disabled:opacity-60 ${
+              isNoneSelected
+                ? "border-gray-900 bg-gray-900/5"
+                : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+            }`}
+          >
+            {/* Same "none" glyph as the wardrobe slots (wardrobeNone) —
+                header.tsx already falls back to the Google account picture,
+                or generated initials if there isn't one, once
+                equippedAvatar is cleared. */}
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-2xl text-gray-400">
+              🚫
+            </span>
+            <span className="text-xs font-medium text-gray-700">{t("avatarNoneLabel")}</span>
+          </button>
           {avatars.map((avatar) => {
             const isSelected = user?.equippedAvatar?.id === avatar.id;
             return (

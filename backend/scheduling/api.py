@@ -26,6 +26,7 @@ from .schemas import (
     GenerateClassScheduleOut,
     RescheduleIn,
     TodayOut,
+    WeeklyCompletionOut,
 )
 
 router = Router(tags=['schedule'], auth=CookieOrBearerJWTAuth())
@@ -61,6 +62,8 @@ def _calendar_item(request: HttpRequest, student_lesson: StudentLesson) -> Calen
         lesson_icon=_absolute_file_url(student_lesson.lesson.icon, request),
         subject_icon=_absolute_file_url(subject.icon, request),
         subject_color=subject.color or None,
+        lesson_type=student_lesson.lesson.lesson_type,
+        task_content=student_lesson.lesson.task_content,
     )
 
 
@@ -91,6 +94,15 @@ def backlog(request: HttpRequest):
     student = get_own_student_profile(request)
     items = services.get_backlog(student, datetime.date.today())
     return [_backlog_item(request, sl) for sl in items]
+
+
+@router.get('/weekly-progress', response=WeeklyCompletionOut, operation_id='get_weekly_progress')
+def weekly_progress(request: HttpRequest, week_start: datetime.date):
+    """Mon-Sun histogram plus the week's own completed_percent for the
+    dashboard sidebar. See services.get_week_completion_counts."""
+    student = get_own_student_profile(request)
+    result = services.get_week_completion_counts(student, week_start)
+    return WeeklyCompletionOut(**result)
 
 
 @router.get(
