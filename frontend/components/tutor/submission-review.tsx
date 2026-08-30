@@ -16,6 +16,7 @@ import { Link } from "@/i18n/navigation";
 import { StatusBadge } from "@/components/status-badge";
 import { PageContainer } from "@/components/page-container";
 import { SubmissionThread } from "@/components/submission-thread";
+import { Markdown } from "@/components/markdown";
 import { SubmissionComments } from "./submission-comments";
 
 // Invalidated (not just refetched) on every mutation below so the tutor
@@ -283,22 +284,41 @@ export function SubmissionReview({ studentLessonId }: { studentLessonId: number 
   }
 
   return (
-    <PageContainer title={data.lesson_title}>
+    <PageContainer>
       <div className="mb-4 flex flex-col gap-4">
         <Link href="/" className="self-start text-sm text-blue-600 underline hover:no-underline">
           {t("back")}
         </Link>
 
+        <Link href={`/tutor/lessons/${data.lesson_id}`} className="text-xl font-semibold hover:underline">
+          {data.lesson_title}
+        </Link>
+
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="font-medium">{data.student_name}</p>
+            <Link href={`/tutor/students/${data.student_id}/calendar`} className="font-medium hover:underline">
+              {data.student_name}
+            </Link>
             <p className="text-sm text-gray-500">
-              {data.class_name} · {data.subject_name}
+              <Link href={`/tutor/classes/${data.class_id}`} className="hover:underline">
+                {data.class_name}
+              </Link>{" "}
+              ·{" "}
+              <Link href={`/tutor/subjects/${data.subject_id}`} className="hover:underline">
+                {data.subject_name}
+              </Link>
             </p>
           </div>
           <StatusBadge status={data.status} />
         </div>
       </div>
+
+      {data.task_content && (
+        <div className="mb-4 flex flex-col gap-1 rounded-md bg-gray-100 p-4">
+          <h3 className="text-sm font-semibold text-gray-700">{t("taskContentTitle")}</h3>
+          <Markdown content={data.task_content} embedYoutube embedPdf />
+        </div>
+      )}
 
       <div className="flex flex-col gap-4">
         {data.status === "need_help" && <NeedHelpPanel detail={data} />}

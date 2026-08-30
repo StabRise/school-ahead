@@ -387,3 +387,37 @@ class TestDiamondRewards:
 
         student.refresh_from_db()
         assert student.diamond_balance_cache == 1
+
+
+class TestCompletionPercentCache:
+    def test_completing_a_lesson_updates_cache_against_the_whole_class_curriculum(self):
+        school = School.objects.create(name='Ahead School')
+        school_class = Class.objects.create(school=school, name='5', order_index=5, academic_year='2025/2026')
+        subject = Subject.objects.create(school_class=school_class, name='Math')
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
+        student = StudentProfile.objects.create(user=user, school_class=school_class)
+
+        # Four lessons total in the class's curriculum, only one assigned to
+        # (and completed by) this student.
+        first = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        for order_index in (2, 3, 4):
+            Lesson.objects.create(
+                topic=topic, order_index=order_index, title=f'Lesson {order_index}',
+                lesson_type=LessonType.THEORY, grading_type='binary',
+            )
+
+        services.start(first, user)
+        services.confirm_understanding(first, user, True)
+
+        student.refresh_from_db()
+        assert student.completed_lessons_percent_cache == 25
+
+    def test_no_school_class_leaves_cache_untouched(self, topic, student):
+        assert student.school_class_id is None
+        sl = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        services.start(sl, student.user)
+        services.confirm_understanding(sl, student.user, True)
+
+        student.refresh_from_db()
+        assert student.completed_lessons_percent_cache == 0

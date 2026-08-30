@@ -12,10 +12,11 @@ import {
   useTutoringApiPendingReview,
   useTutoringApiResolveNeedHelp,
 } from "@/lib/api/browser/tutor/tutor";
-import type { TutorFeedItemOut, TutorStudentOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
+import type { TutorFeedItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Link } from "@/i18n/navigation";
 import { Card } from "@/components/card";
 import { PageContainer } from "@/components/page-container";
+import { MyStudentsSidebar } from "@/components/tutor/my-students-sidebar";
 
 const UPDATED_AT_FORMAT = new Intl.DateTimeFormat("uk-UA", {
   day: "numeric",
@@ -140,55 +141,6 @@ function FeedColumn({
   );
 }
 
-// Right-sidebar "Мої учні" list — every student reachable by the tutor
-// (same `students` fetch the filters row above already uses), grouped by
-// class. Each name links to that student's read-only calendar (see
-// tutor-class-detail-page.tsx's StudentRow for the same destination).
-function MyStudentsSidebar({ students }: { students: TutorStudentOut[] }) {
-  const t = useTranslations("TutorDashboard");
-
-  const studentsByClass = useMemo(() => {
-    const groups = new Map<number, { className: string; students: TutorStudentOut[] }>();
-    for (const s of students) {
-      const group = groups.get(s.class_id);
-      if (group) {
-        group.students.push(s);
-      } else {
-        groups.set(s.class_id, { className: s.class_name, students: [s] });
-      }
-    }
-    return Array.from(groups, ([classId, group]) => ({ classId, ...group })).sort((a, b) =>
-      a.className.localeCompare(b.className, undefined, { numeric: true }),
-    );
-  }, [students]);
-
-  return (
-    <aside className="flex w-full flex-col gap-4 lg:w-64 lg:shrink-0">
-      <h3 className="text-lg font-semibold">{t("myStudentsTitle")}</h3>
-
-      {studentsByClass.length === 0 && <p className="text-sm text-gray-500">{t("noStudents")}</p>}
-
-      {studentsByClass.map((group) => (
-        <div key={group.classId} className="flex flex-col gap-1">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">{group.className}</h4>
-          <ul className="flex flex-col gap-0.5">
-            {group.students.map((s) => (
-              <li key={s.id}>
-                <Link
-                  href={`/tutor/students/${s.id}/calendar`}
-                  className="block truncate rounded px-2 py-1 text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-700"
-                >
-                  {s.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </aside>
-  );
-}
-
 export function TutorDashboard() {
   const t = useTranslations("TutorDashboard");
   const queryClient = useQueryClient();
@@ -237,75 +189,76 @@ export function TutorDashboard() {
   };
 
   return (
-    <PageContainer title={t("title")}>
-      <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-8">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="mb-6 flex flex-wrap gap-3">
-            <select
-              value={subjectId ?? ""}
-              onChange={(e) => setSubjectId(e.target.value ? Number(e.target.value) : undefined)}
-              className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-700"
-            >
-              <option value="">{t("allSubjects")}</option>
-              {subjectOptions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+    <PageContainer>
+      <div className="flex flex-col gap-8 bg-white lg:flex-row lg:items-start lg:gap-8">
+        {/* Left: filters */}
+        <div className="flex w-full flex-col gap-3 lg:w-48 lg:shrink-0">
+          <select
+            value={subjectId ?? ""}
+            onChange={(e) => setSubjectId(e.target.value ? Number(e.target.value) : undefined)}
+            className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-700"
+          >
+            <option value="">{t("allSubjects")}</option>
+            {subjectOptions.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
 
-            <select
-              value={classId ?? ""}
-              onChange={(e) => setClassId(e.target.value ? Number(e.target.value) : undefined)}
-              className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-700"
-            >
-              <option value="">{t("allClasses")}</option>
-              {classOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+          <select
+            value={classId ?? ""}
+            onChange={(e) => setClassId(e.target.value ? Number(e.target.value) : undefined)}
+            className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-700"
+          >
+            <option value="">{t("allClasses")}</option>
+            {classOptions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
 
-            <select
-              value={studentId ?? ""}
-              onChange={(e) => setStudentId(e.target.value ? Number(e.target.value) : undefined)}
-              className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-700"
-            >
-              <option value="">{t("allStudents")}</option>
-              {(students ?? []).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {resolveNeedHelp.isError && <p className="mb-3 text-sm text-red-600">{t("markHelpedError")}</p>}
-
-          <div className="flex flex-col gap-8 md:flex-row md:gap-6">
-            <FeedColumn
-              title={t("needHelpTitle")}
-              items={needHelp.data?.items ?? []}
-              isLoading={needHelp.isLoading}
-              isError={needHelp.isError}
-              emptyLabel={t("needHelpEmpty")}
-              errorLabel={t("error")}
-              showHelpNote
-              onMarkHelped={handleMarkHelped}
-              resolvingId={resolveNeedHelp.isPending ? resolveNeedHelp.variables?.studentLessonId : undefined}
-            />
-            <FeedColumn
-              title={t("pendingReviewTitle")}
-              items={pendingReview.data?.items ?? []}
-              isLoading={pendingReview.isLoading}
-              isError={pendingReview.isError}
-              emptyLabel={t("pendingReviewEmpty")}
-              errorLabel={t("error")}
-            />
-          </div>
+          <select
+            value={studentId ?? ""}
+            onChange={(e) => setStudentId(e.target.value ? Number(e.target.value) : undefined)}
+            className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-700"
+          >
+            <option value="">{t("allStudents")}</option>
+            {(students ?? []).map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
         </div>
 
+        {/* Center: Потрібна допомога / На перевірці, stacked */}
+        <div className="flex min-w-0 flex-1 flex-col gap-8">
+          {resolveNeedHelp.isError && <p className="text-sm text-red-600">{t("markHelpedError")}</p>}
+
+          <FeedColumn
+            title={t("needHelpTitle")}
+            items={needHelp.data?.items ?? []}
+            isLoading={needHelp.isLoading}
+            isError={needHelp.isError}
+            emptyLabel={t("needHelpEmpty")}
+            errorLabel={t("error")}
+            showHelpNote
+            onMarkHelped={handleMarkHelped}
+            resolvingId={resolveNeedHelp.isPending ? resolveNeedHelp.variables?.studentLessonId : undefined}
+          />
+          <FeedColumn
+            title={t("pendingReviewTitle")}
+            items={pendingReview.data?.items ?? []}
+            isLoading={pendingReview.isLoading}
+            isError={pendingReview.isError}
+            emptyLabel={t("pendingReviewEmpty")}
+            errorLabel={t("error")}
+          />
+        </div>
+
+        {/* Right: Мої учні, visually set apart from the white page background */}
         <MyStudentsSidebar students={students ?? []} />
       </div>
     </PageContainer>

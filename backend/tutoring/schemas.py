@@ -57,6 +57,10 @@ class TutorStudentOut(Schema):
     name: str
     class_id: int
     class_name: str
+    # Denormalized on StudentProfile (same pattern as diamond_balance_cache) —
+    # see lessons.services._update_completion_percent_cache, refreshed on
+    # every lesson completion rather than computed here on every request.
+    completed_percent: float
 
 
 class TutorClassOut(Schema):
@@ -76,13 +80,18 @@ class TutorClassDetailOut(TutorClassOut):
 
 class SubmissionDetailOut(Schema):
     student_lesson_id: int
+    student_id: int
     student_name: str
+    class_id: int
     class_name: str
+    subject_id: int
     subject_name: str
+    lesson_id: int
     lesson_title: str
     status: str
     grading_type: str
     help_note: str
+    task_content: str
     submissions: list[LessonSubmissionOut]
 
 

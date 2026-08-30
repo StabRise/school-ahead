@@ -134,6 +134,14 @@ class StudentProfile(models.Model):
     )
     enrolled_at = models.DateField(null=True, blank=True)
     diamond_balance_cache = models.PositiveIntegerField(default=0)
+    # Denormalized "% of the student's whole class curriculum completed" —
+    # every Lesson across every Subject in `school_class`, not just this
+    # student's assigned ones. Refreshed on every lesson completion (see
+    # lessons.services._update_completion_percent_cache) rather than
+    # computed on read, same tradeoff as diamond_balance_cache: cheap to
+    # display (e.g. the tutor dashboard's "Мої учні" list) at the cost of
+    # staying correct only through that one code path.
+    completed_lessons_percent_cache = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     # Toggled from a settings switch (docs/interfaces/preschool.md) — persisted
     # here so it follows the student across sessions and devices.
     interface_mode = models.CharField(

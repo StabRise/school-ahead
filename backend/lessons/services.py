@@ -83,6 +83,32 @@ def _award_completion_diamonds(student_lesson: StudentLesson) -> None:
     )
 
 
+def _update_completion_percent_cache(student_lesson: StudentLesson) -> None:
+    """Refreshes StudentProfile.completed_lessons_percent_cache — the
+    percentage of every Lesson across every Subject in the student's
+    school_class (not just their assigned ones) that's Completed. Powers the
+    tutor dashboard's "Мої учні" list (tutoring.api's TutorStudentOut).
+    Recomputed from scratch (two aggregate queries) rather than incremented
+    like diamond_balance_cache, since the denominator itself can change
+    (subjects/lessons added to the curriculum) independently of any single
+    completion."""
+    class_id = student_lesson.student.school_class_id
+    if class_id is None:
+        return
+    total = Lesson.objects.filter(topic__subject__school_class_id=class_id).count()
+    if total == 0:
+        return
+    completed = StudentLesson.objects.filter(
+        student_id=student_lesson.student_id,
+        status=StudentLessonStatus.COMPLETED,
+        lesson__topic__subject__school_class_id=class_id,
+    ).count()
+    percent = round(completed / total * 100, 2)
+    StudentProfile.objects.filter(pk=student_lesson.student_id).update(
+        completed_lessons_percent_cache=percent
+    )
+
+
 def mark_completed(
     student_lesson: StudentLesson,
     actor: User,
@@ -96,6 +122,7 @@ def mark_completed(
     student_lesson.grade_result = grade_result
     student_lesson.save()
     _award_completion_diamonds(student_lesson)
+    _update_completion_percent_cache(student_lesson)
 
 
 def start(student_lesson: StudentLesson, actor: User) -> None:

@@ -147,6 +147,7 @@
     "error": "Не вдалося завантажити дані. Спробуйте ще раз.",
     "myStudentsTitle": "Мої учні",
     "noStudents": "Немає учнів.",
+    "classLabel": "Клас {name}",
     "markHelpedButton": "Учитель допоміг",
     "markHelpedPending": "Зберігаємо...",
     "markHelpedComment": "Питання вирішено з учителем",
@@ -327,7 +328,8 @@
     "failOption": "Незалік",
     "feedbackLabel": "Відгук тьютора",
     "completeButton": "Завершити з оцінкою",
-    "requestRevisionButton": "Повернути на доопрацювання"
+    "requestRevisionButton": "Повернути на доопрацювання",
+    "taskContentTitle": "Завдання"
   },
   "SubmissionThread": {
     "latestBadge": "Остання спроба",

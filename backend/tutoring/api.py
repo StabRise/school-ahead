@@ -120,6 +120,20 @@ def _tutor_assignments_with_counts(request: HttpRequest, **filters):
     )
 
 
+def _tutor_student_out(student: StudentProfile, *, class_id: int | None = None, class_name: str | None = None) -> TutorStudentOut:
+    """Shared TutorStudentOut builder — `class_id`/`class_name` are only
+    overridable for get_tutor_class's roster, where the caller already has
+    the Class object in hand and skips select_related('school_class') on
+    the student queryset."""
+    return TutorStudentOut(
+        id=student.id,
+        name=student.user.full_name or student.user.email,
+        class_id=class_id if class_id is not None else student.school_class_id,
+        class_name=class_name if class_name is not None else (student.school_class.name if student.school_class else ''),
+        completed_percent=float(student.completed_lessons_percent_cache),
+    )
+
+
 def _assignment_out(assignment: TutorSubjectAssignment, request: HttpRequest) -> AssignmentOut:
     return AssignmentOut(
         subject_id=assignment.subject_id,
@@ -412,15 +426,7 @@ def list_assignable_students(request: HttpRequest, lesson_id: int):
         .select_related('user', 'school_class')
         .order_by('user__first_name', 'user__last_name')
     )
-    return [
-        TutorStudentOut(
-            id=s.id,
-            name=s.user.full_name or s.user.email,
-            class_id=s.school_class_id,
-            class_name=s.school_class.name if s.school_class else '',
-        )
-        for s in students
-    ]
+    return [_tutor_student_out(s) for s in students]
 
 
 @router.post(
@@ -467,15 +473,7 @@ def delete_student_lesson(request: HttpRequest, student_lesson_id: int, response
 @router.get('/students', response=list[TutorStudentOut])
 def list_students(request: HttpRequest):
     students = services.get_tutor_students(request.auth)
-    return [
-        TutorStudentOut(
-            id=s.id,
-            name=s.user.full_name or s.user.email,
-            class_id=s.school_class_id,
-            class_name=s.school_class.name if s.school_class else '',
-        )
-        for s in students
-    ]
+    return [_tutor_student_out(s) for s in students]
 
 
 @router.get('/students/{student_id}', response=TutorStudentOut, operation_id='get_tutor_student')
@@ -485,12 +483,7 @@ def get_student(request: HttpRequest, student_id: int):
     directly by student_id."""
     student = get_object_or_404(StudentProfile.objects.select_related('user', 'school_class'), id=student_id)
     services.ensure_is_tutor_for_class(request, student.school_class_id)
-    return TutorStudentOut(
-        id=student.id,
-        name=student.user.full_name or student.user.email,
-        class_id=student.school_class_id,
-        class_name=student.school_class.name if student.school_class else '',
-    )
+    return _tutor_student_out(student)
 
 
 @router.get(
@@ -626,8 +619,7 @@ def get_tutor_class(request: HttpRequest, class_id: int):
     return TutorClassDetailOut(
         **summary.dict(),
         students=[
-            TutorStudentOut(id=s.id, name=s.user.full_name or s.user.email, class_id=class_id, class_name=school_class.name)
-            for s in students
+            _tutor_student_out(s, class_id=class_id, class_name=school_class.name) for s in students
         ],
         subjects=[_assignment_out(a, request) for a in assignments],
     )
@@ -680,13 +672,18 @@ def get_submission(request: HttpRequest, student_lesson_id: int):
     return SubmissionDetailOut.model_validate(
         {
             'student_lesson_id': student_lesson.id,
+            'student_id': student_lesson.student_id,
             'student_name': student_user.full_name or student_user.email,
+            'class_id': subject.school_class_id,
             'class_name': subject.school_class.name,
+            'subject_id': subject.id,
             'subject_name': subject.name,
+            'lesson_id': student_lesson.lesson_id,
             'lesson_title': student_lesson.lesson.title,
             'status': student_lesson.status,
             'grading_type': student_lesson.lesson.grading_type,
             'help_note': student_lesson.help_note,
+            'task_content': student_lesson.lesson.task_content,
             'submissions': list(student_lesson.submissions.order_by('submitted_at')),
         },
         context={'request': request},
