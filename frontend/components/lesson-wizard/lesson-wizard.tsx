@@ -104,21 +104,42 @@ function AssessmentStep({
     }
   })();
 
+  const tutorFeedbackBanner = tutor_feedback && (
+    <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3">
+      <h2 className="text-sm font-semibold text-blue-900">{t("teacherFeedbackTitle")}</h2>
+      <p className="mt-1 text-sm whitespace-pre-wrap text-blue-900">{tutor_feedback}</p>
+    </div>
+  );
+
+  // A task has its own two-up layout — the assignment/form on a narrower
+  // left, its upload history on a wider right — so past attempts stay
+  // visible while working on the next one instead of scrolling past them.
+  // Quiz/theory steps are a single self-contained interaction with nothing
+  // to show alongside, so they keep the plain single-column card.
+  if (lesson.lesson_type === "with_task") {
+    return (
+      <div className="flex flex-col gap-5">
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,380px)_1fr]">
+          <Card className="flex flex-col gap-4 bg-gray-50">
+            <h2 className="text-sm font-semibold text-gray-900">{t("uploadTaskTitle")}</h2>
+            {tutorFeedbackBanner}
+            {interactiveContent}
+          </Card>
+          {submissions.length > 0 && (
+            <Card className="flex flex-col gap-3">
+              <h2 className="text-sm font-semibold text-gray-900">{t("submissionHistoryTitle")}</h2>
+              <SubmissionThread submissions={submissions} />
+            </Card>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-5">
-      {tutor_feedback && (
-        <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3">
-          <h2 className="text-sm font-semibold text-blue-900">{t("teacherFeedbackTitle")}</h2>
-          <p className="mt-1 text-sm whitespace-pre-wrap text-blue-900">{tutor_feedback}</p>
-        </div>
-      )}
-
-      <Card className="flex flex-col gap-4">
-        {lesson.lesson_type === "with_task" && submissions.length > 0 && (
-          <SubmissionThread submissions={submissions} />
-        )}
-        {interactiveContent}
-      </Card>
+      {tutorFeedbackBanner}
+      <Card className="flex flex-col gap-4">{interactiveContent}</Card>
     </div>
   );
 }

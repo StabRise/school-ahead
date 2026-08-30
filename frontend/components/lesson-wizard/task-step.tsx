@@ -70,19 +70,19 @@ export function TaskStep({
       {taskContent && <Markdown content={taskContent} embedYoutube embedPdf />}
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="task-comment" className="text-sm font-medium">
+        <label htmlFor="task-comment" className="text-sm font-medium text-gray-700">
           {t("commentLabel")}
         </label>
         <textarea
           id="task-comment"
           rows={3}
-          className="rounded-md border border-gray-300 p-2 text-sm"
+          className="rounded-md border border-gray-300 p-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
           {...register("comment")}
         />
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="task-file" className="text-sm font-medium">
+        <label htmlFor="task-file" className="text-sm font-medium text-gray-700">
           {t("fileLabel")}
         </label>
         <div
@@ -105,8 +105,8 @@ export function TaskStep({
             setIsDragging(false);
             selectFile(e.dataTransfer.files);
           }}
-          className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed p-6 text-center transition-colors ${
-            isDragging ? "border-gray-900 bg-gray-50" : "border-gray-300"
+          className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed p-6 text-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
+            isDragging ? "border-gray-900 bg-gray-50" : "border-gray-300 hover:border-gray-400"
           }`}
         >
           {selectedFile ? (
@@ -141,7 +141,7 @@ export function TaskStep({
       <button
         type="submit"
         disabled={mutation.isPending}
-        className="self-start rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        className="w-full rounded-md bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
       >
         {isResubmit ? t("resubmitButton") : t("submitButton")}
       </button>

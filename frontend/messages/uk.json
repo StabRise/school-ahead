@@ -332,6 +332,7 @@
   },
   "SubmissionThread": {
     "latestBadge": "Остання спроба",
+    "reviewedBadge": "Перевірено",
     "fileLabel": "Відкрити файл",
     "noFile": "Без файлу",
     "tutorReplyLabel": "Відповідь тьютора"
@@ -353,6 +354,8 @@
     "pendingReviewWaiting": "Вашу роботу надіслано на перевірку тьютору.",
     "completedTitle": "Урок завершено!",
     "teacherFeedbackTitle": "Відгук тьютора",
+    "uploadTaskTitle": "Завантажити роботу",
+    "submissionHistoryTitle": "Історія завантажень",
     "breadcrumbLessons": "Уроки",
     "breadcrumbMaterials": "Теорія",
     "breadcrumbAssessment": "Завдання",
