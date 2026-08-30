@@ -684,6 +684,7 @@ def get_submission(request: HttpRequest, student_lesson_id: int):
             'grading_type': student_lesson.lesson.grading_type,
             'help_note': student_lesson.help_note,
             'task_content': student_lesson.lesson.task_content,
+            'scheduled_date': student_lesson.scheduled_date,
             'submissions': list(student_lesson.submissions.order_by('submitted_at')),
         },
         context={'request': request},

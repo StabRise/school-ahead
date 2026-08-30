@@ -92,6 +92,7 @@ class SubmissionDetailOut(Schema):
     grading_type: str
     help_note: str
     task_content: str
+    scheduled_date: datetime.date
     submissions: list[LessonSubmissionOut]
 
 
