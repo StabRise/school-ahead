@@ -25,21 +25,22 @@ export function QuizCard({ children }: { children: React.ReactNode }) {
 
 export function QuizBanner({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative bg-gradient-to-r from-fuchsia-400 via-pink-400 to-amber-300 px-6 py-7 text-center sm:py-9">
+    <div className="relative bg-gradient-to-r from-fuchsia-400 via-pink-400 to-amber-300 px-6 py-1 text-center sm:py-2">
       {children}
     </div>
   );
 }
 
-// The 🔊 read-aloud button that overlays the top-left corner of a QuizBanner
-// — only meaningful inside a `relative` ancestor (QuizBanner already is one).
+// The 🔊 read-aloud button — sits inline right after the question text (see
+// QuestionRound in quiz-game.tsx and BalloonQuiz), not pinned to a corner,
+// so it reads as part of the question rather than page chrome.
 export function QuizReadAloudButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="absolute left-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-xl shadow-md transition-transform active:scale-95"
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/90 text-base shadow-md transition-transform active:scale-95"
     >
       🔊
     </button>

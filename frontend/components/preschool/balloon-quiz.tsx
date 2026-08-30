@@ -415,23 +415,25 @@ export function BalloonQuiz({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg">
         <QuizCard>
-          <QuizBanner>
-            <QuizReadAloudButton
-              label={t("readAloudButton")}
-              onClick={() => question && speak(questionText(question, language), language, "sentence")}
-            />
-            <p className="text-sm font-bold text-white drop-shadow sm:text-base">{t("title")}</p>
-          </QuizBanner>
-
           {question ? (
-            <div className="relative flex flex-col gap-5 p-6">
-              <p className="text-center text-sm font-bold text-emerald-900 sm:text-base">
-                {t("progress", { current: currentIndex + 1, total: questions.length })}
-              </p>
-              <p className="text-center text-lg font-bold text-gray-800 sm:text-xl">
-                {questionText(question, language)}
-              </p>
+            <>
+              <QuizBanner>
+                <p className="text-center text-sm font-bold text-gray-900/70 sm:text-base">
+                  {t("progress", { current: currentIndex + 1, total: questions.length })}
+                </p>
+              </QuizBanner>
 
+              <div className="flex mt-4 items-center justify-center gap-2">
+                <p className="text-center text-xl font-extrabold uppercase text-gray-900 sm:text-2xl">
+                  {questionText(question, language)}
+                </p>
+                <QuizReadAloudButton
+                  label={t("readAloudButton")}
+                  onClick={() => speak(questionText(question, language), language, "sentence")}
+                />
+              </div>
+
+              <div className="relative flex flex-col gap-5 p-6">
               {question.kind === "counting" ? (
                 <>
                   <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-gray-50 p-4 text-3xl sm:text-4xl">
@@ -517,9 +519,10 @@ export function BalloonQuiz({
                   }
                 />
               )}
-            </div>
+              </div>
+            </>
           ) : (
-          <div className="relative flex flex-col items-center gap-4 p-6 text-center">
+            <div className="relative flex flex-col items-center gap-4 p-6 text-center">
             {passed && <CelebrationStars />}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

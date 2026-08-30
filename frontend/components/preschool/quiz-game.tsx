@@ -33,9 +33,11 @@ type Feedback = "correct" | "incorrect" | null;
 // naturally resets) it instead of an effect resetting state by hand.
 function QuestionRound({
   question,
+  progress,
   onAnswered,
 }: {
   question: QuizQuestionOut;
+  progress: React.ReactNode;
   onAnswered: (choiceId: number) => void;
 }) {
   const t = useTranslations("PreschoolQuizGame");
@@ -96,11 +98,15 @@ function QuestionRound({
   return (
     <>
       <QuizBanner>
-        <QuizReadAloudButton label={t("readAloudButton")} onClick={handleReadAloud} />
-        <div className="text-xl font-extrabold uppercase text-gray-900 [&_p]:m-0 [&_p]:text-xl sm:[&_p]:text-2xl md:[&_p]:text-3xl lg:[&_p]:text-4xl">
+        <p className="text-center text-sm font-bold text-gray-900/70 sm:text-base">{progress}</p>
+      </QuizBanner>
+
+      <div className="flex items-center mt-4 justify-center gap-2">
+        <div className="text-center text-xl font-extrabold uppercase text-gray-900 [&_p]:m-0 [&_p]:text-xl sm:[&_p]:text-2xl">
           <Markdown content={question.prompt} />
         </div>
-      </QuizBanner>
+        <QuizReadAloudButton label={t("readAloudButton")} onClick={handleReadAloud} />
+      </div>
 
       {/* `relative` so the post-answer raccoon can overlay this area instead
           of adding height below it — an added block there used to make the
@@ -210,50 +216,56 @@ export function PreschoolQuizGame({
 
   if (isAnswered) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-3">
-        <QuizCard>
-          <QuizBanner>
-            <p className="text-xl font-extrabold uppercase text-gray-900 sm:text-2xl md:text-3xl lg:text-4xl">
-              {t("scoreResult", { score: lastScore })}
-            </p>
-          </QuizBanner>
-          <div className="flex flex-col items-center gap-3 px-6 py-8">
-            <Raccoon mood={failed ? "sad" : "happy"} className="h-28 w-28" />
-            <p className={failed ? "text-base text-red-700" : "text-lg font-bold text-emerald-700"}>
-              {failed ? t("failedMessage") : t("passedMessage")}
-            </p>
-            {failed && (
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={onBackToMaterials}
-                  className="rounded-full bg-white px-6 py-3 text-lg font-bold text-emerald-800 shadow-lg ring-2 ring-inset ring-emerald-300 transition-transform active:scale-95"
-                >
-                  {t("backToMaterialsButton")}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleRetry}
-                  className="rounded-full bg-amber-400 px-6 py-3 text-lg font-bold text-amber-950 shadow-lg transition-transform active:scale-95"
-                >
-                  {t("retryButton")}
-                </button>
-              </div>
-            )}
-          </div>
-        </QuizCard>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="w-full max-w-lg">
+          <QuizCard>
+            <QuizBanner>
+              <p className="text-xl font-extrabold uppercase text-gray-900 sm:text-2xl">
+                {t("scoreResult", { score: lastScore })}
+              </p>
+            </QuizBanner>
+            <div className="flex flex-col items-center gap-3 px-6 py-8">
+              <Raccoon mood={failed ? "sad" : "happy"} className="h-28 w-28" />
+              <p className={failed ? "text-base text-red-700" : "text-lg font-bold text-emerald-700"}>
+                {failed ? t("failedMessage") : t("passedMessage")}
+              </p>
+              {failed && (
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={onBackToMaterials}
+                    className="rounded-full bg-white px-6 py-3 text-lg font-bold text-emerald-800 shadow-lg ring-2 ring-inset ring-emerald-300 transition-transform active:scale-95"
+                  >
+                    {t("backToMaterialsButton")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRetry}
+                    className="rounded-full bg-amber-400 px-6 py-3 text-lg font-bold text-amber-950 shadow-lg transition-transform active:scale-95"
+                  >
+                    {t("retryButton")}
+                  </button>
+                </div>
+              )}
+            </div>
+          </QuizCard>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-3">
-      <QuizCard>
-        <p className="px-6 pt-6 pb-2 text-center text-sm font-bold text-emerald-900 sm:text-base md:text-lg">
-          {t("progress", { current: currentIndex + 1, total: questions.length })}
-        </p>
-        <QuestionRound key={currentQuestion.id} question={currentQuestion} onAnswered={handleAnswered} />
-      </QuizCard>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-lg">
+        <QuizCard>
+          <QuestionRound
+            key={currentQuestion.id}
+            question={currentQuestion}
+            progress={t("progress", { current: currentIndex + 1, total: questions.length })}
+            onAnswered={handleAnswered}
+          />
+        </QuizCard>
+      </div>
     </div>
   );
 }

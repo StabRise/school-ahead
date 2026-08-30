@@ -81,7 +81,6 @@
     "screenModeLearning": "Навчання"
   },
   "BalloonPopQuiz": {
-    "title": "Бонусна вікторина!",
     "progress": "Питання {current} із {total}",
     "correct": "Правильно! 🎉",
     "incorrect": "Не зовсім!",
