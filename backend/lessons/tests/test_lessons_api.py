@@ -79,6 +79,39 @@ def test_get_lesson_exposes_submissions_with_threaded_feedback(api_client, auth_
     assert submissions[1]['tutor_feedback'] == ''
 
 
+def test_submit_task_accepts_multiple_files(api_client, auth_header, topic, student):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.utils.datastructures import MultiValueDict
+
+    from lessons import services
+
+    lesson = Lesson.objects.create(
+        topic=topic, order_index=4, title='Practical work',
+        lesson_type=LessonType.WITH_TASK, grading_type='points',
+    )
+    sl = StudentLesson.objects.create(
+        student=student, lesson=lesson, scheduled_date=datetime.date.today()
+    )
+    services.start(sl, student.user)
+
+    files = MultiValueDict({
+        'files': [
+            SimpleUploadedFile('one.png', b'first-file-bytes', content_type='image/png'),
+            SimpleUploadedFile('two.png', b'second-file-bytes', content_type='image/png'),
+        ],
+    })
+    response = api_client.post(
+        f'/student-lessons/{sl.id}/submit-task',
+        data={'comment': 'two files'},
+        FILES=files,
+        headers=auth_header(student.user),
+    )
+    assert response.status_code == 200
+    submission = response.data['submissions'][0]
+    assert submission['comment'] == 'two files'
+    assert len(submission['files']) == 2
+
+
 def test_get_lesson_exposes_subject_block_label_when_scheduled(api_client, auth_header, topic, student):
     from academics.models import SubjectBlock
 

@@ -120,16 +120,21 @@ class LessonUpdateIn(Schema):
 
 class LessonSubmissionOut(Schema):
     id: int
-    file: str | None
+    files: list[str]
     comment: str
     submitted_at: datetime.datetime
     is_latest: bool
     tutor_feedback: str
     feedback_at: datetime.datetime | None
+    tutor_feedback_images: list[str]
 
     @staticmethod
-    def resolve_file(obj, context):
-        return _absolute_file_url(obj.file, context)
+    def resolve_files(obj, context):
+        return [_absolute_file_url(f.file, context) for f in obj.files.all()]
+
+    @staticmethod
+    def resolve_tutor_feedback_images(obj, context):
+        return [_absolute_file_url(f.file, context) for f in obj.tutor_feedback_images.all()]
 
 
 class StudentLessonOut(Schema):

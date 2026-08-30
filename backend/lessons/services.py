@@ -18,6 +18,8 @@ from .models import (
     LessonsJson,
     LessonsJsonStatus,
     LessonSubmission,
+    LessonSubmissionFeedbackImage,
+    LessonSubmissionFile,
     LessonType,
     QuizChoice,
     QuizLanguage,
@@ -178,11 +180,14 @@ def confirm_understanding(student_lesson: StudentLesson, actor: User, understood
         student_lesson.save()
 
 
-def submit_task(student_lesson: StudentLesson, actor: User, *, file=None, comment: str = '') -> LessonSubmission:
+def submit_task(student_lesson: StudentLesson, actor: User, *, files=None, comment: str = '') -> LessonSubmission:
     _guard_status(student_lesson, StudentLessonStatus.IN_PROGRESS)
-    submission = LessonSubmission.objects.create(
-        student_lesson=student_lesson, file=file, comment=comment
-    )
+    submission = LessonSubmission.objects.create(student_lesson=student_lesson, comment=comment)
+    # Individual .create() calls, not bulk_create — FileField only actually
+    # writes the upload to storage via the pre_save hook .save()/.create()
+    # trigger, which bulk_create's single INSERT bypasses.
+    for f in files or []:
+        LessonSubmissionFile.objects.create(submission=submission, file=f)
     _transition(student_lesson, actor, StudentLessonStatus.PENDING_REVIEW)
     student_lesson.save()
     return submission
@@ -280,15 +285,22 @@ def resolve_need_help(
         raise InvalidTransition(f'NeedHelp cannot resolve to {to_status!r}')
 
 
-def _attach_feedback_to_latest_submission(student_lesson: StudentLesson, feedback: str) -> None:
+def _attach_feedback_to_latest_submission(
+    student_lesson: StudentLesson, feedback: str, *, images=None,
+) -> None:
     """Threads the tutor's reply under the specific submission it responds
     to, rather than only on the StudentLesson as a whole — see
-    LessonSubmission.tutor_feedback."""
+    LessonSubmission.tutor_feedback. `images` are marked-up screenshots the
+    tutor drew on top of one of the student's files (see
+    LessonSubmissionFeedbackImage) — currently only ever sent from
+    request_revision."""
     submission = student_lesson.submissions.filter(is_latest=True).order_by('-submitted_at').first()
     if submission is not None:
         submission.tutor_feedback = feedback
         submission.feedback_at = timezone.now()
         submission.save(update_fields=['tutor_feedback', 'feedback_at'])
+        for f in images or []:
+            LessonSubmissionFeedbackImage.objects.create(submission=submission, file=f)
 
 
 def grade_submission(
@@ -306,20 +318,20 @@ def grade_submission(
     mark_completed(student_lesson, actor, grade_points=grade_points, grade_result=grade_result)
 
 
-def request_revision(student_lesson: StudentLesson, actor: User, feedback: str) -> None:
+def request_revision(student_lesson: StudentLesson, actor: User, feedback: str, *, images=None) -> None:
     _guard_status(student_lesson, StudentLessonStatus.PENDING_REVIEW)
     student_lesson.tutor_feedback = feedback
-    _attach_feedback_to_latest_submission(student_lesson, feedback)
+    _attach_feedback_to_latest_submission(student_lesson, feedback, images=images)
     _transition(student_lesson, actor, StudentLessonStatus.REVISION_REQUIRED)
     student_lesson.save()
 
 
-def resubmit(student_lesson: StudentLesson, actor: User, *, file=None, comment: str = '') -> LessonSubmission:
+def resubmit(student_lesson: StudentLesson, actor: User, *, files=None, comment: str = '') -> LessonSubmission:
     _guard_status(student_lesson, StudentLessonStatus.REVISION_REQUIRED)
     student_lesson.submissions.update(is_latest=False)
-    submission = LessonSubmission.objects.create(
-        student_lesson=student_lesson, file=file, comment=comment
-    )
+    submission = LessonSubmission.objects.create(student_lesson=student_lesson, comment=comment)
+    for f in files or []:
+        LessonSubmissionFile.objects.create(submission=submission, file=f)
     _transition(student_lesson, actor, StudentLessonStatus.PENDING_REVIEW)
     student_lesson.save()
     return submission

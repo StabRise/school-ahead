@@ -48,7 +48,6 @@ from .schemas import (
     AssignStudentIn,
     GradeIn,
     LessonStudentOut,
-    RequestRevisionIn,
     ResolveNeedHelpIn,
     SetSubjectFilledIn,
     SetTopicBlockIn,
@@ -76,8 +75,11 @@ def _feed_item(student_lesson: StudentLesson) -> TutorFeedItemOut:
     subject = student_lesson.lesson.topic.subject
     return TutorFeedItemOut(
         student_lesson_id=student_lesson.id,
+        student_id=student_lesson.student_id,
         student_name=student_user.full_name or student_user.email,
+        class_id=subject.school_class_id,
         class_name=subject.school_class.name,
+        subject_id=subject.id,
         subject_name=subject.name,
         lesson_title=student_lesson.lesson.title,
         status=student_lesson.status,
@@ -684,6 +686,7 @@ def get_submission(request: HttpRequest, student_lesson_id: int):
             'grading_type': student_lesson.lesson.grading_type,
             'help_note': student_lesson.help_note,
             'task_content': student_lesson.lesson.task_content,
+            'scheduled_date': student_lesson.scheduled_date,
             'submissions': list(student_lesson.submissions.order_by('submitted_at')),
         },
         context={'request': request},
@@ -708,11 +711,16 @@ def grade(request: HttpRequest, student_lesson_id: int, payload: GradeIn):
 
 
 @router.post('/submissions/{student_lesson_id}/request-revision', response=SubmissionDetailOut)
-def request_revision(request: HttpRequest, student_lesson_id: int, payload: RequestRevisionIn):
+def request_revision(
+    request: HttpRequest,
+    student_lesson_id: int,
+    feedback: str = Form(''),
+    images: list[UploadedFile] = File([]),
+):
     require_csrf(request)
     student_lesson = _get_scoped_student_lesson(request, student_lesson_id)
     try:
-        lesson_services.request_revision(student_lesson, request.auth, payload.feedback)
+        lesson_services.request_revision(student_lesson, request.auth, feedback, images=images)
     except lesson_services.InvalidTransition as exc:
         raise HttpError(409, str(exc)) from exc
     return get_submission(request, student_lesson_id)

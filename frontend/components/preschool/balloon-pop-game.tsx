@@ -185,7 +185,7 @@ const BALLOON_ANIMALS_EX: { name: string; image: string }[] = [
   { name: "Butterfly", image: "/preschool/animals/butterfly.jpeg" },
   { name: "Cheetah", image: "/preschool/animals/cheetah.jpeg" },
   { name: "Kitten", image: "/preschool/animals/kitten.jpeg" },
-  { name: "Panda", image: "/preschool/animals/panda.jpeg" },
+  { name: "Sheep", image: "/preschool/animals/sheep.jpeg" },
   { name: "Chicken", image: "/preschool/animals/chicken.jpeg" },
   { name: "fox", image: "/preschool/animals/fox.jpeg" },
   { name: "frog", image: "/preschool/animals/frog.jpeg" },
@@ -197,7 +197,7 @@ const BALLOON_ANIMALS_EX: { name: string; image: string }[] = [
   { name: "lion", image: "/preschool/animals/lion.jpeg" },
   { name: "monkey", image: "/preschool/animals/monkey.jpeg" },
   { name: "owl", image: "/preschool/animals/owl.jpeg" },
-  { name: "panda", image: "/preschool/animals/panda.jpeg" },
+  { name: "racoon", image: "/preschool/animals/racoon.jpeg" },
   { name: "squirrel", image: "/preschool/animals/squirrel.jpeg" },
   { name: "whale", image: "/preschool/animals/whale.jpeg" },
   { name: "zebra", image: "/preschool/animals/zebra.jpeg" },
@@ -227,8 +227,13 @@ const BALLOON_SCHOOL_SUPPLIES_EX: { name: string; image: string }[] = [
 // public/preschool/family, same static-asset convention as those.
 const BALLOON_FAMILY: { name: string; image: string }[] = [
   { name: "Mother", image: "/preschool/family/mother.jpeg" },
+  { name: "Mommy", image: "/preschool/family/mother.jpeg" },
+  { name: "Father", image: "/preschool/family/daddy.jpeg" },
   { name: "Daddy", image: "/preschool/family/daddy.jpeg" },
   { name: "Grandma", image: "/preschool/family/grandma.jpeg" },
+  { name: "Grandpa", image: "/preschool/family/grandpa.jpeg" },
+  { name: "Grandmother", image: "/preschool/family/grandma.jpeg" },
+  { name: "Grandfather", image: "/preschool/family/grandpa.jpeg" },
   { name: "Sister", image: "/preschool/family/sister.jpeg" },
   { name: "Brother", image: "/preschool/family/brother.jpeg" },
   { name: "Baby", image: "/preschool/family/baby.jpeg" },
@@ -338,8 +343,10 @@ const MIN_COUNT = 3;
 const MAX_COUNT = 24;
 // How many random items a picture-pool mode's game/learning screens draw
 // from (see selectedPictureItems below) — MIN_CARD_COUNT keeps the picture
-// quiz's 4-choice questions (buildBalloonQuizQuestions) always solvable.
-const MIN_CARD_COUNT = 6;
+// quiz's 4-choice questions (buildBalloonQuizQuestions) always solvable (a
+// pool of 4 already gives a full target + 3 distractors, so 4 is the true
+// floor, not just a margin above it).
+const MIN_CARD_COUNT = 4;
 const MAX_CARD_COUNT = 20;
 
 let nextBalloonId = 0;
@@ -827,6 +834,25 @@ export function BalloonPopGame() {
   const musicVolume = useGameMusicStore((s) => s.volume);
   const setMusicVolume = useGameMusicStore((s) => s.setVolume);
   const containerRef = useRef<HTMLDivElement>(null);
+  const settingsPanelRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Closes the settings panel on a click/tap anywhere outside it — a child
+  // poking around the screen while it's open shouldn't leave it stuck open
+  // over the game. The toggle button is excluded so tapping it while open
+  // just closes the panel once, instead of this handler closing it and the
+  // button's own onClick immediately reopening it.
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (settingsPanelRef.current?.contains(target)) return;
+      if (settingsButtonRef.current?.contains(target)) return;
+      setSettingsOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [settingsOpen]);
 
   const picturePool = PICTURE_POOL_BY_MODE[mode];
   const isPictureMode = Boolean(picturePool);
@@ -997,8 +1023,6 @@ export function BalloonPopGame() {
   return (
     <div ref={containerRef} className="relative min-h-[32rem] flex-1 overflow-hidden">
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-center gap-1 pt-6 text-center">
-        <p className="text-xl font-bold text-gray-700">{t("title")}</p>
-        <p className="text-sm text-gray-500">{t("subtitle")}</p>
       </div>
 
       <div
@@ -1024,6 +1048,7 @@ export function BalloonPopGame() {
       )}
 
       <button
+        ref={settingsButtonRef}
         type="button"
         aria-label={t("settingsButton")}
         onClick={() => setSettingsOpen((current) => !current)}
@@ -1042,7 +1067,10 @@ export function BalloonPopGame() {
       </button>
 
       {settingsOpen && (
-        <div className="absolute left-4 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200">
+        <div
+          ref={settingsPanelRef}
+          className="absolute left-4 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200"
+        >
           <label className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("modeLabel")}</span>
             <select

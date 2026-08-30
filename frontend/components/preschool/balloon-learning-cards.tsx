@@ -65,7 +65,13 @@ export function BalloonLearningCards({
             key={item.name}
             type="button"
             onClick={() => handleCardClick(item)}
-            className={`flex aspect-square flex-col items-center justify-center gap-2 rounded-2xl border-4 bg-white p-3 shadow-md transition-transform active:scale-95 ${
+            // select-none + touch-manipulation stop a child's tap-and-
+            // slightly-drag finger motion from being read as a text/image
+            // selection drag instead of a tap — that stolen gesture is what
+            // was highlighting the picture and making the click flaky.
+            // [-webkit-touch-callout:none] kills iOS's long-press "Save
+            // Image" callout for the same reason.
+            className={`flex aspect-square touch-manipulation select-none flex-col items-center justify-center gap-2 rounded-2xl border-4 bg-white p-3 shadow-md transition-transform active:scale-95 [-webkit-touch-callout:none] ${
               activeName === item.name ? "border-sky-400 ring-4 ring-sky-200" : "border-transparent"
             }`}
           >
@@ -74,7 +80,12 @@ export function BalloonLearningCards({
                 for its name below it. */}
             <span className="h-full w-full">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={item.image} alt="" className="h-full w-full rounded-xl object-cover" />
+              <img
+                src={item.image}
+                alt=""
+                draggable={false}
+                className="h-full w-full select-none rounded-xl object-cover"
+              />
               <span
                 aria-hidden="true"
                 className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-sm shadow"

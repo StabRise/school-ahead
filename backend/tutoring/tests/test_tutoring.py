@@ -278,12 +278,38 @@ class TestGradingDelegation:
 
         response = api_client.post(
             f'/tutor/submissions/{sl.id}/request-revision',
-            json={'feedback': 'missing steps'},
+            data={'feedback': 'missing steps'},
             headers=auth_header(tutor.user),
         )
         assert response.status_code == 200
         sl.refresh_from_db()
         assert sl.status == StudentLessonStatus.REVISION_REQUIRED
+
+    def test_request_revision_accepts_multiple_images(self, api_client, auth_header, tutor, subject, student):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.utils.datastructures import MultiValueDict
+
+        from lessons import services
+
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        sl = _student_lesson_with_status(subject, student, StudentLessonStatus.IN_PROGRESS)
+        services.submit_task(sl, student.user, comment='work')
+
+        images = MultiValueDict({
+            'images': [
+                SimpleUploadedFile('a.png', b'first-image-bytes', content_type='image/png'),
+                SimpleUploadedFile('b.png', b'second-image-bytes', content_type='image/png'),
+            ],
+        })
+        response = api_client.post(
+            f'/tutor/submissions/{sl.id}/request-revision',
+            data={'feedback': ''},
+            FILES=images,
+            headers=auth_header(tutor.user),
+        )
+        assert response.status_code == 200
+        submission = response.data['submissions'][0]
+        assert len(submission['tutor_feedback_images']) == 2
 
     def test_resolve_need_help(self, api_client, auth_header, tutor, subject, student):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)

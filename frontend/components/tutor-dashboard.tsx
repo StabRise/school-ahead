@@ -13,7 +13,7 @@ import {
   useTutoringApiResolveNeedHelp,
 } from "@/lib/api/browser/tutor/tutor";
 import type { TutorFeedItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { Card } from "@/components/card";
 import { PageContainer } from "@/components/page-container";
 import { MyStudentsSidebar } from "@/components/tutor/my-students-sidebar";
@@ -26,12 +26,12 @@ const UPDATED_AT_FORMAT = new Intl.DateTimeFormat("uk-UA", {
 });
 const SCHEDULED_DATE_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" });
 
-// A row's "Учитель допоміг" quick action is only wired up for the "Потрібна
-// допомога" column (see FeedColumn's `onMarkHelped` prop) — its presence is
-// what decides whether the whole row can still be a clickable Card (see
-// weekly-calendar.tsx's LessonCard for the same href-vs-buttons tradeoff):
-// nesting a <button> inside the <a> Card renders would otherwise render
-// invalid HTML.
+// The whole row navigates to the submission on click (see Card's `onClick`
+// branch — a plain, keyboard-operable div rather than a real <a>, since
+// this row also nests real <Link>s for the student/subject/class and,
+// for "Потрібна допомога" rows, a real <button> for the quick action).
+// Every nested Link/button stops the click from bubbling so it doesn't
+// also trigger the row's own navigation.
 function FeedRow({
   item,
   note,
@@ -44,12 +44,14 @@ function FeedRow({
   isResolvingThis?: boolean;
 }) {
   const t = useTranslations("TutorDashboard");
+  const router = useRouter();
   const isResolvable = onMarkHelped !== undefined;
+  const stopPropagation = (e: React.SyntheticEvent) => e.stopPropagation();
 
   return (
     <li>
       <Card
-        href={isResolvable ? undefined : `/tutor/submissions/${item.student_lesson_id}`}
+        onClick={() => router.push(`/tutor/submissions/${item.student_lesson_id}`)}
         className="flex gap-3"
       >
         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700">
@@ -57,32 +59,42 @@ function FeedRow({
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-xs font-medium text-gray-500">{item.student_name}</p>
+            <Link
+              href={`/tutor/students/${item.student_id}/calendar`}
+              onClick={stopPropagation}
+              className="truncate text-xs font-medium text-gray-500 hover:underline"
+            >
+              {item.student_name}
+            </Link>
             <time className="shrink-0 text-xs text-gray-400">{UPDATED_AT_FORMAT.format(new Date(item.updated_at))}</time>
           </div>
-          <p className="truncate text-base font-semibold text-gray-900">{item.subject_name}</p>
+          <Link
+            href={`/tutor/subjects/${item.subject_id}`}
+            onClick={stopPropagation}
+            className="truncate text-base font-semibold text-gray-900 hover:underline"
+          >
+            {item.subject_name}
+          </Link>
           <p className="truncate text-sm lowercase text-gray-500">{item.lesson_title}</p>
           {note && <p className="text-sm text-gray-700">«{note}»</p>}
           <p className="truncate text-xs text-gray-500">
-            {item.class_name} · {SCHEDULED_DATE_FORMAT.format(new Date(`${item.scheduled_date}T00:00:00`))}
+            <Link href={`/tutor/classes/${item.class_id}`} onClick={stopPropagation} className="hover:underline">
+              {item.class_name}
+            </Link>{" "}
+            · {SCHEDULED_DATE_FORMAT.format(new Date(`${item.scheduled_date}T00:00:00`))}
           </p>
           {isResolvable && (
-            <div className="mt-1 flex items-center gap-3">
-              <button
-                type="button"
-                disabled={isResolvingThis}
-                onClick={() => onMarkHelped(item)}
-                className="self-start rounded-md border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                {isResolvingThis ? t("markHelpedPending") : t("markHelpedButton")}
-              </button>
-              <Link
-                href={`/tutor/submissions/${item.student_lesson_id}`}
-                className="text-xs text-blue-600 hover:underline"
-              >
-                {t("viewLink")}
-              </Link>
-            </div>
+            <button
+              type="button"
+              disabled={isResolvingThis}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMarkHelped(item);
+              }}
+              className="mt-1 self-start rounded-md border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {isResolvingThis ? t("markHelpedPending") : t("markHelpedButton")}
+            </button>
           )}
         </div>
       </Card>

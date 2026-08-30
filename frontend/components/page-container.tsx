@@ -6,14 +6,16 @@
 export function PageContainer({
   title,
   children,
-  maxWidthClassName = "xl:max-w-6xl",
+  maxWidthClassName = "xl:max-w-8xl",
+  bgClassName = "",
 }: {
   title?: string;
   children: React.ReactNode;
   maxWidthClassName?: string;
+  bgClassName?: string;
 }) {
   return (
-    <div className={`w-full px-4 py-6 sm:px-6 lg:px-8 xl:mx-auto ${maxWidthClassName}`}>
+    <div className={`w-full ${bgClassName} px-4 py-6 sm:px-6 lg:px-8 xl:mx-auto ${maxWidthClassName}`}>
       {title && <h2 className="mb-4 text-xl font-semibold">{title}</h2>}
       {children}
     </div>

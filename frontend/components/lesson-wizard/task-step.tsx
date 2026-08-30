@@ -1,20 +1,22 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { X } from "lucide-react";
 import { useSubmitTask, useResubmitLesson } from "@/lib/api/browser/student-lessons/student-lessons";
 import { Markdown } from "@/components/markdown";
+import { FileDropzone } from "@/components/file-dropzone";
 
-// A submission needs a file or a written comment — never neither.
+// A submission needs at least one file or a written comment — never neither.
 const taskSubmissionSchema = z
   .object({
     comment: z.string(),
-    file: z.instanceof(File).nullable(),
+    files: z.array(z.instanceof(File)),
   })
-  .refine((data) => data.file !== null || data.comment.trim().length > 0, {
+  .refine((data) => data.files.length > 0 || data.comment.trim().length > 0, {
     message: "required",
     path: ["comment"],
   });
@@ -38,9 +40,7 @@ export function TaskStep({
 
   const mutation = isResubmit ? resubmitLesson : submitTask;
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const {
     register,
@@ -49,20 +49,30 @@ export function TaskStep({
     formState: { errors },
   } = useForm<TaskSubmissionValues>({
     resolver: zodResolver(taskSubmissionSchema),
-    defaultValues: { comment: "", file: null },
+    defaultValues: { comment: "", files: [] },
   });
 
   const onSubmit = (data: TaskSubmissionValues) => {
     mutation.mutate(
-      { studentLessonId, data: { comment: data.comment, file: data.file } },
+      { studentLessonId, data: { comment: data.comment, files: data.files } },
       { onSuccess: () => onChanged() },
     );
   };
 
-  const selectFile = (files: FileList | null) => {
-    const file = files?.[0] ?? null;
-    setSelectedFile(file);
-    setValue("file", file, { shouldValidate: true });
+  // Picking/dropping more files adds to the current selection rather than
+  // replacing it, so a student can build up a batch across several drops or
+  // picker opens instead of losing earlier picks.
+  const addFiles = (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    const next = [...selectedFiles, ...Array.from(fileList)];
+    setSelectedFiles(next);
+    setValue("files", next, { shouldValidate: true });
+  };
+
+  const removeFile = (index: number) => {
+    const next = selectedFiles.filter((_, i) => i !== index);
+    setSelectedFiles(next);
+    setValue("files", next, { shouldValidate: true });
   };
 
   return (
@@ -70,70 +80,43 @@ export function TaskStep({
       {taskContent && <Markdown content={taskContent} embedYoutube embedPdf />}
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="task-comment" className="text-sm font-medium">
+        <label htmlFor="task-comment" className="text-sm font-medium text-gray-700">
           {t("commentLabel")}
         </label>
         <textarea
           id="task-comment"
           rows={3}
-          className="rounded-md border border-gray-300 p-2 text-sm"
+          className="rounded-md border border-gray-300 p-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
           {...register("comment")}
         />
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="task-file" className="text-sm font-medium">
+        <label htmlFor="task-file" className="text-sm font-medium text-gray-700">
           {t("fileLabel")}
         </label>
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => fileInputRef.current?.click()}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              fileInputRef.current?.click();
-            }
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setIsDragging(true);
-          }}
-          onDragLeave={() => setIsDragging(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setIsDragging(false);
-            selectFile(e.dataTransfer.files);
-          }}
-          className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed p-6 text-center transition-colors ${
-            isDragging ? "border-gray-900 bg-gray-50" : "border-gray-300"
-          }`}
-        >
-          {selectedFile ? (
-            <div className="flex items-center gap-2 text-sm">
-              <span>{selectedFile.name}</span>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  selectFile(null);
-                }}
-                className="text-red-600 underline"
+        <FileDropzone id="task-file" hint={t("dropzoneHint")} onFilesSelected={addFiles} />
+
+        {selectedFiles.length > 0 && (
+          <ul className="mt-1 flex flex-col gap-1">
+            {selectedFiles.map((file, index) => (
+              <li
+                key={`${file.name}-${index}`}
+                className="flex items-center justify-between gap-2 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm"
               >
-                {t("removeFile")}
-              </button>
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500">{t("dropzoneHint")}</p>
-          )}
-          <input
-            ref={fileInputRef}
-            id="task-file"
-            type="file"
-            className="hidden"
-            onChange={(e) => selectFile(e.target.files)}
-          />
-        </div>
+                <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                <button
+                  type="button"
+                  onClick={() => removeFile(index)}
+                  aria-label={t("removeFile")}
+                  className="shrink-0 text-gray-400 hover:text-red-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {errors.comment && <p className="text-sm text-red-600">{t("requiredError")}</p>}
@@ -141,7 +124,7 @@ export function TaskStep({
       <button
         type="submit"
         disabled={mutation.isPending}
-        className="self-start rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        className="w-full rounded-md bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
       >
         {isResubmit ? t("resubmitButton") : t("submitButton")}
       </button>

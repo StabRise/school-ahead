@@ -42,8 +42,11 @@ class SubjectLessonStudentOut(Schema):
 
 class TutorFeedItemOut(Schema):
     student_lesson_id: int
+    student_id: int
     student_name: str
+    class_id: int
     class_name: str
+    subject_id: int
     subject_name: str
     lesson_title: str
     status: str
@@ -92,6 +95,7 @@ class SubmissionDetailOut(Schema):
     grading_type: str
     help_note: str
     task_content: str
+    scheduled_date: datetime.date
     submissions: list[LessonSubmissionOut]
 
 
@@ -99,10 +103,6 @@ class GradeIn(Schema):
     grade_points: int | None = None
     grade_result: str | None = None
     feedback: str = ''
-
-
-class RequestRevisionIn(Schema):
-    feedback: str
 
 
 class ResolveNeedHelpIn(Schema):

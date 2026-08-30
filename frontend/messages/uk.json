@@ -43,8 +43,6 @@
     "done": "Зроблено!"
   },
   "BalloonPopGame": {
-    "title": "Усі уроки зроблено!",
-    "subtitle": "Лопай кульки, поки не набридне 🎈",
     "score": "{count, plural, one {Лопнуто # кульку} few {Лопнуто # кульки} many {Лопнуто # кульок} other {Лопнуто # кульки}}",
     "balloon": "Кулька",
     "settingsButton": "Налаштування гри",
@@ -83,7 +81,6 @@
     "screenModeLearning": "Навчання"
   },
   "BalloonPopQuiz": {
-    "title": "Бонусна вікторина!",
     "progress": "Питання {current} із {total}",
     "correct": "Правильно! 🎉",
     "incorrect": "Не зовсім!",
@@ -151,8 +148,7 @@
     "markHelpedButton": "Учитель допоміг",
     "markHelpedPending": "Зберігаємо...",
     "markHelpedComment": "Питання вирішено з учителем",
-    "markHelpedError": "Не вдалося зберегти. Спробуйте ще раз.",
-    "viewLink": "Переглянути"
+    "markHelpedError": "Не вдалося зберегти. Спробуйте ще раз."
   },
   "TutorSubjects": {
     "title": "Мої предмети",
@@ -315,27 +311,44 @@
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити дані. Спробуйте ще раз.",
     "notActionable": "Цей урок наразі не очікує вашої перевірки.",
-    "resolveNeedHelpTitle": "Вирішення запиту допомоги",
+    "tutorFeedbackTitle": "Відгук тьютора",
     "helpNoteTitle": "Опис проблеми",
     "backToInProgressButton": "Повернути в роботу",
     "markCompletedButton": "Завершити урок",
     "resolveButton": "Підтвердити",
-    "gradeSectionTitle": "Оцінювання роботи",
-    "noSubmissions": "Робіт ще немає.",
     "gradePointsLabel": "Оцінка (1–12)",
     "gradeResultLabel": "Результат",
     "passOption": "Залік",
     "failOption": "Незалік",
-    "feedbackLabel": "Відгук тьютора",
+    "feedbackLabel": "Коментар",
+    "attachedFileLabel": "{fileName} - {studentName}",
+    "removeAttachedFile": "Прибрати файл",
+    "uploadFileHint": "Прикріпити файл",
     "completeButton": "Завершити з оцінкою",
     "requestRevisionButton": "Повернути на доопрацювання",
-    "taskContentTitle": "Завдання"
+    "taskContentTitle": "Завдання",
+    "dueDateLabel": "Дата виконання",
+    "submissionDateLabel": "Дата подання"
   },
   "SubmissionThread": {
+    "attemptLabel": "Спроба {number}",
     "latestBadge": "Остання спроба",
+    "reviewedBadge": "Перевірено",
     "fileLabel": "Відкрити файл",
     "noFile": "Без файлу",
     "tutorReplyLabel": "Відповідь тьютора"
+  },
+  "AnnotatableImage": {
+    "penTool": "Олівець",
+    "arrowTool": "Стрілка",
+    "textTool": "Текст",
+    "undoButton": "Скасувати",
+    "clearButton": "Очистити все",
+    "downloadButton": "Завантажити з позначками",
+    "attachButton": "Додати у відповідь",
+    "attachAndSendButton": "Повернути на доопрацювання",
+    "closeLabel": "Закрити",
+    "textPlaceholder": "Текст…"
   },
   "LessonStatus": {
     "statusAssigned": "Призначено",
@@ -354,6 +367,8 @@
     "pendingReviewWaiting": "Вашу роботу надіслано на перевірку тьютору.",
     "completedTitle": "Урок завершено!",
     "teacherFeedbackTitle": "Відгук тьютора",
+    "uploadTaskTitle": "Завантажити роботу",
+    "submissionHistoryTitle": "Історія завантажень",
     "breadcrumbLessons": "Уроки",
     "breadcrumbMaterials": "Теорія",
     "breadcrumbAssessment": "Завдання",
@@ -399,7 +414,6 @@
     "noFeedback": "Нічого страшного, покличемо тьютора!"
   },
   "QuizStep": {
-    "title": "Тест",
     "progress": "Питання {current} із {total}",
     "scoreResult": "Результат: {score}%",
     "passedMessage": "Чудово, тест складено!",
@@ -413,8 +427,8 @@
   },
   "TaskStep": {
     "commentLabel": "Коментар",
-    "fileLabel": "Файл (фото чи документ)",
-    "dropzoneHint": "Перетягніть файл сюди або натисніть, щоб обрати",
+    "fileLabel": "Файли (фото чи документи)",
+    "dropzoneHint": "Перетягніть файли сюди або натисніть, щоб обрати",
     "removeFile": "Видалити",
     "requiredError": "Додайте файл або напишіть коментар.",
     "submitButton": "Надіслати на перевірку",
