@@ -42,6 +42,8 @@ from lessons.schemas import (
 from . import services
 from .models import TutorSubjectAssignment
 from .schemas import (
+    AssignableLessonOut,
+    AssignDayLessonIn,
     AssignmentOut,
     AssignStudentIn,
     GradeIn,
@@ -487,6 +489,88 @@ def get_student(request: HttpRequest, student_id: int):
         name=student.user.full_name or student.user.email,
         class_id=student.school_class_id,
         class_name=student.school_class.name if student.school_class else '',
+    )
+
+
+@router.get(
+    '/students/{student_id}/subjects',
+    response=list[AssignmentOut],
+    operation_id='list_student_subjects',
+)
+def list_student_subjects(request: HttpRequest, student_id: int):
+    """Subjects this tutor teaches in the student's class — powers the
+    subject picker in the calendar day's "+" popup (tutoring.api.assign_day_lesson)."""
+    student = get_object_or_404(StudentProfile, id=student_id)
+    services.ensure_is_tutor_for_class(request, student.school_class_id)
+    assignments = _tutor_assignments_with_counts(request, subject__school_class_id=student.school_class_id)
+    return [_assignment_out(a, request) for a in assignments]
+
+
+@router.get(
+    '/students/{student_id}/subjects/{subject_id}/assignable-lessons',
+    response=list[AssignableLessonOut],
+    operation_id='list_student_assignable_lessons',
+)
+def list_student_assignable_lessons(request: HttpRequest, student_id: int, subject_id: int):
+    """Lessons in this subject the student doesn't already have, in
+    curriculum order — the "existing lesson" picker in the calendar day's
+    "+" popup, once is_new is unchecked."""
+    student = get_object_or_404(StudentProfile, id=student_id)
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    subject = get_object_or_404(Subject, id=subject_id, school_class_id=student.school_class_id)
+    assigned_lesson_ids = StudentLesson.objects.filter(
+        student_id=student_id, lesson__topic__subject_id=subject.id
+    ).values_list('lesson_id', flat=True)
+    lessons = (
+        Lesson.objects.filter(topic__subject_id=subject.id)
+        .exclude(id__in=assigned_lesson_ids)
+        .select_related('topic')
+        .order_by('topic__order_index', 'order_index')
+    )
+    return [
+        AssignableLessonOut(id=l.id, title=l.title, topic_title=l.topic.title, lesson_type=l.lesson_type)
+        for l in lessons
+    ]
+
+
+@router.post(
+    '/students/{student_id}/day-lessons',
+    response=LessonStudentOut,
+    operation_id='assign_day_lesson',
+)
+def assign_day_lesson(request: HttpRequest, student_id: int, payload: AssignDayLessonIn):
+    """The calendar day's "+" popup, submitted — assigns a lesson to
+    `student` on `payload.scheduled_date`. is_new=false assigns an existing
+    not-yet-assigned lesson (payload.lesson_id); is_new=true first creates a
+    one-off lesson under the subject's "Extra" topic (see
+    lesson_services.create_extra_lesson) from payload.title/content/task_content."""
+    require_csrf(request)
+    student = get_object_or_404(StudentProfile.objects.select_related('user'), id=student_id)
+    services.ensure_is_tutor_for_subject(request, payload.subject_id)
+    subject = get_object_or_404(Subject, id=payload.subject_id, school_class_id=student.school_class_id)
+
+    if payload.is_new:
+        if not payload.title or not payload.content:
+            raise HttpError(400, 'title and content are required when is_new is true')
+        lesson = lesson_services.create_extra_lesson(
+            subject, title=payload.title, content=payload.content, task_content=payload.task_content
+        )
+    else:
+        if payload.lesson_id is None:
+            raise HttpError(400, 'lesson_id is required when is_new is false')
+        lesson = get_object_or_404(Lesson, id=payload.lesson_id, topic__subject_id=subject.id)
+
+    try:
+        student_lesson = lesson_services.assign_student(lesson, student, payload.scheduled_date)
+    except lesson_services.InvalidTransition as exc:
+        raise HttpError(409, str(exc)) from exc
+
+    return LessonStudentOut(
+        student_lesson_id=student_lesson.id,
+        student_id=student.id,
+        student_name=student.user.full_name or student.user.email,
+        scheduled_date=student_lesson.scheduled_date,
+        status=student_lesson.status,
     )
 
 

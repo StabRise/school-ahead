@@ -107,6 +107,32 @@ class AssignStudentIn(Schema):
     scheduled_date: datetime.date
 
 
+class AssignableLessonOut(Schema):
+    """One not-yet-assigned Lesson for a student in a given subject — powers
+    the "existing lesson" picker in the calendar day's "+" popup, listed in
+    curriculum order (topic order_index, then lesson order_index)."""
+
+    id: int
+    title: str
+    topic_title: str
+    lesson_type: str
+
+
+class AssignDayLessonIn(Schema):
+    """Payload for the calendar day's "+" popup (tutoring.api.assign_day_lesson).
+    is_new=false picks an existing not-yet-assigned lesson (lesson_id);
+    is_new=true creates a one-off lesson under the subject's "Extra" topic
+    from title/content/task_content."""
+
+    subject_id: int
+    scheduled_date: datetime.date
+    is_new: bool
+    lesson_id: int | None = None
+    title: str | None = None
+    content: str | None = None
+    task_content: str = ''
+
+
 class SetTopicBlockIn(Schema):
     subject_block_id: int
 
