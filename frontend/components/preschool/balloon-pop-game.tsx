@@ -120,11 +120,22 @@ const PICTURE_POOL_BY_MODE: Partial<Record<BalloonMode, string>> = {
 // `folders` argument's identity changes, so this must never be recreated.
 const PICTURE_POOL_FOLDERS: string[] = Array.from(new Set(Object.values(PICTURE_POOL_BY_MODE)));
 
+// Sound-only asset folders for modes with recorded pronunciations but no
+// pictures (so no PICTURE_POOL_BY_MODE entry), whose folder name doesn't
+// match the mode's own name — e.g. "numbers10" plays 0 through 10, so its
+// folder is named "numbers-0-10" rather than "numbers10". A mode with
+// neither this nor a picture-pool entry just uses its own name as the sound
+// folder (see soundFolder in BalloonPopGame) — same "mode name = folder
+// name" convention "greetings" already follows.
+const SOUND_FOLDER_BY_MODE: Partial<Record<BalloonMode, string>> = {
+  numbers10: "numbers-0-10",
+};
+
 // A picture-pool mode with no language subfolders at all hasn't opted into
 // per-language gating yet, so it stays available for every game language;
 // one that has opted in only shows up for languages it actually has a
-// subfolder for. Non-picture-pool modes (numbers/colors/letters/greetings)
-// are never gated by this at all.
+// subfolder for. Non-picture-pool modes (numbers/letters/greetings) are
+// never gated by this at all.
 function isModeAvailableForLanguage(
   mode: BalloonMode,
   language: GameLanguage,
@@ -239,6 +250,12 @@ function randomNumber(max: number): number {
   return Math.floor(randomBetween(1, max + 1));
 }
 
+// Inclusive of both ends — unlike randomNumber(max) above (always 1..max),
+// "numbers10" mode's range starts at 0 (see public/preschool/numbers-0-10).
+function randomNumberInRange(min: number, max: number): number {
+  return Math.floor(randomBetween(min, max + 1));
+}
+
 function randomFrom<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
@@ -334,7 +351,7 @@ function generateBalloonContent(
     }
     case "numbers10":
     default: {
-      const label = String(randomNumber(10));
+      const label = String(randomNumberInRange(0, 10));
       return { label, color: randomColor(), speech: label };
     }
   }
@@ -365,7 +382,7 @@ function vocabularyFor(mode: BalloonMode, language: GameLanguage, picturePool?: 
       return (picturePool ?? []).map((card) => card.name);
     case "numbers10":
     default:
-      return Array.from({ length: 10 }, (_, i) => String(i + 1));
+      return Array.from({ length: 11 }, (_, i) => String(i));
   }
 }
 
@@ -732,10 +749,11 @@ export function BalloonPopGame() {
   const isPictureMode = Boolean(picturePoolFolder);
   const picturePoolCards = picturePoolFolder ? folderData[picturePoolFolder]?.cards : undefined;
   // Recorded-pronunciation lookup keys off the picture-pool folder for
-  // picture modes, or the mode's own name for everything else (e.g.
-  // "greetings") — same "mode name = folder name" convention those modes'
-  // asset folders already follow.
-  const soundFolder = picturePoolFolder ?? mode;
+  // picture modes, a SOUND_FOLDER_BY_MODE override for sound-only modes
+  // whose folder name differs from the mode name (e.g. "numbers10"), or the
+  // mode's own name for everything else (e.g. "greetings") — same "mode
+  // name = folder name" convention those modes' asset folders follow.
+  const soundFolder = picturePoolFolder ?? SOUND_FOLDER_BY_MODE[mode] ?? mode;
   const { names: recordedSoundNames, soundsPath } = useRecordedSounds(soundFolder, language);
 
   const availableModes = useMemo(
