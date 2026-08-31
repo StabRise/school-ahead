@@ -153,3 +153,18 @@ class SetTopicBlockIn(Schema):
 
 class SetSubjectFilledIn(Schema):
     is_filled: bool
+
+
+class PlanOut(Schema):
+    id: int
+    school_class_id: int
+    semester_name: str
+    created_at: datetime.datetime
+
+
+class ImportPlanOut(Schema):
+    plan_id: int
+    semester_name: str
+    subjects_found: list[str]
+    subjects_added: list[str]
+    blocks_updated: int

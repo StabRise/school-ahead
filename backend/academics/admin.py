@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from . import services
-from .models import Class, School, Subject, SubjectBlock, Topic
+from .models import Class, Plan, School, Subject, SubjectBlock, Topic
 
 
 @admin.register(School)
@@ -98,3 +98,15 @@ class TopicAdmin(admin.ModelAdmin):
     list_filter = ("subject__school_class", "subject", "subject_block")
     search_fields = ("title", "description", "subject__name")
     ordering = ("subject", "order_index")
+
+
+@admin.register(Plan)
+class PlanAdmin(admin.ModelAdmin):
+    """Admin configuration for curriculum-plan uploads — read-only history
+    of what the tutor's "Завантажити план" wizard imported (see
+    academics.services.import_class_plan); not meant to be hand-edited."""
+    list_display = ("school_class", "semester_name", "created_at")
+    list_filter = ("school_class",)
+    search_fields = ("semester_name", "school_class__name")
+    ordering = ("-created_at",)
+    readonly_fields = ("school_class", "semester_name", "text", "created_at", "updated_at")

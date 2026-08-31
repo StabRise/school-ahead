@@ -225,6 +225,22 @@
     "lessonsSkipped": "Пропущено уроків (вже існували): {count}",
     "closeButton": "Закрити"
   },
+  "UploadPlan": {
+    "triggerButton": "Завантажити план",
+    "title": "Завантажити план предметів",
+    "description": "Текстовий файл: «Назва предмета», потім «N семестр», потім текст плану — і так для кожного предмета.",
+    "fileLabel": "Файл (.md, .txt)",
+    "uploadButton": "Завантажити",
+    "uploading": "Завантаження...",
+    "uploadError": "Не вдалося завантажити план. Перевірте формат файлу.",
+    "cancelButton": "Скасувати",
+    "closeButton": "Готово",
+    "resultHeading": "Імпортовано ({semesterName}):",
+    "subjectsFoundHeading": "Знайдено предметів: {count}",
+    "subjectsAddedHeading": "Додано предметів: {count}",
+    "noneLabel": "Немає",
+    "blocksUpdated": "Оновлено семестрів: {count}"
+  },
   "TutorSubjectDetail": {
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити предмет. Спробуйте ще раз.",

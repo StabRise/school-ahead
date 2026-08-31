@@ -1,7 +1,7 @@
 from django.db.models import QuerySet
 from ninja.errors import HttpError
 
-from academics.models import Subject
+from academics.models import Class, Subject
 from accounts.models import Role, StudentProfile, TutorProfile, User
 
 from .models import TutorSubjectAssignment
@@ -52,6 +52,20 @@ def ensure_is_tutor_for_class(request, class_id: int) -> None:
         raise HttpError(403, 'Not a tutor for this class')
 
 
+def ensure_is_class_teacher(request, class_id: int) -> None:
+    """403s unless the authenticated user is this class's homeroom teacher
+    (Class.class_teacher) — stricter than ensure_is_tutor_for_class (which
+    a class teacher might still fail on a brand-new class with no subjects
+    of their own yet). Used by the "Завантажити план" wizard: only the
+    class teacher may upload a plan."""
+    tutor_profile = getattr(request.auth, 'tutor_profile', None)
+    is_class_teacher = tutor_profile is not None and Class.objects.filter(
+        id=class_id, class_teacher=tutor_profile
+    ).exists()
+    if not is_class_teacher:
+        raise HttpError(403, 'Not the class teacher for this class')
+
+
 def _get_or_create_tutor_profile(user: User) -> TutorProfile:
     tutor_profile, _created = TutorProfile.objects.get_or_create(user=user)
     return tutor_profile
@@ -63,6 +77,18 @@ def assign_admins_to_subject(subject: Subject) -> None:
     for admin_user in User.objects.filter(role=Role.ADMIN):
         tutor_profile = _get_or_create_tutor_profile(admin_user)
         TutorSubjectAssignment.objects.get_or_create(tutor=tutor_profile, subject=subject)
+
+
+def assign_class_teacher_to_subject(subject: Subject) -> None:
+    """On Subject creation: assign the subject's class's homeroom teacher
+    (Class.class_teacher) as a tutor for it too, if the class has one set —
+    sits next to assign_admins_to_subject's parallel rule for admins.
+    Covers every Subject-creation path (the admin "create subject" endpoint,
+    the "Завантажити план" wizard, …) via tutoring.signals.on_subject_created,
+    not just the wizard."""
+    class_teacher = subject.school_class.class_teacher
+    if class_teacher is not None:
+        TutorSubjectAssignment.objects.get_or_create(tutor=class_teacher, subject=subject)
 
 
 def assign_admin_to_all_subjects(admin_user: User) -> None:

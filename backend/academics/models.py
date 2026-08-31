@@ -133,6 +133,25 @@ class SubjectBlock(models.Model):
         return f'{self.subject} — {self.label}'
 
 
+class Plan(TimeStampedModel):
+    """A class curriculum-plan text upload — the tutor's "Завантажити план"
+    wizard on the Class detail page. academics.services.import_class_plan
+    parses `text` into per-subject sections (a "Subject name" paragraph
+    followed by a lone "N семестр" paragraph, then that subject's content
+    until the next such pair — see scraped.tmp/plans/*.md for the source
+    shape) and get_or_creates a Subject + SubjectBlock per section, writing
+    the section's text into SubjectBlock.description. Kept as a record of
+    what was uploaded; re-uploading is safe, it just overwrites
+    descriptions again."""
+    school_class = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='plans')
+    semester_name = models.CharField(max_length=100)
+    # The raw uploaded text (memo) — see import_class_plan for how it's parsed.
+    text = models.TextField()
+
+    def __str__(self):
+        return f'{self.school_class} — {self.semester_name}'
+
+
 class Topic(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='topics')
     # Generated curriculum titles can run long, so this is wider than the

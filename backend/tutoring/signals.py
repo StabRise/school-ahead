@@ -11,6 +11,7 @@ from . import services
 def on_subject_created(sender, instance, created, **kwargs):
     if created:
         services.assign_admins_to_subject(instance)
+        services.assign_class_teacher_to_subject(instance)
 
 
 @receiver(pre_save, sender=User)

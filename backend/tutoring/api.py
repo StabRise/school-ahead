@@ -1,5 +1,6 @@
 import json
 
+from django.db import transaction
 from django.db.models import Count
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
@@ -9,7 +10,7 @@ from ninja.files import UploadedFile
 from ninja.pagination import paginate
 
 from academics import services as academics_services
-from academics.models import Class, Subject, SubjectBlock, Topic
+from academics.models import Class, Plan, Subject, SubjectBlock, Topic
 from academics.schemas import SubjectOut, TopicOut, TopicsReorderIn
 from accounts.models import Avatar, AvatarItem, StudentProfile
 from accounts.schemas import (
@@ -47,7 +48,9 @@ from .schemas import (
     AssignmentOut,
     AssignStudentIn,
     GradeIn,
+    ImportPlanOut,
     LessonStudentOut,
+    PlanOut,
     ResolveNeedHelpIn,
     SetSubjectFilledIn,
     SetTopicBlockIn,
@@ -649,6 +652,57 @@ def recalculate_class_workload(request: HttpRequest, class_id: int):
     assignments = _tutor_assignments_with_counts(request, subject__school_class_id=class_id)
     recalculated = sum(academics_services.recompute_subject_workloads(a.subject) for a in assignments)
     return {'recalculated': recalculated}
+
+
+@router.get('/classes/{class_id}/plans', response=list[PlanOut], operation_id='list_tutor_class_plans')
+def list_class_plans(request: HttpRequest, class_id: int):
+    """Past curriculum-plan uploads for this class — the "Завантажити план"
+    wizard's history on the Class detail page. Same restriction as
+    uploading it (ensure_is_class_teacher): a class teacher with no
+    TutorSubjectAssignment of their own in the class yet (e.g. every
+    subject already existed before they took over) would otherwise fail
+    ensure_is_tutor_for_class despite being allowed to upload."""
+    services.ensure_is_class_teacher(request, class_id)
+    return Plan.objects.filter(school_class_id=class_id).order_by('-created_at')
+
+
+@router.post('/classes/{class_id}/plans', response=ImportPlanOut, operation_id='upload_tutor_class_plan')
+def upload_class_plan(request: HttpRequest, class_id: int, file: UploadedFile = File(...)):
+    """The "Завантажити план" wizard on the Class detail page — uploads a
+    curriculum-plan text file and immediately parses+imports it (see
+    academics.services.parse_plan_text/import_class_plan): get_or_creates a
+    Subject per parsed section (matched case-insensitively within the
+    class) and its SubjectBlocks, overwriting each matching block's
+    description with the section's text. Restricted to the class's
+    homeroom teacher (ensure_is_class_teacher) — not just any tutor
+    assigned to a subject in the class."""
+    require_csrf(request)
+    services.ensure_is_class_teacher(request, class_id)
+    school_class = get_object_or_404(Class, id=class_id)
+
+    try:
+        text = file.read().decode('utf-8')
+    except UnicodeDecodeError as exc:
+        raise HttpError(400, f'File must be UTF-8 text: {exc}') from exc
+
+    sections = academics_services.parse_plan_text(text)
+    if not sections:
+        raise HttpError(400, 'No "Subject name / N семестр / …" sections found in the file')
+
+    semester_indexes = sorted({section.semester_index for section in sections})
+    semester_name = ', '.join(f'Semester {i}' for i in semester_indexes)
+
+    with transaction.atomic():
+        plan = Plan.objects.create(school_class=school_class, semester_name=semester_name, text=text)
+        summary = academics_services.import_class_plan(school_class, sections)
+
+    return ImportPlanOut(
+        plan_id=plan.id,
+        semester_name=semester_name,
+        subjects_found=summary.subjects_found,
+        subjects_added=summary.subjects_added,
+        blocks_updated=summary.blocks_updated,
+    )
 
 
 @router.get('/need-help', response=list[TutorFeedItemOut])
