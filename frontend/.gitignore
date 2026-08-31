@@ -45,3 +45,6 @@ next-env.d.ts
 lib/api/browser/
 lib/api/server/
 lib/api/zod/
+.DS_Store
+
+frontend/public/static/
