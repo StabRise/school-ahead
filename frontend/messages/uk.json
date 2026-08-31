@@ -172,7 +172,10 @@
     "noStudents": "У цьому класі ще немає учнів.",
     "viewCalendarLink": "Переглянути календар →",
     "topicsCount": "{count, plural, one {# тема} few {# теми} many {# тем} other {# теми}}",
-    "lessonsCount": "{count, plural, one {# урок} few {# уроки} many {# уроків} other {# уроку}}"
+    "lessonsCount": "{count, plural, one {# урок} few {# уроки} many {# уроків} other {# уроку}}",
+    "workloadLabel": "Навантаження: {value} уроків/тиж",
+    "recalculateWorkloadButton": "Перерахувати навантаження",
+    "recalculateWorkloadError": "Не вдалося перерахувати навантаження. Спробуйте ще раз."
   },
   "TutorStudentCalendar": {
     "loading": "Завантаження...",
@@ -229,6 +232,8 @@
     "classLabel": "Клас",
     "isFilledLabel": "Предмет повністю наповнений уроками",
     "isFilledError": "Не вдалося зберегти. Спробуйте ще раз.",
+    "lessonsTab": "Уроки",
+    "planTab": "План",
     "noTopics": "Тем ще немає.",
     "noLessonsInTopic": "У цій темі ще немає уроків.",
     "lessonsCount": "Уроків: {count}",
@@ -501,6 +506,8 @@
     "contentQuiz": "Квіз",
     "contentTask": "Завдання",
     "isFilledBadge": "Наповнено",
+    "lessonsTab": "Уроки",
+    "planTab": "План",
     "coursePlan": "План курсу",
     "expandAll": "Розгорнути все",
     "collapseAll": "Згорнути все",
@@ -512,6 +519,16 @@
     "workloadLabel": "Навантаження: {value} уроків/тиждень",
     "lessonsProgress": "{completed}/{total} уроків пройдено",
     "lessonRow": "Урок №{index}: {title}"
+  },
+  "SubjectPlan": {
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити план предмета. Спробуйте ще раз.",
+    "noBlocks": "Семестрів ще немає.",
+    "noDescription": "Опис семестру ще не додано.",
+    "periodLabel": "Період",
+    "weeksCountLabel": "Кількість тижнів",
+    "workloadLabel": "Навантаження",
+    "workloadValue": "{value} уроків/тиждень"
   },
   "TopicDetail": {
     "loading": "Завантаження...",

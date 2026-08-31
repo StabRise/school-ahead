@@ -25,7 +25,7 @@ class SubjectBlockInline(admin.TabularInline):
     """Inline manager for subject blocks within the Subject admin view."""
     model = SubjectBlock
     extra = 1
-    fields = ("index", "label", "status", "starts_on", "ends_on", "weeks_count", "workload")
+    fields = ("index", "label", "description", "status", "starts_on", "ends_on", "weeks_count", "workload")
     readonly_fields = ("weeks_count", "workload")
 
 

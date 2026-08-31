@@ -14,6 +14,10 @@ class AssignmentOut(Schema):
     topic_count: int
     lesson_count: int
     is_filled: bool
+    # One entry per SubjectBlock, in index order (Semester 1, Semester 2, …)
+    # — null for a block whose workload hasn't been computed (see
+    # academics.services.recompute_block_workload).
+    block_workloads: list[float | None]
 
 
 class LessonStudentOut(Schema):

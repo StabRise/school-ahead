@@ -101,6 +101,10 @@ class SubjectBlock(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='blocks')
     index = models.PositiveSmallIntegerField()
     label = models.CharField(max_length=100, blank=True)
+    # Markdown, shown on the "План" tab's semester accordion (both the
+    # tutor's and the student's Subject detail pages) — freeform syllabus
+    # text for the semester, tutor/admin-set via Django admin.
+    description = models.TextField(blank=True)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
     starts_on = models.DateField(null=True, blank=True)
     ends_on = models.DateField(null=True, blank=True)

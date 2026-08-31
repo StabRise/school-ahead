@@ -117,3 +117,13 @@ def recompute_block_workload(block: SubjectBlock) -> None:
     lesson_count = Lesson.objects.filter(topic__subject_block=block).count()
     block.workload = lesson_count / block.weeks_count if block.weeks_count else None
     block.save(update_fields=['weeks_count', 'workload'])
+
+
+def recompute_subject_workloads(subject: Subject) -> int:
+    """recompute_block_workload for every block of one subject — doesn't
+    touch topic->block membership (see assign_topics_to_blocks for that).
+    Returns how many blocks were refreshed."""
+    blocks = list(subject.blocks.all())
+    for block in blocks:
+        recompute_block_workload(block)
+    return len(blocks)
