@@ -40,6 +40,7 @@ class SubjectBlockOut(Schema):
     id: int
     index: int
     label: str
+    description: str
     status: str
     starts_on: datetime.date | None
     ends_on: datetime.date | None

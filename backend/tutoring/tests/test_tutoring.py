@@ -441,6 +441,91 @@ class TestSubjectLessons:
         assert response.status_code == 403
 
 
+class TestUploadClassPlan:
+    def _plan_file(self, content: str):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        return SimpleUploadedFile('plan.md', content.encode('utf-8'), content_type='text/markdown')
+
+    def _make_class_teacher(self, school_class, tutor):
+        school_class.class_teacher = tutor
+        school_class.save(update_fields=['class_teacher'])
+
+    def test_upload_imports_subjects_and_blocks(self, api_client, auth_header, tutor, subject, school_class):
+        self._make_class_teacher(school_class, tutor)
+        content = 'Math\n\n1 семестр\n\nAlgebra basics.\n\nHistory\n\n1 семестр\n\nAncient Rome.'
+
+        response = api_client.post(
+            f'/tutor/classes/{school_class.id}/plans',
+            FILES={'file': self._plan_file(content)},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['semester_name'] == 'Semester 1'
+        # 'Math' already exists (the `subject` fixture), 'History' is new.
+        assert response.data['subjects_found'] == ['Math']
+        assert response.data['subjects_added'] == ['History']
+        assert response.data['blocks_updated'] == 2
+
+        subject.refresh_from_db()
+        assert subject.blocks.get(index=1).description == 'Algebra basics.'
+        history = Subject.objects.get(school_class=school_class, name='History')
+
+        # The new Subject gets the class teacher auto-assigned as a tutor
+        # (tutoring.signals.on_subject_created -> assign_class_teacher_to_subject)
+        # — same as any other Subject-creation path, not special-cased here.
+        assert TutorSubjectAssignment.objects.filter(tutor=tutor, subject=history).exists()
+
+    def test_upload_rejects_file_with_no_sections(self, api_client, auth_header, tutor, subject, school_class):
+        self._make_class_teacher(school_class, tutor)
+
+        response = api_client.post(
+            f'/tutor/classes/{school_class.id}/plans',
+            FILES={'file': self._plan_file('Just some text, no semester markers.')},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 400
+
+    def test_upload_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, school_class):
+        response = api_client.post(
+            f'/tutor/classes/{school_class.id}/plans',
+            FILES={'file': self._plan_file('Math\n\n1 семестр\n\nContent.')},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 403
+
+    def test_upload_rejected_for_tutor_who_is_not_the_class_teacher(
+        self, api_client, auth_header, tutor, subject, school_class
+    ):
+        # Assigned to a subject in the class, but not its homeroom teacher.
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = api_client.post(
+            f'/tutor/classes/{school_class.id}/plans',
+            FILES={'file': self._plan_file('Math\n\n1 семестр\n\nContent.')},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 403
+
+    def test_list_plans_returns_uploaded_history(self, api_client, auth_header, tutor, subject, school_class):
+        self._make_class_teacher(school_class, tutor)
+        api_client.post(
+            f'/tutor/classes/{school_class.id}/plans',
+            FILES={'file': self._plan_file('Math\n\n1 семестр\n\nContent.')},
+            headers=auth_header(tutor.user),
+        )
+
+        response = api_client.get(f'/tutor/classes/{school_class.id}/plans', headers=auth_header(tutor.user))
+
+        assert response.status_code == 200
+        assert len(response.data) == 1
+        assert response.data[0]['semester_name'] == 'Semester 1'
+
+
 class TestLessonsJsonUpload:
     def _json_file(self, content=b'[]'):
         from django.core.files.uploadedfile import SimpleUploadedFile

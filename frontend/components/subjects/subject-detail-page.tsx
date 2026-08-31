@@ -7,7 +7,9 @@ import { useGetSubjectProgress } from "@/lib/api/browser/student-lessons/student
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Markdown } from "@/components/markdown";
 import { ProgressBar } from "@/components/progress-bar";
+import { Tabs } from "@/components/tabs";
 import { CourseBadge } from "@/components/subjects/course-badge";
+import { SemesterPlan } from "@/components/subjects/semester-plan";
 import { NextLessonCard } from "./next-lesson-card";
 import { CoursePlan } from "./course-plan";
 
@@ -86,9 +88,25 @@ export function SubjectDetailPage({ subjectId }: { subjectId: number }) {
         )}
       </div>
 
-      <NextLessonCard subjectId={subjectId} />
-
-      <CoursePlan subjectId={subjectId} />
+      <Tabs
+        tabs={[
+          {
+            value: "lessons",
+            label: t("lessonsTab"),
+            content: (
+              <div className="flex flex-col gap-6">
+                <NextLessonCard subjectId={subjectId} />
+                <CoursePlan subjectId={subjectId} />
+              </div>
+            ),
+          },
+          {
+            value: "plan",
+            label: t("planTab"),
+            content: <SemesterPlan subjectId={subjectId} />,
+          },
+        ]}
+      />
     </div>
   );
 }

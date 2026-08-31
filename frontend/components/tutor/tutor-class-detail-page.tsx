@@ -1,12 +1,15 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
+import { RefreshCw } from "lucide-react";
 import type { AssignmentOut, TutorStudentOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
-import { useGetTutorClass } from "@/lib/api/browser/tutor/tutor";
+import { getGetTutorClassQueryKey, useGetTutorClass, useRecalculateClassWorkload } from "@/lib/api/browser/tutor/tutor";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Card } from "@/components/card";
 import { IsFilledBadge } from "@/components/subjects/is-filled-badge";
 import { PlanLessonsDialog } from "./plan-lessons-dialog";
+import { UploadPlanDialog } from "./upload-plan-dialog";
 
 const ICON_COLORS = [
   "bg-blue-500",
@@ -45,6 +48,13 @@ function SubjectRow({ subject }: { subject: AssignmentOut }) {
             {t("topicsCount", { count: subject.topic_count })} ·{" "}
             {t("lessonsCount", { count: subject.lesson_count })}
           </span>
+          {subject.block_workloads.length > 0 && (
+            <span className="text-xs text-gray-500">
+              {t("workloadLabel", {
+                value: subject.block_workloads.map((w) => (w === null ? "—" : w.toFixed(2))).join(" / "),
+              })}
+            </span>
+          )}
         </div>
         <IsFilledBadge isFilled={subject.is_filled} />
       </Card>
@@ -65,6 +75,36 @@ function StudentRow({ student }: { student: TutorStudentOut }) {
         <span className="shrink-0 text-xs text-blue-600">{t("viewCalendarLink")}</span>
       </Card>
     </li>
+  );
+}
+
+function RecalculateWorkloadButton({ classId }: { classId: number }) {
+  const t = useTranslations("TutorClassDetail");
+  const queryClient = useQueryClient();
+  const recalculate = useRecalculateClassWorkload();
+
+  const handleClick = () => {
+    recalculate.mutate(
+      { classId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetTutorClassQueryKey(classId) });
+        },
+        onError: () => window.alert(t("recalculateWorkloadError")),
+      },
+    );
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={recalculate.isPending}
+      className="flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+    >
+      <RefreshCw className={`h-4 w-4 ${recalculate.isPending ? "animate-spin" : ""}`} />
+      {t("recalculateWorkloadButton")}
+    </button>
   );
 }
 
@@ -97,7 +137,11 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
               </span>
             )}
           </div>
-          <PlanLessonsDialog classId={classId} />
+          <div className="flex shrink-0 items-center gap-2">
+            <RecalculateWorkloadButton classId={classId} />
+            {data.is_class_teacher && <UploadPlanDialog classId={classId} />}
+            <PlanLessonsDialog classId={classId} />
+          </div>
         </div>
         <p className="text-sm text-gray-700">
           {t("classTeacherLabel")}:{" "}

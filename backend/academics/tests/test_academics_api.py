@@ -380,3 +380,108 @@ def test_delete_topic_reassigns_remaining_topics(api_client, auth_header, admin_
     t2.refresh_from_db()
     # With only one topic left and two blocks, it lands in the first block.
     assert t2.subject_block_id == subject.blocks.get(index=1).id
+
+
+class TestParsePlanText:
+    def test_parses_multiple_subjects_and_semesters(self):
+        from academics import services
+
+        text = (
+            'Math\n\n1 семестр\n\nAlgebra basics.\n\nMore algebra.\n\n'
+            'History\n\n2 семестр\n\nAncient Rome.'
+        )
+        sections = services.parse_plan_text(text)
+
+        assert [s.subject_name for s in sections] == ['Math', 'History']
+        assert [s.semester_index for s in sections] == [1, 2]
+        assert sections[0].text == 'Algebra basics.\n\nMore algebra.'
+        assert sections[1].text == 'Ancient Rome.'
+
+    def test_collapses_double_spaces_in_subject_name(self):
+        from academics import services
+
+        text = 'ЗАРУБІЖНА  ЛІТЕРАТУРА\n\n1 семестр\n\nSome text.'
+        sections = services.parse_plan_text(text)
+
+        assert sections[0].subject_name == 'ЗАРУБІЖНА ЛІТЕРАТУРА'
+
+    def test_semester_marker_is_case_insensitive_and_tolerates_whitespace(self):
+        from academics import services
+
+        text = 'Math\n\n  2 СЕМЕСТР  \n\nContent.'
+        sections = services.parse_plan_text(text)
+
+        assert sections[0].semester_index == 2
+
+    def test_ignores_paragraphs_before_the_first_subject_header(self):
+        from academics import services
+
+        text = 'Stray note.\n\nMath\n\n1 семестр\n\nContent.'
+        sections = services.parse_plan_text(text)
+
+        assert len(sections) == 1
+        assert sections[0].subject_name == 'Math'
+
+    def test_no_sections_found_returns_empty_list(self):
+        from academics import services
+
+        assert services.parse_plan_text('Just some text with no semester markers.') == []
+
+
+class TestImportClassPlan:
+    def test_creates_subject_and_fills_block_description(self, school_class):
+        from academics import services
+
+        sections = services.parse_plan_text('Math\n\n1 семестр\n\nAlgebra basics.')
+        summary = services.import_class_plan(school_class, sections)
+
+        assert summary.subjects_added == ['Math']
+        assert summary.subjects_found == []
+        assert summary.blocks_updated == 1
+
+        subject = Subject.objects.get(school_class=school_class, name='Math')
+        block = subject.blocks.get(index=1)
+        assert block.description == 'Algebra basics.'
+        # The other semester's block still gets created (ensure_subject_blocks),
+        # just without a description yet.
+        assert subject.blocks.get(index=2).description == ''
+
+    def test_reuses_existing_subject_matched_case_insensitively(self, school_class):
+        from academics import services
+
+        Subject.objects.create(school_class=school_class, name='Math')
+
+        sections = services.parse_plan_text('MATH\n\n1 семестр\n\nAlgebra basics.')
+        summary = services.import_class_plan(school_class, sections)
+
+        assert summary.subjects_added == []
+        assert summary.subjects_found == ['Math']
+        assert Subject.objects.filter(school_class=school_class).count() == 1
+
+    def test_new_subject_gets_class_teacher_auto_assigned(self, school_class):
+        from academics import services
+        from accounts.models import Role, TutorProfile, User
+        from tutoring.models import TutorSubjectAssignment
+
+        teacher_user = User.objects.create_user(email='teacher@example.com', role=Role.TUTOR)
+        teacher = TutorProfile.objects.create(user=teacher_user)
+        school_class.class_teacher = teacher
+        school_class.save(update_fields=['class_teacher'])
+
+        sections = services.parse_plan_text('Math\n\n1 семестр\n\nAlgebra basics.')
+        services.import_class_plan(school_class, sections)
+
+        subject = Subject.objects.get(school_class=school_class, name='Math')
+        assert TutorSubjectAssignment.objects.filter(tutor=teacher, subject=subject).exists()
+
+    def test_reupload_overwrites_block_description(self, school_class):
+        from academics import services
+
+        first = services.parse_plan_text('Math\n\n1 семестр\n\nOld content.')
+        services.import_class_plan(school_class, first)
+
+        second = services.parse_plan_text('Math\n\n1 семестр\n\nNew content.')
+        services.import_class_plan(school_class, second)
+
+        subject = Subject.objects.get(school_class=school_class, name='Math')
+        assert subject.blocks.get(index=1).description == 'New content.'
