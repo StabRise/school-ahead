@@ -115,27 +115,39 @@ const PICTURE_POOL_BY_MODE: Partial<Record<BalloonMode, string>> = {
   colors: "colors",
 };
 
-// Stable (module-level) list of every distinct folder above, for
-// usePreschoolFolders's dependency array — the hook re-fetches whenever its
-// `folders` argument's identity changes, so this must never be recreated.
-const PICTURE_POOL_FOLDERS: string[] = Array.from(new Set(Object.values(PICTURE_POOL_BY_MODE)));
-
 // Sound-only asset folders for modes with recorded pronunciations but no
 // pictures (so no PICTURE_POOL_BY_MODE entry), whose folder name doesn't
 // match the mode's own name — e.g. "numbers10" plays 0 through 10, so its
 // folder is named "numbers-0-10" rather than "numbers10". A mode with
 // neither this nor a picture-pool entry just uses its own name as the sound
 // folder (see soundFolder in BalloonPopGame) — same "mode name = folder
-// name" convention "greetings" already follows.
+// name" convention "greetings" already follows. Unlike PICTURE_POOL_BY_MODE
+// modes, these are never hidden by isModeAvailableForLanguage even if a
+// language's subfolder is missing — a digit is the same symbol in every
+// language, so a language with no recording for it just falls back to TTS
+// rather than losing the mode entirely (see soundFolder/useRecordedSounds).
 const SOUND_FOLDER_BY_MODE: Partial<Record<BalloonMode, string>> = {
   numbers10: "numbers-0-10",
+  numbers1120: "numbers-11-20",
+  numbersTens: "numbers-10-100",
 };
+
+// Every folder either map above points at — fetched together (see
+// folderData in BalloonPopGame) so a sound-only mode's title.json override
+// (see modeLabel) works the same way a picture-pool mode's does, even
+// though its availableLanguages is never used for gating (see
+// isModeAvailableForLanguage). Stable (module-level) for
+// usePreschoolFolders's dependency array — the hook re-fetches whenever its
+// `folders` argument's identity changes, so this must never be recreated.
+const ALL_MODE_FOLDERS: string[] = Array.from(
+  new Set([...Object.values(PICTURE_POOL_BY_MODE), ...Object.values(SOUND_FOLDER_BY_MODE)]),
+);
 
 // A picture-pool mode with no language subfolders at all hasn't opted into
 // per-language gating yet, so it stays available for every game language;
 // one that has opted in only shows up for languages it actually has a
-// subfolder for. Non-picture-pool modes (numbers/letters/greetings) are
-// never gated by this at all.
+// subfolder for. Sound-only modes (SOUND_FOLDER_BY_MODE) and modes with
+// neither entry (letters/greetings) are never gated by this at all.
 function isModeAvailableForLanguage(
   mode: BalloonMode,
   language: GameLanguage,
@@ -149,8 +161,8 @@ function isModeAvailableForLanguage(
 
 const BALLOON_MODES: BalloonMode[] = [
   "numbers10",
-  "numbers20",
-  "numbers100",
+  "numbers1120",
+  "numbersTens",
   "colors",
   "letters",
   "greetings",
@@ -246,15 +258,17 @@ function labelTextColorFor(cssColor: string): string {
   return result;
 }
 
-function randomNumber(max: number): number {
-  return Math.floor(randomBetween(1, max + 1));
-}
-
-// Inclusive of both ends — unlike randomNumber(max) above (always 1..max),
-// "numbers10" mode's range starts at 0 (see public/preschool/numbers-0-10).
+// Inclusive of both ends.
 function randomNumberInRange(min: number, max: number): number {
   return Math.floor(randomBetween(min, max + 1));
 }
+
+// "numbersTens" mode counts by tens (лічба десятками) — a fixed set of
+// discrete values, not a continuous range like "numbers10"/"numbers1120",
+// so it's drawn from directly rather than generated with
+// randomNumberInRange. Matches the recordings in
+// public/preschool/numbers-10-100/en/sounds exactly.
+const BALLOON_TENS = ["10", "20", "30", "40", "50", "60", "70", "80", "90", "100"];
 
 function randomFrom<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
@@ -299,12 +313,12 @@ function generateBalloonContent(
   picturePool?: PreschoolCard[],
 ): { label: string; icon?: string; image?: string; color: string; textColor?: string; speech: string } {
   switch (mode) {
-    case "numbers20": {
-      const label = String(randomNumber(20));
+    case "numbers1120": {
+      const label = String(randomNumberInRange(11, 20));
       return { label, color: randomColor(), speech: label };
     }
-    case "numbers100": {
-      const label = String(randomNumber(100));
+    case "numbersTens": {
+      const label = randomFrom(BALLOON_TENS);
       return { label, color: randomColor(), speech: label };
     }
     case "letters": {
@@ -359,16 +373,13 @@ function generateBalloonContent(
 
 // Every distinct value a mode can speak, for proactively warming the TTS
 // cache (see the mode/language effect below) so pops play instantly instead
-// of paying synthesis cost live. Skipped for numbers100 — 100 distinct
-// utterances is too much background synthesis for a vocabulary that's
-// mostly never hit in a single play session; those are cached lazily as
-// they come up instead.
+// of paying synthesis cost live.
 function vocabularyFor(mode: BalloonMode, language: GameLanguage, picturePool?: PreschoolCard[]): string[] {
   switch (mode) {
-    case "numbers20":
-      return Array.from({ length: 20 }, (_, i) => String(i + 1));
-    case "numbers100":
-      return [];
+    case "numbers1120":
+      return Array.from({ length: 10 }, (_, i) => String(i + 11));
+    case "numbersTens":
+      return BALLOON_TENS;
     case "letters":
       return ALPHABETS[language].map((letter) => letter.charAt(0));
     case "greetings":
@@ -740,11 +751,12 @@ export function BalloonPopGame() {
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [settingsOpen]);
 
-  // Card data for every picture-pool folder, fetched once up front (not
-  // just the current mode's) — the mode picker below needs every folder's
-  // availableLanguages to decide which modes to show for the selected
-  // language, not only whichever mode happens to be selected right now.
-  const folderData = usePreschoolFolders(PICTURE_POOL_FOLDERS);
+  // Card/title/availability data for every mode-linked folder (picture-pool
+  // and sound-only alike), fetched once up front — not just the current
+  // mode's — since the mode picker below needs every picture-pool folder's
+  // availableLanguages, and modeLabel needs every folder's title override,
+  // regardless of whichever mode happens to be selected right now.
+  const folderData = usePreschoolFolders(ALL_MODE_FOLDERS);
   const picturePoolFolder = PICTURE_POOL_BY_MODE[mode];
   const isPictureMode = Boolean(picturePoolFolder);
   const picturePoolCards = picturePoolFolder ? folderData[picturePoolFolder]?.cards : undefined;
@@ -768,12 +780,13 @@ export function BalloonPopGame() {
     if (!availableModes.includes(mode) && availableModes.length > 0) setMode(availableModes[0]);
   }, [availableModes, mode, setMode]);
 
-  // A picture-pool mode's title.json for the current language (if any)
-  // overrides its regular next-intl translation — lets a mode's display
-  // name switch along with the selected game language once its folder has
-  // per-language title overrides, without touching messages/*.json.
+  // A mode's title.json for the current language (if any) overrides its
+  // regular next-intl translation — lets a mode's display name switch along
+  // with the selected game language once its folder has per-language title
+  // overrides, without touching messages/*.json. Checks both picture-pool
+  // and sound-only folders (see ALL_MODE_FOLDERS).
   const modeLabel = (m: BalloonMode): string => {
-    const folder = PICTURE_POOL_BY_MODE[m];
+    const folder = PICTURE_POOL_BY_MODE[m] ?? SOUND_FOLDER_BY_MODE[m];
     const override = folder ? folderData[folder]?.titles[language] : undefined;
     return override ?? t(`mode.${m}`);
   };

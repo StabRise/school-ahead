@@ -9,8 +9,8 @@ import type { SpeechLanguage } from "@/lib/piper-tts";
 
 export type BalloonMode =
   | "numbers10"
-  | "numbers20"
-  | "numbers100"
+  | "numbers1120"
+  | "numbersTens"
   | "colors"
   | "letters"
   | "greetings"
