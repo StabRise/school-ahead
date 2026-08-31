@@ -83,7 +83,6 @@ const ALPHABETS: Record<GameLanguage, string[]> = {
 const BALLOON_GREETINGS = [
   "Hello",
   "Hi",
-  "Hey",
   "Good morning",
   "Good afternoon",
   "Good evening",
@@ -187,20 +186,20 @@ const BALLOON_ANIMALS_EX: { name: string; image: string }[] = [
   { name: "Kitten", image: "/preschool/animals/kitten.jpeg" },
   { name: "Sheep", image: "/preschool/animals/sheep.jpeg" },
   { name: "Chicken", image: "/preschool/animals/chicken.jpeg" },
-  { name: "fox", image: "/preschool/animals/fox.jpeg" },
-  { name: "frog", image: "/preschool/animals/frog.jpeg" },
-  { name: "hippo", image: "/preschool/animals/hippo.jpeg" },
-  { name: "horse", image: "/preschool/animals/horse.jpeg" },
-  { name: "goose", image: "/preschool/animals/goose.jpeg" },
-  { name: "kangaroo", image: "/preschool/animals/kangaroo.jpeg" },
-  { name: "koala", image: "/preschool/animals/koala.jpeg" },
-  { name: "lion", image: "/preschool/animals/lion.jpeg" },
-  { name: "monkey", image: "/preschool/animals/monkey.jpeg" },
-  { name: "owl", image: "/preschool/animals/owl.jpeg" },
-  { name: "racoon", image: "/preschool/animals/racoon.jpeg" },
-  { name: "squirrel", image: "/preschool/animals/squirrel.jpeg" },
-  { name: "whale", image: "/preschool/animals/whale.jpeg" },
-  { name: "zebra", image: "/preschool/animals/zebra.jpeg" },
+  { name: "Fox", image: "/preschool/animals/fox.jpeg" },
+  { name: "Frog", image: "/preschool/animals/frog.jpeg" },
+  { name: "Hippo", image: "/preschool/animals/hippo.jpeg" },
+  { name: "Horse", image: "/preschool/animals/horse.jpeg" },
+  { name: "Goose", image: "/preschool/animals/goose.jpeg" },
+  { name: "Kangaroo", image: "/preschool/animals/kangaroo.jpeg" },
+  { name: "Koala", image: "/preschool/animals/koala.jpeg" },
+  { name: "Lion", image: "/preschool/animals/lion.jpeg" },
+  { name: "Monkey", image: "/preschool/animals/monkey.jpeg" },
+  { name: "Owl", image: "/preschool/animals/owl.jpeg" },
+  { name: "Racoon", image: "/preschool/animals/racoon.jpeg" },
+  { name: "Squirrel", image: "/preschool/animals/squirrel.jpeg" },
+  { name: "Whale", image: "/preschool/animals/whale.jpeg" },
+  { name: "Zebra", image: "/preschool/animals/zebra.jpeg" },
 ];
 
 // "schoolSuppliesEx" mode — like "animalsEx", a photo/illustration hung
@@ -481,7 +480,9 @@ function vocabularyFor(mode: BalloonMode, language: GameLanguage): string[] {
     case "letters":
       return ALPHABETS[language].map((letter) => letter.charAt(0));
     case "greetings":
-      return BALLOON_GREETINGS;
+      // Recorded audio files are used instead of Piper TTS for this mode
+      // (see RECORDED_SOUND_MODES/playRecordedSound) — nothing to warm up.
+      return [];
     case "animals":
       // 50 names is as much background synthesis as numbers100's 100 — skip
       // proactive warmup and let pops cache lazily as each name comes up.
@@ -536,6 +537,26 @@ function labelFontSize(lines: string[]): number {
   if (maxLineLength <= 8) return 8;
   if (maxLineLength <= 10) return 6.5;
   return 5.5;
+}
+
+// Modes with real recorded pronunciations instead of Piper TTS synthesis —
+// played from public/preschool/<mode>/sounds/<label>.mp3, so the mode name
+// doubles as the sounds folder name. Skips voice prefetch/warmup entirely
+// (see the mode/language effect below) since nothing needs synthesizing.
+const RECORDED_SOUND_MODES: BalloonMode[] = ["greetings"];
+
+// Plays the recorded pronunciation for `label` in `mode`'s sounds folder —
+// e.g. "Good morning" in "greetings" plays
+// /preschool/greetings/sounds/Good morning.mp3.
+function playRecordedSound(mode: BalloonMode, label: string): void {
+  try {
+    const audio = new Audio(`/preschool/${mode}/sounds/${encodeURIComponent(label)}.mp3`);
+    void audio.play().catch(() => {
+      // Best-effort only — autoplay restrictions, missing file, ...
+    });
+  } catch {
+    // Best-effort only.
+  }
 }
 
 // Synthesized "pop" — no audio asset pipeline exists in this project, and a
@@ -920,7 +941,7 @@ export function BalloonPopGame() {
   // Skipped entirely while muted — no point downloading/synthesizing voices
   // nothing will play.
   useEffect(() => {
-    if (muted) return;
+    if (muted || RECORDED_SOUND_MODES.includes(mode)) return;
     let cancelled = false;
     void prefetchVoice(language, "short").then(() => {
       if (!cancelled) warmupSpeech(vocabularyFor(mode, language), language, "short");
@@ -996,7 +1017,13 @@ export function BalloonPopGame() {
     }, 550);
 
     playPopSound();
-    if (!muted) speak(balloon.speech, language, "short");
+    if (!muted) {
+      if (RECORDED_SOUND_MODES.includes(mode)) {
+        playRecordedSound(mode, balloon.speech);
+      } else {
+        speak(balloon.speech, language, "short");
+      }
+    }
     setScore((current) => current + 1);
     setScoreBump((current) => current + 1);
   };
