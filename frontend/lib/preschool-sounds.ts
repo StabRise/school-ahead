@@ -58,7 +58,7 @@ function fetchModes(): Promise<string[]> {
 }
 
 // The balloon-pop minigame's full mode list — every subfolder of
-// public/preschool/baloon-game, fetched once and cached module-wide. Empty
+// public/preschool/balloon-game, fetched once and cached module-wide. Empty
 // until the fetch resolves.
 export function usePreschoolModes(): string[] {
   const [modes, setModes] = useState<string[]>([]);
@@ -121,8 +121,8 @@ export function resolveCardName(card: PreschoolCard, language: string, modeData:
 
 // Plays the recorded pronunciation for canonical key `key` from
 // `soundsPath` (see PreschoolModeData.sounds) — e.g. soundsPath
-// "/preschool/baloon-game/animals/en/sounds" and key "Bear" plays
-// /preschool/baloon-game/animals/en/sounds/Bear.mp3. Callers should only
+// "/static/balloon-game/animals/en/sounds" and key "Bear" plays
+// /static/balloon-game/animals/en/sounds/Bear.mp3. Callers should only
 // call this once that language's `sounds.names` confirms `key` is actually
 // covered.
 export function playRecordedSound(soundsPath: string, key: string): void {

@@ -212,7 +212,7 @@ function generateBalloonContent(
   const card = randomFrom(cards);
   if (!card) return { label: "", color: randomColor(), cardKey: "", speech: "" };
   if (mode === "colors") {
-    // Every image in public/preschool/baloon-game/colors is named after a
+    // Every image in public/static/balloon-game/colors is named after a
     // CSS color keyword (e.g. "Red.jpeg", "Beige.jpeg") — the balloon is
     // filled with that literal color (via its canonical, untranslated key,
     // since a translated name like "Червоний" isn't a valid CSS value)
@@ -573,7 +573,7 @@ export function BalloonPopGame() {
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [settingsOpen]);
 
-  // The full mode list — every subfolder of public/preschool/baloon-game
+  // The full mode list — every subfolder of public/static/balloon-game
   // (see /api/preschool-modes) — and each one's full data (cards, titles,
   // quiz phrasing, translations, sound coverage for every language at
   // once, see /api/preschool-mode), fetched once up front rather than just
