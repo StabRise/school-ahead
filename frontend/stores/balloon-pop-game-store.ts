@@ -7,32 +7,21 @@ import type { SpeechLanguage } from "@/lib/piper-tts";
 // a chosen mode/language/sizing/mute survives closing the tab instead of
 // resetting to defaults every session.
 
-export type BalloonMode =
-  | "numbers10"
-  | "numbers20"
-  | "numbers100"
-  | "colors"
-  | "letters"
-  | "greetings"
-  | "animals"
-  | "animalsEx"
-  | "schoolSupplies"
-  | "schoolSuppliesEx"
-  | "family"
-  | "bodyParts"
-  | "fruits";
+// A mode is just the name of its folder under public/preschool/baloon-game
+// (see /api/preschool-modes) — there's no fixed set of modes anymore, so
+// this is a plain string rather than a literal union.
+export type BalloonMode = string;
 
-const DEFAULT_MODE: BalloonMode = "numbers10";
+const DEFAULT_MODE: BalloonMode = "numbers-0-10";
 const DEFAULT_LANGUAGE: SpeechLanguage = "en";
 const DEFAULT_SIZE = 112;
 const DEFAULT_SPEED = 1;
 const DEFAULT_COUNT = 9;
 
-// For modes with a picture pool (animalsEx/schoolSuppliesEx/family/
-// bodyParts/fruits, see PICTURE_POOL_BY_MODE in balloon-pop-game.tsx) —
-// how many random items from that mode's pool the "game" (balloons) and
-// "learning" (flashcards) screens both draw from, chosen once per
-// (mode, cardCount) so switching between the two never reshuffles it.
+// How many random cards a mode's pool (see displayCards in
+// balloon-pop-game.tsx) the "game" (balloons) and "learning" (flashcards)
+// screens both draw from, chosen once per (mode, cardCount) so switching
+// between the two never reshuffles it.
 export type BalloonScreenMode = "game" | "learning";
 const DEFAULT_SCREEN_MODE: BalloonScreenMode = "game";
 const DEFAULT_CARD_COUNT = 6;
