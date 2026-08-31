@@ -9,13 +9,16 @@ const MENU_ITEMS = [
   { href: "/calendar", labelKey: "calendar" },
 ] as const;
 
-export function MainMenu() {
+const GAMES_ITEM = { href: "/games", labelKey: "games" } as const;
+
+export function MainMenu({ isPreschool }: { isPreschool: boolean }) {
   const t = useTranslations("Header");
   const pathname = usePathname();
+  const items = isPreschool ? [...MENU_ITEMS, GAMES_ITEM] : MENU_ITEMS;
 
   return (
     <nav className="flex items-center gap-4">
-      {MENU_ITEMS.map((item) => {
+      {items.map((item) => {
         const isActive = pathname === item.href;
         return (
           <Link
