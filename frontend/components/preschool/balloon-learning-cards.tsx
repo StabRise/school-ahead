@@ -24,7 +24,7 @@ function gridMaxWidthPx(itemCount: number): number {
 }
 
 // "Навчання" (learning) screen for balloon-pop-game.tsx's picture-pool
-// modes (animals/schoolSuppliesEx/family/bodyParts/fruits) — a static
+// modes (animals/schoolSupplies/family/bodyParts/fruits) — a static
 // grid instead of falling balloons, so a child can tap each item at their
 // own pace and hear its name as many times as they like. `items` is the
 // same fixed subset the "game" (balloon) screen draws from for this
@@ -38,7 +38,7 @@ export function BalloonLearningCards({
   items: { name: string; image: string }[];
   muted: boolean;
   // Speaks `name` — the caller decides between a recorded pronunciation and
-  // Piper TTS (see useRecordedSoundNames in lib/preschool-sounds.ts).
+  // Piper TTS (see useRecordedSounds in lib/preschool-sounds.ts).
   onPlay: (name: string) => void;
 }) {
   const [activeName, setActiveName] = useState<string | null>(null);
@@ -94,9 +94,10 @@ export function BalloonLearningCards({
                 🔊
               </span>
             </span>
-            {/* `capitalize` rather than fixing the data itself — the
-                picture pools (e.g. BALLOON_ANIMALS) mix "Bear" and
-                "fox"-style casing, and this reads correctly regardless. */}
+            {/* `capitalize` as a safety net — a card's name is whatever its
+                image file in public/preschool/<folder> is named (see
+                PICTURE_POOL_BY_MODE in balloon-pop-game.tsx), so an
+                inconsistently-cased upload still reads correctly. */}
             <span className="truncate text-base font-bold capitalize text-gray-800">{item.name}</span>
           </button>
         ))}

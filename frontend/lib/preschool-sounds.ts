@@ -1,61 +1,123 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { BalloonMode } from "@/stores/balloon-pop-game-store";
 
-// Base names (no extension) of the recorded pronunciations available for a
-// balloon-pop mode in public/preschool/<mode>/sounds/<label>.mp3 instead of
-// relying on Piper TTS synthesis — the mode name doubles as the sounds
-// folder name. Checked per file rather than just per folder so a mode with
-// only partial coverage (e.g. a few items missing their recording) still
-// gets TTS for the gaps instead of silence. Cached module-wide per mode
-// (same convention as use-background-music.ts's tracksPromise) — drop new
-// mp3s into a mode's public/preschool/<mode>/sounds folder and they're
-// picked up automatically, no code change needed.
-const namesCache = new Map<BalloonMode, Promise<Set<string>>>();
+export interface PreschoolCard {
+  name: string;
+  image: string;
+}
 
-function fetchRecordedSoundNames(mode: BalloonMode): Promise<Set<string>> {
-  let cached = namesCache.get(mode);
+export interface PreschoolFolderData {
+  // Cards discovered from the image files directly under
+  // public/preschool/<folder> — see /api/preschool-cards.
+  cards: PreschoolCard[];
+  // Which of "en"/"uk"/"pl" have their own subfolder under <folder> — empty
+  // means the folder hasn't opted into per-language content at all, so the
+  // mode it backs is treated as available for every language.
+  availableLanguages: string[];
+  // Per-language display-name override, read from each language subfolder's
+  // title.json — keyed by language, missing entries fall back to the
+  // mode's regular next-intl translation.
+  titles: Record<string, string>;
+}
+
+const EMPTY_FOLDER_DATA: PreschoolFolderData = { cards: [], availableLanguages: [], titles: {} };
+
+const folderCache = new Map<string, Promise<PreschoolFolderData>>();
+
+function fetchFolderData(folder: string): Promise<PreschoolFolderData> {
+  let cached = folderCache.get(folder);
   if (!cached) {
-    cached = fetch(`/api/preschool-sounds?mode=${encodeURIComponent(mode)}`)
+    cached = fetch(`/api/preschool-cards?folder=${encodeURIComponent(folder)}`)
       .then((res) => res.json())
-      .then((data: { names: string[] }) => new Set(data.names))
-      .catch(() => new Set<string>());
-    namesCache.set(mode, cached);
+      .catch(() => EMPTY_FOLDER_DATA);
+    folderCache.set(folder, cached);
   }
   return cached;
 }
 
-const EMPTY_NAMES: ReadonlySet<string> = new Set();
-
-// Empty until the check resolves, so a mode's very first load briefly falls
-// back to TTS for everything — cached after that, including across mode
-// switches. `result` is tagged with the `mode` it answers for (rather than
-// reset synchronously on every mode change) so a still-resolving check for a
-// previous mode can't overwrite the new one's state once it lands late.
-export function useRecordedSoundNames(mode: BalloonMode): ReadonlySet<string> {
-  const [result, setResult] = useState<{ mode: BalloonMode; names: Set<string> } | null>(null);
+// Fetches, and caches module-wide, the card list / available-languages /
+// title overrides for every folder in `folders` (the asset folder backing
+// each picture-pool BalloonMode — see PICTURE_POOL_BY_MODE in
+// balloon-pop-game.tsx). `folders` should be a stable (module-level
+// constant) array, since it drives the effect's dependency.
+export function usePreschoolFolders(folders: string[]): Record<string, PreschoolFolderData> {
+  const [data, setData] = useState<Record<string, PreschoolFolderData>>({});
 
   useEffect(() => {
     let cancelled = false;
-    void fetchRecordedSoundNames(mode).then((names) => {
-      if (!cancelled) setResult({ mode, names });
+    void Promise.all(folders.map(async (folder) => [folder, await fetchFolderData(folder)] as const)).then(
+      (entries) => {
+        if (!cancelled) setData(Object.fromEntries(entries));
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [folders]);
+
+  return data;
+}
+
+interface RecordedSounds {
+  // Base names (no extension) with a recorded pronunciation available.
+  names: ReadonlySet<string>;
+  // URL folder the recordings live in (pass straight to playRecordedSound),
+  // or null if this folder/language has no recordings at all.
+  soundsPath: string | null;
+}
+
+const EMPTY_RECORDED_SOUNDS: RecordedSounds = { names: new Set(), soundsPath: null };
+
+const soundsCache = new Map<string, Promise<RecordedSounds>>();
+
+function fetchRecordedSounds(folder: string, language: string): Promise<RecordedSounds> {
+  const key = `${folder}:${language}`;
+  let cached = soundsCache.get(key);
+  if (!cached) {
+    cached = fetch(`/api/preschool-sounds?folder=${encodeURIComponent(folder)}&language=${encodeURIComponent(language)}`)
+      .then((res) => res.json())
+      .then((data: { names: string[]; soundsPath: string | null }) => ({
+        names: new Set(data.names),
+        soundsPath: data.soundsPath,
+      }))
+      .catch(() => EMPTY_RECORDED_SOUNDS);
+    soundsCache.set(key, cached);
+  }
+  return cached;
+}
+
+// Empty until the check resolves, so a mode's very first load briefly falls
+// back to TTS for everything — cached after that, including across
+// folder/language switches. `result` is tagged with the key it answers for
+// (rather than reset synchronously on every change) so a still-resolving
+// check for a previous folder/language can't overwrite newer state once it
+// lands late.
+export function useRecordedSounds(folder: string, language: string): RecordedSounds {
+  const key = `${folder}:${language}`;
+  const [result, setResult] = useState<{ key: string; data: RecordedSounds } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchRecordedSounds(folder, language).then((data) => {
+      if (!cancelled) setResult({ key, data });
     });
     return () => {
       cancelled = true;
     };
-  }, [mode]);
+  }, [folder, language, key]);
 
-  return result?.mode === mode ? result.names : EMPTY_NAMES;
+  return result?.key === key ? result.data : EMPTY_RECORDED_SOUNDS;
 }
 
-// Plays the recorded pronunciation for `label` in `mode`'s sounds folder —
-// e.g. "Bear" in "animals" plays /preschool/animals/sounds/Bear.mp3. Callers
-// should only call this once useRecordedSoundNames(mode) confirms `label` is
-// actually covered.
-export function playRecordedSound(mode: BalloonMode, label: string): void {
+// Plays the recorded pronunciation for `label` from `soundsPath` (as
+// returned by useRecordedSounds) — e.g. soundsPath
+// "/preschool/animals/en/sounds" and label "Bear" plays
+// /preschool/animals/en/sounds/Bear.mp3. Callers should only call this once
+// useRecordedSounds confirms `label` is actually covered.
+export function playRecordedSound(soundsPath: string, label: string): void {
   try {
-    const audio = new Audio(`/preschool/${mode}/sounds/${encodeURIComponent(label)}.mp3`);
+    const audio = new Audio(`${soundsPath}/${encodeURIComponent(label)}.mp3`);
     void audio.play().catch(() => {
       // Best-effort only — autoplay restrictions, missing file, ...
     });

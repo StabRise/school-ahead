@@ -16,11 +16,10 @@ import { QuizAnswerButton, QuizBanner, QuizCard, QuizFeedbackOverlay, QuizReadAl
 // (see QUIZ_BALLOON_MODES in balloon-pop-game.tsx):
 // - "counting" ("numbers10"): "how many cats do you see?" over a row of
 //   mixed animal emojis, answered by picking a number.
-// - "picture" ("animals"/"schoolSuppliesEx"/"family"/"bodyParts"/
+// - "picture" ("animals"/"schoolSupplies"/"family"/"bodyParts"/
 //   "fruits", see PICTURE_QUIZ_MODES below): "where is the X?" answered by
-//   picking the matching illustration out of a few from that mode's image
-//   list (BALLOON_ANIMALS/BALLOON_SCHOOL_SUPPLIES_EX/BALLOON_FAMILY/
-//   BALLOON_BODY_PARTS/BALLOON_FRUITS).
+//   picking the matching illustration out of a few from that mode's own
+//   picture-pool folder (see PICTURE_POOL_BY_MODE in balloon-pop-game.tsx).
 
 export type BalloonQuizAnimal = "cat" | "dog" | "monkey";
 
@@ -116,9 +115,10 @@ function buildCountingQuestion(): CountingQuestion {
   };
 }
 
-// Case-insensitive dedupe, keeping the first occurrence — BALLOON_ANIMALS
-// has a few casing duplicates (e.g. "Panda"/"panda") that would otherwise
-// show up as two indistinguishable choices in the same question.
+// Case-insensitive dedupe, keeping the first occurrence — a picture-pool
+// folder can have casing duplicates (e.g. "Panda.jpeg"/"panda.jpeg") that
+// would otherwise show up as two indistinguishable choices in the same
+// question.
 function uniqueByName(animals: BalloonQuizAnimalChoice[]): BalloonQuizAnimalChoice[] {
   const seen = new Set<string>();
   const result: BalloonQuizAnimalChoice[] = [];
@@ -157,11 +157,11 @@ function pickUniqueTargets(pool: BalloonQuizAnimalChoice[], count: number): Ball
 }
 
 // Modes with a picture quiz — everything else falls back to the counting
-// quiz. `picturePool` (that mode's BALLOON_ANIMALS/BALLOON_SCHOOL_
-// SUPPLIES_EX/BALLOON_FAMILY) is passed in by the caller rather than
-// imported from balloon-pop-game.tsx (which already imports this module) to
-// avoid a circular import — ignored for modes that don't need one.
-const PICTURE_QUIZ_MODES: BalloonMode[] = ["animals", "schoolSuppliesEx", "family", "bodyParts", "fruits"];
+// quiz. `picturePool` (that mode's fetched picture-pool cards, see
+// PICTURE_POOL_BY_MODE in balloon-pop-game.tsx) is passed in by the caller
+// rather than fetched here to avoid a second, redundant fetch of the same
+// folder data the caller already has.
+const PICTURE_QUIZ_MODES: BalloonMode[] = ["animals", "schoolSupplies", "family", "bodyParts", "fruits"];
 
 export function buildBalloonQuizQuestions(
   mode: BalloonMode,
@@ -194,10 +194,11 @@ function countingQuestionText(animal: BalloonQuizAnimal, language: GameLanguage)
   return COUNTING_QUESTION_TEMPLATE[language](ANIMAL_NAMES[language][animal]);
 }
 
-// None of the PICTURE_QUIZ_MODES image lists have per-language variants
-// (same convention as BALLOON_ANIMALS/BALLOON_GREETINGS in
-// balloon-pop-game.tsx), so this stays plain English regardless of the
-// selected game language.
+// None of the PICTURE_QUIZ_MODES picture pools have per-language card names
+// (same convention as BALLOON_GREETINGS in balloon-pop-game.tsx) — a
+// folder's "en"/"uk"/"pl" subfolders only gate the mode's availability and
+// override its display title, they don't localize the pictures themselves —
+// so this stays plain English regardless of the selected game language.
 function pictureQuestionText(targetName: string): string {
   return `Where is a ${targetName}?`;
 }

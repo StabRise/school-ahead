@@ -7,7 +7,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getMeQueryKey, useRewardBalloonPop, useRewardBalloonQuiz } from "@/lib/api/browser/auth/auth";
 import { mapApiUserToAuthUser } from "@/lib/api/map-user";
 import { prefetchVoice, speak, warmupSpeech, type SpeechLanguage as GameLanguage } from "@/lib/piper-tts";
-import { playRecordedSound, useRecordedSoundNames } from "@/lib/preschool-sounds";
+import {
+  playRecordedSound,
+  usePreschoolFolders,
+  useRecordedSounds,
+  type PreschoolCard,
+  type PreschoolFolderData,
+} from "@/lib/preschool-sounds";
 import { useBackgroundMusic } from "@/lib/use-background-music";
 import { useAuthStore } from "@/stores/auth-store";
 import { useBalloonPopGameStore, type BalloonMode } from "@/stores/balloon-pop-game-store";
@@ -92,145 +98,45 @@ const BALLOON_GREETINGS = [
   "See you later",
 ];
 
-// English names for the "schoolSupplies" mode, paired with a representative
-// emoji shown on the balloon — no per-language variants exist yet, so names
-// are shown/spoken in English regardless of the selected game language.
-// Unicode has no dedicated emoji for most of these
-// items, so each uses the closest visually-similar stand-in (e.g. a sponge
-// for "erase", an abacus for "calculate", a magnetic compass for the
-// geometry compass).
-const BALLOON_SCHOOL_SUPPLIES: { name: string; emoji: string }[] = [
-  { name: "Pencil", emoji: "✏️" },
-  { name: "Pen", emoji: "🖊️" },
-  { name: "Eraser", emoji: "🧽" },
-  { name: "Ruler", emoji: "📏" },
-  { name: "Notebook", emoji: "📓" },
-  { name: "Backpack", emoji: "🎒" },
-  { name: "Scissors", emoji: "✂️" },
-  { name: "Glue stick", emoji: "🧴" },
-  { name: "Marker", emoji: "🖍️" },
-  { name: "Highlighter", emoji: "🖌️" },
-  { name: "Pencil case", emoji: "🧳" },
-  { name: "Calculator", emoji: "🧮" },
-  { name: "Compass", emoji: "🧭" },
-  { name: "Colored pencils", emoji: "🎨" },
-];
-
-// "animals" mode — hangs a drawn illustration below the balloon instead of
-// an emoji, for characters worth showing at higher fidelity than a Unicode
-// glyph allows. Files live in public/preschool/animals, same static-asset
-// convention as public/music (see lib/use-background-music.ts).
-const BALLOON_ANIMALS: { name: string; image: string }[] = [
-  { name: "Bear", image: "/preschool/animals/bear.jpeg" },
-  { name: "Butterfly", image: "/preschool/animals/butterfly.jpeg" },
-  { name: "Cheetah", image: "/preschool/animals/cheetah.jpeg" },
-  { name: "Kitten", image: "/preschool/animals/kitten.jpeg" },
-  { name: "Sheep", image: "/preschool/animals/sheep.jpeg" },
-  { name: "Chicken", image: "/preschool/animals/chicken.jpeg" },
-  { name: "Fox", image: "/preschool/animals/fox.jpeg" },
-  { name: "Frog", image: "/preschool/animals/frog.jpeg" },
-  { name: "Hippopotamus", image: "/preschool/animals/hippo.jpeg" },
-  { name: "Horse", image: "/preschool/animals/horse.jpeg" },
-  { name: "Goose", image: "/preschool/animals/goose.jpeg" },
-  { name: "Kangaroo", image: "/preschool/animals/kangaroo.jpeg" },
-  { name: "Koala", image: "/preschool/animals/koala.jpeg" },
-  { name: "Lion", image: "/preschool/animals/lion.jpeg" },
-  { name: "Monkey", image: "/preschool/animals/monkey.jpeg" },
-  { name: "Owl", image: "/preschool/animals/owl.jpeg" },
-  { name: "Racoon", image: "/preschool/animals/racoon.jpeg" },
-  { name: "Squirrel", image: "/preschool/animals/squirrel.jpeg" },
-  { name: "Whale", image: "/preschool/animals/whale.jpeg" },
-  { name: "Zebra", image: "/preschool/animals/zebra.jpeg" },
-];
-
-// "schoolSuppliesEx" mode — like "animals", a photo/illustration hung
-// below the balloon instead of an emoji. Files live in
-// public/preschool/schoolSupplies, same static-asset convention as
-// public/preschool/animals above.
-const BALLOON_SCHOOL_SUPPLIES_EX: { name: string; image: string }[] = [
-  { name: "Backpack", image: "/preschool/schoolSupplies/backpack.jpeg" },
-  { name: "Book", image: "/preschool/schoolSupplies/book.jpeg" },
-  { name: "Calculator", image: "/preschool/schoolSupplies/calculator.jpeg" },
-  { name: "Eraser", image: "/preschool/schoolSupplies/eraser.jpeg" },
-  { name: "Glue stick", image: "/preschool/schoolSupplies/glue-stick.jpeg" },
-  { name: "Marker", image: "/preschool/schoolSupplies/marker.jpeg" },
-  { name: "Notebook", image: "/preschool/schoolSupplies/notebook.jpeg" },
-  { name: "Pen", image: "/preschool/schoolSupplies/pen.jpeg" },
-  { name: "Pencil", image: "/preschool/schoolSupplies/pencil.jpeg" },
-  { name: "Pencil case", image: "/preschool/schoolSupplies/pencil-case.jpeg" },
-  { name: "Ruler", image: "/preschool/schoolSupplies/ruler.jpeg" },
-  { name: "Scissors", image: "/preschool/schoolSupplies/scissors.jpeg" },
-];
-
-// "family" mode — a photo/illustration hung below the balloon instead of an
-// emoji, same as "animals"/"schoolSuppliesEx". Files live in
-// public/preschool/family, same static-asset convention as those.
-const BALLOON_FAMILY: { name: string; image: string }[] = [
-  { name: "Mother", image: "/preschool/family/mother.jpeg" },
-  { name: "Mommy", image: "/preschool/family/mother.jpeg" },
-  { name: "Father", image: "/preschool/family/daddy.jpeg" },
-  { name: "Daddy", image: "/preschool/family/daddy.jpeg" },
-  { name: "Grandma", image: "/preschool/family/grandma.jpeg" },
-  { name: "Grandpa", image: "/preschool/family/grandpa.jpeg" },
-  { name: "Grandmother", image: "/preschool/family/grandma.jpeg" },
-  { name: "Grandfather", image: "/preschool/family/grandpa.jpeg" },
-  { name: "Sister", image: "/preschool/family/sister.jpeg" },
-  { name: "Brother", image: "/preschool/family/brother.jpeg" },
-  { name: "Baby", image: "/preschool/family/baby.jpeg" },
-];
-
-// "bodyParts" mode — a photo/illustration hung below the balloon instead of
-// an emoji, same as "animals"/"schoolSuppliesEx"/"family". Files live in
-// public/preschool/body-parts, same static-asset convention as those.
-const BALLOON_BODY_PARTS: { name: string; image: string }[] = [
-  { name: "Head", image: "/preschool/body-parts/head.jpeg" },
-  { name: "Hair", image: "/preschool/body-parts/hair.jpeg" },
-  { name: "Eye", image: "/preschool/body-parts/eye.jpeg" },
-  { name: "Ear", image: "/preschool/body-parts/ear.jpeg" },
-  { name: "Nose", image: "/preschool/body-parts/nose.jpeg" },
-  { name: "Mouth", image: "/preschool/body-parts/mouth.jpeg" },
-  { name: "Shoulder", image: "/preschool/body-parts/shoulder.jpeg" },
-  { name: "Arm", image: "/preschool/body-parts/arm.jpeg" },
-  { name: "Hand", image: "/preschool/body-parts/hand.jpeg" },
-  { name: "Finger", image: "/preschool/body-parts/finger.jpeg" },
-  { name: "Back", image: "/preschool/body-parts/back.jpeg" },
-  { name: "Leg", image: "/preschool/body-parts/leg.jpeg" },
-  { name: "Knee", image: "/preschool/body-parts/knee.jpeg" },
-];
-
-// "fruits" mode — a photo/illustration hung below the balloon instead of an
-// emoji, same as "animals"/"schoolSuppliesEx"/"family"/"bodyParts". Files
-// live in public/preschool/fruits, same static-asset convention as those.
-const BALLOON_FRUITS: { name: string; image: string }[] = [
-  { name: "Apple", image: "/preschool/fruits/apple.jpeg" },
-  { name: "Banana", image: "/preschool/fruits/banana.jpeg" },
-  { name: "Orange", image: "/preschool/fruits/orange.jpeg" },
-  { name: "Pear", image: "/preschool/fruits/pear.jpeg" },
-  { name: "Lemon", image: "/preschool/fruits/lemon.jpeg" },
-  { name: "Grapes", image: "/preschool/fruits/grapes.jpeg" },
-  { name: "Strawberry", image: "/preschool/fruits/strawberry.jpeg" },
-  { name: "Blueberry", image: "/preschool/fruits/blueberry.jpeg" },
-  { name: "Raspberry", image: "/preschool/fruits/raspberry.jpeg" },
-  { name: "Cherry", image: "/preschool/fruits/cherry.jpeg" },
-  { name: "Plum", image: "/preschool/fruits/plum.jpeg" },
-  { name: "Peach", image: "/preschool/fruits/peach.jpeg" },
-  { name: "Mango", image: "/preschool/fruits/mango.jpeg" },
-  { name: "Kiwi", image: "/preschool/fruits/kiwi.jpeg" },
-  { name: "Pineapple", image: "/preschool/fruits/pineapple.jpeg" },
-  { name: "Watermelon", image: "/preschool/fruits/watermelon.jpeg" },
-  { name: "Melon", image: "/preschool/fruits/melon.jpeg" },
-];
-
-// Image pool for each mode's "where is the X?" picture quiz (see
-// PICTURE_QUIZ_MODES in balloon-quiz.tsx) — passed to
-// buildBalloonQuizQuestions when the heart balloon is popped.
-const PICTURE_POOL_BY_MODE: Partial<Record<BalloonMode, { name: string; image: string }[]>> = {
-  animals: BALLOON_ANIMALS,
-  schoolSuppliesEx: BALLOON_SCHOOL_SUPPLIES_EX,
-  family: BALLOON_FAMILY,
-  bodyParts: BALLOON_BODY_PARTS,
-  fruits: BALLOON_FRUITS,
+// Picture-pool modes ("animals", "schoolSupplies", "family", "bodyParts",
+// "fruits") draw their cards from public/preschool/<folder> instead of a
+// hardcoded name/image list — see usePreschoolFolders/PreschoolFolderData in
+// lib/preschool-sounds.ts and /api/preschool-cards. A card's name is
+// whatever an image file in that folder is named (minus extension); a name
+// shared by two cards needs the image duplicated under both names (e.g.
+// family's "Mother.jpeg" and "Mommy.jpeg"). The folder also optionally holds
+// "en"/"uk"/"pl" subfolders — their presence marks that game language as
+// supported for the mode (gating it in the mode picker, see
+// isModeAvailableForLanguage below), and each one's title.json overrides the
+// mode's display name for that language.
+const PICTURE_POOL_BY_MODE: Partial<Record<BalloonMode, string>> = {
+  animals: "animals",
+  schoolSupplies: "school-supplies",
+  family: "family",
+  bodyParts: "body-parts",
+  fruits: "fruits",
 };
+
+// Stable (module-level) list of every distinct folder above, for
+// usePreschoolFolders's dependency array — the hook re-fetches whenever its
+// `folders` argument's identity changes, so this must never be recreated.
+const PICTURE_POOL_FOLDERS: string[] = Array.from(new Set(Object.values(PICTURE_POOL_BY_MODE)));
+
+// A picture-pool mode with no language subfolders at all hasn't opted into
+// per-language gating yet, so it stays available for every game language;
+// one that has opted in only shows up for languages it actually has a
+// subfolder for. Non-picture-pool modes (numbers/colors/letters/greetings)
+// are never gated by this at all.
+function isModeAvailableForLanguage(
+  mode: BalloonMode,
+  language: GameLanguage,
+  folderData: Record<string, PreschoolFolderData>,
+): boolean {
+  const folder = PICTURE_POOL_BY_MODE[mode];
+  if (!folder) return true;
+  const availableLanguages = folderData[folder]?.availableLanguages ?? [];
+  return availableLanguages.length === 0 || availableLanguages.includes(language);
+}
 
 const BALLOON_MODES: BalloonMode[] = [
   "numbers10",
@@ -241,7 +147,6 @@ const BALLOON_MODES: BalloonMode[] = [
   "greetings",
   "animals",
   "schoolSupplies",
-  "schoolSuppliesEx",
   "family",
   "bodyParts",
   "fruits",
@@ -249,15 +154,13 @@ const BALLOON_MODES: BalloonMode[] = [
 const GAME_LANGUAGES: GameLanguage[] = ["en", "uk", "pl"];
 
 // Modes with a bonus heart-shaped "?" quiz balloon (balloon-quiz.tsx) —
-// "numbers10" gets a counting quiz; "animals"/"schoolSuppliesEx"/"family"/
+// "numbers10" gets a counting quiz; "animals"/"schoolSupplies"/"family"/
 // "bodyParts"/"fruits" each get a "where is the X?" picture quiz built from
-// that mode's own image list (see PICTURE_POOL_BY_MODE below). TODO: extend
-// to "schoolSupplies" once there's a matching quiz for its emoji-only
-// vocabulary too.
+// that mode's own image list (see PICTURE_POOL_BY_MODE above).
 const QUIZ_BALLOON_MODES: BalloonMode[] = [
   "numbers10",
   "animals",
-  "schoolSuppliesEx",
+  "schoolSupplies",
   "family",
   "bodyParts",
   "fruits",
@@ -317,9 +220,10 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
-// Case-insensitive dedupe, keeping the first occurrence — BALLOON_ANIMALS
-// has a few casing duplicates (e.g. "Panda"/"panda") that would otherwise
-// count as two distinct items when sampling a fixed subset of a mode's pool.
+// Case-insensitive dedupe, keeping the first occurrence — a folder can end
+// up with casing duplicates (e.g. "Panda.jpeg"/"panda.jpeg") that would
+// otherwise count as two distinct items when sampling a fixed subset of a
+// mode's pool.
 function uniqueByName<T extends { name: string }>(items: T[]): T[] {
   const seen = new Set<string>();
   const result: T[] = [];
@@ -339,11 +243,11 @@ function uniqueByName<T extends { name: string }>(items: T[]): T[] {
 function generateBalloonContent(
   mode: BalloonMode,
   language: GameLanguage,
-  // For the 5 picture-pool modes — the fixed subset selectedPictureItems
-  // picked for this mode/cardCount (see BalloonPopGame), so balloons only
-  // ever show the same items the "learning" card grid does. Undefined for
-  // every other mode, which always draws from its full static list.
-  picturePool?: { name: string; image: string }[],
+  // For picture-pool modes — the fixed subset selectedPictureItems picked
+  // for this mode/cardCount (see BalloonPopGame), so balloons only ever show
+  // the same items the "learning" card grid does. Undefined while that
+  // mode's folder data hasn't loaded yet.
+  picturePool?: PreschoolCard[],
 ): { label: string; icon?: string; image?: string; color: string; speech: string } {
   switch (mode) {
     case "numbers20": {
@@ -367,29 +271,19 @@ function generateBalloonContent(
       const label = randomFrom(BALLOON_GREETINGS);
       return { label, color: randomColor(), speech: label };
     }
-    case "animals": {
-      const animal = randomFrom(picturePool ?? BALLOON_ANIMALS);
-      return { label: animal.name, image: animal.image, color: randomColor(), speech: animal.name };
-    }
-    case "schoolSupplies": {
-      const item = randomFrom(BALLOON_SCHOOL_SUPPLIES);
-      return { label: item.name, icon: item.emoji, color: randomColor(), speech: item.name };
-    }
-    case "schoolSuppliesEx": {
-      const item = randomFrom(picturePool ?? BALLOON_SCHOOL_SUPPLIES_EX);
-      return { label: item.name, image: item.image, color: randomColor(), speech: item.name };
-    }
-    case "family": {
-      const member = randomFrom(picturePool ?? BALLOON_FAMILY);
-      return { label: member.name, image: member.image, color: randomColor(), speech: member.name };
-    }
-    case "bodyParts": {
-      const part = randomFrom(picturePool ?? BALLOON_BODY_PARTS);
-      return { label: part.name, image: part.image, color: randomColor(), speech: part.name };
-    }
+    case "animals":
+    case "schoolSupplies":
+    case "family":
+    case "bodyParts":
     case "fruits": {
-      const fruit = randomFrom(picturePool ?? BALLOON_FRUITS);
-      return { label: fruit.name, image: fruit.image, color: randomColor(), speech: fruit.name };
+      // The caller (the spawn effect in BalloonPopGame) never generates
+      // content for one of these modes until its picturePool has actually
+      // loaded, so `card` is only ever undefined in practice — the
+      // empty-label fallback just keeps this type-safe without a
+      // non-null assertion.
+      const card = randomFrom(picturePool ?? []);
+      if (!card) return { label: "", color: randomColor(), speech: "" };
+      return { label: card.name, image: card.image, color: randomColor(), speech: card.name };
     }
     case "numbers10":
     default: {
@@ -405,7 +299,7 @@ function generateBalloonContent(
 // utterances is too much background synthesis for a vocabulary that's
 // mostly never hit in a single play session; those are cached lazily as
 // they come up instead.
-function vocabularyFor(mode: BalloonMode, language: GameLanguage): string[] {
+function vocabularyFor(mode: BalloonMode, language: GameLanguage, picturePool?: PreschoolCard[]): string[] {
   switch (mode) {
     case "numbers20":
       return Array.from({ length: 20 }, (_, i) => String(i + 1));
@@ -418,17 +312,11 @@ function vocabularyFor(mode: BalloonMode, language: GameLanguage): string[] {
     case "greetings":
       return BALLOON_GREETINGS;
     case "animals":
-      return BALLOON_ANIMALS.map((animal) => animal.name);
     case "schoolSupplies":
-      return BALLOON_SCHOOL_SUPPLIES.map((item) => item.name);
-    case "schoolSuppliesEx":
-      return BALLOON_SCHOOL_SUPPLIES_EX.map((item) => item.name);
     case "family":
-      return BALLOON_FAMILY.map((member) => member.name);
     case "bodyParts":
-      return BALLOON_BODY_PARTS.map((part) => part.name);
     case "fruits":
-      return BALLOON_FRUITS.map((fruit) => fruit.name);
+      return (picturePool ?? []).map((card) => card.name);
     case "numbers10":
     default:
       return Array.from({ length: 10 }, (_, i) => String(i + 1));
@@ -785,20 +673,54 @@ export function BalloonPopGame() {
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [settingsOpen]);
 
-  const picturePool = PICTURE_POOL_BY_MODE[mode];
-  const isPictureMode = Boolean(picturePool);
-  const recordedSoundNames = useRecordedSoundNames(mode);
+  // Card data for every picture-pool folder, fetched once up front (not
+  // just the current mode's) — the mode picker below needs every folder's
+  // availableLanguages to decide which modes to show for the selected
+  // language, not only whichever mode happens to be selected right now.
+  const folderData = usePreschoolFolders(PICTURE_POOL_FOLDERS);
+  const picturePoolFolder = PICTURE_POOL_BY_MODE[mode];
+  const isPictureMode = Boolean(picturePoolFolder);
+  const picturePoolCards = picturePoolFolder ? folderData[picturePoolFolder]?.cards : undefined;
+  // Recorded-pronunciation lookup keys off the picture-pool folder for
+  // picture modes, or the mode's own name for everything else (e.g.
+  // "greetings") — same "mode name = folder name" convention those modes'
+  // asset folders already follow.
+  const soundFolder = picturePoolFolder ?? mode;
+  const { names: recordedSoundNames, soundsPath } = useRecordedSounds(soundFolder, language);
+
+  const availableModes = useMemo(
+    () => BALLOON_MODES.filter((m) => isModeAvailableForLanguage(m, language, folderData)),
+    [language, folderData],
+  );
+
+  // A language switch can make the current mode unavailable (see
+  // isModeAvailableForLanguage) — fall back to the first (always-available)
+  // mode rather than leaving the game on a now-hidden one.
+  useEffect(() => {
+    if (!availableModes.includes(mode) && availableModes.length > 0) setMode(availableModes[0]);
+  }, [availableModes, mode, setMode]);
+
+  // A picture-pool mode's title.json for the current language (if any)
+  // overrides its regular next-intl translation — lets a mode's display
+  // name switch along with the selected game language once its folder has
+  // per-language title overrides, without touching messages/*.json.
+  const modeLabel = (m: BalloonMode): string => {
+    const folder = PICTURE_POOL_BY_MODE[m];
+    const override = folder ? folderData[folder]?.titles[language] : undefined;
+    return override ?? t(`mode.${m}`);
+  };
 
   // The fixed subset of `mode`'s picture pool that both the "game" (balloon)
   // and "learning" (flashcard) screens draw from — re-picked only when
-  // `mode` or `cardCount` changes, so toggling between the two screens never
-  // reshuffles it. `null` for modes with no picture pool at all.
+  // `mode`, `cardCount`, or the underlying card data changes, so toggling
+  // between the two screens never reshuffles it. `null` for modes with no
+  // picture pool at all, or whose pool hasn't finished loading yet.
   const selectedPictureItems = useMemo(() => {
-    if (!picturePool) return null;
-    const unique = uniqueByName(picturePool);
+    if (!picturePoolCards || picturePoolCards.length === 0) return null;
+    const unique = uniqueByName(picturePoolCards);
     return shuffle(unique).slice(0, Math.min(cardCount, unique.length));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, cardCount]);
+  }, [mode, cardCount, picturePoolCards]);
 
   // "Learning" only makes sense for picture-pool modes — falls back to
   // "game" if the mode changes to one without a card grid to show (e.g. the
@@ -810,9 +732,11 @@ export function BalloonPopGame() {
   useBackgroundMusic();
 
   useEffect(() => {
-    // Paused while the bonus quiz overlay is open, or while showing the
-    // static "learning" card grid instead of falling balloons.
+    // Paused while the bonus quiz overlay is open, while showing the static
+    // "learning" card grid instead of falling balloons, or (for a
+    // picture-pool mode) while its folder data hasn't loaded yet.
     if (quizQuestions || screenMode === "learning") return;
+    if (isPictureMode && !selectedPictureItems) return;
     const interval = setInterval(() => {
       setBalloons((current) => {
         if (current.length >= maxOnScreen) return current;
@@ -842,7 +766,7 @@ export function BalloonPopGame() {
       });
     }, SPAWN_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [size, speed, maxOnScreen, mode, language, quizQuestions, screenMode, selectedPictureItems]);
+  }, [size, speed, maxOnScreen, mode, language, quizQuestions, screenMode, isPictureMode, selectedPictureItems]);
 
   // Warms the voice model cache as soon as a language is selected, so the
   // first popped balloon doesn't stall on a multi-megabyte download — then
@@ -854,7 +778,9 @@ export function BalloonPopGame() {
   // speak turns out to have a recording of its own — no point downloading/
   // synthesizing voices nothing will play.
   useEffect(() => {
-    const remainingVocabulary = vocabularyFor(mode, language).filter((word) => !recordedSoundNames.has(word));
+    const remainingVocabulary = vocabularyFor(mode, language, picturePoolCards).filter(
+      (word) => !recordedSoundNames.has(word),
+    );
     if (muted || remainingVocabulary.length === 0) return;
     let cancelled = false;
     void prefetchVoice(language, "short").then(() => {
@@ -863,7 +789,7 @@ export function BalloonPopGame() {
     return () => {
       cancelled = true;
     };
-  }, [mode, language, muted, recordedSoundNames]);
+  }, [mode, language, muted, recordedSoundNames, picturePoolCards]);
 
   // Every DIAMOND_MILESTONE ruby balloons popped awards 1 Diamond — dedupes
   // via awardedMilestonesRef so React's dev-mode double-invoked effects (or
@@ -932,8 +858,8 @@ export function BalloonPopGame() {
 
     playPopSound();
     if (!muted) {
-      if (recordedSoundNames.has(balloon.speech)) {
-        playRecordedSound(mode, balloon.speech);
+      if (soundsPath && recordedSoundNames.has(balloon.speech)) {
+        playRecordedSound(soundsPath, balloon.speech);
       } else {
         speak(balloon.speech, language, "short");
       }
@@ -988,12 +914,29 @@ export function BalloonPopGame() {
         />
       )}
 
+      <select
+        aria-label={t("languageLabel")}
+        value={language}
+        onChange={(e) => setLanguage(e.target.value as GameLanguage)}
+        // Fixed w-32 (rather than letting the native <select> auto-size)
+        // so the pill doesn't render clipped to whatever width the browser
+        // happens to compute for the currently-selected option — wide
+        // enough for "Українська", the longest of the three labels.
+        className="absolute left-4 top-4 z-10 h-9 w-32 truncate rounded-full bg-white pl-3 pr-1 text-sm font-bold text-gray-700 shadow-lg ring-2 ring-gray-200"
+      >
+        {GAME_LANGUAGES.map((lang) => (
+          <option key={lang} value={lang}>
+            {t(`language.${lang}`)}
+          </option>
+        ))}
+      </select>
+
       <button
         ref={settingsButtonRef}
         type="button"
         aria-label={t("settingsButton")}
         onClick={() => setSettingsOpen((current) => !current)}
-        className="absolute left-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+        className="absolute left-40 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
       >
         ⚙️
       </button>
@@ -1002,7 +945,7 @@ export function BalloonPopGame() {
         type="button"
         aria-label={musicEnabled ? t("musicOnLabel") : t("musicOffLabel")}
         onClick={() => setMusicEnabled(!musicEnabled)}
-        className="absolute left-16 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+        className="absolute left-52 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
       >
         {musicEnabled ? "🎵" : "🔇"}
       </button>
@@ -1010,7 +953,7 @@ export function BalloonPopGame() {
       {settingsOpen && (
         <div
           ref={settingsPanelRef}
-          className="absolute left-4 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200"
+          className="absolute left-40 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200"
         >
           <label className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("modeLabel")}</span>
@@ -1019,9 +962,9 @@ export function BalloonPopGame() {
               onChange={(e) => setMode(e.target.value as BalloonMode)}
               className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
             >
-              {BALLOON_MODES.map((m) => (
+              {availableModes.map((m) => (
                 <option key={m} value={m}>
-                  {t(`mode.${m}`)}
+                  {modeLabel(m)}
                 </option>
               ))}
             </select>
@@ -1040,20 +983,6 @@ export function BalloonPopGame() {
               />
             </label>
           )}
-          <label className="flex flex-col gap-1">
-            <span className="font-medium text-gray-700">{t("languageLabel")}</span>
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value as GameLanguage)}
-              className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
-            >
-              {GAME_LANGUAGES.map((lang) => (
-                <option key={lang} value={lang}>
-                  {t(`language.${lang}`)}
-                </option>
-              ))}
-            </select>
-          </label>
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={muted} onChange={(e) => setMuted(e.target.checked)} />
             <span className="font-medium text-gray-700">{t("mutedLabel")}</span>
@@ -1108,7 +1037,9 @@ export function BalloonPopGame() {
           items={selectedPictureItems}
           muted={muted}
           onPlay={(name) =>
-            recordedSoundNames.has(name) ? playRecordedSound(mode, name) : speak(name, language, "short")
+            soundsPath && recordedSoundNames.has(name)
+              ? playRecordedSound(soundsPath, name)
+              : speak(name, language, "short")
           }
         />
       ) : (
