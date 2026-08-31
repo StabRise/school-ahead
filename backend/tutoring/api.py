@@ -345,11 +345,16 @@ def delete_lesson(request: HttpRequest, lesson_id: int, response: HttpResponse):
     assigned to a student (any StudentLesson row, regardless of status) —
     removing it would also silently wipe that student's progress/grade."""
     require_csrf(request)
-    lesson = get_object_or_404(Lesson.objects.select_related('topic'), id=lesson_id)
+    lesson = get_object_or_404(Lesson.objects.select_related('topic__subject_block'), id=lesson_id)
     services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
     if StudentLesson.objects.filter(lesson_id=lesson_id).exists():
         raise HttpError(409, 'Cannot delete a lesson that is assigned to a student')
+    block = lesson.topic.subject_block
     lesson.delete()
+    # Doesn't touch topic membership, so assign_topics_to_blocks wouldn't
+    # pick up the changed lesson count — refresh the block directly.
+    if block is not None:
+        academics_services.recompute_block_workload(block)
     response.status_code = 204
     return response
 

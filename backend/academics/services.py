@@ -64,27 +64,56 @@ def assign_topics_to_blocks(subject: Subject) -> None:
     keeps its assigned block — unless that block no longer exists (e.g. the
     subject's block_count shrank), in which case it falls back to being
     auto-assigned like any other topic. See
-    docs/interfaces/student/subjects.md."""
+    docs/interfaces/student/subjects.md.
+
+    Also refreshes every block's weeks_count/workload
+    (recompute_block_workload) afterwards, since reassigning topics changes
+    each block's lesson count. Lesson create/delete that don't touch topic
+    membership (tutoring.api.delete_lesson, lessons.services.
+    create_extra_lesson) call recompute_block_workload directly instead."""
     topics = list(subject.topics.order_by('order_index'))
     blocks = list(subject.blocks.order_by('index'))
-    if not topics or not blocks:
-        return
 
-    valid_block_ids = {block.id for block in blocks}
-    auto_topics = [
-        topic
-        for topic in topics
-        if not topic.subject_block_manually_set or topic.subject_block_id not in valid_block_ids
-    ]
-    if not auto_topics:
-        return
+    if topics and blocks:
+        valid_block_ids = {block.id for block in blocks}
+        auto_topics = [
+            topic
+            for topic in topics
+            if not topic.subject_block_manually_set or topic.subject_block_id not in valid_block_ids
+        ]
+        if auto_topics:
+            updated = []
+            for block, topics_in_block in zip(blocks, _split_evenly(auto_topics, len(blocks))):
+                for topic in topics_in_block:
+                    if topic.subject_block_id != block.id:
+                        topic.subject_block = block
+                        updated.append(topic)
 
-    updated = []
-    for block, topics_in_block in zip(blocks, _split_evenly(auto_topics, len(blocks))):
-        for topic in topics_in_block:
-            if topic.subject_block_id != block.id:
-                topic.subject_block = block
-                updated.append(topic)
+            if updated:
+                Topic.objects.bulk_update(updated, ['subject_block'])
 
-    if updated:
-        Topic.objects.bulk_update(updated, ['subject_block'])
+    for block in blocks:
+        recompute_block_workload(block)
+
+
+def compute_weeks_count(starts_on, ends_on) -> int | None:
+    """Whole weeks between the two dates minus 2 weeks of vacation. None
+    unless both dates are set."""
+    if not starts_on or not ends_on:
+        return None
+    return (ends_on - starts_on).days // 7 - 2
+
+
+def recompute_block_workload(block: SubjectBlock) -> None:
+    """Refreshes one block's weeks_count and workload (lessons/week) from its
+    dates and current lesson count — lesson_count / weeks_count, None
+    whenever weeks_count isn't set (missing dates) or is 0. See
+    assign_topics_to_blocks's docstring for what triggers this."""
+    # Local import: lessons already imports academics.services, so importing
+    # lessons.models at module level here would be circular.
+    from lessons.models import Lesson
+
+    block.weeks_count = compute_weeks_count(block.starts_on, block.ends_on)
+    lesson_count = Lesson.objects.filter(topic__subject_block=block).count()
+    block.workload = lesson_count / block.weeks_count if block.weeks_count else None
+    block.save(update_fields=['weeks_count', 'workload'])

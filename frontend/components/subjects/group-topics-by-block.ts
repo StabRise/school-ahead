@@ -9,6 +9,10 @@ export interface BlockGroup {
   // Unused (but harmless) on the student side, which only reads topics/label.
   blockId: number | null;
   topics: TopicOut[];
+  // Lessons/week for this block (lesson_count / weeks_count), null until
+  // both the block's dates and weeks_count are set. See
+  // academics.services.recompute_block_workload.
+  workload: number | null;
 }
 
 // Grouped off the subject's actual SubjectBlock rows (id + label, in index
@@ -24,7 +28,7 @@ export interface BlockGroup {
 // same semester grouping.
 export function groupTopicsByBlock(topics: TopicOut[], blocks: SubjectBlockOut[]): BlockGroup[] {
   if (blocks.length === 0) {
-    return topics.length > 0 ? [{ key: "all", label: null, blockId: null, topics }] : [];
+    return topics.length > 0 ? [{ key: "all", label: null, blockId: null, topics, workload: null }] : [];
   }
 
   const blockIds = new Set(blocks.map((block) => block.id));
@@ -46,10 +50,11 @@ export function groupTopicsByBlock(topics: TopicOut[], blocks: SubjectBlockOut[]
     label: block.label,
     blockId: block.id,
     topics: topicsByBlockId.get(block.id) ?? [],
+    workload: block.workload,
   }));
 
   if (unassigned.length > 0) {
-    groups.push({ key: "unassigned", label: null, blockId: null, topics: unassigned });
+    groups.push({ key: "unassigned", label: null, blockId: null, topics: unassigned, workload: null });
   }
 
   return groups;

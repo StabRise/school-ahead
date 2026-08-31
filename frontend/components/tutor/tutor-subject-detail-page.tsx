@@ -714,6 +714,8 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-gray-700">
             {t("classLabel")}: <span className="font-medium">{subject.class_name}</span>
+            <span className="mx-1.5 text-gray-300">·</span>
+            <span className="font-medium">{t("lessonsCount", { count: lessons.length })}</span>
           </p>
           <IsFilledToggle subject={subject} subjectId={subjectId} />
         </div>
@@ -772,7 +774,16 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                   }}
                   className="flex flex-col gap-4"
                 >
-                  {group.label && <h2 className="text-lg font-semibold text-gray-900">{group.label}</h2>}
+                  {group.label && (
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <h2 className="text-lg font-semibold text-gray-900">{group.label}</h2>
+                      {group.workload !== null && (
+                        <span className="text-sm text-gray-500">
+                          {t("workloadLabel", { value: group.workload.toFixed(2) })}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {group.topics.length === 0 ? (
                     <p className="rounded-md border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-400">
                       {t("emptySemesterDropHint")}

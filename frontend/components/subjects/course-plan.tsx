@@ -156,7 +156,14 @@ export function CoursePlan({ subjectId }: { subjectId: number }) {
           <div key={group.key} className="flex flex-col gap-2">
             {group.label && (
               <div className="flex flex-col gap-1">
-                <h3 className="text-sm font-semibold text-gray-700">{group.label}</h3>
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h3 className="text-sm font-semibold text-gray-700">{group.label}</h3>
+                  {group.workload !== null && (
+                    <span className="text-xs text-gray-500">
+                      {t("workloadLabel", { value: group.workload.toFixed(2) })}
+                    </span>
+                  )}
+                </div>
                 {blocks.length > 1 && group.blockId !== null && blockProgressById.has(group.blockId) && (
                   <ProgressBar percent={blockProgressById.get(group.blockId)!} />
                 )}

@@ -235,6 +235,7 @@
     "expandAll": "Розгорнути всі теми",
     "collapseAll": "Згорнути всі теми",
     "emptySemesterDropHint": "У цьому семестрі ще немає тем. Перетягніть сюди тему.",
+    "workloadLabel": "Навантаження: {value} уроків/тиждень",
     "moveToBlockLabel": "Перемістити тему до блоку",
     "deleteTopicButton": "Видалити тему",
     "deleteTopicConfirm": "Видалити тему «{title}» разом з усіма її уроками ({count})? Цю дію не можна скасувати.",
@@ -508,6 +509,7 @@
     "notAssignedYet": "Ще не призначено",
     "noTopics": "Тем ще немає.",
     "noLessonsInTopic": "У цій темі ще немає уроків.",
+    "workloadLabel": "Навантаження: {value} уроків/тиждень",
     "lessonsProgress": "{completed}/{total} уроків пройдено",
     "lessonRow": "Урок №{index}: {title}"
   },
