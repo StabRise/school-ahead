@@ -42,6 +42,9 @@ interface FallingBalloon {
   label: string; // text printed on the balloon, depends on the selected mode
   icon?: string; // optional emoji hung below the balloon
   image?: string; // optional illustration hung below the balloon instead of `icon`
+  // Overrides the label's default white fill — only set for "colors" mode,
+  // whose balloon fill is the literal named color (see labelTextColorFor).
+  textColor?: string;
   speech: string; // text spoken via Piper TTS when the balloon is popped
   isQuizBalloon?: boolean; // heart-shaped "?" balloon — pops into the bonus quiz instead of scoring
 }
@@ -57,12 +60,6 @@ interface Particle {
 
 // Hex values line up positionally with each language's name list below.
 const BALLOON_COLOR_HEXES = ["#f87171", "#fb923c", "#fbbf24", "#4ade80", "#38bdf8", "#a78bfa", "#f472b6"];
-
-const COLOR_NAMES: Record<GameLanguage, string[]> = {
-  en: ["Red", "Orange", "Yellow", "Green", "Blue", "Purple", "Pink"],
-  uk: ["Червоний", "Помаранчевий", "Жовтий", "Зелений", "Синій", "Фіолетовий", "Рожевий"],
-  pl: ["Czerwony", "Pomarańczowy", "Żółty", "Zielony", "Niebieski", "Fioletowy", "Różowy"],
-};
 
 const ALPHABETS: Record<GameLanguage, string[]> = {
   en: [
@@ -204,6 +201,40 @@ function randomColor(): string {
   return BALLOON_COLOR_HEXES[Math.floor(Math.random() * BALLOON_COLOR_HEXES.length)];
 }
 
+// Legible label-text color for a "colors"-mode balloon, whose fill is the
+// literal CSS color it names (see generateBalloonContent) rather than a
+// palette hex hand-picked for contrast with white text — "White"/"Yellow"/
+// "Beige" etc. would otherwise render illegible white-on-white/near-white
+// text. Renders the color into a throwaway 1x1 canvas to read back its
+// actual RGB (so it works for any valid CSS color keyword the colors/
+// folder might name an image after, not a hardcoded list of "light"
+// colors) and picks by standard relative luminance. Cached per color since
+// the same handful of names repeat across every spawned balloon.
+const labelTextColorCache = new Map<string, string>();
+
+function labelTextColorFor(cssColor: string): string {
+  const cached = labelTextColorCache.get(cssColor);
+  if (cached) return cached;
+  let result = "white";
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = cssColor;
+      ctx.fillRect(0, 0, 1, 1);
+      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      result = luminance > 0.6 ? "#1f2937" : "white";
+    }
+  } catch {
+    // Best-effort only — falls back to white.
+  }
+  labelTextColorCache.set(cssColor, result);
+  return result;
+}
+
 function randomNumber(max: number): number {
   return Math.floor(randomBetween(1, max + 1));
 }
@@ -249,7 +280,7 @@ function generateBalloonContent(
   // the same items the "learning" card grid does. Undefined while that
   // mode's folder data hasn't loaded yet.
   picturePool?: PreschoolCard[],
-): { label: string; icon?: string; image?: string; color: string; speech: string } {
+): { label: string; icon?: string; image?: string; color: string; textColor?: string; speech: string } {
   switch (mode) {
     case "numbers20": {
       const label = String(randomNumber(20));
@@ -259,11 +290,6 @@ function generateBalloonContent(
       const label = String(randomNumber(100));
       return { label, color: randomColor(), speech: label };
     }
-    case "colors": {
-      const index = Math.floor(Math.random() * BALLOON_COLOR_HEXES.length);
-      const label = COLOR_NAMES[language][index];
-      return { label, color: BALLOON_COLOR_HEXES[index], speech: label };
-    }
     case "letters": {
       const label = randomFrom(ALPHABETS[language]);
       return { label, color: randomColor(), speech: label.charAt(0) };
@@ -271,6 +297,26 @@ function generateBalloonContent(
     case "greetings": {
       const label = randomFrom(BALLOON_GREETINGS);
       return { label, color: randomColor(), speech: label };
+    }
+    case "colors": {
+      // The caller never generates content for this mode until its
+      // picturePool has actually loaded, so `card` is only ever undefined
+      // in practice — the empty-label fallback just keeps this type-safe.
+      const card = randomFrom(picturePool ?? []);
+      if (!card) return { label: "", color: randomColor(), speech: "" };
+      // Every image in public/preschool/colors is named after a CSS color
+      // keyword (e.g. "Red.jpeg", "Beige.jpeg") — the balloon is filled
+      // with that literal color rather than a random palette hex, so it
+      // visually IS the color a child is learning, with the photo hanging
+      // below (a red apple, say) as a real-world anchor for it.
+      const cssColor = card.name.toLowerCase();
+      return {
+        label: card.name,
+        image: card.image,
+        color: cssColor,
+        textColor: labelTextColorFor(cssColor),
+        speech: card.name,
+      };
     }
     case "animals":
     case "schoolSupplies":
@@ -306,12 +352,11 @@ function vocabularyFor(mode: BalloonMode, language: GameLanguage, picturePool?: 
       return Array.from({ length: 20 }, (_, i) => String(i + 1));
     case "numbers100":
       return [];
-    case "colors":
-      return COLOR_NAMES[language];
     case "letters":
       return ALPHABETS[language].map((letter) => letter.charAt(0));
     case "greetings":
       return BALLOON_GREETINGS;
+    case "colors":
     case "animals":
     case "schoolSupplies":
     case "family":
@@ -504,6 +549,10 @@ function BalloonNode({
   const viewBoxHeight = hasImage ? 86 : hasIcon ? 74 : 52;
   const stringEndY = hasIcon ? 60 : 52;
   const imageRadius = 11;
+  // Only "colors" mode ever sets textColor (see labelTextColorFor) — every
+  // other mode keeps the original white-on-dark-stroke look untouched.
+  const labelColor = balloon.textColor ?? "white";
+  const labelStroke = balloon.textColor ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.2)";
   const imageCenterY = stringEndY + imageRadius + 1;
 
   const handlePop = () => {
@@ -551,12 +600,12 @@ function BalloonNode({
           textAnchor="middle"
           fontSize={balloon.isQuizBalloon ? 20 : fontSize}
           fontWeight="700"
-          fill="white"
+          fill={labelColor}
           // Otherwise a precise tap directly on the glyph can be grabbed by
           // the browser as a text-selection gesture instead of bubbling up
           // as a click on the button, so the balloon doesn't pop.
           style={{ paintOrder: "stroke", pointerEvents: "none", userSelect: "none" }}
-          stroke="rgba(0,0,0,0.2)"
+          stroke={labelStroke}
           strokeWidth="0.5"
         >
           {balloon.isQuizBalloon ? (
@@ -760,6 +809,7 @@ export function BalloonPopGame() {
           label: content.label,
           icon: "icon" in content ? content.icon : undefined,
           image: "image" in content ? content.image : undefined,
+          textColor: "textColor" in content ? content.textColor : undefined,
           speech: content.speech,
           isQuizBalloon: canSpawnQuizBalloon,
         };
