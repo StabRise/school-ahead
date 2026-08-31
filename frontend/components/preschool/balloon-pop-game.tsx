@@ -115,6 +115,7 @@ const PICTURE_POOL_BY_MODE: Partial<Record<BalloonMode, string>> = {
   family: "family",
   bodyParts: "body-parts",
   fruits: "fruits",
+  colors: "colors",
 };
 
 // Stable (module-level) list of every distinct folder above, for
