@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { speak, type SpeechLanguage as GameLanguage } from "@/lib/piper-tts";
-import type { BalloonMode } from "@/stores/balloon-pop-game-store";
 import { QuizAnswerButton, QuizBanner, QuizCard, QuizFeedbackOverlay, QuizReadAloudButton } from "@/components/quiz-ui";
 
 // Bonus quiz opened by popping the heart-shaped "?" balloon in
@@ -12,62 +11,35 @@ import { QuizAnswerButton, QuizBanner, QuizCard, QuizFeedbackOverlay, QuizReadAl
 // quiz-game.tsx, which is tightly coupled to a real StudentLesson's
 // QuizQuestion data. Visual language borrows from that component and
 // theory-check.tsx (gradient banner, rounded-[2rem] white card, bold
-// border-4 answer buttons). Two question kinds, one per quiz-enabled mode
-// (see QUIZ_BALLOON_MODES in balloon-pop-game.tsx):
-// - "counting" ("numbers10"): "how many cats do you see?" over a row of
-//   mixed animal emojis, answered by picking a number.
-// - "picture" ("animals"/"schoolSupplies"/"family"/"bodyParts"/
-//   "fruits", see PICTURE_QUIZ_MODES below): "where is the X?" answered by
-//   picking the matching illustration out of a few from that mode's own
-//   picture-pool folder (see PICTURE_POOL_BY_MODE in balloon-pop-game.tsx).
+// border-4 answer buttons).
+//
+// Every mode gets the same "where is X?" question: pick the matching card
+// out of a few, shown as an image if it has one, or as big text otherwise
+// (same duality as BalloonLearningCards) — no per-mode question kind
+// anymore. The question phrasing itself ("Where is {card}?" by default) is
+// resolved per mode/language by the caller (see quizFormat in
+// balloon-pop-game.tsx) from that mode's title.json, not hardcoded here.
 
-export type BalloonQuizAnimal = "cat" | "dog" | "monkey";
-
-interface CountingQuestion {
-  kind: "counting";
-  animal: BalloonQuizAnimal;
-  emojis: string[];
-  options: number[];
-  correctAnswer: number;
-}
-
-export interface BalloonQuizAnimalChoice {
+export interface QuizCard {
+  // Canonical name, matching PreschoolCard.key in lib/preschool-sounds.ts —
+  // used to dedupe/compare cards; `name` (the possibly-translated display
+  // text) is what's shown/spoken.
+  key: string;
   name: string;
-  image: string;
+  image?: string;
 }
 
-interface PictureQuestion {
-  kind: "picture";
-  target: BalloonQuizAnimalChoice;
-  choices: BalloonQuizAnimalChoice[];
+export interface BalloonQuizQuestion {
+  target: QuizCard;
+  choices: QuizCard[];
   correctIndex: number;
 }
-
-export type BalloonQuizQuestion = CountingQuestion | PictureQuestion;
 
 const QUESTION_COUNT = 6;
 // Strictly greater than 60% — 4/6 (~66.7%) passes, 3/6 (50%) doesn't.
 const PASS_RATIO = 0.6;
-const MIN_EMOJIS = 3;
-const MAX_EMOJIS = 8;
-const MAX_PICTURE_CHOICES = 4;
+const MAX_CHOICES = 4;
 const FEEDBACK_DELAY_MS = 1500;
-
-const ANIMAL_EMOJI: Record<BalloonQuizAnimal, string> = {
-  cat: "🐱",
-  dog: "🐶",
-  monkey: "🐵",
-};
-
-const ANIMALS: BalloonQuizAnimal[] = ["cat", "dog", "monkey"];
-
-function randomInt(minInclusive: number, maxInclusive: number): number {
-  return minInclusive + Math.floor(Math.random() * (maxInclusive - minInclusive + 1));
-}
-
-function randomFrom<T>(items: T[]): T {
-  return items[Math.floor(Math.random() * items.length)];
-}
 
 function shuffle<T>(items: T[]): T[] {
   const copy = [...items];
@@ -78,135 +50,51 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
-// 4 multiple-choice numbers: the correct count plus 3 distinct, plausible
-// wrong ones nearby (falls back to random values in range if the count is
-// too close to the ends of [0, total] for every +/-1..3 offset to be
-// in-bounds — never happens given MIN_EMOJIS/MAX_EMOJIS, but kept safe).
-function buildOptions(correct: number, total: number): number[] {
-  const candidates = new Set<number>([correct]);
-  const offsets = [1, -1, 2, -2, 3, -3];
-  for (const offset of offsets) {
-    if (candidates.size >= 4) break;
-    const value = correct + offset;
-    if (value >= 0 && value <= total) candidates.add(value);
-  }
-  while (candidates.size < Math.min(4, total + 1)) {
-    candidates.add(randomInt(0, total));
-  }
-  return shuffle([...candidates]);
-}
-
-function buildCountingQuestion(): CountingQuestion {
-  const total = randomInt(MIN_EMOJIS, MAX_EMOJIS);
-  const animal = randomFrom(ANIMALS);
-  const otherAnimals = ANIMALS.filter((a) => a !== animal);
-  const targetCount = randomInt(0, total);
-
-  const emojis: string[] = [];
-  for (let i = 0; i < targetCount; i++) emojis.push(ANIMAL_EMOJI[animal]);
-  for (let i = targetCount; i < total; i++) emojis.push(ANIMAL_EMOJI[randomFrom(otherAnimals)]);
-
-  return {
-    kind: "counting",
-    animal,
-    emojis: shuffle(emojis),
-    options: buildOptions(targetCount, total),
-    correctAnswer: targetCount,
-  };
-}
-
-// Case-insensitive dedupe, keeping the first occurrence — a picture-pool
-// folder can have casing duplicates (e.g. "Panda.jpeg"/"panda.jpeg") that
+// Case-insensitive dedupe by key, keeping the first occurrence — a folder
+// can end up with casing duplicates (e.g. "Panda.jpeg"/"panda.jpeg") that
 // would otherwise show up as two indistinguishable choices in the same
 // question.
-function uniqueByName(animals: BalloonQuizAnimalChoice[]): BalloonQuizAnimalChoice[] {
+function uniqueByKey(cards: QuizCard[]): QuizCard[] {
   const seen = new Set<string>();
-  const result: BalloonQuizAnimalChoice[] = [];
-  for (const animal of animals) {
-    const key = animal.name.toLowerCase();
+  const result: QuizCard[] = [];
+  for (const card of cards) {
+    const key = card.key.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    result.push(animal);
+    result.push(card);
   }
   return result;
 }
 
 // `target` is passed in (rather than picked here) so buildBalloonQuizQuestions
 // can hand out a distinct target per question — see pickUniqueTargets.
-function buildPictureQuestion(pool: BalloonQuizAnimalChoice[], target: BalloonQuizAnimalChoice): PictureQuestion {
-  const distractorPool = pool.filter((a) => a.name.toLowerCase() !== target.name.toLowerCase());
-  const distractors = shuffle(distractorPool).slice(0, Math.min(MAX_PICTURE_CHOICES - 1, distractorPool.length));
+function buildQuestion(pool: QuizCard[], target: QuizCard): BalloonQuizQuestion {
+  const distractorPool = pool.filter((c) => c.key.toLowerCase() !== target.key.toLowerCase());
+  const distractors = shuffle(distractorPool).slice(0, Math.min(MAX_CHOICES - 1, distractorPool.length));
   const choices = shuffle([target, ...distractors]);
-  return {
-    kind: "picture",
-    target,
-    choices,
-    correctIndex: choices.findIndex((c) => c === target),
-  };
+  return { target, choices, correctIndex: choices.findIndex((c) => c === target) };
 }
 
 // One target per question, none repeated — as long as `pool` has at least
-// `count` items (guaranteed by MIN_CARD_COUNT in balloon-pop-game.tsx, since
-// `pool` is that mode's fixed, already-deduped subset picked at game init).
+// `count` items (guaranteed by MIN_CARD_COUNT in balloon-pop-game.tsx).
 // Only wraps around (repeating a target) if the pool is smaller than
 // `count`, which shouldn't happen given that guarantee.
-function pickUniqueTargets(pool: BalloonQuizAnimalChoice[], count: number): BalloonQuizAnimalChoice[] {
+function pickUniqueTargets(pool: QuizCard[], count: number): QuizCard[] {
   if (pool.length === 0) return [];
   const shuffled = shuffle(pool);
   return Array.from({ length: count }, (_, i) => shuffled[i % shuffled.length]);
 }
 
-// Modes with a picture quiz — everything else falls back to the counting
-// quiz. `picturePool` (that mode's fetched picture-pool cards, see
-// PICTURE_POOL_BY_MODE in balloon-pop-game.tsx) is passed in by the caller
-// rather than fetched here to avoid a second, redundant fetch of the same
-// folder data the caller already has.
-const PICTURE_QUIZ_MODES: BalloonMode[] = ["animals", "schoolSupplies", "family", "bodyParts", "fruits"];
-
-export function buildBalloonQuizQuestions(
-  mode: BalloonMode,
-  picturePool: BalloonQuizAnimalChoice[],
-): BalloonQuizQuestion[] {
-  if (PICTURE_QUIZ_MODES.includes(mode)) {
-    const pool = uniqueByName(picturePool);
-    const targets = pickUniqueTargets(pool, QUESTION_COUNT);
-    return targets.map((target) => buildPictureQuestion(pool, target));
-  }
-  return Array.from({ length: QUESTION_COUNT }, buildCountingQuestion);
+export function buildBalloonQuizQuestions(cards: QuizCard[]): BalloonQuizQuestion[] {
+  const pool = uniqueByKey(cards);
+  const targets = pickUniqueTargets(pool, QUESTION_COUNT);
+  return targets.map((target) => buildQuestion(pool, target));
 }
 
-// "How many {animal} do you see?" per game language, with the animal name
-// already in the grammatical case/number each template needs (e.g. genitive
-// plural for uk/pl) rather than naive string interpolation.
-const ANIMAL_NAMES: Record<GameLanguage, Record<BalloonQuizAnimal, string>> = {
-  en: { cat: "cats", dog: "dogs", monkey: "monkeys" },
-  uk: { cat: "котів", dog: "собак", monkey: "мавп" },
-  pl: { cat: "kotów", dog: "psów", monkey: "małp" },
-};
-
-const COUNTING_QUESTION_TEMPLATE: Record<GameLanguage, (animalName: string) => string> = {
-  en: (animalName) => `How many ${animalName} do you see?`,
-  uk: (animalName) => `Скільки ${animalName} ти бачиш?`,
-  pl: (animalName) => `Ile ${animalName} widzisz?`,
-};
-
-function countingQuestionText(animal: BalloonQuizAnimal, language: GameLanguage): string {
-  return COUNTING_QUESTION_TEMPLATE[language](ANIMAL_NAMES[language][animal]);
-}
-
-// None of the PICTURE_QUIZ_MODES picture pools have per-language card
-// names — a folder's "en"/"uk"/"pl" subfolders only gate the mode's
-// availability and override its display title, they don't localize the
-// pictures themselves — so this stays plain English regardless of the
-// selected game language.
-function pictureQuestionText(targetName: string): string {
-  return `Where is a ${targetName}?`;
-}
-
-function questionText(question: BalloonQuizQuestion, language: GameLanguage): string {
-  return question.kind === "counting"
-    ? countingQuestionText(question.animal, language)
-    : pictureQuestionText(question.target.name);
+// Fills `questionFormat`'s "{card}" placeholder with the target's display
+// name — e.g. "Where is number {card}?" + "5" -> "Where is number 5?".
+function questionText(question: BalloonQuizQuestion, questionFormat: string): string {
+  return questionFormat.replace("{card}", question.target.name);
 }
 
 // Cheerful two-note "ta-da" for a correct answer, and a short descending
@@ -361,11 +249,15 @@ function mascotForScore(correctCount: number): string {
 export function BalloonQuiz({
   questions,
   language,
+  questionFormat,
   muted,
   onFinish,
 }: {
   questions: BalloonQuizQuestion[];
   language: GameLanguage;
+  // "Where is {card}?" by default, or a mode's own title.json override —
+  // see quizFormat in balloon-pop-game.tsx.
+  questionFormat: string;
   muted: boolean;
   onFinish: (passed: boolean) => void;
 }) {
@@ -382,12 +274,12 @@ export function BalloonQuiz({
   // since this effect also runs on mount.
   useEffect(() => {
     if (muted || !question) return;
-    speak(questionText(question, language), language, "sentence");
+    speak(questionText(question, questionFormat), language, "sentence");
     // `question` is derived from `questions`/`currentIndex` every render, so
     // depending on it directly would refire this on every render — depend on
     // its actual identity-changing inputs instead.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, questions, language, muted]);
+  }, [currentIndex, questions, language, questionFormat, muted]);
 
   // Fires once, the instant the finish screen appears with a passing score
   // — `finished`/`passed` are derived from currentIndex/correctCount and
@@ -397,13 +289,10 @@ export function BalloonQuiz({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished, passed]);
 
-  const isCorrectValue = (q: BalloonQuizQuestion, value: number) =>
-    q.kind === "counting" ? value === q.correctAnswer : value === q.correctIndex;
-
   const handleSelect = (value: number) => {
     if (selected !== null || !question) return;
     setSelected(value);
-    const correct = isCorrectValue(question, value);
+    const correct = value === question.correctIndex;
     if (correct) setCorrectCount((current) => current + 1);
     if (!muted) (correct ? playCorrectSound : playIncorrectSound)();
     setTimeout(() => {
@@ -426,47 +315,15 @@ export function BalloonQuiz({
 
               <div className="flex mt-4 items-center justify-center gap-2">
                 <p className="text-center text-xl font-extrabold uppercase text-gray-900 sm:text-2xl">
-                  {questionText(question, language)}
+                  {questionText(question, questionFormat)}
                 </p>
                 <QuizReadAloudButton
                   label={t("readAloudButton")}
-                  onClick={() => speak(questionText(question, language), language, "sentence")}
+                  onClick={() => speak(questionText(question, questionFormat), language, "sentence")}
                 />
               </div>
 
               <div className="relative flex flex-col gap-5 p-6">
-              {question.kind === "counting" ? (
-                <>
-                  <div className="flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-gray-50 p-4 text-3xl sm:text-4xl">
-                    {question.emojis.map((emoji, i) => (
-                      <span key={i} aria-hidden="true">
-                        {emoji}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    {question.options.map((option, i) => {
-                      const isPicked = selected === option;
-                      const isCorrectOption = option === question.correctAnswer;
-                      const revealed = selected !== null && (isPicked || isCorrectOption);
-                      const isDimmed = selected !== null && !revealed;
-                      const status = revealed ? (isCorrectOption ? "correct" : "incorrect") : isDimmed ? "dimmed" : "default";
-                      return (
-                        <QuizAnswerButton
-                          key={option}
-                          index={i}
-                          status={status}
-                          disabled={selected !== null}
-                          onClick={() => handleSelect(option)}
-                          className="py-4 text-2xl font-extrabold text-gray-900"
-                        >
-                          {option}
-                        </QuizAnswerButton>
-                      );
-                    })}
-                  </div>
-                </>
-              ) : (
                 <div className="grid grid-cols-2 gap-3">
                   {question.choices.map((choice, i) => {
                     const isPicked = selected === i;
@@ -476,78 +333,75 @@ export function BalloonQuiz({
                     const status = revealed ? (isCorrectChoice ? "correct" : "incorrect") : isDimmed ? "dimmed" : "default";
                     return (
                       <QuizAnswerButton
-                        key={`${choice.name}-${i}`}
+                        key={`${choice.key}-${i}`}
                         index={i}
                         status={status}
                         disabled={selected !== null}
                         onClick={() => handleSelect(i)}
-                        className="overflow-hidden p-1"
+                        className={choice.image ? "overflow-hidden p-1" : "py-6 text-3xl font-extrabold text-gray-900"}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={choice.image} alt="" className="aspect-square w-full rounded-xl object-cover" />
+                        {choice.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={choice.image} alt="" className="aspect-square w-full rounded-xl object-cover" />
+                        ) : (
+                          choice.name
+                        )}
                       </QuizAnswerButton>
                     );
                   })}
                 </div>
-              )}
 
-              {selected !== null && (
-                <QuizFeedbackOverlay
-                  roundedClassName="rounded-[2rem]"
-                  mascot={
-                    isCorrectValue(question, selected) ? (
-                      <div className="flex gap-2 text-5xl" aria-hidden="true">
-                        {[0, 1, 2].map((i) => (
-                          <span key={i} style={{ animation: `star-pop 0.5s ease-out ${i * 0.1}s backwards` }}>
-                            ⭐
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src="/preschool/quiz/sad-face.jpeg"
-                        alt=""
-                        className="h-28 w-28 rounded-full object-cover shadow-lg"
-                        style={{ animation: "sad-face-pop 0.5s ease-out" }}
-                      />
-                    )
-                  }
-                  message={
-                    <p className="text-lg font-bold text-gray-700">
-                      {isCorrectValue(question, selected) ? t("correct") : t("incorrect")}
-                    </p>
-                  }
-                />
-              )}
+                {selected !== null && (
+                  <QuizFeedbackOverlay
+                    roundedClassName="rounded-[2rem]"
+                    mascot={
+                      selected === question.correctIndex ? (
+                        <div className="flex gap-2 text-5xl" aria-hidden="true">
+                          {[0, 1, 2].map((i) => (
+                            <span key={i} style={{ animation: `star-pop 0.5s ease-out ${i * 0.1}s backwards` }}>
+                              ⭐
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src="/preschool/quiz/sad-face.jpeg"
+                          alt=""
+                          className="h-28 w-28 rounded-full object-cover shadow-lg"
+                          style={{ animation: "sad-face-pop 0.5s ease-out" }}
+                        />
+                      )
+                    }
+                    message={
+                      <p className="text-lg font-bold text-gray-700">
+                        {selected === question.correctIndex ? t("correct") : t("incorrect")}
+                      </p>
+                    }
+                  />
+                )}
               </div>
             </>
           ) : (
             <div className="relative flex flex-col items-center gap-4 p-6 text-center">
-            {passed && <CelebrationStars />}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={mascotForScore(correctCount)}
-              alt=""
-              className="h-24 w-24 rounded-full object-cover shadow-lg"
-            />
-            <p className="text-xl font-extrabold text-gray-800">{passed ? t("passedTitle") : t("failedTitle")}</p>
-            <div className="flex gap-1 text-3xl" aria-hidden="true">
-              {Array.from({ length: questions.length }, (_, i) => (
-                <span key={i}>{i < correctCount ? "⭐" : "☆"}</span>
-              ))}
+              {passed && <CelebrationStars />}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={mascotForScore(correctCount)} alt="" className="h-24 w-24 rounded-full object-cover shadow-lg" />
+              <p className="text-xl font-extrabold text-gray-800">{passed ? t("passedTitle") : t("failedTitle")}</p>
+              <div className="flex gap-1 text-3xl" aria-hidden="true">
+                {Array.from({ length: questions.length }, (_, i) => (
+                  <span key={i}>{i < correctCount ? "⭐" : "☆"}</span>
+                ))}
+              </div>
+              <p className="text-base font-semibold text-gray-700">{passed ? t("passedMessage") : t("failedMessage")}</p>
+              <button
+                type="button"
+                onClick={() => onFinish(passed)}
+                className="mt-2 rounded-full bg-emerald-500 px-8 py-3 text-lg font-bold text-white shadow-lg transition-transform active:scale-95"
+              >
+                {t("continueButton")}
+              </button>
             </div>
-            <p className="text-base font-semibold text-gray-700">
-              {passed ? t("passedMessage") : t("failedMessage")}
-            </p>
-            <button
-              type="button"
-              onClick={() => onFinish(passed)}
-              className="mt-2 rounded-full bg-emerald-500 px-8 py-3 text-lg font-bold text-white shadow-lg transition-transform active:scale-95"
-            >
-              {t("continueButton")}
-            </button>
-          </div>
           )}
         </QuizCard>
       </div>

@@ -93,12 +93,14 @@ that minigame full-screen with a small "🔁" button (bottom-left) to go back
 and pick the other one. Neither minigame is persisted between visits — the
 picker shows again next time the trigger fires.
 
-* **Balloon Pop** (`balloon-pop-game.tsx` → `BalloonPopGame`) — balloons
-  spawn on an interval, drift down, and pop on tap with a particle burst and
-  a procedural Web-Audio "pop" (no audio asset pipeline exists in this
-  project, so sounds here and in the lesson view are synthesized, not
-  files). A ruby-icon + red-circle counter tracks the session's pop count
-  (no server round-trip — purely client-side).
+* **Balloon Pop** (`balloon-pop-game.tsx` → `BalloonPopGame`, see
+  `docs/preschool/games/balloon game/README.md` for the full picture) —
+  balloons spawn on an interval, drift down, and pop on tap with a particle
+  burst and a procedural Web-Audio "pop". Content (modes, images, recorded
+  pronunciations, translations) is entirely folder-driven from
+  `public/preschool/baloon-game/` — adding a mode is a filesystem change,
+  no code. A ruby-icon counter tracks the session's pop count and, every 30
+  pops, awards a Diamond via `POST /auth/me/balloon-pop-reward`.
 * **Letter Train** (`trains-game.tsx` → `TrainsGame`) — a train slides in
   from the left carrying a big letter on its wagon, parks in the middle,
   and waits for the child to press the matching key on a physical keyboard

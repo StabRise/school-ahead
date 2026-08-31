@@ -3,50 +3,103 @@
 import { useEffect, useState } from "react";
 
 export interface PreschoolCard {
-  name: string;
-  image: string;
+  // Canonical name — matches the image/sound filename it was discovered
+  // from, regardless of language. Use this (not the translated display
+  // text) for anything that must match a filename or a CSS value, like
+  // "colors" mode's balloon fill.
+  key: string;
+  image?: string;
 }
 
-export interface PreschoolFolderData {
-  // Cards discovered from the image files directly under
-  // public/preschool/<folder> — see /api/preschool-cards.
+export interface PreschoolModeData {
   cards: PreschoolCard[];
-  // Which of "en"/"uk"/"pl" have their own subfolder under <folder> — empty
-  // means the folder hasn't opted into per-language content at all, so the
-  // mode it backs is treated as available for every language.
+  // Which of "en"/"uk"/"pl" have their own subfolder under this mode's
+  // folder — empty means the mode hasn't opted into per-language content at
+  // all, so it's treated as available for every language.
   availableLanguages: string[];
-  // Per-language display-name override, read from each language subfolder's
-  // title.json — keyed by language, missing entries fall back to the
-  // mode's regular next-intl translation.
+  // Per-language display-name override, from each language subfolder's
+  // title.json — keyed by language, missing entries fall back to another
+  // available language's title, then to the folder name itself.
   titles: Record<string, string>;
+  // Per-language bonus-quiz question phrasing override, from title.json's
+  // "quiz.question_format" — "{card}" is replaced with the card's display
+  // name. Missing entries fall back to DEFAULT_QUESTION_FORMAT.
+  quizFormats: Record<string, string>;
+  // Per-language canonical-key -> translated-text map, from title.json's
+  // "cards" — for a language with no recordings of its own, this is what a
+  // card actually displays/speaks as (see resolveCard) instead of its
+  // English canonical key.
+  translations: Record<string, Record<string, string>>;
+  // Per-language recorded-pronunciation coverage — `names` are canonical
+  // keys with a recording under `soundsPath`, or soundsPath is null if this
+  // language has no sounds folder at all (falls back to TTS for everything).
+  sounds: Record<string, { names: string[]; soundsPath: string | null }>;
 }
 
-const EMPTY_FOLDER_DATA: PreschoolFolderData = { cards: [], availableLanguages: [], titles: {} };
+export const EMPTY_MODE_DATA: PreschoolModeData = {
+  cards: [],
+  availableLanguages: [],
+  titles: {},
+  quizFormats: {},
+  translations: {},
+  sounds: {},
+};
 
-const folderCache = new Map<string, Promise<PreschoolFolderData>>();
+let modesPromise: Promise<string[]> | null = null;
 
-function fetchFolderData(folder: string): Promise<PreschoolFolderData> {
-  let cached = folderCache.get(folder);
-  if (!cached) {
-    cached = fetch(`/api/preschool-cards?folder=${encodeURIComponent(folder)}`)
+function fetchModes(): Promise<string[]> {
+  if (!modesPromise) {
+    modesPromise = fetch("/api/preschool-modes")
       .then((res) => res.json())
-      .catch(() => EMPTY_FOLDER_DATA);
-    folderCache.set(folder, cached);
+      .then((data: { modes: string[] }) => data.modes)
+      .catch(() => []);
+  }
+  return modesPromise;
+}
+
+// The balloon-pop minigame's full mode list — every subfolder of
+// public/preschool/baloon-game, fetched once and cached module-wide. Empty
+// until the fetch resolves.
+export function usePreschoolModes(): string[] {
+  const [modes, setModes] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchModes().then((result) => {
+      if (!cancelled) setModes(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return modes;
+}
+
+const modeDataCache = new Map<string, Promise<PreschoolModeData>>();
+
+function fetchModeData(folder: string): Promise<PreschoolModeData> {
+  let cached = modeDataCache.get(folder);
+  if (!cached) {
+    cached = fetch(`/api/preschool-mode?folder=${encodeURIComponent(folder)}`)
+      .then((res) => res.json())
+      .catch(() => EMPTY_MODE_DATA);
+    modeDataCache.set(folder, cached);
   }
   return cached;
 }
 
-// Fetches, and caches module-wide, the card list / available-languages /
-// title overrides for every folder in `folders` (the asset folder backing
-// each picture-pool BalloonMode — see PICTURE_POOL_BY_MODE in
-// balloon-pop-game.tsx). `folders` should be a stable (module-level
-// constant) array, since it drives the effect's dependency.
-export function usePreschoolFolders(folders: string[]): Record<string, PreschoolFolderData> {
-  const [data, setData] = useState<Record<string, PreschoolFolderData>>({});
+// Fetches, and caches module-wide, every mode's full data — cards, titles,
+// quiz phrasing, translations, and sound coverage for every language at
+// once (see PreschoolModeData) — so a language switch never needs a new
+// request. `folders` should be a stable (module-level or otherwise
+// identity-stable) array, since it drives the effect's dependency.
+export function usePreschoolModeData(folders: string[]): Record<string, PreschoolModeData> {
+  const [data, setData] = useState<Record<string, PreschoolModeData>>({});
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all(folders.map(async (folder) => [folder, await fetchFolderData(folder)] as const)).then(
+    void Promise.all(folders.map(async (folder) => [folder, await fetchModeData(folder)] as const)).then(
       (entries) => {
         if (!cancelled) setData(Object.fromEntries(entries));
       },
@@ -59,65 +112,22 @@ export function usePreschoolFolders(folders: string[]): Record<string, Preschool
   return data;
 }
 
-interface RecordedSounds {
-  // Base names (no extension) with a recorded pronunciation available.
-  names: ReadonlySet<string>;
-  // URL folder the recordings live in (pass straight to playRecordedSound),
-  // or null if this folder/language has no recordings at all.
-  soundsPath: string | null;
+// A card's actual display/speech text for `language` — the translated word
+// from title.json's "cards" map if this specific card has one, otherwise
+// its canonical (English) key.
+export function resolveCardName(card: PreschoolCard, language: string, modeData: PreschoolModeData): string {
+  return modeData.translations[language]?.[card.key] ?? card.key;
 }
 
-const EMPTY_RECORDED_SOUNDS: RecordedSounds = { names: new Set(), soundsPath: null };
-
-const soundsCache = new Map<string, Promise<RecordedSounds>>();
-
-function fetchRecordedSounds(folder: string, language: string): Promise<RecordedSounds> {
-  const key = `${folder}:${language}`;
-  let cached = soundsCache.get(key);
-  if (!cached) {
-    cached = fetch(`/api/preschool-sounds?folder=${encodeURIComponent(folder)}&language=${encodeURIComponent(language)}`)
-      .then((res) => res.json())
-      .then((data: { names: string[]; soundsPath: string | null }) => ({
-        names: new Set(data.names),
-        soundsPath: data.soundsPath,
-      }))
-      .catch(() => EMPTY_RECORDED_SOUNDS);
-    soundsCache.set(key, cached);
-  }
-  return cached;
-}
-
-// Empty until the check resolves, so a mode's very first load briefly falls
-// back to TTS for everything — cached after that, including across
-// folder/language switches. `result` is tagged with the key it answers for
-// (rather than reset synchronously on every change) so a still-resolving
-// check for a previous folder/language can't overwrite newer state once it
-// lands late.
-export function useRecordedSounds(folder: string, language: string): RecordedSounds {
-  const key = `${folder}:${language}`;
-  const [result, setResult] = useState<{ key: string; data: RecordedSounds } | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetchRecordedSounds(folder, language).then((data) => {
-      if (!cancelled) setResult({ key, data });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [folder, language, key]);
-
-  return result?.key === key ? result.data : EMPTY_RECORDED_SOUNDS;
-}
-
-// Plays the recorded pronunciation for `label` from `soundsPath` (as
-// returned by useRecordedSounds) — e.g. soundsPath
-// "/preschool/animals/en/sounds" and label "Bear" plays
-// /preschool/animals/en/sounds/Bear.mp3. Callers should only call this once
-// useRecordedSounds confirms `label` is actually covered.
-export function playRecordedSound(soundsPath: string, label: string): void {
+// Plays the recorded pronunciation for canonical key `key` from
+// `soundsPath` (see PreschoolModeData.sounds) — e.g. soundsPath
+// "/preschool/baloon-game/animals/en/sounds" and key "Bear" plays
+// /preschool/baloon-game/animals/en/sounds/Bear.mp3. Callers should only
+// call this once that language's `sounds.names` confirms `key` is actually
+// covered.
+export function playRecordedSound(soundsPath: string, key: string): void {
   try {
-    const audio = new Audio(`${soundsPath}/${encodeURIComponent(label)}.mp3`);
+    const audio = new Audio(`${soundsPath}/${encodeURIComponent(key)}.mp3`);
     void audio.play().catch(() => {
       // Best-effort only — autoplay restrictions, missing file, ...
     });

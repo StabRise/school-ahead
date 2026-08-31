@@ -23,30 +23,44 @@ function gridMaxWidthPx(itemCount: number): number {
   return columns * CARD_WIDTH_PX + (columns - 1) * GRID_GAP_PX;
 }
 
-// "Навчання" (learning) screen for balloon-pop-game.tsx's picture-pool
-// modes (greetings/colors/animals/schoolSupplies/family/bodyParts/fruits)
-// — a static grid instead of falling balloons, so a child can tap each
-// item at their own pace and hear its name as many times as they like.
-// `items` is the same fixed subset the "game" (balloon) screen draws from
-// for this mode/cardCount (see selectedPictureItems in
-// balloon-pop-game.tsx), so switching between the two screens never
-// reshuffles the vocabulary.
+export interface LearningCard {
+  // Canonical name — stable identity for the card, used as the React key
+  // and to look up its recorded pronunciation (see PreschoolCard.key in
+  // lib/preschool-sounds.ts). Not necessarily what's shown/spoken.
+  key: string;
+  // Display/speech text — the card's translated name for the current game
+  // language if one exists (see resolveCardName in lib/preschool-sounds.ts),
+  // otherwise the same as `key`.
+  name: string;
+  image?: string;
+}
+
+// "Навчання" (learning) screen for balloon-pop-game.tsx — every mode gets
+// one now, driven entirely by that mode's folder under public/preschool/
+// baloon-game (see PreschoolModeData in lib/preschool-sounds.ts): a static
+// grid instead of falling balloons, so a child can tap each item at their
+// own pace and hear its name as many times as they like. `items` is the
+// same fixed subset the "game" (balloon) screen draws from for this
+// mode/cardCount (see displayCards in balloon-pop-game.tsx), so switching
+// between the two screens never reshuffles the vocabulary. A card with no
+// `image` (e.g. every number mode) shows its name itself, big, instead of
+// a photo.
 export function BalloonLearningCards({
   items,
   muted,
   onPlay,
 }: {
-  items: { name: string; image: string }[];
+  items: LearningCard[];
   muted: boolean;
-  // Speaks `name` — the caller decides between a recorded pronunciation and
-  // Piper TTS (see useRecordedSounds in lib/preschool-sounds.ts).
-  onPlay: (name: string) => void;
+  // Speaks the card — the caller decides between a recorded pronunciation
+  // and Piper TTS (see PreschoolModeData.sounds in lib/preschool-sounds.ts).
+  onPlay: (card: LearningCard) => void;
 }) {
-  const [activeName, setActiveName] = useState<string | null>(null);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
 
-  const handleCardClick = (item: { name: string; image: string }) => {
-    setActiveName(item.name);
-    if (!muted) onPlay(item.name);
+  const handleCardClick = (item: LearningCard) => {
+    setActiveKey(item.key);
+    if (!muted) onPlay(item);
   };
 
   return (
@@ -64,7 +78,7 @@ export function BalloonLearningCards({
       >
         {items.map((item) => (
           <button
-            key={item.name}
+            key={item.key}
             type="button"
             onClick={() => handleCardClick(item)}
             // select-none + touch-manipulation stop a child's tap-and-
@@ -74,20 +88,26 @@ export function BalloonLearningCards({
             // [-webkit-touch-callout:none] kills iOS's long-press "Save
             // Image" callout for the same reason.
             className={`flex aspect-square touch-manipulation select-none flex-col items-center justify-center gap-2 rounded-2xl border-4 bg-white p-3 shadow-md transition-transform active:scale-95 [-webkit-touch-callout:none] ${
-              activeName === item.name ? "border-sky-400 ring-4 ring-sky-200" : "border-transparent"
+              activeKey === item.key ? "border-sky-400 ring-4 ring-sky-200" : "border-transparent"
             }`}
           >
             {/* Fixed size, decoupled from the (square) card's own size — a
                 bigger card shouldn't get a bigger image with no room left
                 for its name below it. */}
             <span className="h-full w-full">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={item.image}
-                alt=""
-                draggable={false}
-                className="h-full w-full select-none rounded-xl object-cover"
-              />
+              {item.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={item.image}
+                  alt=""
+                  draggable={false}
+                  className="h-full w-full select-none rounded-xl object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center rounded-xl bg-sky-50 text-6xl font-extrabold text-sky-700">
+                  {item.name}
+                </div>
+              )}
               <span
                 aria-hidden="true"
                 className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-sm shadow"
@@ -95,11 +115,15 @@ export function BalloonLearningCards({
                 🔊
               </span>
             </span>
-            {/* `capitalize` as a safety net — a card's name is whatever its
-                image file in public/preschool/<folder> is named (see
-                PICTURE_POOL_BY_MODE in balloon-pop-game.tsx), so an
-                inconsistently-cased upload still reads correctly. */}
-            <span className="truncate text-base font-bold capitalize text-gray-800">{item.name}</span>
+            {/* Image-less cards skip this — the big name on the card itself
+                already is the label, so repeating it below would be
+                redundant. `capitalize` is a safety net for picture cards —
+                a card's name is whatever its image file is named (see
+                /api/preschool-mode), so an inconsistently-cased upload
+                still reads correctly. */}
+            {item.image && (
+              <span className="truncate text-base font-bold capitalize text-gray-800">{item.name}</span>
+            )}
           </button>
         ))}
       </div>

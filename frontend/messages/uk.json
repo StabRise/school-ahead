@@ -50,19 +50,6 @@
     "musicOffLabel": "Увімкнути музику",
     "musicVolumeLabel": "Гучність музики",
     "modeLabel": "Що написано на кульках",
-    "mode": {
-      "numbers10": "Числа 0-10",
-      "numbers1120": "Числа 11-20",
-      "numbersTens": "Лічба десятками",
-      "colors": "Кольори",
-      "letters": "Букви",
-      "greetings": "Greetings",
-      "animals": "Animals",
-      "schoolSupplies": "School Supplies",
-      "family": "Family",
-      "bodyParts": "Body Parts",
-      "fruits": "Fruits"
-    },
     "languageLabel": "Мова",
     "language": {
       "en": "English",

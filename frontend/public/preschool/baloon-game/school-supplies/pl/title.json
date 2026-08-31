@@ -1,0 +1,18 @@
+{
+  "title": "School Supplies",
+  "cards": {
+    "Backpack": "Plecak",
+    "Book": "Książka",
+    "Calculator": "Kalkulator",
+    "Eraser": "Gumka do ścierania",
+    "Glue stick": "Klej w sztyfcie",
+    "Marker": "Marker",
+    "Notebook": "Zeszyt",
+    "Pen": "Długopis",
+    "Pencil": "Ołówek",
+    "Pencil case": "Piórnik",
+    "Ruler": "Linijka",
+    "Scissors": "Nożyczki",
+    "Table": "Stolik"
+  }
+}

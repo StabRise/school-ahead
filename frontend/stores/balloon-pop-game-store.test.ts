@@ -5,7 +5,7 @@ describe("useBalloonPopGameStore", () => {
   beforeEach(() => {
     localStorage.clear();
     useBalloonPopGameStore.setState({
-      mode: "numbers10",
+      mode: "numbers-0-10",
       language: "en",
       size: 112,
       speed: 1,
@@ -16,7 +16,7 @@ describe("useBalloonPopGameStore", () => {
 
   it("starts with the default mode, language, sizing, and unmuted", () => {
     const state = useBalloonPopGameStore.getState();
-    expect(state.mode).toBe("numbers10");
+    expect(state.mode).toBe("numbers-0-10");
     expect(state.language).toBe("en");
     expect(state.size).toBe(112);
     expect(state.speed).toBe(1);
@@ -25,12 +25,12 @@ describe("useBalloonPopGameStore", () => {
   });
 
   it("updates individual settings independently", () => {
-    useBalloonPopGameStore.getState().setMode("letters");
+    useBalloonPopGameStore.getState().setMode("animals");
     useBalloonPopGameStore.getState().setLanguage("uk");
     useBalloonPopGameStore.getState().setMuted(true);
 
     const state = useBalloonPopGameStore.getState();
-    expect(state.mode).toBe("letters");
+    expect(state.mode).toBe("animals");
     expect(state.language).toBe("uk");
     expect(state.muted).toBe(true);
     expect(state.size).toBe(112);
