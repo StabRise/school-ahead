@@ -44,15 +44,30 @@ class LessonAdmin(admin.ModelAdmin):
     list_display = (
         "title",
         "topic",
-        "order_index",
+        "subject",
         "lesson_type",
         "grading_type",
+        "order_index",
         "default_day_offset",
     )
-    list_filter = ("lesson_type", "grading_type", "topic__subject__school_class", "topic")
-    search_fields = ("title", "content", "topic__title", "topic__subject__name")
+    list_filter = (
+        "lesson_type",
+        "grading_type",
+        ("topic__subject__school_class", admin.RelatedOnlyFieldListFilter),
+        ("topic__subject", admin.RelatedOnlyFieldListFilter),
+        ("topic", admin.RelatedOnlyFieldListFilter),
+        # default_day_offset is only set for lessons pinned to a fixed day
+        # of the plan rather than evenly scheduled — worth isolating.
+        ("default_day_offset", admin.EmptyFieldListFilter),
+    )
+    search_fields = ("title", "content", "task_content", "topic__title", "topic__subject__name")
     ordering = ("topic", "order_index")
+    list_select_related = ("topic", "topic__subject", "topic__subject__school_class")
     inlines = [LessonAttachmentInline, QuizQuestionInline]
+
+    @admin.display(description="Subject", ordering="topic__subject")
+    def subject(self, obj):
+        return obj.topic.subject
 
     def save_model(self, request, obj, form, change):
         # A brand-new lesson with no icon set gets a random one from
@@ -70,27 +85,35 @@ class LessonAdmin(admin.ModelAdmin):
 class LessonAttachmentAdmin(admin.ModelAdmin):
     """Admin configuration for standalone lesson attachments."""
     list_display = ("title", "lesson", "kind", "order_index")
-    list_filter = ("kind",)
-    search_fields = ("title", "lesson__title")
+    list_filter = (
+        "kind",
+        ("lesson__topic__subject", admin.RelatedOnlyFieldListFilter),
+        ("file", admin.EmptyFieldListFilter),
+        ("url", admin.EmptyFieldListFilter),
+    )
+    search_fields = ("title", "lesson__title", "url")
     ordering = ("lesson", "order_index")
+    list_select_related = ("lesson",)
 
 
 @admin.register(QuizQuestion)
 class QuizQuestionAdmin(admin.ModelAdmin):
     """Admin configuration for quiz questions with inline choice management."""
     list_display = ("prompt", "lesson", "order_index", "language")
-    list_filter = ("language",)
+    list_filter = ("language", ("lesson__topic__subject", admin.RelatedOnlyFieldListFilter))
     search_fields = ("prompt", "lesson__title")
     inlines = [QuizChoiceInline]
     ordering = ("lesson", "order_index")
+    list_select_related = ("lesson",)
 
 
 @admin.register(QuizChoice)
 class QuizChoiceAdmin(admin.ModelAdmin):
     """Admin configuration for standalone quiz choices."""
     list_display = ("text", "question", "is_correct")
-    list_filter = ("is_correct",)
+    list_filter = ("is_correct", ("image", admin.EmptyFieldListFilter))
     search_fields = ("text", "question__prompt")
+    list_select_related = ("question",)
 
 
 class LessonSubmissionInline(admin.TabularInline):
@@ -120,10 +143,11 @@ class StudentLessonAdmin(admin.ModelAdmin):
         "grade_result",
         "scheduled_date",
         # RelatedOnlyFieldListFilter narrows each dropdown to students/
-        # subjects that actually appear on a StudentLesson, instead of every
-        # StudentProfile or Subject in the system.
+        # subjects/classes that actually appear on a StudentLesson, instead
+        # of every StudentProfile/Subject/Class in the system.
         ("student", admin.RelatedOnlyFieldListFilter),
         ("lesson__topic__subject", admin.RelatedOnlyFieldListFilter),
+        ("lesson__topic__subject__school_class", admin.RelatedOnlyFieldListFilter),
     )
     search_fields = (
         "student__user__email",
@@ -133,27 +157,42 @@ class StudentLessonAdmin(admin.ModelAdmin):
     )
     autocomplete_fields = ("student", "lesson")
     readonly_fields = ("started_at", "completed_at", "attempt_count")
+    list_select_related = ("student__user", "lesson__topic__subject")
+    date_hierarchy = "scheduled_date"
     inlines = [LessonSubmissionInline]
 
 
 @admin.register(LessonSubmission)
 class LessonSubmissionAdmin(admin.ModelAdmin):
     """Admin configuration for student submissions across lessons."""
-    list_display = ("student_lesson", "is_latest", "submitted_at")
-    list_filter = ("is_latest", "submitted_at")
+    list_display = ("student_lesson", "is_latest", "submitted_at", "feedback_at")
+    list_filter = (
+        "is_latest",
+        "submitted_at",
+        # Submissions the tutor hasn't replied to yet, at a glance.
+        ("tutor_feedback", admin.EmptyFieldListFilter),
+    )
     search_fields = (
         "student_lesson__student__user__email",
         "student_lesson__lesson__title",
         "comment",
     )
     readonly_fields = ("submitted_at",)
+    list_select_related = ("student_lesson__student__user", "student_lesson__lesson")
 
 
 @admin.register(LessonComment)
 class LessonCommentAdmin(admin.ModelAdmin):
     """Admin configuration for the persistent per-lesson comment thread."""
     list_display = ("student_lesson", "author", "kind", "is_resolved", "created_at")
-    list_filter = ("kind", "is_resolved", "created_at")
+    list_filter = (
+        "kind",
+        "is_resolved",
+        "created_at",
+        ("author", admin.RelatedOnlyFieldListFilter),
+        # Top-level comments (reply_to is null) vs replies in a thread.
+        ("reply_to", admin.EmptyFieldListFilter),
+    )
     search_fields = (
         "student_lesson__student__user__email",
         "student_lesson__lesson__title",
@@ -161,23 +200,35 @@ class LessonCommentAdmin(admin.ModelAdmin):
     )
     readonly_fields = ("created_at",)
     ordering = ("-created_at",)
+    list_select_related = ("student_lesson__student__user", "author")
 
 
 @admin.register(LessonsJson)
 class LessonsJsonAdmin(admin.ModelAdmin):
     """Admin configuration for staged scrape_lessons JSON uploads awaiting import_lessons."""
-    list_display = ("name", "subject", "status", "created_at")
-    list_filter = ("status", "subject")
-    search_fields = ("name",)
+    list_display = ("name", "subject", "status", "created_at", "updated_at")
+    list_filter = (
+        "status",
+        ("subject__school_class", admin.RelatedOnlyFieldListFilter),
+        ("subject", admin.RelatedOnlyFieldListFilter),
+    )
+    search_fields = ("name", "description", "subject__name")
     autocomplete_fields = ("subject", "lessons")
     readonly_fields = ("created_at", "updated_at")
+    list_select_related = ("subject", "subject__school_class")
 
 
 @admin.register(StudentLessonStatusEvent)
 class StudentLessonStatusEventAdmin(admin.ModelAdmin):
     """Admin configuration for tracking the audit trail of student lesson status changes."""
     list_display = ("student_lesson", "from_status", "to_status", "actor", "created_at")
-    list_filter = ("from_status", "to_status", "created_at")
+    list_filter = (
+        "from_status",
+        "to_status",
+        "created_at",
+        ("actor", admin.RelatedOnlyFieldListFilter),
+        ("student_lesson__lesson__topic__subject__school_class", admin.RelatedOnlyFieldListFilter),
+    )
     search_fields = (
         "student_lesson__student__user__email",
         "student_lesson__lesson__title",
@@ -191,4 +242,6 @@ class StudentLessonStatusEventAdmin(admin.ModelAdmin):
         "note",
         "created_at",
     )
+    list_select_related = ("student_lesson__student__user", "student_lesson__lesson", "actor")
     ordering = ("-created_at",)
+    date_hierarchy = "created_at"

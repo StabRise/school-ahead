@@ -1,5 +1,7 @@
 import json
+import zipfile
 
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Count
 from django.http import HttpRequest, HttpResponse
@@ -203,9 +205,39 @@ def list_subject_lessons_json(request: HttpRequest, subject_id: int):
     return LessonsJson.objects.filter(subject_id=subject_id).order_by('-created_at')
 
 
+def _stage_lessons_json_from_zip(subject_id: int, name: str, description: str, file: UploadedFile) -> list[LessonsJson]:
+    """One LessonsJson row per .json entry in the archive — named `name`
+    plus the entry's own filename so a batch of them stays distinguishable
+    in the "uploaded" step of the wizard. Skips directories, macOS junk
+    (__MACOSX/, dotfiles) and anything not ending in .json."""
+    with zipfile.ZipFile(file) as archive:
+        entries = [
+            info
+            for info in archive.infolist()
+            if not info.is_dir()
+            and info.filename.lower().endswith('.json')
+            and '__MACOSX' not in info.filename
+            and not info.filename.rsplit('/', 1)[-1].startswith('.')
+        ]
+        if not entries:
+            raise HttpError(400, 'No .json files found in the archive')
+
+        staged = []
+        for info in entries:
+            entry_name = info.filename.rsplit('/', 1)[-1]
+            filename_note = f'Файл: {entry_name} (з архіву {file.name})'
+            full_description = f'{description}\n\n{filename_note}' if description else filename_note
+            lessons_json = LessonsJson.objects.create(
+                subject_id=subject_id, name=f'{name} — {entry_name}', description=full_description
+            )
+            lessons_json.json_file.save(entry_name, ContentFile(archive.read(info)), save=True)
+            staged.append(lessons_json)
+        return staged
+
+
 @router.post(
     '/subjects/{subject_id}/lessons-json',
-    response=LessonsJsonOut,
+    response=list[LessonsJsonOut],
     operation_id='upload_tutor_subject_lessons_json',
 )
 def upload_subject_lessons_json(
@@ -216,18 +248,27 @@ def upload_subject_lessons_json(
     file: UploadedFile = File(...),
 ):
     """Step 1 of the "Load lessons from JSON" wizard on the Subject detail
-    page — stages a scrape_lessons-shaped JSON upload for later review and
-    import (process_lessons_json is step 2, triggered separately once the
-    tutor has looked at the file). The original filename is appended to the
-    description — upload_to renames the file to a random hex name on disk
-    (see common/storage.py), so this is the only place it survives."""
+    page — stages one or more scrape_lessons-shaped JSON uploads for later
+    review and import (process_lessons_json is step 2, triggered separately
+    once the tutor has looked at the file(s)). A .zip archive of .json
+    files stages one row per entry (_stage_lessons_json_from_zip); a plain
+    .json file stages a single row, same as before. The original
+    filename(s) are appended to each row's description — upload_to renames
+    files to random hex names on disk (see common/storage.py), so this is
+    the only place they survive."""
     require_csrf(request)
     services.ensure_is_tutor_for_subject(request, subject_id)
+
+    if zipfile.is_zipfile(file):
+        return _stage_lessons_json_from_zip(subject_id, name, description, file)
+
     filename_note = f'Файл: {file.name}'
     full_description = f'{description}\n\n{filename_note}' if description else filename_note
-    return LessonsJson.objects.create(
-        subject_id=subject_id, name=name, description=full_description, json_file=file
-    )
+    return [
+        LessonsJson.objects.create(
+            subject_id=subject_id, name=name, description=full_description, json_file=file
+        )
+    ]
 
 
 @router.post(

@@ -8,17 +8,27 @@ from .models import Class, Plan, School, Subject, SubjectBlock, Topic
 class SchoolAdmin(admin.ModelAdmin):
     """Admin configuration for School model."""
     list_display = ("name", "locale_default", "timezone", "created_at")
+    list_filter = ("locale_default", "timezone")
     search_fields = ("name",)
+    date_hierarchy = "created_at"
 
 
 @admin.register(Class)
 class ClassAdmin(admin.ModelAdmin):
     """Admin configuration for Class model."""
     list_display = ("name", "school", "academic_year", "order_index", "class_teacher", "created_at")
-    list_filter = ("school", "academic_year")
-    search_fields = ("name", "academic_year")
+    list_filter = (
+        "school",
+        "academic_year",
+        # A class with no homeroom teacher yet can't have a tutor upload a
+        # plan for it (tutoring.services.ensure_is_class_teacher) — this
+        # surfaces those at a glance instead of clicking through each one.
+        ("class_teacher", admin.EmptyFieldListFilter),
+    )
+    search_fields = ("name", "academic_year", "school__name")
     ordering = ("order_index",)
     autocomplete_fields = ("class_teacher",)
+    list_select_related = ("school", "class_teacher__user")
 
 
 class SubjectBlockInline(admin.TabularInline):
@@ -42,15 +52,28 @@ class SubjectAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "school_class",
+        "is_filled",
         "block_count",
         "start_date",
         "due_date",
         "color",
         "created_at",
+        "updated_at",
     )
-    list_filter = ("school_class", "start_date")
+    list_filter = (
+        ("school_class__school", admin.RelatedOnlyFieldListFilter),
+        "school_class",
+        "is_filled",
+        "start_date",
+        # Blank only for subjects created before the color field existed
+        # and not yet backfilled (see migration 0010) — this surfaces any
+        # stragglers instantly instead of scanning every row for a blank cell.
+        ("color", admin.EmptyFieldListFilter),
+    )
     search_fields = ("name", "school_class__name", "description")
     ordering = ("school_class", "name")
+    list_select_related = ("school_class", "school_class__school")
+    date_hierarchy = "start_date"
 
     # Embed blocks and topics directly inside the subject detail view
     inlines = [SubjectBlockInline, TopicInline]
@@ -76,11 +99,32 @@ class SubjectAdmin(admin.ModelAdmin):
 @admin.register(SubjectBlock)
 class SubjectBlockAdmin(admin.ModelAdmin):
     """Admin configuration for standalone SubjectBlock management."""
-    list_display = ("label", "subject", "index", "status", "starts_on", "ends_on", "weeks_count", "workload")
-    list_filter = ("status", "subject__school_class")
-    search_fields = ("label", "subject__name")
+    list_display = (
+        "label",
+        "subject",
+        "index",
+        "status",
+        "starts_on",
+        "ends_on",
+        "weeks_count",
+        "workload",
+        "closed_at",
+    )
+    list_filter = (
+        "status",
+        "subject",
+        ("subject__school_class__school", admin.RelatedOnlyFieldListFilter),
+        "subject__school_class",
+        # weeks_count/workload are null until both starts_on/ends_on are set
+        # (academics.services.recompute_block_workload) — this finds blocks
+        # still missing dates without opening each one.
+        ("weeks_count", admin.EmptyFieldListFilter),
+        ("closed_at", admin.EmptyFieldListFilter),
+    )
+    search_fields = ("label", "subject__name", "description")
     ordering = ("subject", "index")
     readonly_fields = ("weeks_count", "workload")
+    list_select_related = ("subject", "subject__school_class")
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
@@ -94,10 +138,20 @@ class TopicAdmin(admin.ModelAdmin):
     """Admin configuration for standalone Topic management. subject_block is
     read-only here — it's auto-assigned by academics.services.
     assign_topics_to_blocks, not hand-edited."""
-    list_display = ("title", "subject", "order_index", "subject_block", "created_at")
-    list_filter = ("subject__school_class", "subject", "subject_block")
+    list_display = ("title", "subject", "order_index", "subject_block", "subject_block_manually_set", "created_at")
+    list_filter = (
+        ("subject__school_class", admin.RelatedOnlyFieldListFilter),
+        ("subject", admin.RelatedOnlyFieldListFilter),
+        ("subject_block", admin.RelatedOnlyFieldListFilter),
+        "subject_block_manually_set",
+        # subject_block is null right after a block-count shrink, before the
+        # next assign_topics_to_blocks recompute self-heals it — worth
+        # spotting directly.
+        ("subject_block", admin.EmptyFieldListFilter),
+    )
     search_fields = ("title", "description", "subject__name")
     ordering = ("subject", "order_index")
+    list_select_related = ("subject", "subject_block")
 
 
 @admin.register(Plan)
@@ -105,8 +159,14 @@ class PlanAdmin(admin.ModelAdmin):
     """Admin configuration for curriculum-plan uploads — read-only history
     of what the tutor's "Завантажити план" wizard imported (see
     academics.services.import_class_plan); not meant to be hand-edited."""
-    list_display = ("school_class", "semester_name", "created_at")
-    list_filter = ("school_class",)
-    search_fields = ("semester_name", "school_class__name")
+    list_display = ("school_class", "semester_name", "created_at", "updated_at")
+    list_filter = (
+        ("school_class__school", admin.RelatedOnlyFieldListFilter),
+        "school_class",
+        "semester_name",
+    )
+    search_fields = ("semester_name", "school_class__name", "text")
     ordering = ("-created_at",)
+    list_select_related = ("school_class", "school_class__school")
+    date_hierarchy = "created_at"
     readonly_fields = ("school_class", "semester_name", "text", "created_at", "updated_at")

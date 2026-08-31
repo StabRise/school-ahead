@@ -14,11 +14,18 @@ import {
 } from "@/lib/api/browser/tutor/tutor";
 import type { LessonsJsonOut, ProcessLessonsJsonOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 
+type AggregateResult = Pick<
+  ProcessLessonsJsonOut,
+  "topics_created" | "topics_reused" | "lessons_created" | "lessons_skipped"
+>;
+
 // Opened from the tutor's Subject detail page. A two-step wizard: step 1
-// uploads a scrape_lessons-shaped JSON file (staging a lessons.models.
-// LessonsJson row), step 2 lets the tutor glance at the uploaded file before
-// importing it — reuses an existing Topic by title, creates any Lesson under
-// it that isn't already there. See lessons.services.import_topics_and_lessons.
+// uploads a scrape_lessons-shaped JSON file, or a .zip archive of several
+// (one lessons.models.LessonsJson row gets staged per .json file — see
+// tutoring.api.upload_subject_lessons_json), step 2 lets the tutor glance
+// at the staged file(s) before importing them all — reuses an existing
+// Topic by title, creates any Lesson under it that isn't already there.
+// See lessons.services.import_topics_and_lessons.
 export function LoadLessonsJsonDialog({ subjectId }: { subjectId: number }) {
   const t = useTranslations("LoadLessonsJson");
   const queryClient = useQueryClient();
@@ -26,8 +33,10 @@ export function LoadLessonsJsonDialog({ subjectId }: { subjectId: number }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [uploaded, setUploaded] = useState<LessonsJsonOut | null>(null);
-  const [result, setResult] = useState<ProcessLessonsJsonOut | null>(null);
+  const [uploaded, setUploaded] = useState<LessonsJsonOut[] | null>(null);
+  const [result, setResult] = useState<AggregateResult | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processError, setProcessError] = useState(false);
 
   const uploadLessonsJson = useUploadTutorSubjectLessonsJson();
   const processLessonsJson = useProcessLessonsJson();
@@ -40,6 +49,8 @@ export function LoadLessonsJsonDialog({ subjectId }: { subjectId: number }) {
       setFile(null);
       setUploaded(null);
       setResult(null);
+      setIsProcessing(false);
+      setProcessError(false);
     }
   };
 
@@ -58,20 +69,34 @@ export function LoadLessonsJsonDialog({ subjectId }: { subjectId: number }) {
     );
   };
 
-  const handleAddLessons = () => {
+  const handleAddLessons = async () => {
     if (!uploaded) return;
+    setIsProcessing(true);
+    setProcessError(false);
 
-    processLessonsJson.mutate(
-      { lessonsJsonId: uploaded.id },
-      {
-        onSuccess: (data) => {
-          setResult(data);
-          queryClient.invalidateQueries({ queryKey: getListSubjectTopicsQueryKey(subjectId) });
-          queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsQueryKey(subjectId) });
-          queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsJsonQueryKey(subjectId) });
-        },
-      },
-    );
+    const aggregate: AggregateResult = {
+      topics_created: 0,
+      topics_reused: 0,
+      lessons_created: 0,
+      lessons_skipped: 0,
+    };
+    try {
+      for (const item of uploaded) {
+        const data = await processLessonsJson.mutateAsync({ lessonsJsonId: item.id });
+        aggregate.topics_created += data.topics_created;
+        aggregate.topics_reused += data.topics_reused;
+        aggregate.lessons_created += data.lessons_created;
+        aggregate.lessons_skipped += data.lessons_skipped;
+      }
+      setResult(aggregate);
+      queryClient.invalidateQueries({ queryKey: getListSubjectTopicsQueryKey(subjectId) });
+      queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsQueryKey(subjectId) });
+      queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsJsonQueryKey(subjectId) });
+    } catch {
+      setProcessError(true);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -112,22 +137,26 @@ export function LoadLessonsJsonDialog({ subjectId }: { subjectId: number }) {
             </div>
           ) : uploaded ? (
             <div className="mt-4 flex flex-col gap-4">
-              <div className="flex flex-col gap-1 rounded-md bg-gray-50 p-3 text-sm text-gray-700">
-                <p className="font-medium text-gray-900">{uploaded.name}</p>
-                {uploaded.description && <p className="whitespace-pre-wrap">{uploaded.description}</p>}
-                {uploaded.file_url && (
-                  <a
-                    href={uploaded.file_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="self-start text-xs text-blue-600 underline hover:no-underline"
-                  >
-                    {t("viewFileLink")}
-                  </a>
-                )}
+              <div className="flex flex-col gap-2">
+                {uploaded.map((item) => (
+                  <div key={item.id} className="flex flex-col gap-1 rounded-md bg-gray-50 p-3 text-sm text-gray-700">
+                    <p className="font-medium text-gray-900">{item.name}</p>
+                    {item.description && <p className="whitespace-pre-wrap text-xs">{item.description}</p>}
+                    {item.file_url && (
+                      <a
+                        href={item.file_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="self-start text-xs text-blue-600 underline hover:no-underline"
+                      >
+                        {t("viewFileLink")}
+                      </a>
+                    )}
+                  </div>
+                ))}
               </div>
 
-              {processLessonsJson.isError && <p className="text-sm text-red-600">{t("processError")}</p>}
+              {processError && <p className="text-sm text-red-600">{t("processError")}</p>}
 
               <div className="flex justify-end gap-2">
                 <Dialog.Close asChild>
@@ -141,10 +170,10 @@ export function LoadLessonsJsonDialog({ subjectId }: { subjectId: number }) {
                 <button
                   type="button"
                   onClick={handleAddLessons}
-                  disabled={processLessonsJson.isPending}
+                  disabled={isProcessing}
                   className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                 >
-                  {t("addLessonsButton")}
+                  {isProcessing ? t("processing") : t("addLessonsButton")}
                 </button>
               </div>
             </div>
@@ -184,11 +213,12 @@ export function LoadLessonsJsonDialog({ subjectId }: { subjectId: number }) {
                 <input
                   id="lessons-json-file"
                   type="file"
-                  accept="application/json"
+                  accept="application/json,.json,.zip,application/zip,application/x-zip-compressed"
                   required
                   onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                   className="text-sm text-gray-700"
                 />
+                <p className="text-xs text-gray-500">{t("fileHint")}</p>
               </div>
 
               {uploadLessonsJson.isError && <p className="text-sm text-red-600">{t("uploadError")}</p>}
