@@ -104,6 +104,16 @@ class SubjectBlock(models.Model):
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
     starts_on = models.DateField(null=True, blank=True)
     ends_on = models.DateField(null=True, blank=True)
+    # Whole weeks between starts_on/ends_on minus 2 weeks of vacation. Null
+    # until both dates are set. Refreshed by
+    # academics.services.recompute_block_workload — see that function for
+    # every mutation that triggers it.
+    weeks_count = models.IntegerField(null=True, blank=True)
+    # Lessons/week workload for the block: lesson_count / weeks_count.
+    # Refreshed alongside weeks_count by
+    # academics.services.recompute_block_workload; null whenever weeks_count
+    # isn't set. Full float precision here — round for display only.
+    workload = models.FloatField(null=True, blank=True)
     closed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:

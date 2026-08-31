@@ -1,5 +1,6 @@
 from django.contrib import admin
 
+from . import services
 from .models import Class, School, Subject, SubjectBlock, Topic
 
 
@@ -24,7 +25,8 @@ class SubjectBlockInline(admin.TabularInline):
     """Inline manager for subject blocks within the Subject admin view."""
     model = SubjectBlock
     extra = 1
-    fields = ("index", "label", "status", "starts_on", "ends_on")
+    fields = ("index", "label", "status", "starts_on", "ends_on", "weeks_count", "workload")
+    readonly_fields = ("weeks_count", "workload")
 
 
 class TopicInline(admin.TabularInline):
@@ -62,14 +64,29 @@ class SubjectAdmin(admin.ModelAdmin):
         # this returns.
         return super().get_queryset(request).order_by("name")
 
+    def save_formset(self, request, form, formset, change):
+        super().save_formset(request, form, formset, change)
+        if formset.model is SubjectBlock:
+            # starts_on/ends_on edited here don't go through
+            # academics.services.recompute_block_workload on their own.
+            for block in formset.queryset:
+                services.recompute_block_workload(block)
+
 
 @admin.register(SubjectBlock)
 class SubjectBlockAdmin(admin.ModelAdmin):
     """Admin configuration for standalone SubjectBlock management."""
-    list_display = ("label", "subject", "index", "status", "starts_on", "ends_on")
+    list_display = ("label", "subject", "index", "status", "starts_on", "ends_on", "weeks_count", "workload")
     list_filter = ("status", "subject__school_class")
     search_fields = ("label", "subject__name")
     ordering = ("subject", "index")
+    readonly_fields = ("weeks_count", "workload")
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        # starts_on/ends_on edited here don't go through
+        # academics.services.recompute_block_workload on their own.
+        services.recompute_block_workload(obj)
 
 
 @admin.register(Topic)

@@ -43,6 +43,8 @@ class SubjectBlockOut(Schema):
     status: str
     starts_on: datetime.date | None
     ends_on: datetime.date | None
+    weeks_count: int | None
+    workload: float | None
 
 
 class SubjectOut(Schema):
