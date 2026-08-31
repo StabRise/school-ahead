@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
       const soundNames = await listMp3Keys(path.join(langDir, "sounds"));
       if (soundNames) {
         soundNames.forEach((name) => allSoundKeys.add(name));
-        sounds[language] = { names: soundNames, soundsPath: `/preschool/baloon-game/${folder}/${language}/sounds` };
+        sounds[language] = { names: soundNames, soundsPath: `/static/balloon-game/${folder}/${language}/sounds` };
       } else {
         sounds[language] = { names: [], soundsPath: null };
       }

@@ -7,7 +7,7 @@ import type { SpeechLanguage } from "@/lib/piper-tts";
 // a chosen mode/language/sizing/mute survives closing the tab instead of
 // resetting to defaults every session.
 
-// A mode is just the name of its folder under public/preschool/baloon-game
+// A mode is just the name of its folder under public/static/balloon-game
 // (see /api/preschool-modes) — there's no fixed set of modes anymore, so
 // this is a plain string rather than a literal union.
 export type BalloonMode = string;
