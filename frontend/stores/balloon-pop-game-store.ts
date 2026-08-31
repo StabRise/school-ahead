@@ -15,7 +15,6 @@ export type BalloonMode =
   | "letters"
   | "greetings"
   | "animals"
-  | "animalsEx"
   | "schoolSupplies"
   | "schoolSuppliesEx"
   | "family"
@@ -28,7 +27,7 @@ const DEFAULT_SIZE = 112;
 const DEFAULT_SPEED = 1;
 const DEFAULT_COUNT = 9;
 
-// For modes with a picture pool (animalsEx/schoolSuppliesEx/family/
+// For modes with a picture pool (animals/schoolSuppliesEx/family/
 // bodyParts/fruits, see PICTURE_POOL_BY_MODE in balloon-pop-game.tsx) —
 // how many random items from that mode's pool the "game" (balloons) and
 // "learning" (flashcards) screens both draw from, chosen once per

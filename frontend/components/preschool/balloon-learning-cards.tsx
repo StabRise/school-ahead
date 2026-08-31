@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { speak, type SpeechLanguage as GameLanguage } from "@/lib/piper-tts";
 
 // Every card is this wide — and, via aspect-square below, this tall too —
 // with CSS grid's `auto-fit` deciding how many fit per row at the current
@@ -25,7 +24,7 @@ function gridMaxWidthPx(itemCount: number): number {
 }
 
 // "Навчання" (learning) screen for balloon-pop-game.tsx's picture-pool
-// modes (animalsEx/schoolSuppliesEx/family/bodyParts/fruits) — a static
+// modes (animals/schoolSuppliesEx/family/bodyParts/fruits) — a static
 // grid instead of falling balloons, so a child can tap each item at their
 // own pace and hear its name as many times as they like. `items` is the
 // same fixed subset the "game" (balloon) screen draws from for this
@@ -33,18 +32,20 @@ function gridMaxWidthPx(itemCount: number): number {
 // switching between the two screens never reshuffles the vocabulary.
 export function BalloonLearningCards({
   items,
-  language,
   muted,
+  onPlay,
 }: {
   items: { name: string; image: string }[];
-  language: GameLanguage;
   muted: boolean;
+  // Speaks `name` — the caller decides between a recorded pronunciation and
+  // Piper TTS (see useRecordedSoundNames in lib/preschool-sounds.ts).
+  onPlay: (name: string) => void;
 }) {
   const [activeName, setActiveName] = useState<string | null>(null);
 
   const handleCardClick = (item: { name: string; image: string }) => {
     setActiveName(item.name);
-    if (!muted) speak(item.name, language, "short");
+    if (!muted) onPlay(item.name);
   };
 
   return (
@@ -94,7 +95,7 @@ export function BalloonLearningCards({
               </span>
             </span>
             {/* `capitalize` rather than fixing the data itself — the
-                picture pools (e.g. BALLOON_ANIMALS_EX) mix "Bear" and
+                picture pools (e.g. BALLOON_ANIMALS) mix "Bear" and
                 "fox"-style casing, and this reads correctly regardless. */}
             <span className="truncate text-base font-bold capitalize text-gray-800">{item.name}</span>
           </button>

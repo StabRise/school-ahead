@@ -16,10 +16,10 @@ import { QuizAnswerButton, QuizBanner, QuizCard, QuizFeedbackOverlay, QuizReadAl
 // (see QUIZ_BALLOON_MODES in balloon-pop-game.tsx):
 // - "counting" ("numbers10"): "how many cats do you see?" over a row of
 //   mixed animal emojis, answered by picking a number.
-// - "picture" ("animalsEx"/"schoolSuppliesEx"/"family"/"bodyParts"/
+// - "picture" ("animals"/"schoolSuppliesEx"/"family"/"bodyParts"/
 //   "fruits", see PICTURE_QUIZ_MODES below): "where is the X?" answered by
 //   picking the matching illustration out of a few from that mode's image
-//   list (BALLOON_ANIMALS_EX/BALLOON_SCHOOL_SUPPLIES_EX/BALLOON_FAMILY/
+//   list (BALLOON_ANIMALS/BALLOON_SCHOOL_SUPPLIES_EX/BALLOON_FAMILY/
 //   BALLOON_BODY_PARTS/BALLOON_FRUITS).
 
 export type BalloonQuizAnimal = "cat" | "dog" | "monkey";
@@ -116,7 +116,7 @@ function buildCountingQuestion(): CountingQuestion {
   };
 }
 
-// Case-insensitive dedupe, keeping the first occurrence — BALLOON_ANIMALS_EX
+// Case-insensitive dedupe, keeping the first occurrence — BALLOON_ANIMALS
 // has a few casing duplicates (e.g. "Panda"/"panda") that would otherwise
 // show up as two indistinguishable choices in the same question.
 function uniqueByName(animals: BalloonQuizAnimalChoice[]): BalloonQuizAnimalChoice[] {
@@ -157,11 +157,11 @@ function pickUniqueTargets(pool: BalloonQuizAnimalChoice[], count: number): Ball
 }
 
 // Modes with a picture quiz — everything else falls back to the counting
-// quiz. `picturePool` (that mode's BALLOON_ANIMALS_EX/BALLOON_SCHOOL_
+// quiz. `picturePool` (that mode's BALLOON_ANIMALS/BALLOON_SCHOOL_
 // SUPPLIES_EX/BALLOON_FAMILY) is passed in by the caller rather than
 // imported from balloon-pop-game.tsx (which already imports this module) to
 // avoid a circular import — ignored for modes that don't need one.
-const PICTURE_QUIZ_MODES: BalloonMode[] = ["animalsEx", "schoolSuppliesEx", "family", "bodyParts", "fruits"];
+const PICTURE_QUIZ_MODES: BalloonMode[] = ["animals", "schoolSuppliesEx", "family", "bodyParts", "fruits"];
 
 export function buildBalloonQuizQuestions(
   mode: BalloonMode,

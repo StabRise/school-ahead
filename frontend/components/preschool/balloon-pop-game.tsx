@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getMeQueryKey, useRewardBalloonPop, useRewardBalloonQuiz } from "@/lib/api/browser/auth/auth";
 import { mapApiUserToAuthUser } from "@/lib/api/map-user";
 import { prefetchVoice, speak, warmupSpeech, type SpeechLanguage as GameLanguage } from "@/lib/piper-tts";
+import { playRecordedSound, useRecordedSoundNames } from "@/lib/preschool-sounds";
 import { useBackgroundMusic } from "@/lib/use-background-music";
 import { useAuthStore } from "@/stores/auth-store";
 import { useBalloonPopGameStore, type BalloonMode } from "@/stores/balloon-pop-game-store";
@@ -91,69 +92,10 @@ const BALLOON_GREETINGS = [
   "See you later",
 ];
 
-// English animal names for the "animals" mode, paired with a representative
-// emoji shown on the balloon — like "greetings", no per-language variants
-// exist yet, so names are shown/spoken in English regardless of the
-// selected game language. Unicode has no dedicated emoji for every animal
-// here (e.g. cheetah/leopard, crocodile/alligator, walrus/seal, moose/deer/
-// reindeer), so closely related species intentionally share a glyph, and a
-// generic paw print stands in for the handful with no close match at all
-// (platypus, armadillo, meerkat).
-const BALLOON_ANIMALS: { name: string; emoji: string }[] = [
-  { name: "Elephant", emoji: "🐘" },
-  { name: "Lion", emoji: "🦁" },
-  { name: "Tiger", emoji: "🐅" },
-  { name: "Giraffe", emoji: "🦒" },
-  { name: "Zebra", emoji: "🦓" },
-  { name: "Hippopotamus", emoji: "🦛" },
-  { name: "Rhinoceros", emoji: "🦏" },
-  { name: "Cheetah", emoji: "🐆" },
-  { name: "Leopard", emoji: "🐆" },
-  { name: "Kangaroo", emoji: "🦘" },
-  { name: "Koala", emoji: "🐨" },
-  { name: "Panda", emoji: "🐼" },
-  { name: "Gorilla", emoji: "🦍" },
-  { name: "Chimpanzee", emoji: "🦧" },
-  { name: "Wolf", emoji: "🐺" },
-  { name: "Fox", emoji: "🦊" },
-  { name: "Bear", emoji: "🐻" },
-  { name: "Deer", emoji: "🦌" },
-  { name: "Moose", emoji: "🫎" },
-  { name: "Bison", emoji: "🦬" },
-  { name: "Camel", emoji: "🐪" },
-  { name: "Dolphin", emoji: "🐬" },
-  { name: "Whale", emoji: "🐋" },
-  { name: "Shark", emoji: "🦈" },
-  { name: "Octopus", emoji: "🐙" },
-  { name: "Eagle", emoji: "🦅" },
-  { name: "Owl", emoji: "🦉" },
-  { name: "Penguin", emoji: "🐧" },
-  { name: "Flamingo", emoji: "🦩" },
-  { name: "Parrot", emoji: "🦜" },
-  { name: "Crocodile", emoji: "🐊" },
-  { name: "Alligator", emoji: "🐊" },
-  { name: "Turtle", emoji: "🐢" },
-  { name: "Snake", emoji: "🐍" },
-  { name: "Iguana", emoji: "🦎" },
-  { name: "Frog", emoji: "🐸" },
-  { name: "Salamander", emoji: "🦎" },
-  { name: "Bat", emoji: "🦇" },
-  { name: "Squirrel", emoji: "🐿️" },
-  { name: "Hedgehog", emoji: "🦔" },
-  { name: "Otter", emoji: "🦦" },
-  { name: "Beaver", emoji: "🦫" },
-  { name: "Raccoon", emoji: "🦝" },
-  { name: "Platypus", emoji: "🐾" },
-  { name: "Sloth", emoji: "🦥" },
-  { name: "Armadillo", emoji: "🐾" },
-  { name: "Meerkat", emoji: "🐾" },
-  { name: "Walrus", emoji: "🦭" },
-  { name: "Seal", emoji: "🦭" },
-  { name: "Reindeer", emoji: "🦌" },
-];
-
-// English names for the "schoolSupplies" mode, same pattern as
-// BALLOON_ANIMALS above. Unicode has no dedicated emoji for most of these
+// English names for the "schoolSupplies" mode, paired with a representative
+// emoji shown on the balloon — no per-language variants exist yet, so names
+// are shown/spoken in English regardless of the selected game language.
+// Unicode has no dedicated emoji for most of these
 // items, so each uses the closest visually-similar stand-in (e.g. a sponge
 // for "erase", an abacus for "calculate", a magnetic compass for the
 // geometry compass).
@@ -174,12 +116,11 @@ const BALLOON_SCHOOL_SUPPLIES: { name: string; emoji: string }[] = [
   { name: "Colored pencils", emoji: "🎨" },
 ];
 
-// "animalsEx" mode — like "animals", but hangs a drawn illustration below
-// the balloon instead of an emoji, for characters worth showing at higher
-// fidelity than a Unicode glyph allows. Files live in
-// public/preschool/animals, same static-asset convention as public/music
-// (see lib/use-background-music.ts).
-const BALLOON_ANIMALS_EX: { name: string; image: string }[] = [
+// "animals" mode — hangs a drawn illustration below the balloon instead of
+// an emoji, for characters worth showing at higher fidelity than a Unicode
+// glyph allows. Files live in public/preschool/animals, same static-asset
+// convention as public/music (see lib/use-background-music.ts).
+const BALLOON_ANIMALS: { name: string; image: string }[] = [
   { name: "Bear", image: "/preschool/animals/bear.jpeg" },
   { name: "Butterfly", image: "/preschool/animals/butterfly.jpeg" },
   { name: "Cheetah", image: "/preschool/animals/cheetah.jpeg" },
@@ -188,7 +129,7 @@ const BALLOON_ANIMALS_EX: { name: string; image: string }[] = [
   { name: "Chicken", image: "/preschool/animals/chicken.jpeg" },
   { name: "Fox", image: "/preschool/animals/fox.jpeg" },
   { name: "Frog", image: "/preschool/animals/frog.jpeg" },
-  { name: "Hippo", image: "/preschool/animals/hippo.jpeg" },
+  { name: "Hippopotamus", image: "/preschool/animals/hippo.jpeg" },
   { name: "Horse", image: "/preschool/animals/horse.jpeg" },
   { name: "Goose", image: "/preschool/animals/goose.jpeg" },
   { name: "Kangaroo", image: "/preschool/animals/kangaroo.jpeg" },
@@ -202,7 +143,7 @@ const BALLOON_ANIMALS_EX: { name: string; image: string }[] = [
   { name: "Zebra", image: "/preschool/animals/zebra.jpeg" },
 ];
 
-// "schoolSuppliesEx" mode — like "animalsEx", a photo/illustration hung
+// "schoolSuppliesEx" mode — like "animals", a photo/illustration hung
 // below the balloon instead of an emoji. Files live in
 // public/preschool/schoolSupplies, same static-asset convention as
 // public/preschool/animals above.
@@ -222,7 +163,7 @@ const BALLOON_SCHOOL_SUPPLIES_EX: { name: string; image: string }[] = [
 ];
 
 // "family" mode — a photo/illustration hung below the balloon instead of an
-// emoji, same as "animalsEx"/"schoolSuppliesEx". Files live in
+// emoji, same as "animals"/"schoolSuppliesEx". Files live in
 // public/preschool/family, same static-asset convention as those.
 const BALLOON_FAMILY: { name: string; image: string }[] = [
   { name: "Mother", image: "/preschool/family/mother.jpeg" },
@@ -239,7 +180,7 @@ const BALLOON_FAMILY: { name: string; image: string }[] = [
 ];
 
 // "bodyParts" mode — a photo/illustration hung below the balloon instead of
-// an emoji, same as "animalsEx"/"schoolSuppliesEx"/"family". Files live in
+// an emoji, same as "animals"/"schoolSuppliesEx"/"family". Files live in
 // public/preschool/body-parts, same static-asset convention as those.
 const BALLOON_BODY_PARTS: { name: string; image: string }[] = [
   { name: "Head", image: "/preschool/body-parts/head.jpeg" },
@@ -258,7 +199,7 @@ const BALLOON_BODY_PARTS: { name: string; image: string }[] = [
 ];
 
 // "fruits" mode — a photo/illustration hung below the balloon instead of an
-// emoji, same as "animalsEx"/"schoolSuppliesEx"/"family"/"bodyParts". Files
+// emoji, same as "animals"/"schoolSuppliesEx"/"family"/"bodyParts". Files
 // live in public/preschool/fruits, same static-asset convention as those.
 const BALLOON_FRUITS: { name: string; image: string }[] = [
   { name: "Apple", image: "/preschool/fruits/apple.jpeg" },
@@ -284,7 +225,7 @@ const BALLOON_FRUITS: { name: string; image: string }[] = [
 // PICTURE_QUIZ_MODES in balloon-quiz.tsx) — passed to
 // buildBalloonQuizQuestions when the heart balloon is popped.
 const PICTURE_POOL_BY_MODE: Partial<Record<BalloonMode, { name: string; image: string }[]>> = {
-  animalsEx: BALLOON_ANIMALS_EX,
+  animals: BALLOON_ANIMALS,
   schoolSuppliesEx: BALLOON_SCHOOL_SUPPLIES_EX,
   family: BALLOON_FAMILY,
   bodyParts: BALLOON_BODY_PARTS,
@@ -299,7 +240,6 @@ const BALLOON_MODES: BalloonMode[] = [
   "letters",
   "greetings",
   "animals",
-  "animalsEx",
   "schoolSupplies",
   "schoolSuppliesEx",
   "family",
@@ -309,14 +249,14 @@ const BALLOON_MODES: BalloonMode[] = [
 const GAME_LANGUAGES: GameLanguage[] = ["en", "uk", "pl"];
 
 // Modes with a bonus heart-shaped "?" quiz balloon (balloon-quiz.tsx) —
-// "numbers10" gets a counting quiz; "animalsEx"/"schoolSuppliesEx"/"family"/
+// "numbers10" gets a counting quiz; "animals"/"schoolSuppliesEx"/"family"/
 // "bodyParts"/"fruits" each get a "where is the X?" picture quiz built from
 // that mode's own image list (see PICTURE_POOL_BY_MODE below). TODO: extend
-// to "animals"/"schoolSupplies" once there's a matching quiz for those
-// emoji-only vocabularies too.
+// to "schoolSupplies" once there's a matching quiz for its emoji-only
+// vocabulary too.
 const QUIZ_BALLOON_MODES: BalloonMode[] = [
   "numbers10",
-  "animalsEx",
+  "animals",
   "schoolSuppliesEx",
   "family",
   "bodyParts",
@@ -377,7 +317,7 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
-// Case-insensitive dedupe, keeping the first occurrence — BALLOON_ANIMALS_EX
+// Case-insensitive dedupe, keeping the first occurrence — BALLOON_ANIMALS
 // has a few casing duplicates (e.g. "Panda"/"panda") that would otherwise
 // count as two distinct items when sampling a fixed subset of a mode's pool.
 function uniqueByName<T extends { name: string }>(items: T[]): T[] {
@@ -428,11 +368,7 @@ function generateBalloonContent(
       return { label, color: randomColor(), speech: label };
     }
     case "animals": {
-      const animal = randomFrom(BALLOON_ANIMALS);
-      return { label: animal.name, icon: animal.emoji, color: randomColor(), speech: animal.name };
-    }
-    case "animalsEx": {
-      const animal = randomFrom(picturePool ?? BALLOON_ANIMALS_EX);
+      const animal = randomFrom(picturePool ?? BALLOON_ANIMALS);
       return { label: animal.name, image: animal.image, color: randomColor(), speech: animal.name };
     }
     case "schoolSupplies": {
@@ -480,15 +416,9 @@ function vocabularyFor(mode: BalloonMode, language: GameLanguage): string[] {
     case "letters":
       return ALPHABETS[language].map((letter) => letter.charAt(0));
     case "greetings":
-      // Recorded audio files are used instead of Piper TTS for this mode
-      // (see RECORDED_SOUND_MODES/playRecordedSound) — nothing to warm up.
-      return [];
+      return BALLOON_GREETINGS;
     case "animals":
-      // 50 names is as much background synthesis as numbers100's 100 — skip
-      // proactive warmup and let pops cache lazily as each name comes up.
-      return [];
-    case "animalsEx":
-      return BALLOON_ANIMALS_EX.map((animal) => animal.name);
+      return BALLOON_ANIMALS.map((animal) => animal.name);
     case "schoolSupplies":
       return BALLOON_SCHOOL_SUPPLIES.map((item) => item.name);
     case "schoolSuppliesEx":
@@ -537,26 +467,6 @@ function labelFontSize(lines: string[]): number {
   if (maxLineLength <= 8) return 8;
   if (maxLineLength <= 10) return 6.5;
   return 5.5;
-}
-
-// Modes with real recorded pronunciations instead of Piper TTS synthesis —
-// played from public/preschool/<mode>/sounds/<label>.mp3, so the mode name
-// doubles as the sounds folder name. Skips voice prefetch/warmup entirely
-// (see the mode/language effect below) since nothing needs synthesizing.
-const RECORDED_SOUND_MODES: BalloonMode[] = ["greetings"];
-
-// Plays the recorded pronunciation for `label` in `mode`'s sounds folder —
-// e.g. "Good morning" in "greetings" plays
-// /preschool/greetings/sounds/Good morning.mp3.
-function playRecordedSound(mode: BalloonMode, label: string): void {
-  try {
-    const audio = new Audio(`/preschool/${mode}/sounds/${encodeURIComponent(label)}.mp3`);
-    void audio.play().catch(() => {
-      // Best-effort only — autoplay restrictions, missing file, ...
-    });
-  } catch {
-    // Best-effort only.
-  }
 }
 
 // Synthesized "pop" — no audio asset pipeline exists in this project, and a
@@ -695,7 +605,7 @@ function BalloonNode({
   const poppedRef = useRef(false);
   const lines = wrapBalloonLabel(balloon.label);
   const fontSize = labelFontSize(lines);
-  // The icon/image (e.g. "animals"/"animalsEx" modes) hangs below the
+  // The icon/image (e.g. "schoolSupplies"/"animals" modes) hangs below the
   // balloon on its string, like the character is dangling from it as it
   // falls — not printed inside the balloon itself, which stays the same
   // size regardless. A photo/illustration needs more room than an emoji
@@ -877,6 +787,7 @@ export function BalloonPopGame() {
 
   const picturePool = PICTURE_POOL_BY_MODE[mode];
   const isPictureMode = Boolean(picturePool);
+  const recordedSoundNames = useRecordedSoundNames(mode);
 
   // The fixed subset of `mode`'s picture pool that both the "game" (balloon)
   // and "learning" (flashcard) screens draw from — re-picked only when
@@ -935,21 +846,24 @@ export function BalloonPopGame() {
 
   // Warms the voice model cache as soon as a language is selected, so the
   // first popped balloon doesn't stall on a multi-megabyte download — then
-  // pre-synthesizes every value the selected mode can speak, so pops play
-  // back instantly from cache instead of paying full TTS synthesis latency
-  // (piper-tts rebuilds its inference session from scratch on every call).
-  // Skipped entirely while muted — no point downloading/synthesizing voices
-  // nothing will play.
+  // pre-synthesizes every value the selected mode can speak that isn't
+  // already covered by a recorded pronunciation (see recordedSoundNames), so
+  // pops play back instantly from cache instead of paying full TTS synthesis
+  // latency (piper-tts rebuilds its inference session from scratch on every
+  // call). Skipped entirely while muted, or once every value the mode can
+  // speak turns out to have a recording of its own — no point downloading/
+  // synthesizing voices nothing will play.
   useEffect(() => {
-    if (muted || RECORDED_SOUND_MODES.includes(mode)) return;
+    const remainingVocabulary = vocabularyFor(mode, language).filter((word) => !recordedSoundNames.has(word));
+    if (muted || remainingVocabulary.length === 0) return;
     let cancelled = false;
     void prefetchVoice(language, "short").then(() => {
-      if (!cancelled) warmupSpeech(vocabularyFor(mode, language), language, "short");
+      if (!cancelled) warmupSpeech(remainingVocabulary, language, "short");
     });
     return () => {
       cancelled = true;
     };
-  }, [mode, language, muted]);
+  }, [mode, language, muted, recordedSoundNames]);
 
   // Every DIAMOND_MILESTONE ruby balloons popped awards 1 Diamond — dedupes
   // via awardedMilestonesRef so React's dev-mode double-invoked effects (or
@@ -1018,7 +932,7 @@ export function BalloonPopGame() {
 
     playPopSound();
     if (!muted) {
-      if (RECORDED_SOUND_MODES.includes(mode)) {
+      if (recordedSoundNames.has(balloon.speech)) {
         playRecordedSound(mode, balloon.speech);
       } else {
         speak(balloon.speech, language, "short");
@@ -1190,7 +1104,13 @@ export function BalloonPopGame() {
       )}
 
       {screenMode === "learning" && selectedPictureItems ? (
-        <BalloonLearningCards items={selectedPictureItems} language={language} muted={muted} />
+        <BalloonLearningCards
+          items={selectedPictureItems}
+          muted={muted}
+          onPlay={(name) =>
+            recordedSoundNames.has(name) ? playRecordedSound(mode, name) : speak(name, language, "short")
+          }
+        />
       ) : (
         balloons.map((balloon) => (
           <BalloonNode
