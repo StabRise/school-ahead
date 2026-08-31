@@ -37,7 +37,7 @@ export interface LearningCard {
 
 // "Навчання" (learning) screen for balloon-pop-game.tsx — every mode gets
 // one now, driven entirely by that mode's folder under public/preschool/
-// baloon-game (see PreschoolModeData in lib/preschool-sounds.ts): a static
+// balloon-game (see PreschoolModeData in lib/preschool-sounds.ts): a static
 // grid instead of falling balloons, so a child can tap each item at their
 // own pace and hear its name as many times as they like. `items` is the
 // same fixed subset the "game" (balloon) screen draws from for this
