@@ -24,12 +24,13 @@ function gridMaxWidthPx(itemCount: number): number {
 }
 
 // "Навчання" (learning) screen for balloon-pop-game.tsx's picture-pool
-// modes (animals/schoolSupplies/family/bodyParts/fruits) — a static
-// grid instead of falling balloons, so a child can tap each item at their
-// own pace and hear its name as many times as they like. `items` is the
-// same fixed subset the "game" (balloon) screen draws from for this
-// mode/cardCount (see selectedPictureItems in balloon-pop-game.tsx), so
-// switching between the two screens never reshuffles the vocabulary.
+// modes (greetings/colors/animals/schoolSupplies/family/bodyParts/fruits)
+// — a static grid instead of falling balloons, so a child can tap each
+// item at their own pace and hear its name as many times as they like.
+// `items` is the same fixed subset the "game" (balloon) screen draws from
+// for this mode/cardCount (see selectedPictureItems in
+// balloon-pop-game.tsx), so switching between the two screens never
+// reshuffles the vocabulary.
 export function BalloonLearningCards({
   items,
   muted,

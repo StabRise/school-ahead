@@ -81,32 +81,19 @@ const ALPHABETS: Record<GameLanguage, string[]> = {
   ]
 }
 
-// English greeting phrases for the "greetings" mode — no per-language
-// variants exist yet, so the list is shown/spoken in English regardless of
-// the selected game language.
-const BALLOON_GREETINGS = [
-  "Hello",
-  "Hi",
-  "Good morning",
-  "Good afternoon",
-  "Good evening",
-  "Bye",
-  "Goodbye",
-  "See you later",
-];
-
-// Picture-pool modes ("animals", "schoolSupplies", "family", "bodyParts",
-// "fruits") draw their cards from public/preschool/<folder> instead of a
-// hardcoded name/image list — see usePreschoolFolders/PreschoolFolderData in
-// lib/preschool-sounds.ts and /api/preschool-cards. A card's name is
-// whatever an image file in that folder is named (minus extension); a name
-// shared by two cards needs the image duplicated under both names (e.g.
-// family's "Mother.jpeg" and "Mommy.jpeg"). The folder also optionally holds
-// "en"/"uk"/"pl" subfolders — their presence marks that game language as
-// supported for the mode (gating it in the mode picker, see
-// isModeAvailableForLanguage below), and each one's title.json overrides the
-// mode's display name for that language.
+// Picture-pool modes ("greetings", "animals", "schoolSupplies", "family",
+// "bodyParts", "fruits") draw their cards from public/preschool/<folder>
+// instead of a hardcoded name/image list — see usePreschoolFolders/
+// PreschoolFolderData in lib/preschool-sounds.ts and /api/preschool-cards.
+// A card's name is whatever an image file in that folder is named (minus
+// extension); a name shared by two cards needs the image duplicated under
+// both names (e.g. family's "Mother.jpeg" and "Mommy.jpeg"). The folder
+// also optionally holds "en"/"uk"/"pl" subfolders — their presence marks
+// that game language as supported for the mode (gating it in the mode
+// picker, see isModeAvailableForLanguage below), and each one's title.json
+// overrides the mode's display name for that language.
 const PICTURE_POOL_BY_MODE: Partial<Record<BalloonMode, string>> = {
+  greetings: "greetings",
   animals: "animals",
   schoolSupplies: "school-supplies",
   family: "family",
@@ -119,13 +106,13 @@ const PICTURE_POOL_BY_MODE: Partial<Record<BalloonMode, string>> = {
 // pictures (so no PICTURE_POOL_BY_MODE entry), whose folder name doesn't
 // match the mode's own name — e.g. "numbers10" plays 0 through 10, so its
 // folder is named "numbers-0-10" rather than "numbers10". A mode with
-// neither this nor a picture-pool entry just uses its own name as the sound
-// folder (see soundFolder in BalloonPopGame) — same "mode name = folder
-// name" convention "greetings" already follows. Unlike PICTURE_POOL_BY_MODE
-// modes, these are never hidden by isModeAvailableForLanguage even if a
-// language's subfolder is missing — a digit is the same symbol in every
-// language, so a language with no recording for it just falls back to TTS
-// rather than losing the mode entirely (see soundFolder/useRecordedSounds).
+// neither this nor a picture-pool entry (e.g. "letters") just uses its own
+// name as the sound folder (see soundFolder in BalloonPopGame). Unlike
+// PICTURE_POOL_BY_MODE modes, these are never hidden by
+// isModeAvailableForLanguage even if a language's subfolder is missing — a
+// digit is the same symbol in every language, so a language with no
+// recording for it just falls back to TTS rather than losing the mode
+// entirely (see soundFolder/useRecordedSounds).
 const SOUND_FOLDER_BY_MODE: Partial<Record<BalloonMode, string>> = {
   numbers10: "numbers-0-10",
   numbers1120: "numbers-11-20",
@@ -325,10 +312,6 @@ function generateBalloonContent(
       const label = randomFrom(ALPHABETS[language]);
       return { label, color: randomColor(), speech: label.charAt(0) };
     }
-    case "greetings": {
-      const label = randomFrom(BALLOON_GREETINGS);
-      return { label, color: randomColor(), speech: label };
-    }
     case "colors": {
       // The caller never generates content for this mode until its
       // picturePool has actually loaded, so `card` is only ever undefined
@@ -349,6 +332,7 @@ function generateBalloonContent(
         speech: card.name,
       };
     }
+    case "greetings":
     case "animals":
     case "schoolSupplies":
     case "family":
@@ -383,7 +367,6 @@ function vocabularyFor(mode: BalloonMode, language: GameLanguage, picturePool?: 
     case "letters":
       return ALPHABETS[language].map((letter) => letter.charAt(0));
     case "greetings":
-      return BALLOON_GREETINGS;
     case "colors":
     case "animals":
     case "schoolSupplies":
@@ -763,7 +746,7 @@ export function BalloonPopGame() {
   // Recorded-pronunciation lookup keys off the picture-pool folder for
   // picture modes, a SOUND_FOLDER_BY_MODE override for sound-only modes
   // whose folder name differs from the mode name (e.g. "numbers10"), or the
-  // mode's own name for everything else (e.g. "greetings") — same "mode
+  // mode's own name for everything else (e.g. "letters") — same "mode
   // name = folder name" convention those modes' asset folders follow.
   const soundFolder = picturePoolFolder ?? SOUND_FOLDER_BY_MODE[mode] ?? mode;
   const { names: recordedSoundNames, soundsPath } = useRecordedSounds(soundFolder, language);

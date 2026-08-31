@@ -194,11 +194,11 @@ function countingQuestionText(animal: BalloonQuizAnimal, language: GameLanguage)
   return COUNTING_QUESTION_TEMPLATE[language](ANIMAL_NAMES[language][animal]);
 }
 
-// None of the PICTURE_QUIZ_MODES picture pools have per-language card names
-// (same convention as BALLOON_GREETINGS in balloon-pop-game.tsx) — a
-// folder's "en"/"uk"/"pl" subfolders only gate the mode's availability and
-// override its display title, they don't localize the pictures themselves —
-// so this stays plain English regardless of the selected game language.
+// None of the PICTURE_QUIZ_MODES picture pools have per-language card
+// names — a folder's "en"/"uk"/"pl" subfolders only gate the mode's
+// availability and override its display title, they don't localize the
+// pictures themselves — so this stays plain English regardless of the
+// selected game language.
 function pictureQuestionText(targetName: string): string {
   return `Where is a ${targetName}?`;
 }
