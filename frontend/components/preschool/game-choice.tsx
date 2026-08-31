@@ -69,13 +69,21 @@ function GameCard({
   );
 }
 
-function GamePicker({ onSelect }: { onSelect: (game: PreschoolGameId) => void }) {
+function GamePicker({
+  title,
+  subtitle,
+  onSelect,
+}: {
+  title: string;
+  subtitle: string;
+  onSelect: (game: PreschoolGameId) => void;
+}) {
   const t = useTranslations("PreschoolGameChoice");
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
       <div className="flex flex-col items-center gap-1">
-        <p className="text-2xl font-bold text-gray-700">{t("title")}</p>
-        <p className="text-sm text-gray-500">{t("subtitle")}</p>
+        <p className="text-2xl font-bold text-gray-700">{title}</p>
+        <p className="text-sm text-gray-500">{subtitle}</p>
       </div>
       <div className="flex flex-col gap-4 sm:flex-row">
         <GameCard
@@ -97,12 +105,24 @@ function GamePicker({ onSelect }: { onSelect: (game: PreschoolGameId) => void })
   );
 }
 
-export function PreschoolCelebration() {
+export function PreschoolCelebration({
+  title,
+  subtitle,
+}: {
+  title?: string;
+  subtitle?: string;
+} = {}) {
   const t = useTranslations("PreschoolGameChoice");
   const [selectedGame, setSelectedGame] = useState<PreschoolGameId | null>(null);
 
   if (!selectedGame) {
-    return <GamePicker onSelect={setSelectedGame} />;
+    return (
+      <GamePicker
+        title={title ?? t("title")}
+        subtitle={subtitle ?? t("subtitle")}
+        onSelect={setSelectedGame}
+      />
+    );
   }
 
   return (

@@ -26,6 +26,7 @@
     "myProfile": "Мій профіль",
     "todayLessons": "Уроки сьогодні",
     "calendar": "Календар",
+    "games": "Ігри",
     "tutorDashboard": "Панель тьютора",
     "preschoolMode": "Дитячий режим",
     "diamondBalance": "{count, plural, one {# діамант} few {# діаманти} many {# діамантів} other {# діаманта}}",
@@ -93,6 +94,10 @@
     "speedLabel": "Швидкість",
     "collectedLabel": "Зібрані букви",
     "collected": "{count, plural, one {Зібрано # букву} few {Зібрано # букви} many {Зібрано # букв} other {Зібрано # букви}}"
+  },
+  "GamesPage": {
+    "title": "Ігри",
+    "subtitle": "У яку гру хочеш пограти?"
   },
   "PreschoolGameChoice": {
     "title": "Усі уроки зроблено!",

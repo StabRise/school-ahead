@@ -124,7 +124,9 @@ export function Header() {
           <span>{t("brand")}</span>
         </Link>
 
-        {user?.role === "student" && <MainMenu />}
+        {user?.role === "student" && (
+          <MainMenu isPreschool={user.interfaceMode === "preschool"} />
+        )}
         {user?.role === "tutor" && <TutorMainMenu />}
       </div>
 

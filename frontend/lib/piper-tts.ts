@@ -106,11 +106,43 @@ function voiceIdFor(language: SpeechLanguage, profile: VoiceProfile): AnyVoiceId
 
 let queuedUtterance: { text: string; language: SpeechLanguage; profile: VoiceProfile } | null = null;
 let processingQueue = false;
-let currentAudio: HTMLAudioElement | null = null;
 // Bumped by speakSequence() so an in-progress sequence (e.g. re-reading a
 // quiz question) can tell it's been superseded and stop after the audio
 // it already started.
 let sequenceToken = 0;
+
+// A single, reused <audio> element for every utterance instead of a fresh
+// `new Audio()` per call. Browsers (Safari/iOS in particular) only allow
+// HTMLMediaElement.play() to run without a *fresh* user gesture on an
+// element that has already been played once as part of some gesture — a
+// brand-new element created later (e.g. from a useEffect firing on mount
+// or after a setTimeout, not a click) gets silently blocked, which is why
+// a manual "read aloud" button worked while auto-reading a freshly shown
+// quiz question did not. Reusing one element means it gets unlocked the
+// first time *any* click-triggered speak() plays it (a balloon pop, a
+// read-aloud button, ...), and every later programmatic play rides on
+// that same unlocked element instead of starting from zero.
+let sharedAudio: HTMLAudioElement | null = null;
+let sharedAudioObjectUrl: string | null = null;
+
+function getSharedAudio(): HTMLAudioElement {
+  if (!sharedAudio) sharedAudio = new Audio();
+  return sharedAudio;
+}
+
+// Swaps the shared element's source and plays it, releasing the previous
+// utterance's object URL once it's no longer needed.
+function playOnSharedAudio(wav: Blob): Promise<void> {
+  const audio = getSharedAudio();
+  const url = URL.createObjectURL(wav);
+  const previousUrl = sharedAudioObjectUrl;
+  sharedAudioObjectUrl = url;
+  audio.pause();
+  audio.src = url;
+  audio.currentTime = 0;
+  if (previousUrl) URL.revokeObjectURL(previousUrl);
+  return audio.play();
+}
 
 // piper-tts's predict() re-creates a full onnxruntime-web InferenceSession
 // from the model bytes on every call — expensive (hundreds of ms+) even
@@ -225,7 +257,7 @@ export async function speakSequence(
   profile: VoiceProfile = "sentence",
 ): Promise<void> {
   const token = ++sequenceToken;
-  currentAudio?.pause();
+  sharedAudio?.pause();
   try {
     for (let index = 0; index < texts.length; index++) {
       if (token !== sequenceToken) return;
@@ -256,10 +288,7 @@ async function drainQueue(): Promise<void> {
 async function synthesizeAndPlay(text: string, language: SpeechLanguage, profile: VoiceProfile): Promise<void> {
   try {
     const wav = await getOrSynthesize(text, language, profile);
-    currentAudio?.pause();
-    const audio = new Audio(URL.createObjectURL(wav));
-    currentAudio = audio;
-    await audio.play();
+    await playOnSharedAudio(wav);
   } catch {
     // Best-effort only — never block the caller on TTS failures (offline,
     // unsupported browser, blocked autoplay, ...).
@@ -275,9 +304,8 @@ async function synthesizeAndPlayToEnd(
   try {
     const wav = await getOrSynthesize(text, language, profile);
     if (token !== sequenceToken) return;
-    const audio = new Audio(URL.createObjectURL(wav));
-    currentAudio = audio;
-    await audio.play();
+    const audio = getSharedAudio();
+    await playOnSharedAudio(wav);
     await new Promise<void>((resolve) => audio.addEventListener("ended", () => resolve(), { once: true }));
   } catch {
     // Best-effort only — never block the caller on TTS failures.
