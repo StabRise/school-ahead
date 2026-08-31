@@ -1,4 +1,5 @@
 import datetime
+import json
 
 import pytest
 
@@ -527,10 +528,22 @@ class TestUploadClassPlan:
 
 
 class TestLessonsJsonUpload:
-    def _json_file(self, content=b'[]'):
+    def _json_file(self, content=b'[]', name='lessons.json'):
         from django.core.files.uploadedfile import SimpleUploadedFile
 
-        return SimpleUploadedFile('lessons.json', content, content_type='application/json')
+        return SimpleUploadedFile(name, content, content_type='application/json')
+
+    def _zip_file(self, entries: dict, name='lessons.zip'):
+        import io
+        import zipfile
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w') as archive:
+            for entry_name, content in entries.items():
+                archive.writestr(entry_name, content)
+        return SimpleUploadedFile(name, buffer.getvalue(), content_type='application/zip')
 
     def test_upload_creates_staged_lessons_json(self, api_client, auth_header, tutor, subject):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
@@ -543,10 +556,12 @@ class TestLessonsJsonUpload:
         )
 
         assert response.status_code == 200
-        assert response.data['name'] == 'Batch 1'
-        assert response.data['description'] == 'Pre-hello songs\n\nФайл: lessons.json'
-        assert response.data['status'] == 'new'
-        assert response.data['subject_id'] == subject.id
+        assert len(response.data) == 1
+        staged = response.data[0]
+        assert staged['name'] == 'Batch 1'
+        assert staged['description'] == 'Pre-hello songs\n\nФайл: lessons.json'
+        assert staged['status'] == 'new'
+        assert staged['subject_id'] == subject.id
 
     def test_upload_appends_original_filename_when_description_is_empty(
         self, api_client, auth_header, tutor, subject
@@ -561,7 +576,7 @@ class TestLessonsJsonUpload:
         )
 
         assert response.status_code == 200
-        assert response.data['description'] == 'Файл: lessons.json'
+        assert response.data[0]['description'] == 'Файл: lessons.json'
 
     def test_upload_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
         response = api_client.post(
@@ -572,6 +587,85 @@ class TestLessonsJsonUpload:
         )
 
         assert response.status_code == 403
+
+    def test_upload_zip_stages_one_row_per_json_entry(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        archive = self._zip_file({'a.json': '[]', 'b.json': '[]', 'notes.txt': 'ignore me'})
+
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/lessons-json',
+            data={'name': 'Batch 1'},
+            FILES={'file': archive},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert len(response.data) == 2
+        names = {row['name'] for row in response.data}
+        assert names == {'Batch 1 — a.json', 'Batch 1 — b.json'}
+        for row in response.data:
+            assert row['subject_id'] == subject.id
+            assert 'з архіву' in row['description']
+
+    def test_upload_zip_skips_junk_entries(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        archive = self._zip_file({
+            'a.json': '[]',
+            '__MACOSX/a.json': '[]',
+            '.hidden.json': '[]',
+        })
+
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/lessons-json',
+            data={'name': 'Batch 1'},
+            FILES={'file': archive},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert len(response.data) == 1
+        assert response.data[0]['name'] == 'Batch 1 — a.json'
+
+    def test_upload_zip_with_no_json_entries_rejected(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        archive = self._zip_file({'notes.txt': 'nothing here'})
+
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/lessons-json',
+            data={'name': 'Batch 1'},
+            FILES={'file': archive},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 400
+
+    def test_upload_zip_entries_are_individually_processable(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topics_json = json.dumps([
+            {
+                'title': 'Fractions',
+                'lessons': [
+                    {'title': 'Intro', 'lesson_type': 'theory', 'content': 'Hi', 'task_content': ''},
+                ],
+            }
+        ])
+        archive = self._zip_file({'a.json': topics_json})
+
+        upload_response = api_client.post(
+            f'/tutor/subjects/{subject.id}/lessons-json',
+            data={'name': 'Batch 1'},
+            FILES={'file': archive},
+            headers=auth_header(tutor.user),
+        )
+        lessons_json_id = upload_response.data[0]['id']
+
+        process_response = api_client.post(
+            f'/tutor/lessons-json/{lessons_json_id}/process', headers=auth_header(tutor.user)
+        )
+
+        assert process_response.status_code == 200
+        assert process_response.data['topics_created'] == 1
+        assert process_response.data['lessons_created'] == 1
 
 
 class TestLessonDetail:
