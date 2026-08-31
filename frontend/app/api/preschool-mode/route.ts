@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Everything the balloon-pop minigame (lib/preschool-sounds.ts) needs to run
 // one mode, read straight from its folder under public/preschool/
-// baloon-game/<folder> — no hardcoded per-mode data in the app at all.
+// balloon-game/<folder> — no hardcoded per-mode data in the app at all.
 // Reachable without a session (excluded from the locale/auth middleware by
 // its "/api" matcher, see middleware.ts).
 //
@@ -36,7 +36,7 @@ import { NextRequest, NextResponse } from "next/server";
 const VALID_FOLDER = /^[a-zA-Z0-9-]+$/;
 const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 const LANGUAGES = ["en", "uk", "pl"];
-const BALOON_GAME_DIR = path.join(process.cwd(), "public", "preschool", "baloon-game");
+const BALOON_GAME_DIR = path.join(process.cwd(), "public", "static", "balloon-game");
 
 interface TitleJson {
   title?: string;
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
     if (!entry.isFile()) continue;
     const ext = path.extname(entry.name);
     if (!IMAGE_EXTENSIONS.has(ext.toLowerCase())) continue;
-    images[entry.name.slice(0, -ext.length)] = `/preschool/baloon-game/${folder}/${entry.name}`;
+    images[entry.name.slice(0, -ext.length)] = `/static/balloon-game/${folder}/${entry.name}`;
   }
 
   const availableLanguages = entries

@@ -4,12 +4,12 @@ import { NextResponse } from "next/server";
 
 // The balloon-pop minigame's mode list (components/preschool/
 // balloon-pop-game.tsx) is just whatever subfolders exist here — drop a new
-// folder into public/preschool/baloon-game (with images and/or a language
+// folder into public/static/balloon-game (with images and/or a language
 // subfolder's sounds, see /api/preschool-mode) and it's a selectable mode,
 // no code change needed. Excluded from the locale/auth middleware by its
 // "/api" matcher (see middleware.ts), so this is reachable without a
 // session.
-const BALOON_GAME_DIR = path.join(process.cwd(), "public", "preschool", "baloon-game");
+const BALOON_GAME_DIR = path.join(process.cwd(), "public", "static", "balloon-game");
 
 export async function GET() {
   const entries = await readdir(BALOON_GAME_DIR, { withFileTypes: true }).catch(() => []);
