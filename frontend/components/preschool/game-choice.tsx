@@ -11,8 +11,12 @@ import { TrainsGame } from "@/components/preschool/trains-game";
 // components/student-dashboard.tsx's READY_FOR_GAME_STATUSES check and
 // docs/views/preschool/README.md. Lets the child pick which reward minigame
 // to play instead of always jumping straight into Balloon Pop; Balloons
-// stays the visually recommended/default pick.
-type PreschoolGameId = "balloons" | "trains";
+// stays the visually recommended/default pick. Local-state-driven (not
+// routed) since it's an inline overlay on the dashboard, not a page of its
+// own — contrast the standalone /games entry point (games-page.tsx,
+// game-play-page.tsx), which reuses this file's GamePicker/GameCard but
+// navigates to /games/{game} instead so each game has its own URL.
+export type PreschoolGameId = "balloons" | "trains";
 
 const DEFAULT_GAME: PreschoolGameId = "balloons";
 
@@ -69,7 +73,10 @@ function GameCard({
   );
 }
 
-function GamePicker({
+// Exported so the standalone /games route (components/preschool/
+// games-page.tsx) can reuse the exact same picker UI, wired to navigate to
+// /games/{game} instead of setting local state — see that file.
+export function GamePicker({
   title,
   subtitle,
   onSelect,
@@ -127,7 +134,13 @@ export function PreschoolCelebration({
 
   return (
     <div className="relative flex flex-1 flex-col">
-      {selectedGame === "balloons" ? <BalloonPopGame /> : <TrainsGame />}
+      {selectedGame === "balloons" ? (
+        <div className="flex flex-1 flex-col p-2 sm:p-4">
+          <BalloonPopGame />
+        </div>
+      ) : (
+        <TrainsGame />
+      )}
       <button
         type="button"
         aria-label={t("switchGame")}

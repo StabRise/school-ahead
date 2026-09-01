@@ -16,7 +16,7 @@ topic/semester earning and now links back here).
 | Completing every `Lesson` in a `Topic` | +5, once per (student, Topic) | `_award_topic_completion_diamonds`, guarded by the `TopicCompletionBonus` row |
 | Completing every `Lesson` in a `Topic.subject_block` ("semester") | +10, once per (student, block) | `_award_semester_completion_diamonds`, guarded by the `SemesterCompletionBonus` row |
 | Popping a balloon in the preschool Balloon Pop minigame | 1 ruby; every 30 rubies → +1 | `frontend/components/preschool/balloon-pop-game.tsx`, `POST /auth/me/balloon-pop-reward` |
-| Tapping a flashcard for the first time on that minigame's "learning" screen | 1 ruby (counts toward the same 30-ruby milestone above) | `BalloonLearningCards`' `onCardLearned`, see `docs/preschool/games/balloon game/README.md` §4 |
+| Tapping any flashcard on that minigame's "learning" screen (repeats included) | 1 ruby (counts toward the same 30-ruby milestone above) | `BalloonLearningCards`' `onCardLearned`, see `docs/preschool/games/balloon game/README.md` §4 |
 | Passing the balloon game's bonus heart-balloon quiz (`> 60%`) | +1 | `POST /auth/me/balloon-quiz-reward`, see that doc §5 |
 
 The four lesson-level rows all route through the single
