@@ -9,6 +9,7 @@ import { useLogout, getMeQueryKey } from "@/lib/api/browser/auth/auth";
 import { MainMenu } from "@/components/main-menu";
 import { TutorMainMenu } from "@/components/tutor-main-menu";
 import { PreschoolModeToggle } from "@/components/preschool-mode-toggle";
+import { EquippedAvatarLayers, useEquippedAvatarLayers } from "@/components/equipped-avatar";
 
 function getInitials(name: string, email: string): string {
   const source = name.trim() || email;
@@ -22,22 +23,24 @@ function Avatar({
   name,
   email,
   avatarUrl,
-  equippedAvatarImage,
 }: {
   name: string;
   email: string;
   avatarUrl: string;
-  equippedAvatarImage?: string | null;
 }) {
-  // The chosen companion (docs/core/avatar.md) takes priority over the
-  // Google account picture once a student has picked one. Its SVG artwork
-  // has no margin baked in, so it's shown with object-contain and extra
-  // padding instead of the object-cover crop used for real account photos.
-  if (equippedAvatarImage) {
+  // The chosen companion, fully dressed (body + equipped clothing/headwear/
+  // accessory — see docs/core/avatar.md section 2 and
+  // components/equipped-avatar.tsx), takes priority over the Google account
+  // picture once a student has picked one. Its SVG artwork has no margin
+  // baked in, so it's shown with object-contain and extra padding instead
+  // of the object-cover crop used for real account photos.
+  const equippedLayers = useEquippedAvatarLayers();
+  if (equippedLayers.length > 0) {
     return (
       <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gray-100">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={equippedAvatarImage} alt="" className="h-6 w-6 object-contain" />
+        <span className="h-6 w-6">
+          <EquippedAvatarLayers layers={equippedLayers} />
+        </span>
       </span>
     );
   }
@@ -143,12 +146,7 @@ export function Header() {
                 aria-label={t("userMenu")}
                 className="rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
               >
-                <Avatar
-                  name={user.name}
-                  email={user.email}
-                  avatarUrl={user.avatarUrl}
-                  equippedAvatarImage={user.equippedAvatar?.image}
-                />
+                <Avatar name={user.name} email={user.email} avatarUrl={user.avatarUrl} />
               </button>
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
