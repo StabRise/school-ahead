@@ -52,13 +52,13 @@ class SubjectAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "school_class",
+        "created_at",
         "is_filled",
         "block_count",
         "start_date",
         "due_date",
         "color",
-        "created_at",
-        "updated_at",
+
     )
     list_filter = (
         ("school_class__school", admin.RelatedOnlyFieldListFilter),
@@ -138,7 +138,7 @@ class TopicAdmin(admin.ModelAdmin):
     """Admin configuration for standalone Topic management. subject_block is
     read-only here — it's auto-assigned by academics.services.
     assign_topics_to_blocks, not hand-edited."""
-    list_display = ("title", "subject", "order_index", "subject_block", "subject_block_manually_set", "created_at")
+    list_display = ("title", "subject", "created_at", "order_index", "subject_block", "subject_block_manually_set", )
     list_filter = (
         ("subject__school_class", admin.RelatedOnlyFieldListFilter),
         ("subject", admin.RelatedOnlyFieldListFilter),

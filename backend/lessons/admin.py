@@ -43,12 +43,13 @@ class LessonAdmin(admin.ModelAdmin):
     """Admin configuration for static Lesson templates, including materials and structure."""
     list_display = (
         "title",
-        "topic",
+        # "topic",
         "subject",
         "lesson_type",
         "grading_type",
         "order_index",
         "default_day_offset",
+        "created_at",
     )
     list_filter = (
         "lesson_type",

@@ -222,3 +222,5 @@ __marimo__/
 .idea/
 
 .DS_Store
+
+tmp_*.*
