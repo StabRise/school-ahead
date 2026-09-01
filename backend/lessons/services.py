@@ -1,9 +1,11 @@
+import datetime
 import json
 from dataclasses import dataclass, field
 from decimal import Decimal
 
 from academics import services as academics_services
 from academics.models import Subject, SubjectBlock, Topic
+from academics.services import SubjectMarkdownPlan
 from accounts.models import StudentProfile, User
 from django.db import transaction
 from django.db.models import Count, F, QuerySet
@@ -610,8 +612,13 @@ def _create_quiz_questions(lesson: Lesson, quiz_data: list[dict]) -> None:
 class LessonImportSummary:
     topics_created: int = 0
     topics_reused: int = 0
+    # Every Topic touched this run (created or reused), in topics_data order.
+    topics: list[Topic] = field(default_factory=list)
     lessons_created: list[Lesson] = field(default_factory=list)
     lessons_skipped: int = 0
+    # (Lesson, is_new) for every lesson in topics_data, in curriculum order —
+    # is_new=False is the pre-existing Lesson that caused the skip.
+    lessons: list[tuple[Lesson, bool]] = field(default_factory=list)
 
 
 def import_topics_and_lessons(subject: Subject, topics_data: list[dict]) -> LessonImportSummary:
@@ -637,12 +644,15 @@ def import_topics_and_lessons(subject: Subject, topics_data: list[dict]) -> Less
             summary.topics_created += 1
         else:
             summary.topics_reused += 1
+        summary.topics.append(topic)
 
         next_lesson_order = _next_order_index(Lesson.objects.filter(topic=topic))
 
         for lesson_data in topic_data.get('lessons', []):
-            if Lesson.objects.filter(topic=topic, title=lesson_data['title']).exists():
+            existing_lesson = Lesson.objects.filter(topic=topic, title=lesson_data['title']).first()
+            if existing_lesson is not None:
                 summary.lessons_skipped += 1
+                summary.lessons.append((existing_lesson, False))
                 continue
 
             content, task_content = build_lesson_content(lesson_data)
@@ -662,6 +672,7 @@ def import_topics_and_lessons(subject: Subject, topics_data: list[dict]) -> Less
             )
             next_lesson_order += 1
             summary.lessons_created.append(lesson)
+            summary.lessons.append((lesson, True))
 
             quiz_data = lesson_data.get('quiz')
             if quiz_data:
@@ -687,3 +698,86 @@ def process_lessons_json(lessons_json: LessonsJson) -> LessonImportSummary:
         lessons_json.save(update_fields=['status'])
 
     return summary
+
+
+# --- Subject markdown import (tutor's "Завантажити предмет з Markdown"
+# class-detail wizard) -------------------------------------------------
+
+@dataclass
+class SubjectMarkdownImportSummary:
+    subject_id: int
+    subject_name: str
+    subject_created: bool
+    blocks_count: int
+    topics_created: int = 0
+    topics_reused: int = 0
+    # Every Topic in the subject after import, in curriculum order.
+    topics: list[Topic] = field(default_factory=list)
+    lessons_created: int = 0
+    lessons_skipped: int = 0
+    # (Lesson, is_new) for every lesson in the file, in curriculum order —
+    # powers the upload dialog's lesson list/links (is_new=False is the
+    # pre-existing Lesson that caused the skip).
+    lessons: list[tuple[Lesson, bool]] = field(default_factory=list)
+
+
+def import_subject_markdown(school_class, plan: SubjectMarkdownPlan) -> SubjectMarkdownImportSummary:
+    """Imports an academics.services.SubjectMarkdownPlan (see
+    parse_subject_markdown) into `school_class` — get_or_creates the Subject
+    by name (case-insensitive, like academics.services.import_class_plan),
+    then (re)writes its description and SubjectBlocks and imports every
+    topic/lesson via import_topics_and_lessons. start_date/due_date (Sept 1
+    to May 1 of school_class.academic_year, rather than Subject's own
+    +9-months default — see docs/core/schedule_planning.md) are only set on
+    first creation, so a re-upload can't clobber a tutor's manual edit. The
+    new Subject's homeroom-teacher tutor assignment happens automatically
+    (tutoring.signals.on_subject_created), same as every other
+    Subject-creation path — not special-cased here."""
+    with transaction.atomic():
+        subject = Subject.objects.filter(school_class=school_class, name__iexact=plan.subject_name).first()
+        created = subject is None
+        if created:
+            year = int(school_class.academic_year.split('/')[0])
+            subject = Subject.objects.create(
+                school_class=school_class,
+                name=plan.subject_name,
+                start_date=datetime.date(year, 9, 1),
+                due_date=datetime.date(year + 1, 5, 1),
+            )
+            subject.color = academics_services.assign_subject_color(subject)
+            subject.save(update_fields=['color'])
+
+        subject.description = plan.description
+        subject.block_count = plan.block_count
+        subject.save(update_fields=['description', 'block_count'])
+        academics_services.ensure_subject_blocks(subject)
+
+        topics_data = [
+            {
+                'title': topic.title,
+                'lessons': [
+                    {
+                        'title': lesson.title,
+                        'lesson_type': LessonType.WITH_TASK if lesson.task_content else LessonType.THEORY,
+                        'content': lesson.content,
+                        'task_content': lesson.task_content,
+                    }
+                    for lesson in topic.lessons
+                ],
+            }
+            for topic in plan.topics
+        ]
+        lesson_summary = import_topics_and_lessons(subject, topics_data)
+
+    return SubjectMarkdownImportSummary(
+        subject_id=subject.id,
+        subject_name=subject.name,
+        subject_created=created,
+        blocks_count=subject.blocks.count(),
+        topics_created=lesson_summary.topics_created,
+        topics_reused=lesson_summary.topics_reused,
+        topics=lesson_summary.topics,
+        lessons_created=len(lesson_summary.lessons_created),
+        lessons_skipped=lesson_summary.lessons_skipped,
+        lessons=lesson_summary.lessons,
+    )

@@ -243,6 +243,24 @@
     "noneLabel": "Немає",
     "blocksUpdated": "Оновлено семестрів: {count}"
   },
+  "LoadSubjectMarkdown": {
+    "triggerButton": "Завантажити предмет з Markdown",
+    "title": "Завантажити предмет з Markdown",
+    "description": "Markdown-файл одного предмета: заголовок (Subject/SubjectBlocks/Description), потім розділи «## Тема» з уроками.",
+    "fileLabel": "Файл (.md, .txt)",
+    "uploadButton": "Завантажити",
+    "uploading": "Завантаження...",
+    "uploadError": "Не вдалося завантажити предмет. Перевірте формат файлу.",
+    "cancelButton": "Скасувати",
+    "closeButton": "Готово",
+    "resultHeading": "Імпортовано: {subjectName}",
+    "subjectCreated": "Створено новий предмет",
+    "subjectReused": "Використано наявний предмет",
+    "blocksCount": "Семестрів: {count}",
+    "topicsSummary": "Тем: {created} нових, {reused} наявних",
+    "lessonsSummary": "Уроків: {created} створено, {skipped} пропущено",
+    "lessonSkippedLabel": "вже існує"
+  },
   "TutorSubjectDetail": {
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити предмет. Спробуйте ще раз.",

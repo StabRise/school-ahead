@@ -1,16 +1,6 @@
 import json
 import zipfile
 
-from django.core.files.base import ContentFile
-from django.db import transaction
-from django.db.models import Count
-from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404
-from ninja import File, Form, Router
-from ninja.errors import HttpError
-from ninja.files import UploadedFile
-from ninja.pagination import paginate
-
 from academics import services as academics_services
 from academics.models import Class, Plan, Subject, SubjectBlock, Topic
 from academics.schemas import SubjectOut, TopicOut, TopicsReorderIn
@@ -24,6 +14,11 @@ from accounts.schemas import (
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
 from common.permissions import ensure_is_tutor
+from django.core.files.base import ContentFile
+from django.db import transaction
+from django.db.models import Count
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import get_object_or_404
 from lessons import services as lesson_services
 from lessons.models import (
     GradingType,
@@ -41,6 +36,10 @@ from lessons.schemas import (
     LessonUpdateIn,
     ProcessLessonsJsonOut,
 )
+from ninja import File, Form, Router
+from ninja.errors import HttpError
+from ninja.files import UploadedFile
+from ninja.pagination import paginate
 
 from . import services
 from .models import TutorSubjectAssignment
@@ -51,12 +50,15 @@ from .schemas import (
     AssignStudentIn,
     GradeIn,
     ImportPlanOut,
+    ImportSubjectMarkdownOut,
     LessonStudentOut,
     PlanOut,
     ResolveNeedHelpIn,
     SetSubjectFilledIn,
     SetTopicBlockIn,
     SubjectLessonStudentOut,
+    SubjectMarkdownLessonOut,
+    SubjectMarkdownTopicOut,
     SubmissionDetailOut,
     TutorClassDetailOut,
     TutorClassOut,
@@ -743,6 +745,51 @@ def upload_class_plan(request: HttpRequest, class_id: int, file: UploadedFile = 
         subjects_found=summary.subjects_found,
         subjects_added=summary.subjects_added,
         blocks_updated=summary.blocks_updated,
+    )
+
+
+@router.post(
+    '/classes/{class_id}/subject-markdown',
+    response=ImportSubjectMarkdownOut,
+    operation_id='upload_tutor_subject_markdown',
+)
+def upload_subject_markdown(request: HttpRequest, class_id: int, file: UploadedFile = File(...)):
+    """The "Завантажити предмет з Markdown" wizard on the Class detail page —
+    uploads one subject's full curriculum (metadata, description,
+    SubjectBlocks, topics and lessons) as a single markdown file and
+    imports it immediately (see academics.services.parse_subject_markdown
+    and lesson_services.import_subject_markdown). Restricted to the class's
+    homeroom teacher, same as upload_class_plan."""
+    require_csrf(request)
+    services.ensure_is_class_teacher(request, class_id)
+    school_class = get_object_or_404(Class, id=class_id)
+
+    try:
+        text = file.read().decode('utf-8')
+    except UnicodeDecodeError as exc:
+        raise HttpError(400, f'File must be UTF-8 text: {exc}') from exc
+
+    plan = academics_services.parse_subject_markdown(text)
+    if not plan.subject_name:
+        raise HttpError(400, 'No "Subject: …" header found in the file')
+    if not plan.topics:
+        raise HttpError(400, 'No "## Topic" sections found in the file')
+
+    summary = lesson_services.import_subject_markdown(school_class, plan)
+    return ImportSubjectMarkdownOut(
+        subject_id=summary.subject_id,
+        subject_name=summary.subject_name,
+        subject_created=summary.subject_created,
+        blocks_count=summary.blocks_count,
+        topics_created=summary.topics_created,
+        topics_reused=summary.topics_reused,
+        topics=[SubjectMarkdownTopicOut(id=topic.id, title=topic.title) for topic in summary.topics],
+        lessons_created=summary.lessons_created,
+        lessons_skipped=summary.lessons_skipped,
+        lessons=[
+            SubjectMarkdownLessonOut(id=lesson.id, title=lesson.title, is_new=is_new)
+            for lesson, is_new in summary.lessons
+        ],
     )
 
 

@@ -8,6 +8,7 @@ import { getGetTutorClassQueryKey, useGetTutorClass, useRecalculateClassWorkload
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Card } from "@/components/card";
 import { IsFilledBadge } from "@/components/subjects/is-filled-badge";
+import { LoadSubjectMarkdownDialog } from "./load-subject-markdown-dialog";
 import { PlanLessonsDialog } from "./plan-lessons-dialog";
 import { UploadPlanDialog } from "./upload-plan-dialog";
 
@@ -140,6 +141,7 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
           <div className="flex shrink-0 items-center gap-2">
             <RecalculateWorkloadButton classId={classId} />
             {data.is_class_teacher && <UploadPlanDialog classId={classId} />}
+            {data.is_class_teacher && <LoadSubjectMarkdownDialog classId={classId} />}
             <PlanLessonsDialog classId={classId} />
           </div>
         </div>

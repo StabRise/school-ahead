@@ -1,8 +1,7 @@
 import datetime
 
-from ninja import Schema
-
 from lessons.schemas import LessonSubmissionOut
+from ninja import Schema
 
 
 class AssignmentOut(Schema):
@@ -168,3 +167,27 @@ class ImportPlanOut(Schema):
     subjects_found: list[str]
     subjects_added: list[str]
     blocks_updated: int
+
+
+class SubjectMarkdownTopicOut(Schema):
+    id: int
+    title: str
+
+
+class SubjectMarkdownLessonOut(Schema):
+    id: int
+    title: str
+    is_new: bool
+
+
+class ImportSubjectMarkdownOut(Schema):
+    subject_id: int
+    subject_name: str
+    subject_created: bool
+    blocks_count: int
+    topics_created: int
+    topics_reused: int
+    topics: list[SubjectMarkdownTopicOut]
+    lessons_created: int
+    lessons_skipped: int
+    lessons: list[SubjectMarkdownLessonOut]

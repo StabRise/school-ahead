@@ -2,11 +2,11 @@ import datetime
 import json
 
 import pytest
-
 from academics import services as academics_services
 from academics.models import Class, School, Subject, Topic
 from accounts.models import Role, StudentProfile, TutorProfile, User
 from lessons.models import Lesson, LessonType, StudentLesson, StudentLessonStatus
+
 from tutoring.models import TutorSubjectAssignment
 from tutoring.services import get_tutor_subject_ids
 
@@ -289,7 +289,6 @@ class TestGradingDelegation:
     def test_request_revision_accepts_multiple_images(self, api_client, auth_header, tutor, subject, student):
         from django.core.files.uploadedfile import SimpleUploadedFile
         from django.utils.datastructures import MultiValueDict
-
         from lessons import services
 
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
@@ -525,6 +524,120 @@ class TestUploadClassPlan:
         assert response.status_code == 200
         assert len(response.data) == 1
         assert response.data[0]['semester_name'] == 'Semester 1'
+
+
+class TestUploadSubjectMarkdown:
+    CONTENT = (
+        'Subject: PL:Historia\n'
+        'SubjectBlocks: 1\n'
+        'Description:\n'
+        'https://example.com/plan\n'
+        '\n'
+        '## Wprowadzenie\n'
+        'H4.01 Czym jest historia\n'
+        '    Task: Historia – nauka o przeszłości (str. 4-5)\n'
+        'H4.02 Historia wokół nas\n'
+        '  Some content line.\n'
+    )
+
+    def _file(self, content: str):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        return SimpleUploadedFile('subject.md', content.encode('utf-8'), content_type='text/markdown')
+
+    def _make_class_teacher(self, school_class, tutor):
+        school_class.class_teacher = tutor
+        school_class.save(update_fields=['class_teacher'])
+
+    def test_upload_creates_subject_topics_and_lessons(self, api_client, auth_header, tutor, school_class):
+        self._make_class_teacher(school_class, tutor)
+
+        response = api_client.post(
+            f'/tutor/classes/{school_class.id}/subject-markdown',
+            FILES={'file': self._file(self.CONTENT)},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['subject_name'] == 'Historia'
+        assert response.data['subject_created'] is True
+        assert response.data['blocks_count'] == 1
+        assert response.data['topics_created'] == 1
+        assert response.data['lessons_created'] == 2
+
+        subject = Subject.objects.get(school_class=school_class, name='Historia')
+        topic = subject.topics.get(title='Wprowadzenie')
+        assert response.data['topics'] == [{'id': topic.id, 'title': 'Wprowadzenie'}]
+        lesson_by_title = {row['title']: row for row in response.data['lessons']}
+        assert lesson_by_title['H4.01 Czym jest historia']['is_new'] is True
+        assert lesson_by_title['H4.02 Historia wokół nas']['is_new'] is True
+        assert lesson_by_title['H4.01 Czym jest historia']['id'] == topic.lessons.get(title='H4.01 Czym jest historia').id
+
+        assert subject.start_date == datetime.date(2025, 9, 1)
+        assert subject.due_date == datetime.date(2026, 5, 1)
+        assert subject.description == 'https://example.com/plan'
+        assert subject.blocks.count() == 1
+
+        lessons = {l.title: l for l in topic.lessons.all()}
+        assert lessons['H4.01 Czym jest historia'].lesson_type == 'with_task'
+        assert lessons['H4.01 Czym jest historia'].task_content == 'Historia – nauka o przeszłości (str. 4-5)'
+        assert lessons['H4.02 Historia wokół nas'].lesson_type == 'theory'
+        assert lessons['H4.02 Historia wokół nas'].task_content == ''
+
+        # The new Subject's homeroom-teacher tutor assignment happens
+        # automatically (tutoring.signals.on_subject_created).
+        assert TutorSubjectAssignment.objects.filter(tutor=tutor, subject=subject).exists()
+
+    def test_reupload_reuses_subject_and_does_not_move_dates(self, api_client, auth_header, tutor, school_class):
+        self._make_class_teacher(school_class, tutor)
+        api_client.post(
+            f'/tutor/classes/{school_class.id}/subject-markdown',
+            FILES={'file': self._file(self.CONTENT)},
+            headers=auth_header(tutor.user),
+        )
+        subject = Subject.objects.get(school_class=school_class, name='Historia')
+        subject.start_date = datetime.date(2020, 1, 1)
+        subject.due_date = datetime.date(2020, 6, 1)
+        subject.save(update_fields=['start_date', 'due_date'])
+
+        response = api_client.post(
+            f'/tutor/classes/{school_class.id}/subject-markdown',
+            FILES={'file': self._file(self.CONTENT)},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['subject_created'] is False
+        assert response.data['lessons_created'] == 0
+        assert all(not row['is_new'] for row in response.data['lessons'])
+
+        subject.refresh_from_db()
+        assert subject.start_date == datetime.date(2020, 1, 1)
+        assert subject.due_date == datetime.date(2020, 6, 1)
+
+    def test_upload_rejects_file_with_no_topics(self, api_client, auth_header, tutor, school_class):
+        self._make_class_teacher(school_class, tutor)
+
+        response = api_client.post(
+            f'/tutor/classes/{school_class.id}/subject-markdown',
+            FILES={'file': self._file('Subject: PL:Historia\nSubjectBlocks: 1\n')},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 400
+
+    def test_upload_rejected_for_tutor_who_is_not_the_class_teacher(
+        self, api_client, auth_header, tutor, subject, school_class
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = api_client.post(
+            f'/tutor/classes/{school_class.id}/subject-markdown',
+            FILES={'file': self._file(self.CONTENT)},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 403
 
 
 class TestLessonsJsonUpload:
