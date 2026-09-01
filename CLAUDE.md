@@ -53,6 +53,7 @@ github actions
 - [Interface Language & Localization](docs/core/languages.md)
 - [Lesson Lifecycle and Statuses](docs/core/lessons.md)
 - [Student Progress & "Ahead" Mode](docs/core/progress.md)
+- [Gamification: Diamonds](docs/core/gamification.md)
 - [Academic Dates and Schedule Planning](docs/core/schedule_planning.md)
 
 ## Student Interface

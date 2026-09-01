@@ -152,12 +152,21 @@ class StudentLessonOut(Schema):
     help_note: str
     tutor_feedback: str
     submissions: list[LessonSubmissionOut]
+    diamonds_awarded: int
 
     @staticmethod
     def resolve_submissions(obj):
         # Oldest first — the frontend renders this as a chat-like thread of
         # work + the tutor's reply threaded directly under it.
         return list(obj.submissions.order_by('submitted_at'))
+
+    @staticmethod
+    def resolve_diamonds_awarded(obj):
+        # Transient — only set (by lessons.services.mark_completed) on the
+        # instance returned from the request that just completed this
+        # lesson, so the frontend knows how much to animate. 0 on every
+        # other read (GET, a submit-task/request-help response, ...).
+        return getattr(obj, 'diamonds_awarded', 0)
 
 
 class SubmitQuizIn(Schema):

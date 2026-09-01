@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { getMeQueryKey, useRewardBalloonPop, useRewardBalloonQuiz } from "@/lib/api/browser/auth/auth";
@@ -19,6 +18,7 @@ import {
 import { useBackgroundMusic } from "@/lib/use-background-music";
 import { useAuthStore } from "@/stores/auth-store";
 import { useBalloonPopGameStore, type BalloonMode } from "@/stores/balloon-pop-game-store";
+import { useDiamondRewardStore } from "@/stores/diamond-reward-store";
 import { useGameMusicStore } from "@/stores/game-music-store";
 import { BalloonQuiz, buildBalloonQuizQuestions, type BalloonQuizQuestion } from "@/components/preschool/balloon-quiz";
 import { BalloonLearningCards, type LearningCard } from "@/components/preschool/balloon-learning-cards";
@@ -26,7 +26,8 @@ import { BalloonLearningCards, type LearningCard } from "@/components/preschool/
 // Every DIAMOND_MILESTONE ruby balloons popped converts into 1 Diamond,
 // awarded via POST /auth/me/balloon-pop-reward and animated flying to the
 // header's DiamondBadge (components/header.tsx, marked with
-// data-diamond-badge for this to find).
+// data-diamond-badge for this to find) — see stores/diamond-reward-store.ts
+// and components/flying-diamond.tsx.
 const DIAMOND_MILESTONE = 30;
 
 // Celebration reward minigame — triggers when every one of today's lessons
@@ -107,7 +108,6 @@ const MAX_CARD_COUNT = 20;
 
 let nextBalloonId = 0;
 let nextParticleId = 0;
-let nextRewardId = 0;
 
 function randomBetween(min: number, max: number): number {
   return min + Math.random() * (max - min);
@@ -321,53 +321,6 @@ function playDiamondChime() {
   }
 }
 
-// Flies a 💎 from `from` (viewport coordinates, e.g. the score badge at the
-// moment DIAMOND_MILESTONE is hit) to the header's DiamondBadge, then calls
-// onDone so the caller can drop it from state. Portaled to document.body so
-// its `fixed` positioning isn't affected by the game container's own
-// `overflow-hidden`, and so it renders above the header it's flying into.
-function FlyingDiamond({ from, onDone }: { from: { x: number; y: number }; onDone: () => void }) {
-  // Measured once via a lazy initializer (runs synchronously during the
-  // first render, before paint) rather than in an effect, so there's no
-  // in-between frame where the target isn't known yet.
-  const [target] = useState(() => {
-    const badgeRect = document.querySelector("[data-diamond-badge]")?.getBoundingClientRect();
-    return badgeRect
-      ? { x: badgeRect.left + badgeRect.width / 2, y: badgeRect.top + badgeRect.height / 2 }
-      : { x: window.innerWidth - 32, y: 32 };
-  });
-  const [flying, setFlying] = useState(false);
-
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => setFlying(true));
-    // Fallback in case onTransitionEnd never fires (e.g. reduced-motion
-    // settings drop the transition) so the diamond can't get stuck forever.
-    const fallback = setTimeout(onDone, 1200);
-    return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(fallback);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const point = flying ? target : from;
-  return createPortal(
-    <span
-      aria-hidden="true"
-      onTransitionEnd={onDone}
-      className="pointer-events-none fixed top-0 left-0 z-50 text-3xl"
-      style={{
-        transform: `translate(${point.x - 16}px, ${point.y - 16}px) scale(${flying ? 0.4 : 1.4})`,
-        opacity: flying ? 0.15 : 1,
-        transition: "transform 0.9s cubic-bezier(0.3, 0, 0.6, 1), opacity 0.9s ease-in",
-      }}
-    >
-      💎
-    </span>,
-    document.body,
-  );
-}
-
 function RubyIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-9 w-9 drop-shadow" aria-hidden="true">
@@ -524,11 +477,11 @@ export function BalloonPopGame() {
   const [score, setScore] = useState(0);
   const [scoreBump, setScoreBump] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [flyingDiamond, setFlyingDiamond] = useState<{ id: number; from: { x: number; y: number } } | null>(null);
   const [quizQuestions, setQuizQuestions] = useState<BalloonQuizQuestion[] | null>(null);
   const awardedMilestonesRef = useRef<Set<number>>(new Set());
   const scoreBadgeRef = useRef<HTMLDivElement>(null);
   const setUser = useAuthStore((s) => s.setUser);
+  const addDiamondFlight = useDiamondRewardStore((s) => s.addFlight);
   const queryClient = useQueryClient();
   const rewardBalloonPop = useRewardBalloonPop();
   const rewardBalloonQuiz = useRewardBalloonQuiz();
@@ -738,7 +691,7 @@ export function BalloonPopGame() {
     const from = badgeRect
       ? { x: badgeRect.left + badgeRect.width / 2, y: badgeRect.top + badgeRect.height / 2 }
       : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-    setFlyingDiamond({ id: nextRewardId++, from });
+    addDiamondFlight(from);
 
     rewardBalloonPop.mutate(undefined, {
       onSuccess: (response) => {
@@ -795,6 +748,15 @@ export function BalloonPopGame() {
     setScoreBump((current) => current + 1);
   };
 
+  // Awards the same +1 ruby a popped balloon gives, the first time a card
+  // is tapped in the "learning" flashcard grid — BalloonLearningCards
+  // dedupes repeat taps of an already-learned card itself, so this only
+  // fires once per card per `displayCards` selection.
+  const handleCardLearned = () => {
+    setScore((current) => current + 1);
+    setScoreBump((current) => current + 1);
+  };
+
   const handleQuizFinish = (passed: boolean) => {
     setQuizQuestions(null);
     if (!passed) return;
@@ -804,7 +766,7 @@ export function BalloonPopGame() {
     const from = badgeRect
       ? { x: badgeRect.left + badgeRect.width / 2, y: badgeRect.top + badgeRect.height / 2 }
       : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-    setFlyingDiamond({ id: nextRewardId++, from });
+    addDiamondFlight(from);
 
     rewardBalloonQuiz.mutate(undefined, {
       onSuccess: (response) => {
@@ -832,14 +794,6 @@ export function BalloonPopGame() {
           {score}
         </span>
       </div>
-
-      {flyingDiamond && (
-        <FlyingDiamond
-          key={flyingDiamond.id}
-          from={flyingDiamond.from}
-          onDone={() => setFlyingDiamond((current) => (current?.id === flyingDiamond.id ? null : current))}
-        />
-      )}
 
       <select
         aria-label={t("languageLabel")}
@@ -958,7 +912,7 @@ export function BalloonPopGame() {
       )}
 
       {screenMode === "learning" && displayCards ? (
-        <BalloonLearningCards items={displayCards} muted={muted} onPlay={playCard} />
+        <BalloonLearningCards items={displayCards} muted={muted} onPlay={playCard} onCardLearned={handleCardLearned} />
       ) : (
         balloons.map((balloon) => (
           <BalloonNode

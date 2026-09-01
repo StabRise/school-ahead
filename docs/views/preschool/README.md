@@ -99,8 +99,10 @@ picker shows again next time the trigger fires.
   burst and a procedural Web-Audio "pop". Content (modes, images, recorded
   pronunciations, translations) is entirely folder-driven from
   `public/preschool/baloon-game/` — adding a mode is a filesystem change,
-  no code. A ruby-icon counter tracks the session's pop count and, every 30
-  pops, awards a Diamond via `POST /auth/me/balloon-pop-reward`.
+  no code. A ruby-icon counter tracks rubies earned this session (popping a
+  balloon, or tapping a flashcard for the first time on the "learning"
+  screen) and, every 30 rubies, awards a Diamond via
+  `POST /auth/me/balloon-pop-reward`.
 * **Letter Train** (`trains-game.tsx` → `TrainsGame`) — a train slides in
   from the left carrying a big letter on its wagon, parks in the middle,
   and waits for the child to press the matching key on a physical keyboard

@@ -1,4 +1,4 @@
-from academics.models import Subject, Topic
+from academics.models import Subject, SubjectBlock, Topic
 from accounts.models import StudentProfile, User
 from common.models import TimeStampedModel
 from common.storage import (
@@ -224,6 +224,41 @@ class LessonComment(models.Model):
 
     def __str__(self):
         return f'{self.kind}: {self.body[:40]}'
+
+
+class TopicCompletionBonus(models.Model):
+    """One row per (student, Topic) once services._award_topic_completion_
+    diamonds has paid out that topic's +5 bonus — exists purely as an
+    idempotency guard (via the unique_together below), not an audit ledger:
+    a Lesson added to a Topic after it was already fully completed would
+    otherwise let completing that new lesson re-trigger the bonus. See
+    lessons.services._award_topic_completion_diamonds."""
+
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='topic_completion_bonuses')
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name='completion_bonuses')
+    awarded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('student', 'topic')]
+
+    def __str__(self):
+        return f'{self.student} — {self.topic}'
+
+
+class SemesterCompletionBonus(models.Model):
+    """Same idempotency-guard role as TopicCompletionBonus, one row per
+    (student, SubjectBlock) once the +10 "semester" bonus has been paid.
+    See lessons.services._award_semester_completion_diamonds."""
+
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='semester_completion_bonuses')
+    subject_block = models.ForeignKey(SubjectBlock, on_delete=models.CASCADE, related_name='completion_bonuses')
+    awarded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('student', 'subject_block')]
+
+    def __str__(self):
+        return f'{self.student} — {self.subject_block}'
 
 
 class LessonsJsonStatus(models.TextChoices):

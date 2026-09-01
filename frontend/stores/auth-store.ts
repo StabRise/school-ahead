@@ -70,11 +70,23 @@ export interface AuthUser {
 interface AuthState {
   user: AuthUser | null;
   setUser: (user: AuthUser | null) => void;
+  // Optimistic local bump for a reward whose response doesn't echo the
+  // full user (e.g. StudentLessonOut.diamonds_awarded from submit-quiz/
+  // confirm-understanding) — a no-op if there's no user or diamondBalance
+  // isn't tracked (non-student roles). Callers should still invalidate
+  // GET /auth/me so this can't drift from the server's true balance.
+  addDiamonds: (amount: number) => void;
   clear: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   setUser: (user) => set({ user }),
+  addDiamonds: (amount) =>
+    set((state) =>
+      state.user && state.user.diamondBalance !== null
+        ? { user: { ...state.user, diamondBalance: state.user.diamondBalance + amount } }
+        : {},
+    ),
   clear: () => set({ user: null }),
 }));

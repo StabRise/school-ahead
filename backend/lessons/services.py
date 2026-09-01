@@ -26,9 +26,11 @@ from .models import (
     QuizChoice,
     QuizLanguage,
     QuizQuestion,
+    SemesterCompletionBonus,
     StudentLesson,
     StudentLessonStatus,
     StudentLessonStatusEvent,
+    TopicCompletionBonus,
 )
 
 QUIZ_PASS_THRESHOLD_PERCENT = 60
@@ -39,6 +41,12 @@ QUIZ_PASS_THRESHOLD_PERCENT = 60
 # 02-data-model.md decision 3 describes; see that doc's note for the gap.
 LESSON_COMPLETION_DIAMONDS = 1
 LESSON_COMPLETION_AHEAD_DIAMONDS = 2
+# Bonus rewards for finishing every Lesson in a Topic / every Lesson in a
+# SubjectBlock ("semester") — on top of, not instead of, each individual
+# lesson's own reward above. Same simple counter, same gap noted in
+# docs/core/progress.md.
+TOPIC_COMPLETION_DIAMONDS = 5
+SEMESTER_COMPLETION_DIAMONDS = 10
 
 
 class InvalidTransition(Exception):
@@ -74,17 +82,75 @@ def _score_to_grade_points(score_percent: Decimal) -> int:
     return max(1, min(12, points))
 
 
-def _award_completion_diamonds(student_lesson: StudentLesson) -> None:
-    """+1 diamond for completing on/after the scheduled date, +2 if
-    completed strictly before it — the same "ahead" condition
-    scheduling.api's CalendarItemOut.is_completed_ahead already uses. An
-    atomic F() update, since this can run concurrently with other requests
-    touching the same StudentProfile."""
-    is_ahead = student_lesson.completed_at.date() < student_lesson.scheduled_date
-    amount = LESSON_COMPLETION_AHEAD_DIAMONDS if is_ahead else LESSON_COMPLETION_DIAMONDS
-    StudentProfile.objects.filter(pk=student_lesson.student_id).update(
+def _award_diamonds(student_id: int, amount: int) -> None:
+    """Atomic F() update, since this can run concurrently with other
+    requests touching the same StudentProfile."""
+    StudentProfile.objects.filter(pk=student_id).update(
         diamond_balance_cache=F('diamond_balance_cache') + amount
     )
+
+
+def _award_completion_diamonds(student_lesson: StudentLesson) -> int:
+    """+1 diamond for completing on/after the scheduled date, +2 if
+    completed strictly before it — the same "ahead" condition
+    scheduling.api's CalendarItemOut.is_completed_ahead already uses.
+    Returns the amount awarded."""
+    is_ahead = student_lesson.completed_at.date() < student_lesson.scheduled_date
+    amount = LESSON_COMPLETION_AHEAD_DIAMONDS if is_ahead else LESSON_COMPLETION_DIAMONDS
+    _award_diamonds(student_lesson.student_id, amount)
+    return amount
+
+
+def _all_lessons_completed(student_id: int, **lessons_filter) -> bool:
+    """True if every Lesson matching `lessons_filter` (e.g. same Topic, or
+    same SubjectBlock) is Completed for this student. `lessons_filter` keys
+    are Lesson field lookups; prefixed with `lesson__` to query StudentLesson."""
+    total = Lesson.objects.filter(**lessons_filter).count()
+    if total == 0:
+        return False
+    completed = StudentLesson.objects.filter(
+        student_id=student_id,
+        status=StudentLessonStatus.COMPLETED,
+        **{f'lesson__{key}': value for key, value in lessons_filter.items()},
+    ).count()
+    return completed >= total
+
+
+def _award_topic_completion_diamonds(student_lesson: StudentLesson) -> int:
+    """+TOPIC_COMPLETION_DIAMONDS once every Lesson in this lesson's Topic
+    is Completed for this student. TopicCompletionBonus's unique_together
+    is the actual idempotency guard — _all_lessons_completed alone would
+    re-fire if a Lesson is later added to an already-finished Topic and
+    then also completed. Returns the amount awarded (0 if the topic isn't
+    fully complete yet, or its bonus was already paid)."""
+    topic = student_lesson.lesson.topic
+    if not _all_lessons_completed(student_lesson.student_id, topic=topic):
+        return 0
+    _, created = TopicCompletionBonus.objects.get_or_create(student_id=student_lesson.student_id, topic=topic)
+    if not created:
+        return 0
+    _award_diamonds(student_lesson.student_id, TOPIC_COMPLETION_DIAMONDS)
+    return TOPIC_COMPLETION_DIAMONDS
+
+
+def _award_semester_completion_diamonds(student_lesson: StudentLesson) -> int:
+    """+SEMESTER_COMPLETION_DIAMONDS once every Lesson in this lesson's
+    Topic's SubjectBlock ("semester") is Completed for this student. Same
+    get_or_create idempotency guard as _award_topic_completion_diamonds.
+    Returns the amount awarded (0 if the semester isn't fully complete yet,
+    its bonus was already paid, or the topic has no block assigned)."""
+    block = student_lesson.lesson.topic.subject_block
+    if block is None:
+        return 0
+    if not _all_lessons_completed(student_lesson.student_id, topic__subject_block=block):
+        return 0
+    _, created = SemesterCompletionBonus.objects.get_or_create(
+        student_id=student_lesson.student_id, subject_block=block
+    )
+    if not created:
+        return 0
+    _award_diamonds(student_lesson.student_id, SEMESTER_COMPLETION_DIAMONDS)
+    return SEMESTER_COMPLETION_DIAMONDS
 
 
 def _update_completion_percent_cache(student_lesson: StudentLesson) -> None:
@@ -125,7 +191,13 @@ def mark_completed(
     student_lesson.grade_points = grade_points
     student_lesson.grade_result = grade_result
     student_lesson.save()
-    _award_completion_diamonds(student_lesson)
+    awarded = _award_completion_diamonds(student_lesson)
+    awarded += _award_topic_completion_diamonds(student_lesson)
+    awarded += _award_semester_completion_diamonds(student_lesson)
+    # Transient, not a DB field — read by StudentLessonOut.resolve_diamonds_awarded
+    # so the frontend can animate exactly what this one request just earned,
+    # without a round trip back through GET /auth/me.
+    student_lesson.diamonds_awarded = awarded
     _update_completion_percent_cache(student_lesson)
 
 

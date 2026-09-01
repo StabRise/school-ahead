@@ -2,7 +2,7 @@ import datetime
 
 import pytest
 
-from academics.models import Class, School, Subject, Topic
+from academics.models import Class, School, Subject, SubjectBlock, Topic
 from accounts.models import Role, StudentProfile, User
 from lessons import services
 from lessons.models import (
@@ -12,8 +12,10 @@ from lessons.models import (
     LessonType,
     QuizChoice,
     QuizQuestion,
+    SemesterCompletionBonus,
     StudentLesson,
     StudentLessonStatus,
+    TopicCompletionBonus,
 )
 
 pytestmark = pytest.mark.django_db
@@ -341,13 +343,18 @@ class TestSyncScheduledLesson:
 
 
 class TestDiamondRewards:
+    # `topic` (see the fixture above) gets exactly one Lesson in most of
+    # these tests, so completing it also completes the topic — every
+    # assertion below includes TOPIC_COMPLETION_DIAMONDS for that reason.
+    # See TestTopicAndSemesterCompletionBonuses for the bonus in isolation.
+
     def test_on_time_completion_awards_one_diamond(self, topic, student):
         sl = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
         services.start(sl, student.user)
         services.confirm_understanding(sl, student.user, True)
 
         student.refresh_from_db()
-        assert student.diamond_balance_cache == 1
+        assert student.diamond_balance_cache == services.LESSON_COMPLETION_DIAMONDS + services.TOPIC_COMPLETION_DIAMONDS
 
     def test_ahead_of_schedule_completion_awards_two_diamonds(self, topic, student):
         tomorrow = datetime.date.today() + datetime.timedelta(days=1)
@@ -356,19 +363,30 @@ class TestDiamondRewards:
         services.confirm_understanding(sl, student.user, True)
 
         student.refresh_from_db()
-        assert student.diamond_balance_cache == 2
+        assert (
+            student.diamond_balance_cache
+            == services.LESSON_COMPLETION_AHEAD_DIAMONDS + services.TOPIC_COMPLETION_DIAMONDS
+        )
 
     def test_diamonds_accumulate_across_lessons(self, topic, student):
+        # Both Lessons exist before either is completed, so the topic isn't
+        # transiently "1/1 complete" after the first — its bonus only fires
+        # once, on the second (actually completing) lesson.
         first = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        second = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary', order_index=2)
+
         services.start(first, student.user)
         services.confirm_understanding(first, student.user, True)
+        student.refresh_from_db()
+        assert student.diamond_balance_cache == services.LESSON_COMPLETION_DIAMONDS
 
-        second = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary', order_index=2)
         services.start(second, student.user)
         services.confirm_understanding(second, student.user, True)
-
         student.refresh_from_db()
-        assert student.diamond_balance_cache == 2
+        assert (
+            student.diamond_balance_cache
+            == services.LESSON_COMPLETION_DIAMONDS * 2 + services.TOPIC_COMPLETION_DIAMONDS
+        )
 
     def test_tutor_grading_completion_also_awards_diamonds(self, topic, student, tutor_user):
         sl = _new_student_lesson(topic, LessonType.WITH_TASK, student)
@@ -377,7 +395,7 @@ class TestDiamondRewards:
         services.grade_submission(sl, tutor_user, grade_points=10)
 
         student.refresh_from_db()
-        assert student.diamond_balance_cache == 1
+        assert student.diamond_balance_cache == services.LESSON_COMPLETION_DIAMONDS + services.TOPIC_COMPLETION_DIAMONDS
 
     def test_completing_a_backlog_lesson_late_still_awards_one_diamond(self, topic, student):
         yesterday = datetime.date.today() - datetime.timedelta(days=1)
@@ -386,7 +404,81 @@ class TestDiamondRewards:
         services.confirm_understanding(sl, student.user, True)
 
         student.refresh_from_db()
-        assert student.diamond_balance_cache == 1
+        assert student.diamond_balance_cache == services.LESSON_COMPLETION_DIAMONDS + services.TOPIC_COMPLETION_DIAMONDS
+
+
+class TestTopicAndSemesterCompletionBonuses:
+    def test_topic_bonus_awarded_once_every_lesson_in_it_is_completed(self, topic, student):
+        first = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        second = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary', order_index=2)
+
+        services.start(first, student.user)
+        services.confirm_understanding(first, student.user, True)
+        assert not TopicCompletionBonus.objects.filter(student=student, topic=topic).exists()
+
+        services.start(second, student.user)
+        services.confirm_understanding(second, student.user, True)
+        assert TopicCompletionBonus.objects.filter(student=student, topic=topic).exists()
+
+    def test_topic_bonus_is_not_paid_twice_for_a_lesson_added_after_completion(self, topic, student):
+        """A tutor adding a new Lesson to an already-fully-completed Topic,
+        then that Lesson also getting completed, shouldn't re-pay the bonus
+        — TopicCompletionBonus's unique_together is what actually guards
+        this (see lessons.services._award_topic_completion_diamonds)."""
+        first = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        services.start(first, student.user)
+        services.confirm_understanding(first, student.user, True)
+        student.refresh_from_db()
+        balance_after_topic_complete = student.diamond_balance_cache
+        assert TopicCompletionBonus.objects.filter(student=student, topic=topic).count() == 1
+
+        second = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary', order_index=2)
+        services.start(second, student.user)
+        services.confirm_understanding(second, student.user, True)
+
+        student.refresh_from_db()
+        assert student.diamond_balance_cache == balance_after_topic_complete + services.LESSON_COMPLETION_DIAMONDS
+        assert TopicCompletionBonus.objects.filter(student=student, topic=topic).count() == 1
+
+    def test_semester_bonus_awarded_once_every_lesson_in_the_block_is_completed(self, topic, student):
+        block = SubjectBlock.objects.create(subject=topic.subject, index=1)
+        topic.subject_block = block
+        topic.save()
+        other_topic = Topic.objects.create(subject=topic.subject, title='Decimals', order_index=2, subject_block=block)
+
+        first = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        second = _new_student_lesson(other_topic, LessonType.THEORY, student, grading_type='binary')
+
+        services.start(first, student.user)
+        services.confirm_understanding(first, student.user, True)
+        student.refresh_from_db()
+        # Only this topic is done — the block (semester) isn't yet.
+        assert student.diamond_balance_cache == services.LESSON_COMPLETION_DIAMONDS + services.TOPIC_COMPLETION_DIAMONDS
+        assert not SemesterCompletionBonus.objects.filter(student=student, subject_block=block).exists()
+
+        services.start(second, student.user)
+        services.confirm_understanding(second, student.user, True)
+        student.refresh_from_db()
+        assert SemesterCompletionBonus.objects.filter(student=student, subject_block=block).exists()
+        assert student.diamond_balance_cache == (
+            services.LESSON_COMPLETION_DIAMONDS * 2
+            + services.TOPIC_COMPLETION_DIAMONDS * 2
+            + services.SEMESTER_COMPLETION_DIAMONDS
+        )
+
+    def test_no_semester_bonus_when_topic_has_no_block(self, topic, student):
+        sl = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        services.start(sl, student.user)
+        services.confirm_understanding(sl, student.user, True)
+
+        assert not SemesterCompletionBonus.objects.exists()
+
+    def test_diamonds_awarded_is_set_transiently_on_the_completing_response(self, topic, student):
+        sl = _new_student_lesson(topic, LessonType.THEORY, student, grading_type='binary')
+        services.start(sl, student.user)
+        services.confirm_understanding(sl, student.user, True)
+
+        assert sl.diamonds_awarded == services.LESSON_COMPLETION_DIAMONDS + services.TOPIC_COMPLETION_DIAMONDS
 
 
 class TestCompletionPercentCache:
