@@ -28,6 +28,7 @@ import {
 } from "@/lib/api/browser/schedule/schedule";
 import { useDeleteTutorStudentLesson } from "@/lib/api/browser/tutor/tutor";
 import type { BacklogItemOut, CalendarItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
+import { numberLessonItems, sortLessonItems } from "@/lib/lesson-order";
 import { Link, useRouter } from "@/i18n/navigation";
 import { Card } from "@/components/card";
 import { StatusBadge, STATUS_LABEL_KEY } from "@/components/status-badge";
@@ -126,6 +127,7 @@ function formatWeekRange(start: Date, end: Date): string {
 // favor of that header's subject-details link.
 function LessonCard({
   item,
+  orderNumber,
   readOnly,
   canManage,
   showTutorLinks,
@@ -133,6 +135,7 @@ function LessonCard({
   onRequestDelete,
 }: {
   item: CalendarItemOut;
+  orderNumber?: number;
   readOnly?: boolean;
   canManage?: boolean;
   showTutorLinks?: boolean;
@@ -228,7 +231,10 @@ function LessonCard({
         </div>
       )}
 
-      <p className="truncate text-base font-semibold text-gray-900">{item.subject_name}</p>
+      <p className="truncate text-base font-semibold text-gray-900">
+        {orderNumber != null && <span className="text-gray-400">{orderNumber}. </span>}
+        {item.subject_name}
+      </p>
       <p
         className="line-clamp-2 text-xs text-gray-500"
         title={t("lessonTooltip", { topic: item.topic_title, lesson: item.lesson_title })}
@@ -333,17 +339,34 @@ function RescheduleDialog({
   );
 }
 
-function BacklogCard({ item, readOnly }: { item: BacklogItemOut; readOnly?: boolean }) {
+function BacklogCard({
+  item,
+  orderNumber,
+  readOnly,
+}: {
+  item: BacklogItemOut;
+  orderNumber?: number;
+  readOnly?: boolean;
+}) {
   const t = useTranslations("Calendar");
 
   return (
     <Card href={readOnly ? undefined : `/lessons/${item.id}`} className="flex items-center justify-between gap-4">
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium">{item.lesson_title}</p>
-        <p className="truncate text-xs text-gray-500">{item.subject_name}</p>
-        <p className="truncate text-xs text-amber-700">
-          {t("backlogOrigin", { label: RANGE_DAY_FORMAT.format(new Date(`${item.origin_label}T00:00:00`)) })}
-        </p>
+      <div className="flex items-center gap-4 min-w-0">
+        {orderNumber != null && (
+          <span className="text-xl font-bold text-gray-500 shrink-0">
+            {orderNumber}
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{item.lesson_title}</p>
+          <p className="truncate text-xs text-gray-500">
+            {item.subject_name}
+          </p>
+          <p className="truncate text-xs text-amber-700">
+            {t("backlogOrigin", { label: RANGE_DAY_FORMAT.format(new Date(`${item.origin_label}T00:00:00`)) })}
+          </p>
+        </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <GradeSquareBadge gradePoints={item.grade_points} gradeResult={item.grade_result} />
@@ -411,8 +434,10 @@ export function WeeklyCalendar({ studentId }: { studentId?: number } = {}) {
   const items = calendarQuery.data ?? [];
   const backlog = backlogQuery.data ?? [];
 
-  // Days sorted alphabetically by subject name (uk collation) so a
-  // student's lesson order within a day doesn't depend on scheduling order.
+  // Days sorted by subject name (uk collation), then by that subject's own
+  // curriculum order (Topic.order_index/Lesson.order_index) — see
+  // lib/lesson-order.ts — so a student's lesson order within a day doesn't
+  // depend on scheduling order.
   const itemsByDate = useMemo(() => {
     const map = new Map<string, CalendarItemOut[]>();
     for (const item of calendarQuery.data ?? []) {
@@ -420,11 +445,14 @@ export function WeeklyCalendar({ studentId }: { studentId?: number } = {}) {
       dayItems.push(item);
       map.set(item.scheduled_date, dayItems);
     }
-    for (const dayItems of map.values()) {
-      dayItems.sort((a, b) => a.subject_name.localeCompare(b.subject_name, "uk"));
+    for (const [date, dayItems] of map) {
+      map.set(date, sortLessonItems(dayItems));
     }
     return map;
   }, [calendarQuery.data]);
+
+  const sortedBacklog = useMemo(() => sortLessonItems(backlogQuery.data ?? []), [backlogQuery.data]);
+  const backlogNumberById = useMemo(() => numberLessonItems(sortedBacklog), [sortedBacklog]);
 
   const totalCount = items.length;
   const completedCount = items.filter((item) => item.status === "completed").length;
@@ -554,12 +582,14 @@ export function WeeklyCalendar({ studentId }: { studentId?: number } = {}) {
                 <div className="flex flex-col gap-2">
                   {dayItems.length === 0 && <p className="text-xs text-gray-400">{t("noLessons")}</p>}
                   {(() => {
+                    const dayNumberById = numberLessonItems(dayItems);
                     const activeItems = dayItems.filter((item) => ACTIVE_STATUSES.has(item.status));
                     const otherItems = dayItems.filter((item) => !ACTIVE_STATUSES.has(item.status));
                     const renderCard = (item: CalendarItemOut) => (
                       <LessonCard
                         key={item.id}
                         item={item}
+                        orderNumber={dayNumberById.get(item.id)}
                         readOnly={isTutorView}
                         canManage={isTutorView && item.status !== "completed"}
                         showTutorLinks={isTutorView}
@@ -599,9 +629,9 @@ export function WeeklyCalendar({ studentId }: { studentId?: number } = {}) {
           <h3 className="text-lg font-semibold">{t("backlogTitle")}</h3>
           <p className="-mt-1 mb-1 text-sm text-gray-500">{t("backlogHint")}</p>
           <ul className="flex flex-col gap-2">
-            {backlog.map((item) => (
+            {sortedBacklog.map((item) => (
               <li key={item.id}>
-                <BacklogCard item={item} readOnly={isTutorView} />
+                <BacklogCard item={item} orderNumber={backlogNumberById.get(item.id)} readOnly={isTutorView} />
               </li>
             ))}
           </ul>

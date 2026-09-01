@@ -374,6 +374,21 @@ class TestApiEndpoints:
         assert item['grade_points'] is None
         assert item['grade_result'] == GradeResult.PASS
 
+    def test_calendar_item_exposes_topic_and_lesson_order_index(self, api_client, auth_header, subject, student):
+        lessons = _make_lessons(subject, 1)
+        today = datetime.date.today()
+        StudentLesson.objects.create(student=student, lesson=lessons[0], scheduled_date=today)
+
+        week_start = today - datetime.timedelta(days=today.weekday())
+        response = api_client.get(
+            f'/schedule/calendar?week_start={week_start.isoformat()}',
+            headers=auth_header(student.user),
+        )
+        assert response.status_code == 200
+        [item] = response.data
+        assert item['topic_order_index'] == lessons[0].topic.order_index
+        assert item['lesson_order_index'] == lessons[0].order_index
+
     def test_calendar_item_exposes_subject_color(self, api_client, auth_header, subject, student):
         subject.color = '#29D629'
         subject.save(update_fields=['color'])

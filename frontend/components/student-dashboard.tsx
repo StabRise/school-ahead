@@ -6,6 +6,7 @@ import { BookOpen, ChevronDown, ChevronUp } from "lucide-react";
 import { useGetToday, useGetWeeklyProgress } from "@/lib/api/browser/schedule/schedule";
 import { useListMyAchievements } from "@/lib/api/browser/achievements/achievements";
 import type { CalendarItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
+import { numberLessonItems, sortLessonItems } from "@/lib/lesson-order";
 import { StatusBadge } from "@/components/status-badge";
 import { GradeSquareBadge } from "@/components/grade-square-badge";
 import { Card } from "@/components/card";
@@ -105,7 +106,15 @@ function LessonIcon({ item }: { item: CalendarItemOut }) {
 // "24 серп." — see origin_label/services.backlog_label) for a "tail" lesson
 // shown outside its original day; omitted for today's own lessons, which
 // need no such context.
-function LessonRow({ item, dateLabel }: { item: CalendarItemOut; dateLabel?: string }) {
+function LessonRow({
+  item,
+  orderNumber,
+  dateLabel,
+}: {
+  item: CalendarItemOut;
+  orderNumber?: number;
+  dateLabel?: string;
+}) {
   const tCalendar = useTranslations("Calendar");
   const tDashboard = useTranslations("StudentDashboard");
   const router = useRouter();
@@ -133,26 +142,39 @@ function LessonRow({ item, dateLabel }: { item: CalendarItemOut; dateLabel?: str
           className="flex items-center justify-between gap-3 border-l-4"
           style={{ borderLeftColor: item.subject_color ?? "#D1D5DB" }}
         >
-          <span className="min-w-0 truncate font-medium text-gray-900">{item.subject_name}</span>
-          <div className="flex shrink-0 items-center gap-2">
-            <GradeSquareBadge
-              gradePoints={item.grade_points}
-              gradeResult={item.grade_result}
-              sizeClassName="h-6 w-6"
-              compact
-            />
-            <StatusBadge status={item.status} />
-            <button
-              type="button"
-              onClick={toggleExpanded}
-              aria-expanded={isExpanded}
-              aria-label={tDashboard("expandLesson")}
-              title={tDashboard("expandLesson")}
-              className="shrink-0 cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-            >
-              <ChevronDown className="h-4 w-4" />
-            </button>
+          <div className="flex items-center gap-3 min-w-0 w-full justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              {orderNumber != null && (
+                <span className="text-xl text-gray-500 shrink-0">
+                  {orderNumber}
+                </span>
+              )}
+              <span className="min-w-0 truncate font-medium text-gray-900">
+                {item.subject_name}
+              </span>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <GradeSquareBadge
+                gradePoints={item.grade_points}
+                gradeResult={item.grade_result}
+                sizeClassName="h-6 w-6"
+                compact
+              />
+              <StatusBadge status={item.status} />
+              <button
+                type="button"
+                onClick={toggleExpanded}
+                aria-expanded={isExpanded}
+                aria-label={tDashboard("expandLesson")}
+                title={tDashboard("expandLesson")}
+                className="shrink-0 cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
+            </div>
           </div>
+
+
         </Card>
       </li>
     );
@@ -166,11 +188,17 @@ function LessonRow({ item, dateLabel }: { item: CalendarItemOut; dateLabel?: str
         style={{ borderLeftColor: item.subject_color ?? "#D1D5DB" }}
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <LessonIcon item={item} />
-            <div className="min-w-0">
+          <div className="flex items-center gap-3 min-w-0">
+            {orderNumber != null && (
+              <span className="text-xl font-bold text-gray-500 shrink-0">
+                {orderNumber}
+              </span>
+            )}
+            <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-1">
-                <p className="truncate text-base font-semibold text-gray-900">{item.subject_name}</p>
+                <p className="truncate text-base font-semibold text-gray-900">
+                  {item.subject_name}
+                </p>
                 <button
                   type="button"
                   onClick={(e) => {
@@ -321,8 +349,10 @@ export function StudentDashboard() {
   const isPreschool = useAuthStore((state) => state.user?.interfaceMode === "preschool");
   const { data, isLoading, isError } = useGetToday({ date: toLocalIsoDate(new Date()) });
 
-  const lessons = data?.today ?? [];
-  const backlog = data?.backlog ?? [];
+  const lessons = useMemo(() => sortLessonItems(data?.today ?? []), [data?.today]);
+  const backlog = useMemo(() => sortLessonItems(data?.backlog ?? []), [data?.backlog]);
+  const lessonNumberById = useMemo(() => numberLessonItems(lessons), [lessons]);
+  const backlogNumberById = useMemo(() => numberLessonItems(backlog), [backlog]);
 
   if (isPreschool) {
     // The road walks through overdue "tails" first, then today's lessons —
@@ -375,7 +405,7 @@ export function StudentDashboard() {
           {lessons.length > 0 && (
             <ul className="flex flex-col gap-2">
               {lessons.map((item) => (
-                <LessonRow key={item.id} item={item} />
+                <LessonRow key={item.id} item={item} orderNumber={lessonNumberById.get(item.id)} />
               ))}
             </ul>
           )}
@@ -389,6 +419,7 @@ export function StudentDashboard() {
                   <LessonRow
                     key={item.id}
                     item={item}
+                    orderNumber={backlogNumberById.get(item.id)}
                     dateLabel={ORIGIN_DATE_FORMAT.format(new Date(`${item.origin_label}T00:00:00`))}
                   />
                 ))}
