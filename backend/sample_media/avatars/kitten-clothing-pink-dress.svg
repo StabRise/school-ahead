@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kDressBase" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FBD3E4"/>
+      <stop offset="100%" stop-color="#F3A9C7"/>
+    </linearGradient>
+    <clipPath id="kDressClip">
+      <path d="M116,150 C150,150 176,161 187,181 C198,201 199,240 192,270 C186,290 168,294 116,294 C64,294 46,290 40,270 C33,240 34,201 45,181 C56,161 82,150 116,150 Z"/>
+    </clipPath>
+  </defs>
+  <path fill="url(#kDressBase)" d="M116,150 C150,150 176,161 187,181 C198,201 199,240 192,270 C186,290 168,294 116,294 C64,294 46,290 40,270 C33,240 34,201 45,181 C56,161 82,150 116,150 Z"/>
+  <path d="M97,160 C90,168 86,178 88,188 C94,181 102,176 111,173 C107,168 102,163 97,160 Z" fill="#F3A9C7"/>
+  <path d="M135,160 C142,168 146,178 144,188 C138,181 130,176 121,173 C125,168 130,163 135,160 Z" fill="#F3A9C7"/>
+  <g clip-path="url(#kDressClip)" fill="#FFFFFF" opacity="0.55">
+    <path d="M30,236 Q60,224 90,236 Q120,248 150,236 Q180,224 216,236 L216,250 Q180,238 150,250 Q120,262 90,250 Q60,238 30,250 Z"/>
+    <path d="M30,262 Q60,250 90,262 Q120,274 150,262 Q180,250 216,262 L216,276 Q180,264 150,276 Q120,288 90,276 Q60,264 30,276 Z"/>
+  </g>
+  <g fill="#FFE3EF">
+    <circle cx="80" cy="182" r="2.6"/>
+    <circle cx="152" cy="182" r="2.6"/>
+    <circle cx="96" cy="196" r="2.6"/>
+    <circle cx="136" cy="196" r="2.6"/>
+    <circle cx="88" cy="212" r="2.6"/>
+    <circle cx="144" cy="212" r="2.6"/>
+  </g>
+  <path d="M99,166 Q116,178 133,166" stroke="#FFFFFF" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.8"/>
+  <polygon points="103,172 116,166 116,182" fill="#F492BC"/>
+  <polygon points="129,172 116,166 116,182" fill="#F492BC"/>
+  <circle cx="116" cy="174" r="4" fill="#FFFFFF" stroke="#E572A8" stroke-width="1.2"/>
+</svg>

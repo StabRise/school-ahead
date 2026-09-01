@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kApronBase" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#EAF3FB"/>
+      <stop offset="100%" stop-color="#CFE3F2"/>
+    </linearGradient>
+    <clipPath id="kApronClip">
+      <path d="M116,150 C150,150 176,161 187,181 C198,201 199,240 192,270 C186,290 168,294 116,294 C64,294 46,290 40,270 C33,240 34,201 45,181 C56,161 82,150 116,150 Z"/>
+    </clipPath>
+  </defs>
+  <path fill="url(#kApronBase)" d="M116,150 C150,150 176,161 187,181 C198,201 199,240 192,270 C186,290 168,294 116,294 C64,294 46,290 40,270 C33,240 34,201 45,181 C56,161 82,150 116,150 Z"/>
+  <g clip-path="url(#kApronClip)" stroke="#9CC3E8" stroke-width="6" opacity="0.5">
+    <line x1="20" y1="150" x2="20" y2="294"/>
+    <line x1="60" y1="150" x2="60" y2="294"/>
+    <line x1="100" y1="150" x2="100" y2="294"/>
+    <line x1="140" y1="150" x2="140" y2="294"/>
+    <line x1="180" y1="150" x2="180" y2="294"/>
+    <line x1="0" y1="170" x2="246.55" y2="170"/>
+    <line x1="0" y1="200" x2="246.55" y2="200"/>
+    <line x1="0" y1="230" x2="246.55" y2="230"/>
+    <line x1="0" y1="260" x2="246.55" y2="260"/>
+  </g>
+  <path d="M97,160 C90,168 86,178 88,188 C94,181 102,176 111,173 C107,168 102,163 97,160 Z" fill="#CFE3F2"/>
+  <path d="M135,160 C142,168 146,178 144,188 C138,181 130,176 121,173 C125,168 130,163 135,160 Z" fill="#CFE3F2"/>
+  <path d="M85,159 Q72,142 68,122" stroke="#7FA8CC" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M147,159 Q160,142 164,122" stroke="#7FA8CC" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M99,161 Q116,173 133,161" stroke="#7FA8CC" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M84,216 Q116,206 148,216 L148,246 Q116,258 84,246 Z" fill="#FFFFFF" stroke="#9CC3E8" stroke-width="2.4" stroke-linejoin="round"/>
+  <path d="M84,246 Q116,238 148,246 L148,252 Q116,262 84,252 Z" fill="#EAF3FB" stroke="#9CC3E8" stroke-width="1.6"/>
+  <g fill="#C9A227" stroke="#8A6B12" stroke-width="1">
+    <ellipse cx="112" cy="230" rx="14" ry="7"/>
+    <polygon points="126,230 138,222 138,238"/>
+    <circle cx="103" cy="228" r="1.6" fill="#8A6B12"/>
+  </g>
+</svg>
