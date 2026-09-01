@@ -10,6 +10,11 @@ class CalendarItemOut(Schema):
     lesson_title: str
     topic_title: str
     subject_name: str
+    # Curriculum order within the subject — lets a list mixing lessons from
+    # several subjects be sorted subject-name-first, then by these as a
+    # tiebreaker (see Topic.order_index / Lesson.order_index).
+    topic_order_index: int
+    lesson_order_index: int
     status: str
     scheduled_date: datetime.date
     completed_at: datetime.datetime | None

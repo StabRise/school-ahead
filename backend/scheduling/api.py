@@ -53,6 +53,8 @@ def _calendar_item(request: HttpRequest, student_lesson: StudentLesson) -> Calen
         lesson_title=student_lesson.lesson.title,
         topic_title=student_lesson.lesson.topic.title,
         subject_name=subject.name,
+        topic_order_index=student_lesson.lesson.topic.order_index,
+        lesson_order_index=student_lesson.lesson.order_index,
         status=student_lesson.status,
         scheduled_date=student_lesson.scheduled_date,
         completed_at=student_lesson.completed_at,
