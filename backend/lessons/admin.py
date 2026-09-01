@@ -8,10 +8,13 @@ from .models import (
     LessonComment,
     LessonsJson,
     LessonSubmission,
+    LessonSubmissionFile,
     QuizChoice,
     QuizQuestion,
+    SemesterCompletionBonus,
     StudentLesson,
     StudentLessonStatusEvent,
+    TopicCompletionBonus,
 )
 
 
@@ -118,11 +121,11 @@ class QuizChoiceAdmin(admin.ModelAdmin):
 
 
 class LessonSubmissionInline(admin.TabularInline):
-    """Inline manager for student file submissions and comments within a StudentLesson."""
+    """Inline manager for student submissions and comments within a StudentLesson."""
     model = LessonSubmission
     extra = 0
     readonly_fields = ("submitted_at",)
-    fields = ("file", "comment", "is_latest", "submitted_at")
+    fields = ("comment", "is_latest", "submitted_at")
 
 
 @admin.register(StudentLesson)
@@ -163,6 +166,13 @@ class StudentLessonAdmin(admin.ModelAdmin):
     inlines = [LessonSubmissionInline]
 
 
+class LessonSubmissionFileInline(admin.TabularInline):
+    """Inline manager for the files a student attached to a submission."""
+    model = LessonSubmissionFile
+    extra = 0
+    fields = ("file",)
+
+
 @admin.register(LessonSubmission)
 class LessonSubmissionAdmin(admin.ModelAdmin):
     """Admin configuration for student submissions across lessons."""
@@ -180,6 +190,7 @@ class LessonSubmissionAdmin(admin.ModelAdmin):
     )
     readonly_fields = ("submitted_at",)
     list_select_related = ("student_lesson__student__user", "student_lesson__lesson")
+    inlines = [LessonSubmissionFileInline]
 
 
 @admin.register(LessonComment)
@@ -217,6 +228,32 @@ class LessonsJsonAdmin(admin.ModelAdmin):
     autocomplete_fields = ("subject", "lessons")
     readonly_fields = ("created_at", "updated_at")
     list_select_related = ("subject", "subject__school_class")
+
+
+@admin.register(TopicCompletionBonus)
+class TopicCompletionBonusAdmin(admin.ModelAdmin):
+    """Read-only audit view of paid-out +5 topic-completion diamond bonuses
+    — see lessons.services._award_topic_completion_diamonds."""
+    list_display = ("student", "topic", "awarded_at")
+    list_filter = (("topic__subject", admin.RelatedOnlyFieldListFilter),)
+    search_fields = ("student__user__email", "topic__title")
+    readonly_fields = ("student", "topic", "awarded_at")
+    list_select_related = ("student__user", "topic__subject")
+    ordering = ("-awarded_at",)
+    date_hierarchy = "awarded_at"
+
+
+@admin.register(SemesterCompletionBonus)
+class SemesterCompletionBonusAdmin(admin.ModelAdmin):
+    """Read-only audit view of paid-out +10 semester-completion diamond
+    bonuses — see lessons.services._award_semester_completion_diamonds."""
+    list_display = ("student", "subject_block", "awarded_at")
+    list_filter = (("subject_block__subject", admin.RelatedOnlyFieldListFilter),)
+    search_fields = ("student__user__email", "subject_block__label", "subject_block__subject__name")
+    readonly_fields = ("student", "subject_block", "awarded_at")
+    list_select_related = ("student__user", "subject_block__subject")
+    ordering = ("-awarded_at",)
+    date_hierarchy = "awarded_at"
 
 
 @admin.register(StudentLessonStatusEvent)

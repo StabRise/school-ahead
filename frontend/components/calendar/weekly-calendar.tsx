@@ -33,6 +33,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { Card } from "@/components/card";
 import { StatusBadge, STATUS_LABEL_KEY } from "@/components/status-badge";
 import { GradeSquareBadge } from "@/components/grade-square-badge";
+import { ContentTypeBadges } from "@/components/subjects/content-type-badges";
 import { PageContainer } from "@/components/page-container";
 import { AddDayLessonDialog } from "@/components/calendar/add-day-lesson-dialog";
 
@@ -263,6 +264,9 @@ function LessonCard({
             </button>
           )}
         </div>
+        <span className="shrink-0">
+          <ContentTypeBadges lessonType={item.lesson_type} />
+        </span>
         <GradeSquareBadge
           gradePoints={item.grade_points}
           gradeResult={item.grade_result}

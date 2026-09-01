@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Geist, Geist_Mono } from "next/font/google";
 import { routing } from "@/i18n/routing";
 import { Header } from "@/components/header";
+import { DiamondRewardOverlay } from "@/components/diamond-reward-overlay";
 import { Providers } from "../providers";
 import "../globals.css";
 
@@ -45,6 +46,7 @@ export default async function LocaleLayout({
           <Providers>
             <Header />
             <main className="flex flex-1 flex-col">{children}</main>
+            <DiamondRewardOverlay />
           </Providers>
         </NextIntlClientProvider>
       </body>

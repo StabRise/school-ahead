@@ -2,10 +2,14 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
 import { Check, CheckCircle2, X, XCircle } from "lucide-react";
+import { getMeQueryKey } from "@/lib/api/browser/auth/auth";
 import { getQuizQuestionHint, useSubmitQuiz } from "@/lib/api/browser/student-lessons/student-lessons";
 import type { QuizQuestionOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Markdown } from "@/components/markdown";
+import { useAuthStore } from "@/stores/auth-store";
+import { useDiamondRewardStore } from "@/stores/diamond-reward-store";
 
 const PASS_THRESHOLD_PERCENT = 60;
 // Long enough for the student to read whether they got it right before the
@@ -41,6 +45,9 @@ export function QuizStep({
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [lastScore, setLastScore] = useState<number | null>(null);
   const submitQuiz = useSubmitQuiz();
+  const addDiamondFlight = useDiamondRewardStore((s) => s.addFlight);
+  const addDiamonds = useAuthStore((s) => s.addDiamonds);
+  const queryClient = useQueryClient();
 
   const currentQuestion = questions[currentIndex];
   const isLastQuestion = currentIndex === questions.length - 1;
@@ -71,6 +78,17 @@ export function QuizStep({
           {
             onSuccess: (result) => {
               setLastScore(result.score_percent);
+              const diamondsAwarded = result.student_lesson.diamonds_awarded;
+              if (diamondsAwarded > 0) {
+                // No natural "from" point for a completion happening off a
+                // plain button click (unlike the balloon game's score
+                // badge) — flies from screen-center, the same fallback the
+                // balloon game itself uses when it has no rect to start
+                // from.
+                addDiamondFlight({ x: window.innerWidth / 2, y: window.innerHeight / 2 }, diamondsAwarded);
+                addDiamonds(diamondsAwarded);
+                queryClient.invalidateQueries({ queryKey: getMeQueryKey() });
+              }
               onChanged();
             },
           },
