@@ -107,11 +107,17 @@ picker shows again next time the trigger fires.
   and waits for the child to press the matching key on a physical keyboard
   (`window` `keydown`, matched case-insensitively against the letter — this
   minigame needs a real keyboard, unlike the tap-driven balloon game). A
-  correct press plays a synthesized chime, the train departs to the right,
-  and the letter is appended to a running list on a right-side panel that
-  also shows the total count. Both games share the same TTS language
-  picker (English/Ukrainian/Polish, `SpeechLanguage` from `piper-tts.ts`) —
-  Letter Train speaks the letter once the train parks.
+  correct press plays a synthesized chime, flies that letter from the train
+  to the right-side "collected" panel (a plain absolutely-positioned
+  animation local to this game, not the header-reaching
+  `components/flying-diamond.tsx`), the train departs to the right, and the
+  panel's running list/count updates. Language is English/Ukrainian only
+  here (unlike the balloon game, which also offers Polish) — the settings
+  panel additionally has a keyboard-zone picker (all / left / center /
+  right third of the physical keyboard, `KEYBOARD_ZONES` in
+  `trains-game.tsx`) that narrows which letters the train hands out, e.g.
+  for practicing one hand's reach at a time. Letter Train speaks the letter
+  once the train parks.
 
 ## 3. Weekly Calendar (`/calendar`)
 
