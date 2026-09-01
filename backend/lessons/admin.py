@@ -8,6 +8,7 @@ from .models import (
     LessonComment,
     LessonsJson,
     LessonSubmission,
+    LessonSubmissionFile,
     QuizChoice,
     QuizQuestion,
     StudentLesson,
@@ -118,11 +119,11 @@ class QuizChoiceAdmin(admin.ModelAdmin):
 
 
 class LessonSubmissionInline(admin.TabularInline):
-    """Inline manager for student file submissions and comments within a StudentLesson."""
+    """Inline manager for student submissions and comments within a StudentLesson."""
     model = LessonSubmission
     extra = 0
     readonly_fields = ("submitted_at",)
-    fields = ("file", "comment", "is_latest", "submitted_at")
+    fields = ("comment", "is_latest", "submitted_at")
 
 
 @admin.register(StudentLesson)
@@ -163,6 +164,13 @@ class StudentLessonAdmin(admin.ModelAdmin):
     inlines = [LessonSubmissionInline]
 
 
+class LessonSubmissionFileInline(admin.TabularInline):
+    """Inline manager for the files a student attached to a submission."""
+    model = LessonSubmissionFile
+    extra = 0
+    fields = ("file",)
+
+
 @admin.register(LessonSubmission)
 class LessonSubmissionAdmin(admin.ModelAdmin):
     """Admin configuration for student submissions across lessons."""
@@ -180,6 +188,7 @@ class LessonSubmissionAdmin(admin.ModelAdmin):
     )
     readonly_fields = ("submitted_at",)
     list_select_related = ("student_lesson__student__user", "student_lesson__lesson")
+    inlines = [LessonSubmissionFileInline]
 
 
 @admin.register(LessonComment)
