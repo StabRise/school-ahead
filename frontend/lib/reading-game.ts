@@ -173,11 +173,11 @@ function shuffle<T>(items: T[]): T[] {
 // capped to the first `syllableCount` of them (the level's "how many
 // syllables" setting) — the picture cards to actually play with are every
 // card whose syllable made the cut, so a syllable with several matching
-// words can contribute more than one, up to `syllableCount * 2 + 3` cards
-// total (fewer if that many simply aren't available). Every active syllable
-// keeps at least one card; which of the rest fill the remaining budget is
-// picked at random so a level with more pictures than the cap isn't always
-// the same subset.
+// words can contribute more than one, up to `round(syllableCount * 1.5)`
+// cards total (fewer if that many simply aren't available). Every active
+// syllable keeps at least one card; which of the rest fill the remaining
+// budget is picked at random so a level with more pictures than the cap
+// isn't always the same subset.
 export function selectLevel(
   cards: ReadingGameCard[],
   syllableCount: number,
@@ -192,7 +192,7 @@ export function selectLevel(
   const activeSyllables = new Set(syllables);
   const available = cards.filter((card) => activeSyllables.has(card.syllable));
 
-  const maxCards = syllableCount * 2 + 3;
+  const maxCards = Math.round(syllableCount * 1.5);
   if (available.length <= maxCards) return { syllables, cards: available };
 
   const guaranteed: ReadingGameCard[] = [];
