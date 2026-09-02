@@ -198,6 +198,7 @@ function MaterialDetail({
           onReadSelection={player.playSelection}
           readSelectionLabel={tReadAlong("readSelectionButton")}
           highlightColors={highlightColors}
+          sourceLanguage={player.language}
         />
         <AnnotationCanvas
           containerRef={contentRef}

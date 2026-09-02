@@ -1,14 +1,19 @@
 "use client";
 
-import type { RefObject } from "react";
-import type { ReadingBlock } from "@/lib/reading-blocks";
+import { useState, type RefObject } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import { X } from "lucide-react";
+import { isTranslatorSupported, translateText } from "@/lib/chrome-translator";
+import type { SpeechLanguage } from "@/lib/piper-tts";
+import { flatSentencesOf, type ReadingBlock } from "@/lib/reading-blocks";
 import type { SelectionReadTarget } from "@/lib/use-read-along-player";
 
 // Renders a loaded ReadAlongPlayer's content: heading/paragraph/image
 // blocks, each sentence its own highlightable span, plus the floating
-// "read selection" button that appears once selectionTarget is set (see
-// useReadAlongPlayer's selectionchange listener). Shared by
-// components/read-along-page.tsx and the lesson wizard's "Матеріали" tab.
+// "read selection" / "translate selection" buttons that appear once
+// selectionTarget is set (see useReadAlongPlayer's selectionchange
+// listener). Shared by components/read-along-page.tsx and the lesson
+// wizard's "Матеріали" tab.
 export function ReadAlongContent({
   blocks,
   speakingIndex,
@@ -17,6 +22,7 @@ export function ReadAlongContent({
   onReadSelection,
   readSelectionLabel,
   highlightColors,
+  sourceLanguage,
 }: {
   blocks: ReadingBlock[];
   speakingIndex: number | null;
@@ -26,29 +32,94 @@ export function ReadAlongContent({
   readSelectionLabel: string;
   /** Sentences (by global index) with a persistent highlight color, independent of speakingIndex — set by loaded highlight annotations. */
   highlightColors?: Map<number, string>;
+  /** The selected text's language — enables the "Перекласти" button (Chrome's built-in on-device Translator API) whenever it differs from the interface language. Omit to hide translation entirely. */
+  sourceLanguage?: SpeechLanguage;
 }) {
+  const t = useTranslations("ReadAlong");
+  const locale = useLocale() as SpeechLanguage;
+  const [translation, setTranslation] = useState<{ text: string; loading: boolean; error: boolean } | null>(null);
+
+  // Clears any shown translation as soon as the selection it was for
+  // changes (cleared, or moved to different text) — a render-time state
+  // adjustment (see https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  // rather than an effect, same pattern as lesson-wizard.tsx's landingTabApplied.
+  const [lastSelectionTarget, setLastSelectionTarget] = useState(selectionTarget);
+  if (selectionTarget !== lastSelectionTarget) {
+    setLastSelectionTarget(selectionTarget);
+    setTranslation(null);
+  }
+
+  const canTranslate = sourceLanguage !== undefined && sourceLanguage !== locale && isTranslatorSupported();
+
+  const handleTranslateSelection = () => {
+    if (!selectionTarget || !sourceLanguage) return;
+    const allSentences = flatSentencesOf(blocks);
+    const text = selectionTarget.sentenceIndices.map((index) => allSentences[index]).join(" ");
+    setTranslation({ text: "", loading: true, error: false });
+    translateText(text, sourceLanguage, locale)
+      .then((translated) => setTranslation({ text: translated, loading: false, error: false }))
+      .catch(() => setTranslation({ text: "", loading: false, error: true }));
+  };
+
   let runningIndex = 0;
 
   return (
     <>
       {selectionTarget && (
-        <button
-          type="button"
-          // Keeps the browser from collapsing the selection on mousedown,
-          // which would otherwise clear selectionTarget (via
-          // selectionchange) before this button's click ever fires.
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={onReadSelection}
+        <div
           style={{
             position: "fixed",
             top: selectionTarget.top,
             left: selectionTarget.left,
             transform: "translate(-50%, -100%)",
           }}
-          className="z-50 rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-gray-800"
+          className="z-50 flex flex-col items-center gap-2"
         >
-          {readSelectionLabel}
-        </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              // Keeps the browser from collapsing the selection on
+              // mousedown, which would otherwise clear selectionTarget (via
+              // selectionchange) before this button's click ever fires.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={onReadSelection}
+              className="rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-gray-800"
+            >
+              {readSelectionLabel}
+            </button>
+            {canTranslate && (
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={handleTranslateSelection}
+                className="rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-gray-800"
+              >
+                {t("translateSelectionButton")}
+              </button>
+            )}
+          </div>
+
+          {translation && (
+            <div className="flex w-64 items-start gap-2 rounded-md bg-white p-3 text-left text-sm text-gray-900 shadow-lg ring-1 ring-gray-200">
+              {translation.loading ? (
+                <span className="text-gray-500">{t("translating")}</span>
+              ) : translation.error ? (
+                <span className="text-red-600">{t("translateError")}</span>
+              ) : (
+                <span>{translation.text}</span>
+              )}
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setTranslation(null)}
+                aria-label={t("closeTranslation")}
+                className="ml-auto shrink-0 text-gray-400 hover:text-gray-600"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       <div className="flex flex-col gap-4 rounded-md border border-gray-200 p-6 text-lg leading-relaxed">

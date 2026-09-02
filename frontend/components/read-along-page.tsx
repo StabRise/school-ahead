@@ -129,6 +129,7 @@ export function ReadAlongPage() {
             selectionTarget={player.selectionTarget}
             onReadSelection={player.playSelection}
             readSelectionLabel={t("readSelectionButton")}
+            sourceLanguage={player.language}
           />
         </div>
 
