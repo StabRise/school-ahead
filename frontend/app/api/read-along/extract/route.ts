@@ -1,4 +1,5 @@
-import { JSDOM } from "jsdom";
+import * as cheerio from "cheerio";
+import type { AnyNode, Element } from "domhandler";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import type { ReadAlongBlock, ReadAlongExtractErrorCode, ReadAlongExtractResult } from "@/lib/read-along-types";
@@ -11,6 +12,14 @@ import type { ReadAlongBlock, ReadAlongExtractErrorCode, ReadAlongExtractResult 
 // into; id="content"/class="page-wrapper" are broader fallbacks for other
 // sites built the same way).
 //
+// Uses cheerio rather than jsdom: jsdom pulls in css-tree, which loads a
+// data file via a runtime-relative require() that Turbopack's production
+// bundler can't resolve ("Cannot find module '../data/patch.json'") even
+// with serverExternalPackages — reproduced in the Docker build though not
+// in a plain local `bun run build`. cheerio's whole dependency tree
+// (parse5/htmlparser2 + friends) only requires other JS modules, never a
+// bare relative data file, so it doesn't hit that class of bug.
+//
 // Excluded from the locale/auth middleware by its "/api" matcher (see
 // middleware.ts) same as every other app/api/* route, so the access_token
 // check below is this route's only gate against being used as an open
@@ -21,21 +30,21 @@ import type { ReadAlongBlock, ReadAlongExtractErrorCode, ReadAlongExtractResult 
 const CONTAINER_SELECTORS = ["#main-content", "#content", ".page-wrapper"];
 
 const TEXT_TAGS = new Set([
-  "H1",
-  "H2",
-  "H3",
-  "H4",
-  "H5",
-  "H6",
-  "P",
-  "LI",
-  "BLOCKQUOTE",
-  "FIGCAPTION",
-  "DT",
-  "DD",
-  "CAPTION",
-  "TD",
-  "TH",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "p",
+  "li",
+  "blockquote",
+  "figcaption",
+  "dt",
+  "dd",
+  "caption",
+  "td",
+  "th",
 ]);
 
 const HIDDEN_CLASS_PATTERN = /sr-only|visually-hidden|screen-reader/i;
@@ -71,13 +80,13 @@ function isBlockedHost(hostname: string): boolean {
   return false;
 }
 
-function isHidden(element: Element): boolean {
-  if (element.getAttribute("aria-hidden") === "true") return true;
-  if (element.hasAttribute("data-specifier-type")) return true; // zpe.gov.pl CMS editor metadata, never real content
-  const style = element.getAttribute("style");
+function isHidden($: cheerio.CheerioAPI, element: Element): boolean {
+  const $el = $(element);
+  if ($el.attr("aria-hidden") === "true") return true;
+  if ($el.attr("data-specifier-type") !== undefined) return true; // zpe.gov.pl CMS editor metadata, never real content
+  const style = $el.attr("style");
   if (style && HIDDEN_STYLE_PATTERN.test(style)) return true;
-  const className = typeof element.className === "string" ? element.className : "";
-  return HIDDEN_CLASS_PATTERN.test(className);
+  return HIDDEN_CLASS_PATTERN.test($el.attr("class") ?? "");
 }
 
 function resolveUrl(src: string, base: string): string | null {
@@ -88,30 +97,37 @@ function resolveUrl(src: string, base: string): string | null {
   }
 }
 
-function collectBlocks(container: Element, pageUrl: string): ReadAlongBlock[] {
+function isElement(node: AnyNode): node is Element {
+  return node.type === "tag" || node.type === "script" || node.type === "style";
+}
+
+function collectBlocks($: cheerio.CheerioAPI, container: Element, pageUrl: string): ReadAlongBlock[] {
   const blocks: ReadAlongBlock[] = [];
 
   const walk = (node: Element) => {
-    for (const child of Array.from(node.children)) {
+    for (const child of node.children) {
       if (blocks.length >= MAX_BLOCKS) return;
-      if (isHidden(child)) continue;
+      if (!isElement(child)) continue;
+      if (isHidden($, child)) continue;
 
-      if (child.tagName === "IMG") {
-        const src = child.getAttribute("src");
+      const tagName = child.tagName.toLowerCase();
+
+      if (tagName === "img") {
+        const src = $(child).attr("src");
         const resolved = src ? resolveUrl(src, pageUrl) : null;
-        if (resolved) blocks.push({ type: "image", src: resolved, alt: (child.getAttribute("alt") ?? "").trim() });
+        if (resolved) blocks.push({ type: "image", src: resolved, alt: ($(child).attr("alt") ?? "").trim() });
         continue;
       }
 
-      if (TEXT_TAGS.has(child.tagName)) {
-        const text = (child.textContent ?? "").replace(/\s+/g, " ").trim();
+      if (TEXT_TAGS.has(tagName)) {
+        const text = $(child).text().replace(/\s+/g, " ").trim();
         // Skip a block whose text is identical to the immediately preceding
         // one — this CMS duplicates an image's accessible description both
         // visibly-hidden and screen-reader-only right next to each other.
         const previous = blocks.at(-1);
         const isDuplicate = previous !== undefined && previous.type !== "image" && previous.text === text;
         if (text && !isDuplicate) {
-          blocks.push({ type: child.tagName.startsWith("H") ? "heading" : "paragraph", text });
+          blocks.push({ type: tagName.startsWith("h") ? "heading" : "paragraph", text });
         }
         continue;
       }
@@ -174,21 +190,23 @@ export async function POST(request: Request) {
     return errorResponse("fetch_failed", 502);
   }
 
-  const dom = new JSDOM(html, { url: parsedUrl.href });
-  const document = dom.window.document;
+  const $ = cheerio.load(html);
 
-  let container: Element | null = null;
+  let container: Element | undefined;
   for (const selector of CONTAINER_SELECTORS) {
-    container = document.querySelector(selector);
-    if (container) break;
+    const found = $(selector).get(0);
+    if (found && isElement(found)) {
+      container = found;
+      break;
+    }
   }
   if (!container) return errorResponse("container_not_found", 422);
 
-  const blocks = collectBlocks(container, parsedUrl.href);
+  const blocks = collectBlocks($, container, parsedUrl.href);
   if (blocks.length === 0) return errorResponse("container_not_found", 422);
 
   const firstHeading = blocks.find((block): block is Extract<ReadAlongBlock, { type: "heading" }> => block.type === "heading");
-  const title = firstHeading?.text || document.title.trim() || null;
+  const title = firstHeading?.text || $("title").first().text().trim() || null;
 
   const result: ReadAlongExtractResult = { title, blocks };
   return NextResponse.json(result);

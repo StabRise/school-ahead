@@ -6,14 +6,6 @@ const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 const nextConfig: NextConfig = {
   output: "standalone",
   allowedDevOrigins: ["127.0.0.1"],
-  // jsdom (used by app/api/read-along/extract/route.ts to parse fetched
-  // HTML) pulls in css-tree, which loads a data file via a runtime-relative
-  // require() — Turbopack's production bundler tries to statically resolve
-  // that and fails ("Cannot find module '../data/patch.json'") even though
-  // jsdom is already in Next's default server-external-packages list; this
-  // opts it (and its dependency tree) out of bundling entirely so it's
-  // loaded via plain Node `require` from node_modules at runtime instead.
-  serverExternalPackages: ["jsdom"],
   turbopack: {
     rules: {
       "*.css": {
