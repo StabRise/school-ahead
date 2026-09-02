@@ -16,9 +16,18 @@
   },
   "ReadAlong": {
     "pageTitle": "Читання тексту",
+    "modeTextTab": "Текст",
+    "modeLinkTab": "Посилання",
     "textareaLabel": "Текст для читання",
     "textareaPlaceholder": "Вставте текст, який потрібно прочитати вголос",
     "emptyTextError": "Введіть текст перед тим, як почати читання",
+    "linkLabel": "Посилання на статтю",
+    "linkPlaceholder": "https://...",
+    "emptyLinkError": "Введіть посилання перед тим, як почати читання",
+    "loadingLink": "Завантаження сторінки…",
+    "errorInvalidUrl": "Некоректне посилання",
+    "errorFetchFailed": "Не вдалося завантажити сторінку за цим посиланням",
+    "errorContainerNotFound": "Не вдалося знайти текст статті на цій сторінці",
     "languageLabel": "Мова тексту",
     "languageEnglish": "Англійська",
     "languageUkrainian": "Українська",
@@ -26,7 +35,8 @@
     "submitButton": "Почати читання",
     "editButton": "Редагувати текст",
     "replayButton": "Прочитати знову",
-    "stopButton": "Зупинити"
+    "stopButton": "Зупинити",
+    "readSelectionButton": "Прочитати"
   },
   "Header": {
     "brand": "Ahead",
