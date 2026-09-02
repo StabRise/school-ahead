@@ -14,6 +14,20 @@
     "defaultTitle": "PDF документ",
     "downloadButton": "Завантажити PDF"
   },
+  "ReadAlong": {
+    "pageTitle": "Читання тексту",
+    "textareaLabel": "Текст для читання",
+    "textareaPlaceholder": "Вставте текст, який потрібно прочитати вголос",
+    "emptyTextError": "Введіть текст перед тим, як почати читання",
+    "languageLabel": "Мова тексту",
+    "languageEnglish": "Англійська",
+    "languageUkrainian": "Українська",
+    "languagePolish": "Польська",
+    "submitButton": "Почати читання",
+    "editButton": "Редагувати текст",
+    "replayButton": "Прочитати знову",
+    "stopButton": "Зупинити"
+  },
   "Header": {
     "brand": "Ahead",
     "login": "Увійти",
@@ -26,6 +40,7 @@
     "myProfile": "Мій профіль",
     "todayLessons": "Уроки сьогодні",
     "calendar": "Календар",
+    "readAlong": "Читання тексту",
     "games": "Ігри",
     "tutorDashboard": "Панель тьютора",
     "preschoolMode": "Дитячий режим",
