@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type RefObject } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { BookPlus, Check, X } from "lucide-react";
+import { BookPlus, Check, Languages, X } from "lucide-react";
 import { isTranslatorSupported, translateText } from "@/lib/chrome-translator";
 import { useAddDictionaryItem } from "@/lib/api/browser/dictionary/dictionary";
 import type { SpeechLanguage } from "@/lib/piper-tts";
@@ -18,17 +18,15 @@ function wordCount(text: string): number {
 
 // Renders a loaded ReadAlongPlayer's content: heading/paragraph/image
 // blocks, each sentence its own highlightable span, plus the floating
-// "read selection" / "translate selection" buttons that appear once
-// selectionTarget is set (see useReadAlongPlayer's selectionchange
-// listener). Shared by components/read-along-page.tsx and the lesson
-// wizard's "Матеріали" tab.
+// "translate selection" icon button that appears once selectionTarget is
+// set (see useReadAlongPlayer's selectionchange listener) — unless the
+// student's translationScope setting is "off". Shared by
+// components/read-along-page.tsx and the lesson wizard's "Матеріали" tab.
 export function ReadAlongContent({
   blocks,
   speakingIndex,
   sentenceRefs,
   selectionTarget,
-  onReadSelection,
-  readSelectionLabel,
   highlightColors,
   sourceLanguage,
   translationScope = "word",
@@ -38,15 +36,13 @@ export function ReadAlongContent({
   speakingIndex: number | null;
   sentenceRefs: RefObject<Record<number, HTMLSpanElement | null>>;
   selectionTarget: SelectionReadTarget | null;
-  onReadSelection: () => void;
-  readSelectionLabel: string;
   /** Sentences (by global index) with a persistent highlight color, independent of speakingIndex — set by loaded highlight annotations. */
   highlightColors?: Map<number, string>;
   /** The selected text's language — enables translation (Chrome's built-in on-device Translator API) whenever it differs from the interface language. Omit to hide translation entirely. */
   sourceLanguage?: SpeechLanguage;
-  /** Whether a translation covers just the literal selection ("word") or the whole sentence(s) it falls within ("sentence") — see the Profile page's "Переклад матеріалів" settings. */
+  /** Whether a translation covers just the literal selection ("word") or the whole sentence(s) it falls within ("sentence"), or is off entirely ("off") — see the Settings page's "Переклад матеріалів" settings. */
   translationScope?: TranslationScope;
-  /** Translates as soon as text is selected instead of waiting for a "Перекласти" button click — same settings section. */
+  /** Translates as soon as text is selected instead of waiting for the translate icon button click — same settings section. */
   translateOnSelect?: boolean;
 }) {
   const t = useTranslations("ReadAlong");
@@ -75,7 +71,11 @@ export function ReadAlongContent({
     setDictionaryItemAdded(false);
   }
 
-  const canTranslate = sourceLanguage !== undefined && sourceLanguage !== locale && isTranslatorSupported();
+  const canTranslate =
+    translationScope !== "off" &&
+    sourceLanguage !== undefined &&
+    sourceLanguage !== locale &&
+    isTranslatorSupported();
 
   const getLiteralSelection = (): string | undefined => window.getSelection()?.toString().trim() || undefined;
 
@@ -184,7 +184,7 @@ export function ReadAlongContent({
 
   return (
     <>
-      {selectionTarget && (
+      {selectionTarget && canTranslate && (
         <div
           style={{
             position: "fixed",
@@ -194,29 +194,21 @@ export function ReadAlongContent({
           }}
           className="z-50 flex flex-col items-center gap-2"
         >
-          <div className="flex gap-2">
+          {!translateOnSelect && (
             <button
               type="button"
               // Keeps the browser from collapsing the selection on
               // mousedown, which would otherwise clear selectionTarget (via
               // selectionchange) before this button's click ever fires.
               onMouseDown={(e) => e.preventDefault()}
-              onClick={onReadSelection}
-              className="rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-gray-800"
+              onClick={handleTranslateSelection}
+              aria-label={t("translateSelectionButton")}
+              title={t("translateSelectionButton")}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-900 text-white shadow-lg hover:bg-gray-800"
             >
-              {readSelectionLabel}
+              <Languages className="size-4" />
             </button>
-            {canTranslate && !translateOnSelect && (
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={handleTranslateSelection}
-                className="rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-gray-800"
-              >
-                {t("translateSelectionButton")}
-              </button>
-            )}
-          </div>
+          )}
 
           {translation && (
             <div className="flex w-64 flex-col gap-1 rounded-md bg-white p-3 text-left text-sm text-gray-900 shadow-lg ring-1 ring-gray-200">

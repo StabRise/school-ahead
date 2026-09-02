@@ -42,7 +42,6 @@ function MaterialDetail({
   onChanged: () => void;
 }) {
   const t = useTranslations("MaterialsStep");
-  const tReadAlong = useTranslations("ReadAlong");
   const player = useReadAlongPlayer(true);
   const translationScope = useAuthStore((state) => state.user?.translationScope ?? "word");
   const translateOnSelect = useAuthStore((state) => state.user?.translateOnSelect ?? false);
@@ -198,8 +197,6 @@ function MaterialDetail({
           speakingIndex={player.speakingIndex}
           sentenceRefs={player.sentenceRefs}
           selectionTarget={drawMode ? null : player.selectionTarget}
-          onReadSelection={player.playSelection}
-          readSelectionLabel={tReadAlong("readSelectionButton")}
           highlightColors={highlightColors}
           sourceLanguage={player.language}
           translationScope={translationScope}

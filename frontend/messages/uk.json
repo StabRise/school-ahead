@@ -48,7 +48,6 @@
     "fromStartButton": "Спочатку",
     "previousParagraphButton": "Попередній абзац",
     "nextParagraphButton": "Наступний абзац",
-    "readSelectionButton": "Прочитати",
     "translateSelectionButton": "Перекласти",
     "translating": "Переклад…",
     "translateError": "Не вдалося перекласти текст",
@@ -618,6 +617,7 @@
     "title": "Налаштування",
     "translationSettingsTitle": "Переклад матеріалів",
     "translationScopeLabel": "Як перекладати",
+    "translationScopeOff": "Не перекладати взагалі",
     "translationScopeWord": "Тільки виділене слово",
     "translationScopeSentence": "Все речення",
     "translateOnSelectLabel": "Перекладати одразу при виділенні тексту"

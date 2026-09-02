@@ -243,6 +243,22 @@ def test_update_translation_settings_persists_and_returns_updated_user(api_clien
     assert student.translate_on_select is True
 
 
+def test_update_translation_settings_accepts_off_scope(api_client, auth_header):
+    user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
+    student = StudentProfile.objects.create(user=user)
+
+    response = api_client.patch(
+        '/auth/me/translation-settings',
+        json={'translation_scope': TranslationScope.OFF, 'translate_on_select': False},
+        headers=auth_header(user),
+    )
+
+    assert response.status_code == 200
+    assert response.data['user']['translation_scope'] == TranslationScope.OFF
+    student.refresh_from_db()
+    assert student.translation_scope == TranslationScope.OFF
+
+
 def test_update_translation_settings_rejects_invalid_scope(api_client, auth_header):
     user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
     StudentProfile.objects.create(user=user)

@@ -10,7 +10,7 @@ export type InterfaceMode = "default" | "preschool";
 // selection, and whether that translation runs automatically — see
 // components/profile/translation-settings.tsx and
 // components/read-along-content.tsx.
-export type TranslationScope = "word" | "sentence";
+export type TranslationScope = "off" | "word" | "sentence";
 
 // The chosen companion character (Raccoon, ...) — see docs/core/avatar.md.
 // Distinct from `avatarUrl` below, which is the Google-account profile

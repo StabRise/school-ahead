@@ -130,8 +130,6 @@ export function ReadAlongPage() {
             speakingIndex={player.speakingIndex}
             sentenceRefs={player.sentenceRefs}
             selectionTarget={player.selectionTarget}
-            onReadSelection={player.playSelection}
-            readSelectionLabel={t("readSelectionButton")}
             sourceLanguage={player.language}
             translationScope={translationScope}
             translateOnSelect={translateOnSelect}
