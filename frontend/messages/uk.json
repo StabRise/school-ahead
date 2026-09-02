@@ -49,6 +49,10 @@
     "previousParagraphButton": "Попередній абзац",
     "nextParagraphButton": "Наступний абзац",
     "readSelectionButton": "Прочитати",
+    "translateSelectionButton": "Перекласти",
+    "translating": "Переклад…",
+    "translateError": "Не вдалося перекласти текст",
+    "closeTranslation": "Закрити переклад",
     "addToLessonButton": "Додати в урок"
   },
   "Header": {
@@ -61,9 +65,11 @@
     "myAchievements": "Мої досягнення",
     "myClasses": "Мої класи",
     "myProfile": "Мій профіль",
+    "mySettings": "Налаштування",
     "todayLessons": "Уроки сьогодні",
     "calendar": "Календар",
     "readAlong": "Читання тексту",
+    "dictionary": "Словник",
     "games": "Ігри",
     "tutorDashboard": "Панель тьютора",
     "preschoolMode": "Дитячий режим",
@@ -607,6 +613,27 @@
     "confirmPurchaseBody": "«{item}» коштує 💎{price}. Купити цю річ?",
     "confirmPurchaseCancel": "Скасувати",
     "confirmPurchaseBuy": "Купити за 💎{price}"
+  },
+  "Settings": {
+    "title": "Налаштування",
+    "translationSettingsTitle": "Переклад матеріалів",
+    "translationScopeLabel": "Як перекладати",
+    "translationScopeWord": "Тільки виділене слово",
+    "translationScopeSentence": "Все речення",
+    "translateOnSelectLabel": "Перекладати одразу при виділенні тексту"
+  },
+  "Dictionary": {
+    "pageTitle": "Словник",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити словник. Спробуйте ще раз.",
+    "emptyState": "Поки що тут порожньо. Перекладайте слова у текстах і додавайте їх сюди.",
+    "filterAll": "Усі",
+    "statusNew": "Нове",
+    "statusInProgress": "Вивчаю",
+    "statusKnown": "Вже знаю",
+    "deleteButton": "Видалити зі словника",
+    "addButton": "Додати до словника",
+    "addedMessage": "Додано до словника"
   },
   "SubjectDetail": {
     "loading": "Завантаження...",

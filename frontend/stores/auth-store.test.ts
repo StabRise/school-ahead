@@ -19,6 +19,8 @@ describe("useAuthStore", () => {
       locale: "uk",
       avatarUrl: "",
       interfaceMode: "default" as const,
+      translationScope: "word" as const,
+      translateOnSelect: false,
       equippedAvatar: null,
       equippedClothingItems: [],
       equippedHeadwearItems: [],

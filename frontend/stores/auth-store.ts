@@ -6,6 +6,12 @@ import { create } from "zustand";
 
 export type InterfaceMode = "default" | "preschool";
 
+// How much text the read-along "Перекласти" feature translates per
+// selection, and whether that translation runs automatically — see
+// components/profile/translation-settings.tsx and
+// components/read-along-content.tsx.
+export type TranslationScope = "word" | "sentence";
+
 // The chosen companion character (Raccoon, ...) — see docs/core/avatar.md.
 // Distinct from `avatarUrl` below, which is the Google-account profile
 // picture. `items` is its wardrobe catalog (see EquippedAvatarItem).
@@ -53,6 +59,9 @@ export interface AuthUser {
   avatarUrl: string;
   // Only meaningful for role="student" — see docs/interfaces/preschool.md.
   interfaceMode: InterfaceMode | null;
+  // Only meaningful for role="student" — see components/profile/translation-settings.tsx.
+  translationScope: TranslationScope | null;
+  translateOnSelect: boolean | null;
   // Only meaningful for role="student", and only once one is chosen — see
   // docs/core/avatar.md.
   equippedAvatar: EquippedAvatar | null;

@@ -61,6 +61,10 @@ class UserOut(Schema):
     avatar_url: str
     # Only set for role=student — see docs/interfaces/preschool.md.
     interface_mode: str | None = None
+    # Only set for role=student — read-along "Перекласти" settings, see
+    # frontend/components/profile/translation-settings.tsx.
+    translation_scope: str | None = None
+    translate_on_select: bool | None = None
     # Only set for role=student, and only once one is chosen — see
     # docs/core/avatar.md.
     equipped_avatar: AvatarOut | None = None
@@ -86,6 +90,11 @@ class GoogleLoginOut(Schema):
 
 class UpdateInterfaceModeIn(Schema):
     interface_mode: str
+
+
+class UpdateTranslationSettingsIn(Schema):
+    translation_scope: str
+    translate_on_select: bool
 
 
 class UpdateAvatarIn(Schema):

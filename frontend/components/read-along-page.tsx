@@ -11,6 +11,7 @@ import { splitIntoSentenceParagraphs, splitIntoSentences } from "@/lib/sentence-
 import { flatSentencesOf, type ReadingBlock } from "@/lib/reading-blocks";
 import { useReadAlongPlayer } from "@/lib/use-read-along-player";
 import type { ReadAlongExtractErrorCode, ReadAlongExtractResult } from "@/lib/read-along-types";
+import { useAuthStore } from "@/stores/auth-store";
 
 type InputMode = "text" | "link";
 
@@ -45,6 +46,8 @@ export function ReadAlongPage() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
 
   const player = useReadAlongPlayer(phase === "reading");
+  const translationScope = useAuthStore((state) => state.user?.translationScope ?? "word");
+  const translateOnSelect = useAuthStore((state) => state.user?.translateOnSelect ?? false);
 
   const handleTextSubmit = () => {
     const paragraphs = splitIntoSentenceParagraphs(text);
@@ -129,6 +132,9 @@ export function ReadAlongPage() {
             selectionTarget={player.selectionTarget}
             onReadSelection={player.playSelection}
             readSelectionLabel={t("readSelectionButton")}
+            sourceLanguage={player.language}
+            translationScope={translationScope}
+            translateOnSelect={translateOnSelect}
           />
         </div>
 

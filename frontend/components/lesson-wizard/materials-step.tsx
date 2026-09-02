@@ -22,6 +22,7 @@ import {
   useListAnnotations,
 } from "@/lib/api/browser/student-lessons/student-lessons";
 import type { StudentLessonMaterialOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
+import { useAuthStore } from "@/stores/auth-store";
 
 // One material's full playback + annotation view — reuses the exact same
 // ReadAlongContent/ReadAlongControlPanel/useReadAlongPlayer trio as
@@ -43,6 +44,8 @@ function MaterialDetail({
   const t = useTranslations("MaterialsStep");
   const tReadAlong = useTranslations("ReadAlong");
   const player = useReadAlongPlayer(true);
+  const translationScope = useAuthStore((state) => state.user?.translationScope ?? "word");
+  const translateOnSelect = useAuthStore((state) => state.user?.translateOnSelect ?? false);
   const loadedMaterialId = useRef<number | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -198,6 +201,9 @@ function MaterialDetail({
           onReadSelection={player.playSelection}
           readSelectionLabel={tReadAlong("readSelectionButton")}
           highlightColors={highlightColors}
+          sourceLanguage={player.language}
+          translationScope={translationScope}
+          translateOnSelect={translateOnSelect}
         />
         <AnnotationCanvas
           containerRef={contentRef}
