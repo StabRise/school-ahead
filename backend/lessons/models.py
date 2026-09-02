@@ -142,6 +142,79 @@ class StudentLesson(TimeStampedModel):
         return f'{self.student} — {self.lesson} ({self.status})'
 
 
+class MaterialLanguage(models.TextChoices):
+    # Matches frontend/lib/piper-tts.ts's SpeechLanguage — the read-along
+    # tool's TTS language for this material's content.
+    EN = 'en', 'English'
+    UK = 'uk', 'Ukrainian'
+    PL = 'pl', 'Polish'
+
+
+class StudentLessonMaterial(models.Model):
+    """A reading material a student saved from the read-along tool
+    (frontend's /read-along page, "Додати в урок" button) onto one of their
+    own assigned lessons — shown in the lesson wizard's "Матеріали" tab
+    (distinct from LessonAttachment, the tutor-authored materials shown on
+    the "Теорія" tab). `content` stores the exact block structure the
+    read-along viewer already renders/plays (heading/paragraph/image,
+    pre-split into sentences — see frontend/lib/reading-blocks.ts's
+    ReadingBlock), so the Materials tab needs no conversion to reuse the
+    same playback components. `source_url` is set when the student saved it
+    from a pasted link rather than pasted text."""
+    student_lesson = models.ForeignKey(StudentLesson, on_delete=models.CASCADE, related_name='materials')
+    title = models.CharField(max_length=255, blank=True)
+    content = models.JSONField()
+    source_url = models.URLField(blank=True)
+    language = models.CharField(max_length=2, choices=MaterialLanguage.choices)
+    order_index = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order_index', 'created_at']
+
+    def __str__(self):
+        return self.title or f'Material #{self.pk}'
+
+
+class MaterialAnnotationKind(models.TextChoices):
+    RECTANGLE = 'rectangle', 'Rectangle'
+    ELLIPSE = 'ellipse', 'Ellipse'
+    FREEHAND = 'freehand', 'Freehand'
+    TEXT_NOTE = 'text_note', 'Text note'
+    HIGHLIGHT = 'highlight', 'Highlight'
+    COMMENT = 'comment', 'Comment'
+
+
+class MaterialAnnotation(models.Model):
+    """A drawing, highlight, or comment a student added on their own
+    StudentLessonMaterial (components/lesson-wizard/material-annotation-
+    panel.tsx + annotation-canvas.tsx), persisted so it's still there next
+    visit. Shapes (rectangle/ellipse/freehand/text_note) store `geometry` as
+    fractional (0..1) coordinates relative to the material content's
+    rendered box, so placement survives different viewport widths:
+    rectangle/ellipse -> {x, y, width, height}; freehand ->
+    {points: [{x, y}, ...]}; text_note -> {x, y} (its text goes in `body`,
+    the same field comment uses). highlight/comment instead anchor to a
+    sentence range (sentence_start/sentence_end — indices into the
+    material's flattened block sentences, see
+    frontend/lib/reading-blocks.ts's flatSentencesOf), since a material's
+    content never changes once saved."""
+    material = models.ForeignKey(StudentLessonMaterial, on_delete=models.CASCADE, related_name='annotations')
+    kind = models.CharField(max_length=10, choices=MaterialAnnotationKind.choices)
+    color = models.CharField(max_length=7, blank=True)
+    geometry = models.JSONField(null=True, blank=True)
+    sentence_start = models.PositiveIntegerField(null=True, blank=True)
+    sentence_end = models.PositiveIntegerField(null=True, blank=True)
+    body = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.kind} on material #{self.material_id}'
+
+
 class LessonSubmission(models.Model):
     student_lesson = models.ForeignKey(StudentLesson, on_delete=models.CASCADE, related_name='submissions')
     comment = models.TextField(blank=True)

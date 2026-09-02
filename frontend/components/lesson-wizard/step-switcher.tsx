@@ -5,13 +5,18 @@ import {
   BookOpen,
   CheckCircle2,
   ClipboardList,
+  Headphones,
   ListChecks,
   MessageCircleQuestion,
   MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 
-export type WizardStep = "materials" | "assessment" | "comments" | "explanation";
+// "readingMaterials" is deliberately not called "materials" — that value
+// already exists (labeled "Теорія") and renders LessonOut.materials (the
+// tutor-authored LessonAttachments). This is a distinct, student-curated
+// concept — see backend/lessons/models.py's StudentLessonMaterial.
+export type WizardStep = "materials" | "readingMaterials" | "assessment" | "comments" | "explanation";
 
 // Icon + label for the assessment tab depend on the lesson's type: a quiz
 // gets a checklist icon and "Тест" label, a task a clipboard, and a
@@ -45,6 +50,7 @@ export function StepSwitcher({
 
   const tabs: { value: WizardStep; label: string; Icon: LucideIcon }[] = [
     { value: "materials", label: t("breadcrumbMaterials"), Icon: BookOpen },
+    { value: "readingMaterials", label: t("breadcrumbReadingMaterials"), Icon: Headphones },
     { value: "assessment", label: assessmentLabel, Icon: AssessmentIcon },
     { value: "comments", label: t("breadcrumbComments"), Icon: MessageSquare },
     ...(hasExplanation

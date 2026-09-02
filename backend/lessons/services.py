@@ -23,11 +23,13 @@ from .models import (
     LessonSubmissionFeedbackImage,
     LessonSubmissionFile,
     LessonType,
+    MaterialAnnotation,
     QuizChoice,
     QuizLanguage,
     QuizQuestion,
     SemesterCompletionBonus,
     StudentLesson,
+    StudentLessonMaterial,
     StudentLessonStatus,
     StudentLessonStatusEvent,
     TopicCompletionBonus,
@@ -315,6 +317,94 @@ def add_comment(
     tutor scoped to the lesson's subject, at any StudentLesson status —
     never mutates `status`. See section 2.2."""
     return LessonComment.objects.create(student_lesson=student_lesson, author=actor, body=body, kind=kind)
+
+
+def add_material(
+    student_lesson: StudentLesson,
+    *,
+    title: str,
+    content: list[dict],
+    source_url: str,
+    language: str,
+) -> StudentLessonMaterial:
+    """Saves a reading material the student curated in the read-along tool
+    (frontend's /read-along page) onto one of their own assigned lessons —
+    shown in the lesson wizard's "Матеріали" tab. `content` is already
+    plain, JSON-serializable block data (see StudentLessonMaterial)."""
+    order_index = student_lesson.materials.count()
+    return StudentLessonMaterial.objects.create(
+        student_lesson=student_lesson,
+        title=title,
+        content=content,
+        source_url=source_url,
+        language=language,
+        order_index=order_index,
+    )
+
+
+def add_annotation(
+    material: StudentLessonMaterial,
+    *,
+    kind: str,
+    color: str,
+    geometry: dict | None,
+    sentence_start: int | None,
+    sentence_end: int | None,
+    body: str,
+) -> MaterialAnnotation:
+    """Persists one drawing/highlight/comment a student made on their own
+    material (see MaterialAnnotation) — so it's still there next visit."""
+    return MaterialAnnotation.objects.create(
+        material=material,
+        kind=kind,
+        color=color,
+        geometry=geometry,
+        sentence_start=sentence_start,
+        sentence_end=sentence_end,
+        body=body,
+    )
+
+
+def delete_material_sentences(material: StudentLessonMaterial, sentence_indices: set[int]) -> None:
+    """Permanently removes the given sentences (by their global index into
+    the material's flattened blocks — see frontend/lib/reading-blocks.ts's
+    flatSentencesOf) from a StudentLessonMaterial's content, dropping any
+    block left with no sentences. Existing sentence-anchored annotations
+    (highlight/comment) are remapped to the new, compacted indices, or
+    deleted outright if every sentence they anchored to was removed.
+    Shape/drawing annotations use fractional coordinates independent of
+    sentence indices, so they're left untouched — their position may no
+    longer line up with the reflowed text, an accepted tradeoff of editing
+    a material's content after annotating it."""
+    new_content = []
+    old_to_new: dict[int, int] = {}
+    global_index = 0
+    new_index = 0
+    for block in material.content:
+        if block['kind'] == 'image':
+            new_content.append(block)
+            continue
+        kept_sentences = []
+        for sentence in block['sentences']:
+            if global_index not in sentence_indices:
+                old_to_new[global_index] = new_index
+                kept_sentences.append(sentence)
+                new_index += 1
+            global_index += 1
+        if kept_sentences:
+            new_content.append({**block, 'sentences': kept_sentences})
+
+    material.content = new_content
+    material.save(update_fields=['content'])
+
+    for annotation in material.annotations.filter(sentence_start__isnull=False, sentence_end__isnull=False):
+        remaining = [old_to_new[i] for i in range(annotation.sentence_start, annotation.sentence_end + 1) if i in old_to_new]
+        if not remaining:
+            annotation.delete()
+        else:
+            annotation.sentence_start = min(remaining)
+            annotation.sentence_end = max(remaining)
+            annotation.save(update_fields=['sentence_start', 'sentence_end'])
 
 
 def resolve_need_help(
