@@ -13,6 +13,7 @@ from .models import (
     QuizQuestion,
     SemesterCompletionBonus,
     StudentLesson,
+    StudentLessonMaterial,
     StudentLessonStatusEvent,
     TopicCompletionBonus,
 )
@@ -128,6 +129,15 @@ class LessonSubmissionInline(admin.TabularInline):
     fields = ("comment", "is_latest", "submitted_at")
 
 
+class StudentLessonMaterialInline(admin.TabularInline):
+    """Read-only view of a student's own saved read-along materials —
+    student-authored via the app, not meant to be hand-edited here."""
+    model = StudentLessonMaterial
+    extra = 0
+    fields = ("title", "source_url", "language", "order_index", "created_at")
+    readonly_fields = ("title", "source_url", "language", "created_at")
+
+
 @admin.register(StudentLesson)
 class StudentLessonAdmin(admin.ModelAdmin):
     """Admin configuration for dynamic per-student lesson instances, statuses, and grades."""
@@ -163,7 +173,7 @@ class StudentLessonAdmin(admin.ModelAdmin):
     readonly_fields = ("started_at", "completed_at", "attempt_count")
     list_select_related = ("student__user", "lesson__topic__subject")
     date_hierarchy = "scheduled_date"
-    inlines = [LessonSubmissionInline]
+    inlines = [LessonSubmissionInline, StudentLessonMaterialInline]
 
 
 class LessonSubmissionFileInline(admin.TabularInline):

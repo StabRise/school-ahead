@@ -15,6 +15,7 @@ import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { SubmissionThread } from "@/components/submission-thread";
 import { Card } from "@/components/card";
 import { LessonContent } from "./lesson-content";
+import { MaterialsStep } from "./materials-step";
 import { QuizStep } from "./quiz-step";
 import { TheoryStep } from "./theory-step";
 import { TaskStep } from "./task-step";
@@ -26,7 +27,7 @@ import { StepSwitcher, type WizardStep } from "./step-switcher";
 import { PageContainer } from "@/components/page-container";
 import { Link, useRouter, usePathname } from "@/i18n/navigation";
 
-const WIZARD_STEPS: WizardStep[] = ["materials", "assessment", "comments", "explanation"];
+const WIZARD_STEPS: WizardStep[] = ["materials", "readingMaterials", "assessment", "comments", "explanation"];
 
 // Reads the active tab back out of `?step=...` — e.g. after an F5 reload,
 // which loses any in-memory React state. Invalid/missing values fall back
@@ -261,6 +262,8 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
             </button>
           </div>
         </div>
+      ) : effectiveStep === "readingMaterials" ? (
+        <MaterialsStep materials={data.reading_materials} />
       ) : effectiveStep === "assessment" ? (
         <AssessmentStep studentLesson={data} onChanged={refetch} />
       ) : effectiveStep === "comments" ? (

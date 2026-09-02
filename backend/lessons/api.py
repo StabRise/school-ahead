@@ -1,25 +1,36 @@
+from achievements import services as achievement_services
+from common.auth import CookieOrBearerJWTAuth
+from common.csrf import require_csrf
+from common.permissions import ensure_is_owner_student, get_own_student_profile
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 from ninja import File, Form, Router
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
 from ninja.pagination import LimitOffsetPagination, paginate
-
-from achievements import services as achievement_services
-from common.auth import CookieOrBearerJWTAuth
-from common.csrf import require_csrf
-from common.permissions import ensure_is_owner_student, get_own_student_profile
+from ninja.responses import Status
 
 from . import services
-from .models import Lesson, QuizQuestion, StudentLesson, StudentLessonStatus
+from .models import (
+    Lesson,
+    QuizQuestion,
+    StudentLesson,
+    StudentLessonMaterial,
+    StudentLessonStatus,
+)
 from .schemas import (
+    AddAnnotationIn,
     AddCommentIn,
+    AddMaterialIn,
     CompletionProgressOut,
     ConfirmUnderstandingIn,
     LessonCommentOut,
+    MaterialAnnotationOut,
+    MyAssignableLessonOut,
     NextLessonOut,
     QuizHintOut,
     RequestHelpIn,
+    StudentLessonMaterialOut,
     StudentLessonOut,
     SubjectLessonOut,
     SubjectProgressOut,
@@ -40,6 +51,28 @@ def _get_owned(request: HttpRequest, student_lesson_id: int) -> StudentLesson:
     )
     ensure_is_owner_student(request, student_lesson)
     return student_lesson
+
+
+def _get_owned_material(request: HttpRequest, material_id: int) -> StudentLessonMaterial:
+    material = get_object_or_404(
+        StudentLessonMaterial.objects.select_related('student_lesson'), id=material_id
+    )
+    ensure_is_owner_student(request, material.student_lesson)
+    return material
+
+
+@router.get('/mine', response=list[MyAssignableLessonOut], operation_id='list_my_assignable_lessons')
+def list_my_assignable_lessons(request: HttpRequest):
+    """Every not-yet-completed lesson assigned to the requesting student,
+    oldest scheduled first — powers the read-along "Додати в урок" picker
+    (frontend's AddMaterialDialog)."""
+    student = get_own_student_profile(request)
+    return list(
+        StudentLesson.objects.filter(student=student)
+        .exclude(status=StudentLessonStatus.COMPLETED)
+        .select_related('lesson__topic__subject')
+        .order_by('scheduled_date')
+    )
 
 
 @router.get('/{student_lesson_id}', response=StudentLessonOut, operation_id='get_student_lesson')
@@ -183,6 +216,74 @@ def add_comment(request: HttpRequest, student_lesson_id: int, payload: AddCommen
     require_csrf(request)
     student_lesson = _get_owned(request, student_lesson_id)
     return services.add_comment(student_lesson, request.auth, payload.body)
+
+
+@router.get(
+    '/{student_lesson_id}/materials',
+    response=list[StudentLessonMaterialOut],
+    operation_id='list_materials',
+)
+def list_materials(request: HttpRequest, student_lesson_id: int):
+    student_lesson = _get_owned(request, student_lesson_id)
+    return list(student_lesson.materials.all())
+
+
+@router.post(
+    '/{student_lesson_id}/materials',
+    response=StudentLessonMaterialOut,
+    operation_id='add_material',
+)
+def add_material(request: HttpRequest, student_lesson_id: int, payload: AddMaterialIn):
+    require_csrf(request)
+    student_lesson = _get_owned(request, student_lesson_id)
+    return services.add_material(
+        student_lesson,
+        title=payload.title,
+        content=[block.model_dump() for block in payload.content],
+        source_url=payload.source_url,
+        language=payload.language,
+    )
+
+
+@router.get(
+    '/materials/{material_id}/annotations',
+    response=list[MaterialAnnotationOut],
+    operation_id='list_annotations',
+)
+def list_annotations(request: HttpRequest, material_id: int):
+    material = _get_owned_material(request, material_id)
+    return list(material.annotations.all())
+
+
+@router.post(
+    '/materials/{material_id}/annotations',
+    response=MaterialAnnotationOut,
+    operation_id='add_annotation',
+)
+def add_annotation(request: HttpRequest, material_id: int, payload: AddAnnotationIn):
+    require_csrf(request)
+    material = _get_owned_material(request, material_id)
+    return services.add_annotation(
+        material,
+        kind=payload.kind,
+        color=payload.color,
+        geometry=payload.geometry,
+        sentence_start=payload.sentence_start,
+        sentence_end=payload.sentence_end,
+        body=payload.body,
+    )
+
+
+@router.delete(
+    '/materials/{material_id}/annotations/{annotation_id}',
+    response={204: None},
+    operation_id='delete_annotation',
+)
+def delete_annotation(request: HttpRequest, material_id: int, annotation_id: int):
+    require_csrf(request)
+    material = _get_owned_material(request, material_id)
+    get_object_or_404(material.annotations, id=annotation_id).delete()
+    return Status(204, None)
 
 
 @router.get(

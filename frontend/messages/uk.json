@@ -14,6 +14,15 @@
     "defaultTitle": "PDF документ",
     "downloadButton": "Завантажити PDF"
   },
+  "AddMaterialDialog": {
+    "title": "Додати матеріал в урок",
+    "lessonLabel": "Урок",
+    "lessonPlaceholder": "Немає доступних уроків",
+    "noAssignableLessons": "У вас немає незавершених уроків",
+    "cancelButton": "Скасувати",
+    "submitButton": "Додати",
+    "error": "Не вдалося додати матеріал. Спробуйте ще раз."
+  },
   "ReadAlong": {
     "pageTitle": "Читання тексту",
     "modeTextTab": "Текст",
@@ -39,7 +48,8 @@
     "fromStartButton": "Спочатку",
     "previousParagraphButton": "Попередній абзац",
     "nextParagraphButton": "Наступний абзац",
-    "readSelectionButton": "Прочитати"
+    "readSelectionButton": "Прочитати",
+    "addToLessonButton": "Додати в урок"
   },
   "Header": {
     "brand": "Ahead",
@@ -450,6 +460,7 @@
     "submissionHistoryTitle": "Історія завантажень",
     "breadcrumbLessons": "Уроки",
     "breadcrumbMaterials": "Теорія",
+    "breadcrumbReadingMaterials": "Матеріали",
     "breadcrumbAssessment": "Завдання",
     "breadcrumbQuiz": "Тест",
     "breadcrumbComments": "Коментарі",
@@ -503,6 +514,28 @@
     "question": "Чи все зрозуміло?",
     "yesButton": "Так, зрозуміло",
     "noButton": "Ні, потрібна допомога"
+  },
+  "MaterialsStep": {
+    "emptyState": "Тут поки немає матеріалів. Додайте їх зі сторінки «Читання тексту».",
+    "backToListButton": "До списку матеріалів",
+    "sourceLinkLabel": "Джерело:",
+    "untitledMaterial": "Матеріал без назви"
+  },
+  "MaterialAnnotationPanel": {
+    "drawingTitle": "Малювання",
+    "drawModeOnButton": "Режим малювання увімкнено",
+    "drawModeOffButton": "Увімкнути малювання",
+    "tool_rectangle": "Прямокутник",
+    "tool_ellipse": "Еліпс",
+    "tool_freehand": "Олівець",
+    "tool_text_note": "Текстове поле",
+    "textNotePlaceholder": "Текст нотатки",
+    "selectionTitle": "Виділений текст",
+    "highlightButton": "Виділити кольором",
+    "commentPlaceholder": "Напишіть коментар до виділеного тексту",
+    "addCommentButton": "Додати коментар",
+    "commentsTitle": "Коментарі",
+    "noComments": "Коментарів ще немає"
   },
   "TaskStep": {
     "commentLabel": "Коментар",

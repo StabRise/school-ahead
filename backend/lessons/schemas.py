@@ -137,6 +137,53 @@ class LessonSubmissionOut(Schema):
         return [_absolute_file_url(f.file, context) for f in obj.tutor_feedback_images.all()]
 
 
+class MaterialBlockOut(Schema):
+    """Mirrors frontend/lib/reading-blocks.ts's ReadingBlock discriminated
+    union, flattened into one schema (Ninja/Pydantic has no clean way to
+    express a TS-style discriminated union) — sentences is set for
+    kind="heading"/"paragraph", src/alt for kind="image"."""
+    kind: str
+    sentences: list[str] | None = None
+    src: str | None = None
+    alt: str | None = None
+
+
+class StudentLessonMaterialOut(Schema):
+    id: int
+    title: str
+    content: list[MaterialBlockOut]
+    source_url: str
+    language: str
+    created_at: datetime.datetime
+
+
+class AddMaterialIn(Schema):
+    title: str = ''
+    content: list[MaterialBlockOut]
+    source_url: str = ''
+    language: str
+
+
+class MaterialAnnotationOut(Schema):
+    id: int
+    kind: str
+    color: str
+    geometry: dict | None
+    sentence_start: int | None
+    sentence_end: int | None
+    body: str
+    created_at: datetime.datetime
+
+
+class AddAnnotationIn(Schema):
+    kind: str
+    color: str = ''
+    geometry: dict | None = None
+    sentence_start: int | None = None
+    sentence_end: int | None = None
+    body: str = ''
+
+
 class StudentLessonOut(Schema):
     id: int
     lesson: LessonOut
@@ -153,6 +200,10 @@ class StudentLessonOut(Schema):
     tutor_feedback: str
     submissions: list[LessonSubmissionOut]
     diamonds_awarded: int
+    # Named distinctly from LessonOut.materials (tutor-authored
+    # LessonAttachments shown on the "Теорія" tab) — these are the
+    # student's own read-along saves, shown on the "Матеріали" tab.
+    reading_materials: list[StudentLessonMaterialOut]
 
     @staticmethod
     def resolve_submissions(obj):
@@ -167,6 +218,10 @@ class StudentLessonOut(Schema):
         # lesson, so the frontend knows how much to animate. 0 on every
         # other read (GET, a submit-task/request-help response, ...).
         return getattr(obj, 'diamonds_awarded', 0)
+
+    @staticmethod
+    def resolve_reading_materials(obj):
+        return list(obj.materials.all())
 
 
 class SubmitQuizIn(Schema):
@@ -221,6 +276,26 @@ class LessonCommentOut(Schema):
 
 class AddCommentIn(Schema):
     body: str
+
+
+class MyAssignableLessonOut(Schema):
+    """One row of the "Додати в урок" picker (read-along's add-to-lesson
+    dialog) — the student's own not-yet-completed StudentLessons, so they
+    can pick which one to attach a saved reading material to."""
+
+    id: int
+    title: str
+    subject_name: str
+    scheduled_date: datetime.date
+    status: str
+
+    @staticmethod
+    def resolve_title(obj):
+        return obj.lesson.title
+
+    @staticmethod
+    def resolve_subject_name(obj):
+        return obj.lesson.topic.subject.name
 
 
 class CompletionProgressOut(Schema):
