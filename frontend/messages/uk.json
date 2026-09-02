@@ -34,8 +34,11 @@
     "languagePolish": "Польська",
     "submitButton": "Почати читання",
     "editButton": "Редагувати текст",
-    "replayButton": "Прочитати знову",
+    "playButton": "Відтворити",
     "stopButton": "Зупинити",
+    "fromStartButton": "Спочатку",
+    "previousParagraphButton": "Попередній абзац",
+    "nextParagraphButton": "Наступний абзац",
     "readSelectionButton": "Прочитати"
   },
   "Header": {

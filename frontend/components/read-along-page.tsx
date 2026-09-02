@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { FastForward, Play, Rewind, SkipBack, Square } from "lucide-react";
 import { PageContainer } from "@/components/page-container";
 import { prefetchVoice, speakSequence, type SpeechLanguage } from "@/lib/piper-tts";
 import { splitIntoSentenceParagraphs, splitIntoSentences } from "@/lib/sentence-split";
@@ -34,6 +35,22 @@ const EXTRACT_ERROR_MESSAGE_KEY: Record<ReadAlongExtractErrorCode, string> = {
 
 function flatSentencesOf(blocks: ReadingBlock[]): string[] {
   return blocks.flatMap((block) => (block.kind === "image" ? [] : block.sentences));
+}
+
+// One entry per non-image block (heading or paragraph), giving the [start,
+// end) range it occupies in flatSentencesOf(blocks)'s global sentence
+// indexing — what the bottom control panel's "previous/next paragraph" and
+// "from start" buttons jump between.
+function paragraphRangesOf(blocks: ReadingBlock[]): { start: number; end: number }[] {
+  const ranges: { start: number; end: number }[] = [];
+  let index = 0;
+  for (const block of blocks) {
+    if (block.kind === "image") continue;
+    const start = index;
+    index += block.sentences.length;
+    ranges.push({ start, end: index });
+  }
+  return ranges;
 }
 
 // Where to float the "Прочитати" button once a selection covering at least
@@ -69,8 +86,11 @@ export function ReadAlongPage() {
   const [loading, setLoading] = useState(false);
   const [fetchErrorKey, setFetchErrorKey] = useState<string | null>(null);
   const [selectionTarget, setSelectionTarget] = useState<SelectionReadTarget | null>(null);
+  const [currentParagraphIndex, setCurrentParagraphIndex] = useState(0);
   const readingLanguageRef = useRef<SpeechLanguage>("pl");
   const sentenceRefs = useRef<Record<number, HTMLSpanElement | null>>({});
+
+  const paragraphRanges = useMemo(() => paragraphRangesOf(readingBlocks), [readingBlocks]);
 
   // Keeps the currently-spoken sentence in view for a long, scrolled
   // article read in from a link.
@@ -78,6 +98,18 @@ export function ReadAlongPage() {
     if (speakingIndex === null) return;
     sentenceRefs.current[speakingIndex]?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [speakingIndex]);
+
+  // speakSequence()'s onProgress hands back a global sentence index (or null
+  // once it's done) — this both drives the highlight (speakingIndex) and,
+  // while playing, keeps currentParagraphIndex in sync with wherever
+  // playback actually is, so the bottom panel's previous/next buttons stay
+  // relative to real progress instead of where navigation last jumped to.
+  const applyProgress = (globalIndex: number | null) => {
+    setSpeakingIndex(globalIndex);
+    if (globalIndex === null) return;
+    const paragraphIndex = paragraphRanges.findIndex((range) => globalIndex >= range.start && globalIndex < range.end);
+    if (paragraphIndex !== -1) setCurrentParagraphIndex(paragraphIndex);
+  };
 
   // Selecting any part of the rendered text surfaces a floating "Прочитати"
   // button (see SelectionReadTarget) — clicking it reads back just the
@@ -106,7 +138,7 @@ export function ReadAlongPage() {
 
       const rect = selection.getRangeAt(0).getBoundingClientRect();
       setSelectionTarget({
-        top: Math.max(8, rect.top - 44),
+        top: Math.max(8, rect.top - 10),
         left: Math.min(Math.max(8, rect.left + rect.width / 2), window.innerWidth - 8),
         sentenceIndices: indices,
       });
@@ -116,16 +148,19 @@ export function ReadAlongPage() {
     return () => document.removeEventListener("selectionchange", handleSelectionChange);
   }, [phase]);
 
+  // Shows the submitted content and warms the voice cache, but — per the
+  // bottom control panel below — doesn't start speaking on its own; reading
+  // only begins once the student presses the play button.
   const startReading = (blocks: ReadingBlock[], fromLanguage: SpeechLanguage, title: string | null = null) => {
     sentenceRefs.current = {};
     setSelectionTarget(null);
     setReadingBlocks(blocks);
     setReadingTitle(title);
+    setCurrentParagraphIndex(0);
+    setSpeakingIndex(null);
     readingLanguageRef.current = fromLanguage;
     setPhase("reading");
-    void prefetchVoice(fromLanguage).then(() => {
-      void speakSequence(flatSentencesOf(blocks), fromLanguage, setSpeakingIndex);
-    });
+    void prefetchVoice(fromLanguage);
   };
 
   // Reads back only the sentences the current selection covers: clears the
@@ -141,7 +176,7 @@ export function ReadAlongPage() {
     const allSentences = flatSentencesOf(readingBlocks);
     const texts = sentenceIndices.map((index) => allSentences[index]);
     void speakSequence(texts, readingLanguageRef.current, (localIndex) => {
-      setSpeakingIndex(localIndex === null ? null : sentenceIndices[localIndex]);
+      applyProgress(localIndex === null ? null : sentenceIndices[localIndex]);
     });
   };
 
@@ -206,9 +241,43 @@ export function ReadAlongPage() {
     setSpeakingIndex(null);
   };
 
-  const handleReplay = () => {
+  // Starts speaking from the given paragraph's first sentence through to the
+  // end of the content (not just that one paragraph) — the usual
+  // previous/next-track behavior in a media player, just at paragraph
+  // granularity. Used by all three bottom-panel navigation buttons.
+  const playFromParagraph = (paragraphIndex: number) => {
+    const range = paragraphRanges[paragraphIndex];
+    if (!range) return;
+    setCurrentParagraphIndex(paragraphIndex);
+    const remainingSentences = flatSentencesOf(readingBlocks).slice(range.start);
+    void speakSequence(remainingSentences, readingLanguageRef.current, (localIndex) => {
+      applyProgress(localIndex === null ? null : range.start + localIndex);
+    });
+  };
+
+  // The panel's play button reads back the current selection instead of
+  // resuming from currentParagraphIndex when the student has one active —
+  // same as tapping the floating "Прочитати" button next to the selection.
+  const handlePlayStop = () => {
+    if (speakingIndex !== null) handleStop();
+    else if (selectionTarget) handleReadSelection();
+    else playFromParagraph(currentParagraphIndex);
+  };
+
+  const handleFromStart = () => playFromParagraph(0);
+  const handlePreviousParagraph = () => playFromParagraph(Math.max(0, currentParagraphIndex - 1));
+  const handleNextParagraph = () => playFromParagraph(Math.min(paragraphRanges.length - 1, currentParagraphIndex + 1));
+
+  // Switching language mid-reading stops playback rather than letting the
+  // in-flight utterance finish in the old voice — voiceIdFor() (lib/piper-tts.ts)
+  // is only consulted at the start of each speakSequence() call, so the
+  // current sentence wouldn't switch voice anyway, and continuing to speak
+  // in a since-changed language would be confusing.
+  const handleLanguageChange = (newLanguage: SpeechLanguage) => {
     handleStop();
-    startReading(readingBlocks, readingLanguageRef.current, readingTitle);
+    setLanguage(newLanguage);
+    readingLanguageRef.current = newLanguage;
+    void prefetchVoice(newLanguage);
   };
 
   const handleEdit = () => {
@@ -249,21 +318,6 @@ export function ReadAlongPage() {
           >
             {t("editButton")}
           </button>
-          <button
-            type="button"
-            onClick={handleReplay}
-            className="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800"
-          >
-            {t("replayButton")}
-          </button>
-          <button
-            type="button"
-            onClick={handleStop}
-            disabled={speakingIndex === null}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {t("stopButton")}
-          </button>
         </div>
 
         <div className="mt-6 flex flex-col gap-4 rounded-md border border-gray-200 p-6 text-lg leading-relaxed">
@@ -303,6 +357,65 @@ export function ReadAlongPage() {
               </Tag>
             );
           })}
+        </div>
+
+        {/* Reserves clearance below the last paragraph so the fixed bottom
+            control panel never sits on top of it once fully scrolled down. */}
+        <div className="h-24" aria-hidden="true" />
+
+        <div className="fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
+          <div className="flex items-center gap-2 rounded-full bg-gray-900 px-4 py-2.5 text-white shadow-xl sm:gap-4 sm:px-5 sm:py-3">
+            <button
+              type="button"
+              aria-label={t("fromStartButton")}
+              onClick={handleFromStart}
+              className="rounded-full p-2 hover:bg-white/10"
+            >
+              <SkipBack className="h-5 w-5" fill="currentColor" />
+            </button>
+            <button
+              type="button"
+              aria-label={t("previousParagraphButton")}
+              onClick={handlePreviousParagraph}
+              disabled={currentParagraphIndex === 0}
+              className="rounded-full p-2 hover:bg-white/10 disabled:opacity-40"
+            >
+              <Rewind className="h-5 w-5" fill="currentColor" />
+            </button>
+            <button
+              type="button"
+              aria-label={speakingIndex !== null ? t("stopButton") : t("playButton")}
+              onClick={handlePlayStop}
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-gray-900 hover:bg-gray-100"
+            >
+              {speakingIndex !== null ? (
+                <Square className="h-5 w-5" fill="currentColor" />
+              ) : (
+                <Play className="h-5 w-5 translate-x-0.5" fill="currentColor" />
+              )}
+            </button>
+            <button
+              type="button"
+              aria-label={t("nextParagraphButton")}
+              onClick={handleNextParagraph}
+              disabled={currentParagraphIndex >= paragraphRanges.length - 1}
+              className="rounded-full p-2 hover:bg-white/10 disabled:opacity-40"
+            >
+              <FastForward className="h-5 w-5" fill="currentColor" />
+            </button>
+            <select
+              aria-label={t("languageLabel")}
+              value={language}
+              onChange={(e) => handleLanguageChange(e.target.value as SpeechLanguage)}
+              className="rounded-full border border-white/20 bg-white/10 px-2 py-1.5 text-xs font-medium text-white outline-none"
+            >
+              {LANGUAGE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value} className="text-gray-900">
+                  {t(option.labelKey)}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </PageContainer>
     );
