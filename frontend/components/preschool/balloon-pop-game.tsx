@@ -748,10 +748,8 @@ export function BalloonPopGame() {
     setScoreBump((current) => current + 1);
   };
 
-  // Awards the same +1 ruby a popped balloon gives, the first time a card
-  // is tapped in the "learning" flashcard grid — BalloonLearningCards
-  // dedupes repeat taps of an already-learned card itself, so this only
-  // fires once per card per `displayCards` selection.
+  // Awards the same +1 ruby a popped balloon gives, on every tap of a card
+  // in the "learning" flashcard grid — repeats included.
   const handleCardLearned = () => {
     setScore((current) => current + 1);
     setScoreBump((current) => current + 1);
@@ -777,7 +775,19 @@ export function BalloonPopGame() {
   };
 
   return (
-    <div ref={containerRef} className="relative min-h-[32rem] flex-1 overflow-hidden">
+    // ring (a box-shadow, not a border) so it doesn't shift the padding-box
+    // absolutely-positioned balloons/particles are placed against, or the
+    // containerRect this component reads off containerRef for burst-particle
+    // coordinates — ring-inset keeps it right at the edge overflow-hidden
+    // actually clips content at, so it's not a hair outside where balloons
+    // visibly disappear. Marks the play area's boundary — otherwise not
+    // obvious to a young child, especially now that it's width-capped and
+    // centered on wide screens (see game-play-page.tsx) instead of filling
+    // the whole viewport edge-to-edge.
+    <div
+      ref={containerRef}
+      className="relative min-h-[32rem] flex-1 overflow-hidden rounded-3xl ring-4 ring-inset ring-white/90 shadow-lg"
+    >
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-center gap-1 pt-6 text-center">
       </div>
 

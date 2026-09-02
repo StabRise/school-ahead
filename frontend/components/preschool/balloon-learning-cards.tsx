@@ -56,33 +56,17 @@ export function BalloonLearningCards({
   // Speaks the card — the caller decides between a recorded pronunciation
   // and Piper TTS (see PreschoolModeData.sounds in lib/preschool-sounds.ts).
   onPlay: (card: LearningCard) => void;
-  // Fired the first time each card is tapped (not on repeat taps of an
-  // already-learned one) — lets the caller award the same ruby a popped
-  // balloon gives (see balloon-pop-game.tsx's handleCardLearned).
+  // Fired on every tap, repeats included — lets the caller award the same
+  // ruby a popped balloon gives (see balloon-pop-game.tsx's
+  // handleCardLearned).
   onCardLearned?: (card: LearningCard) => void;
 }) {
   const [activeKey, setActiveKey] = useState<string | null>(null);
-  const [learnedKeys, setLearnedKeys] = useState<Set<string>>(new Set());
-  // Tracked in render (React's "adjusting state when a prop changes"
-  // pattern), not an effect, so the reset below lands in the same render
-  // pass as the new `items` instead of a follow-up one.
-  const [prevItems, setPrevItems] = useState(items);
-
-  // A fresh `items` selection (new mode, new cardCount, ...) starts as
-  // fully unlearned again — see displayCards in balloon-pop-game.tsx, which
-  // gives every reselection a new array reference.
-  if (items !== prevItems) {
-    setPrevItems(items);
-    setLearnedKeys(new Set());
-  }
 
   const handleCardClick = (item: LearningCard) => {
     setActiveKey(item.key);
     if (!muted) onPlay(item);
-    if (!learnedKeys.has(item.key)) {
-      setLearnedKeys((current) => new Set(current).add(item.key));
-      onCardLearned?.(item);
-    }
+    onCardLearned?.(item);
   };
 
   return (

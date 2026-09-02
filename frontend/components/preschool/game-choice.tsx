@@ -5,14 +5,19 @@ import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { BalloonPopGame } from "@/components/preschool/balloon-pop-game";
 import { TrainsGame } from "@/components/preschool/trains-game";
+import { ReadingGame } from "@/components/preschool/reading-game";
 
 // Celebration screen shown once every one of today's lessons (tails
 // included) is Completed, Pending Review, or Need Help — see
 // components/student-dashboard.tsx's READY_FOR_GAME_STATUSES check and
 // docs/views/preschool/README.md. Lets the child pick which reward minigame
 // to play instead of always jumping straight into Balloon Pop; Balloons
-// stays the visually recommended/default pick.
-type PreschoolGameId = "balloons" | "trains";
+// stays the visually recommended/default pick. Local-state-driven (not
+// routed) since it's an inline overlay on the dashboard, not a page of its
+// own — contrast the standalone /games entry point (games-page.tsx,
+// game-play-page.tsx), which reuses this file's GamePicker/GameCard but
+// navigates to /games/{game} instead so each game has its own URL.
+export type PreschoolGameId = "balloons" | "trains" | "reading";
 
 const DEFAULT_GAME: PreschoolGameId = "balloons";
 
@@ -37,6 +42,22 @@ function TrainIcon() {
       <rect x="6" y="18" width="42" height="28" rx="6" fill="#38bdf8" />
       <rect x="12" y="4" width="14" height="14" rx="2" fill="#38bdf8" />
       <rect x="52" y="14" width="42" height="32" rx="6" fill="#fbbf24" />
+    </svg>
+  );
+}
+
+function ReadingIcon() {
+  return (
+    <svg viewBox="0 0 64 52" className="h-16 w-16 drop-shadow" aria-hidden="true">
+      <rect x="4" y="6" width="24" height="40" rx="4" fill="#fbbf24" />
+      <rect x="36" y="6" width="24" height="40" rx="4" fill="#38bdf8" />
+      <path d="M28 6 Q32 12 36 6 V46 Q32 40 28 46 Z" fill="#f1f5f9" />
+      <text x="16" y="30" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#0369a1">
+        М
+      </text>
+      <text x="48" y="30" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#dc2626">
+        А
+      </text>
     </svg>
   );
 }
@@ -69,7 +90,10 @@ function GameCard({
   );
 }
 
-function GamePicker({
+// Exported so the standalone /games route (components/preschool/
+// games-page.tsx) can reuse the exact same picker UI, wired to navigate to
+// /games/{game} instead of setting local state — see that file.
+export function GamePicker({
   title,
   subtitle,
   onSelect,
@@ -100,6 +124,13 @@ function GamePicker({
           highlighted={DEFAULT_GAME === "trains"}
           onSelect={() => onSelect("trains")}
         />
+        <GameCard
+          title={t("readingTitle")}
+          subtitle={t("readingSubtitle")}
+          icon={<ReadingIcon />}
+          highlighted={DEFAULT_GAME === "reading"}
+          onSelect={() => onSelect("reading")}
+        />
       </div>
     </div>
   );
@@ -127,7 +158,17 @@ export function PreschoolCelebration({
 
   return (
     <div className="relative flex flex-1 flex-col">
-      {selectedGame === "balloons" ? <BalloonPopGame /> : <TrainsGame />}
+      {selectedGame === "balloons" ? (
+        <div className="flex flex-1 flex-col p-2 sm:p-4">
+          <BalloonPopGame />
+        </div>
+      ) : selectedGame === "reading" ? (
+        <div className="flex flex-1 flex-col p-2 sm:p-4">
+          <ReadingGame />
+        </div>
+      ) : (
+        <TrainsGame />
+      )}
       <button
         type="button"
         aria-label={t("switchGame")}

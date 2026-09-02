@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kScooterDeck" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3DBB8F"/>
+      <stop offset="100%" stop-color="#2C9C74"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <path d="M48,282 L48,180" stroke="#8A8F98" stroke-width="7" stroke-linecap="round"/>
+    <path d="M26,180 L70,180" stroke="#8A8F98" stroke-width="9" stroke-linecap="round"/>
+    <circle cx="26" cy="180" r="6" fill="#E14B3F"/>
+    <circle cx="70" cy="180" r="6" fill="#E14B3F"/>
+    <rect x="6" y="276" width="86" height="12" rx="6" fill="url(#kScooterDeck)"/>
+    <path d="M48,286 L76,282" stroke="#5A5F68" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="80" cy="288" r="14" fill="#2B2E34"/>
+    <circle cx="80" cy="288" r="6" fill="#8A8F98"/>
+    <path d="M48,286 L18,282" stroke="#5A5F68" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="14" cy="288" r="14" fill="#2B2E34"/>
+    <circle cx="14" cy="288" r="6" fill="#8A8F98"/>
+  </g>
+</svg>

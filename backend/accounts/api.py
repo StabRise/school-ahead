@@ -301,3 +301,19 @@ def reward_balloon_quiz(request: HttpRequest):
     student = get_own_student_profile(request)
     services.award_balloon_quiz_diamond(student)
     return MeOut(user=_user_out(request, request.auth))
+
+
+@router.post(
+    '/me/reading-game-reward',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='reward_reading_game',
+)
+def reward_reading_game(request: HttpRequest):
+    """Awards a Diamond for clearing a consonant level of the reading
+    minigame (frontend/components/preschool/reading-game.tsx). See
+    accounts.services.award_reading_game_diamond for the trust model."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    services.award_reading_game_diamond(student)
+    return MeOut(user=_user_out(request, request.auth))

@@ -12,7 +12,7 @@ import { Cloud } from "@/components/preschool/decorations";
 import { Raccoon } from "@/components/preschool/raccoon";
 import { LessonBubble } from "@/components/preschool/lesson-bubble";
 import { PreschoolBacklogSection } from "@/components/preschool/backlog-section";
-import { useAuthStore } from "@/stores/auth-store";
+import { EquippedAvatarLayers, useEquippedAvatarLayers } from "@/components/equipped-avatar";
 
 // Cloud/Sun from decorations.tsx are hard-coded `position: absolute` (meant
 // for background decoration) — these are plain in-flow versions for use
@@ -133,18 +133,20 @@ function DayCard({ date, isToday, items }: { date: Date; isToday: boolean; items
   return <div className={className}>{content}</div>;
 }
 
-// The student's chosen companion (docs/core/avatar.md) if they've picked
-// one — falls back to the raccoon mascot otherwise. Companion artwork
-// (e.g. the raccoon avatar) is portrait, not square — object-contain inside
-// a padded circle (same proportions as components/header.tsx's Avatar)
-// shows it in full instead of object-cover cropping its top/bottom to fill
-// a square box.
-function HeaderAvatar({ image }: { image: string | null | undefined }) {
-  if (image) {
+// The student's chosen companion, fully dressed (body + equipped clothing/
+// headwear/accessory — see components/equipped-avatar.tsx), if they've
+// picked one — falls back to the raccoon mascot otherwise. Companion
+// artwork (e.g. the raccoon avatar) is portrait, not square —
+// object-contain inside a padded circle (same proportions as
+// components/header.tsx's Avatar) shows it in full instead of object-cover
+// cropping its top/bottom to fill a square box.
+function HeaderAvatar({ layers }: { layers: ReturnType<typeof useEquippedAvatarLayers> }) {
+  if (layers.length > 0) {
     return (
       <span className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-white/70">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={image} alt="" className="h-12 w-12 object-contain" />
+        <span className="h-12 w-12">
+          <EquippedAvatarLayers layers={layers} />
+        </span>
       </span>
     );
   }
@@ -166,7 +168,7 @@ function NavButton({ onClick, label, children }: { onClick: () => void; label: s
 
 export function PreschoolCalendar() {
   const t = useTranslations("PreschoolCalendar");
-  const equippedAvatarImage = useAuthStore((state) => state.user?.equippedAvatar?.image);
+  const equippedAvatarLayers = useEquippedAvatarLayers();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
 
   const weekDays = useMemo(
@@ -200,7 +202,7 @@ export function PreschoolCalendar() {
 
       <div className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 p-4 sm:p-6">
         <div className="flex flex-col items-center gap-2 text-center">
-          <HeaderAvatar image={equippedAvatarImage} />
+          <HeaderAvatar layers={equippedAvatarLayers} />
           <h1 className="text-2xl font-extrabold text-emerald-900">{t("title")}</h1>
         </div>
 

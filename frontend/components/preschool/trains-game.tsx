@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { prefetchVoice, speak, type SpeechLanguage as GameLanguage } from "@/lib/piper-tts";
+import { prefetchVoice, speak, type SpeechLanguage } from "@/lib/piper-tts";
 import { useBackgroundMusic } from "@/lib/use-background-music";
-import { useTrainsGameStore } from "@/stores/trains-game-store";
+import { useTrainsGameStore, type KeyboardZone } from "@/stores/trains-game-store";
 import { useGameMusicStore } from "@/stores/game-music-store";
 
 // Celebration reward minigame, alternative to BalloonPopGame — same trigger
@@ -15,6 +15,11 @@ import { useGameMusicStore } from "@/stores/game-music-store";
 // docs/views/preschool/README.md ("Letter Train celebration").
 
 type TrainPhase = "arriving" | "waiting" | "departing";
+
+// No Polish here (unlike the balloon game, which still offers all three) —
+// this game is keyboard-position-driven (see KEYBOARD_ZONES below), and
+// only en/uk have a confidently-known physical layout in this codebase.
+type GameLanguage = Exclude<SpeechLanguage, "pl">;
 
 // Uppercase only — the game asks for a physical keypress, matched
 // case-insensitively against KeyboardEvent.key, not a letter pair like the
@@ -29,17 +34,38 @@ const LETTERS: Record<GameLanguage, string[]> = {
     "Й", "К", "Л", "М", "Н", "О", "П", "Р", "С", "Т", "У", "Ф", "Х",
     "Ц", "Ч", "Ш", "Щ", "Ь", "Ю", "Я",
   ],
-  pl: [
-    "A", "Ą", "B", "C", "Ć", "D", "E", "Ę", "F", "G", "H", "I", "J",
-    "K", "L", "Ł", "M", "N", "Ń", "O", "Ó", "P", "R", "S", "Ś", "T",
-    "U", "W", "Y", "Z", "Ź", "Ż",
-  ],
 };
+
+// Which letters live in the left/center/right third of each physical
+// keyboard row — lets the settings panel narrow the pool to "letters my
+// left/right hand reaches" instead of the whole alphabet. Built from the
+// standard row layout (US QWERTY for en; ЙЦУКЕН, which uses the same
+// physical rows, for uk), each row split into three roughly-even chunks.
+// uk's Ґ has no dedicated slot in that 3-row block on a standard layout
+// (it rides on a punctuation key instead) — approximated into "left" here
+// rather than left out of every zone.
+const KEYBOARD_ZONES: Record<GameLanguage, Record<Exclude<KeyboardZone, "all">, string[]>> = {
+  en: {
+    left: ["Q", "W", "E", "R", "A", "S", "D", "Z", "X"],
+    center: ["T", "Y", "U", "F", "G", "H", "C", "V", "B"],
+    right: ["I", "O", "P", "J", "K", "L", "N", "M"],
+  },
+  uk: {
+    left: ["Й", "Ц", "У", "К", "Ф", "І", "В", "А", "Я", "Ч", "С", "Ґ"],
+    center: ["Е", "Н", "Г", "Ш", "П", "Р", "О", "Л", "М", "И", "Т"],
+    right: ["Щ", "З", "Х", "Ї", "Д", "Ж", "Є", "Ь", "Б", "Ю"],
+  },
+};
+
+function lettersForZone(language: GameLanguage, zone: KeyboardZone): string[] {
+  return zone === "all" ? LETTERS[language] : KEYBOARD_ZONES[language][zone];
+}
 
 const WAGON_COLOR_HEXES = ["#f87171", "#fb923c", "#fbbf24", "#4ade80", "#38bdf8", "#a78bfa", "#f472b6"];
 
-const GAME_LANGUAGES: GameLanguage[] = ["en", "uk", "pl"];
+const GAME_LANGUAGES: GameLanguage[] = ["en", "uk"];
 const DEFAULT_LANGUAGE: GameLanguage = "en";
+const KEYBOARD_ZONE_OPTIONS: KeyboardZone[] = ["all", "left", "center", "right"];
 
 const ARRIVE_DURATION_S = 2.2;
 const DEPART_DURATION_S = 1.8;
@@ -52,9 +78,9 @@ function randomColor(): string {
   return WAGON_COLOR_HEXES[Math.floor(Math.random() * WAGON_COLOR_HEXES.length)];
 }
 
-// Avoids handing out the same letter twice in a row.
-function pickNextLetter(language: GameLanguage, exclude?: string): string {
-  const pool = LETTERS[language];
+// Avoids handing out the same letter twice in a row. `pool` is already
+// resolved to the current language + keyboard zone — see lettersForZone.
+function pickNextLetter(pool: string[], exclude?: string): string {
   if (pool.length <= 1) return pool[0];
   let letter = pool[Math.floor(Math.random() * pool.length)];
   while (letter === exclude) {
@@ -115,6 +141,55 @@ function playChug(ctx: AudioContext) {
   }
 }
 
+interface FlyingLetterState {
+  id: number;
+  letter: string;
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+}
+
+let nextFlyingLetterId = 0;
+
+// Flies the just-collected letter from the stopped train to the "collected"
+// panel (top-right, see TrainsGame's collectedPanelRef) — positive feedback
+// for the correct keypress beyond the chime, and a visual cue for exactly
+// where the count went up. `from`/`to` are already relative to the game's
+// own container (see the handleKeyDown handler that builds them), so this
+// renders as a plain absolutely-positioned span rather than a
+// document.body portal like components/flying-diamond.tsx uses — this
+// game has no cross-page target to reach.
+function FlyingLetter({ letter, from, to, onDone }: { letter: string; from: { x: number; y: number }; to: { x: number; y: number }; onDone: () => void }) {
+  const [flying, setFlying] = useState(false);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setFlying(true));
+    // Fallback in case onTransitionEnd never fires (e.g. reduced-motion
+    // settings drop the transition) so the letter can't get stuck forever.
+    const fallback = setTimeout(onDone, 900);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(fallback);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const point = flying ? to : from;
+  return (
+    <span
+      aria-hidden="true"
+      onTransitionEnd={onDone}
+      className="pointer-events-none absolute left-0 top-0 z-20 text-4xl font-extrabold text-sky-700"
+      style={{
+        transform: `translate(${point.x - 18}px, ${point.y - 18}px) scale(${flying ? 0.35 : 1.3})`,
+        opacity: flying ? 0.15 : 1,
+        transition: "transform 0.7s cubic-bezier(0.3, 0, 0.6, 1), opacity 0.7s ease-in",
+      }}
+    >
+      {letter}
+    </span>
+  );
+}
+
 function TrainNode({ letter, color }: { letter: string; color: string }) {
   // The whole node travels left-to-right (see train-arrive/train-depart in
   // globals.css), so its leading edge is the right side — the locomotive
@@ -162,8 +237,14 @@ export function TrainsGame() {
   const [wagonColor, setWagonColor] = useState<string>(WAGON_COLOR_HEXES[0]);
   const [collected, setCollected] = useState<string[]>([]);
   const [collectedBump, setCollectedBump] = useState(0);
+  const [flyingLetters, setFlyingLetters] = useState<FlyingLetterState[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const trainRef = useRef<HTMLDivElement>(null);
+  const collectedPanelRef = useRef<HTMLDivElement>(null);
   const speed = useTrainsGameStore((s) => s.speed);
   const setSpeed = useTrainsGameStore((s) => s.setSpeed);
+  const zone = useTrainsGameStore((s) => s.zone);
+  const setZone = useTrainsGameStore((s) => s.setZone);
   const musicEnabled = useGameMusicStore((s) => s.musicEnabled);
   const setMusicEnabled = useGameMusicStore((s) => s.setMusicEnabled);
   const musicVolume = useGameMusicStore((s) => s.volume);
@@ -174,14 +255,17 @@ export function TrainsGame() {
 
   // Picks the very first letter client-side only, after mount — doing this
   // in a useState initializer would run during server render too and mismatch
-  // against the client's random pick. Deferred a tick (rather than set
-  // directly in the effect body) to avoid cascading renders.
+  // against the client's random pick (both the random letter itself and the
+  // persisted zone, which isn't known during server render). Deferred a
+  // tick (rather than set directly in the effect body) to avoid cascading
+  // renders.
   useEffect(() => {
     const timeout = setTimeout(() => {
-      setCurrentLetter(pickNextLetter(DEFAULT_LANGUAGE));
+      setCurrentLetter(pickNextLetter(lettersForZone(DEFAULT_LANGUAGE, zone)));
       setWagonColor(randomColor());
     }, 0);
     return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Warms the voice model cache as soon as a language is selected, so the
@@ -207,6 +291,26 @@ export function TrainsGame() {
       if (event.key.length !== 1) return;
       if (event.key.toUpperCase() !== currentLetter.toUpperCase()) return;
       playChime();
+      const containerRect = containerRef.current?.getBoundingClientRect();
+      const trainRect = trainRef.current?.getBoundingClientRect();
+      const panelRect = collectedPanelRef.current?.getBoundingClientRect();
+      if (containerRect && trainRect && panelRect) {
+        setFlyingLetters((current) => [
+          ...current,
+          {
+            id: nextFlyingLetterId++,
+            letter: currentLetter,
+            from: {
+              x: trainRect.left + trainRect.width / 2 - containerRect.left,
+              y: trainRect.top + trainRect.height / 2 - containerRect.top,
+            },
+            to: {
+              x: panelRect.left + panelRect.width / 2 - containerRect.left,
+              y: panelRect.top + 24 - containerRect.top,
+            },
+          },
+        ]);
+      }
       setCollected((current) => [...current, currentLetter]);
       setCollectedBump((current) => current + 1);
       setPhase("departing");
@@ -246,7 +350,7 @@ export function TrainsGame() {
     if (phase === "arriving") {
       setPhase("waiting");
     } else if (phase === "departing") {
-      setCurrentLetter((previous) => pickNextLetter(language, previous ?? undefined));
+      setCurrentLetter((previous) => pickNextLetter(lettersForZone(language, zone), previous ?? undefined));
       setWagonColor(randomColor());
       setTrainKey((key) => key + 1);
       setPhase("arriving");
@@ -261,7 +365,7 @@ export function TrainsGame() {
         : undefined;
 
   return (
-    <div className="relative min-h-[32rem] flex-1 overflow-hidden">
+    <div ref={containerRef} className="relative min-h-[32rem] flex-1 overflow-hidden">
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-center gap-1 pt-6 text-center">
         <p className="text-xl font-bold text-gray-700">{t("title")}</p>
         <p className="text-sm text-gray-500">
@@ -270,6 +374,7 @@ export function TrainsGame() {
       </div>
 
       <div
+        ref={collectedPanelRef}
         role="status"
         aria-label={t("collected", { count: collected.length })}
         className="absolute right-4 top-4 z-10 flex max-h-[70%] w-40 flex-col gap-2 rounded-2xl bg-white p-3 text-sm shadow-lg ring-2 ring-sky-200"
@@ -331,6 +436,20 @@ export function TrainsGame() {
             </select>
           </label>
           <label className="flex flex-col gap-1">
+            <span className="font-medium text-gray-700">{t("zoneLabel")}</span>
+            <select
+              value={zone}
+              onChange={(e) => setZone(e.target.value as KeyboardZone)}
+              className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
+            >
+              {KEYBOARD_ZONE_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {t(`zone.${option}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("musicVolumeLabel")}</span>
             <input
               type="range"
@@ -359,6 +478,7 @@ export function TrainsGame() {
 
       {currentLetter && (
         <div
+          ref={trainRef}
           key={trainKey}
           className="absolute bottom-24"
           style={{ left: phase === "arriving" ? "-40%" : "50%", transform: "translateX(-50%)", animation }}
@@ -367,6 +487,16 @@ export function TrainsGame() {
           <TrainNode letter={currentLetter} color={wagonColor} />
         </div>
       )}
+
+      {flyingLetters.map((fl) => (
+        <FlyingLetter
+          key={fl.id}
+          letter={fl.letter}
+          from={fl.from}
+          to={fl.to}
+          onDone={() => setFlyingLetters((current) => current.filter((f) => f.id !== fl.id))}
+        />
+      ))}
     </div>
   );
 }

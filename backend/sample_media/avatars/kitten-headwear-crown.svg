@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kCrownGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFE9A8"/>
+      <stop offset="100%" stop-color="#D9A02A"/>
+    </linearGradient>
+  </defs>
+  <path d="M50,58 L50,34 L72,44 L92,14 L112,34 L123,6 L134,34 L154,14 L174,44 L196,34 L196,58 Z" fill="url(#kCrownGold)" stroke="#A8720F" stroke-width="2.4" stroke-linejoin="round"/>
+  <rect x="48" y="52" width="150" height="18" rx="5" fill="url(#kCrownGold)" stroke="#A8720F" stroke-width="2.4"/>
+  <g fill="#3D7DD8" stroke="#1F4D8C" stroke-width="1">
+    <circle cx="50" cy="34" r="4.5"/>
+    <circle cx="92" cy="14" r="4.5"/>
+    <circle cx="123" cy="6" r="5.5"/>
+    <circle cx="154" cy="14" r="4.5"/>
+    <circle cx="196" cy="34" r="4.5"/>
+    <circle cx="123" cy="61" r="4.5"/>
+  </g>
+</svg>

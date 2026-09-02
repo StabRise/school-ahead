@@ -18,24 +18,27 @@ import {
 } from "@/components/preschool/decorations";
 import { pseudoRandom } from "@/components/preschool/random";
 import { Raccoon } from "@/components/preschool/raccoon";
-import { useAuthStore } from "@/stores/auth-store";
+import { EquippedAvatarLayers, useEquippedAvatarLayers } from "@/components/equipped-avatar";
 
-// The student's chosen companion (docs/core/avatar.md) if they've picked
-// one — falls back to the raccoon mascot otherwise. Stands next to the
-// current node, the next lesson the child needs to do. `className` is
-// positioning/sizing only — the circular frame only makes sense around a
-// photo, not around the raccoon's own shape. Companion artwork (e.g. the
-// raccoon avatar) is portrait, not square — padding the frame and using
-// object-contain shows it in full instead of object-cover cropping its
-// top/bottom to fill a square frame.
-function CompanionAvatar({ image, className }: { image: string | null | undefined; className: string }) {
-  if (image) {
+// The student's chosen companion, fully dressed (body + equipped clothing/
+// headwear/accessory — see docs/core/avatar.md section 2 and
+// components/equipped-avatar.tsx), if they've picked one — falls back to
+// the raccoon mascot otherwise. Stands next to the current node, the next
+// lesson the child needs to do. `className` is positioning/sizing only —
+// the circular frame only makes sense around a photo, not around the
+// raccoon's own shape. Companion artwork (e.g. the raccoon avatar) is
+// portrait, not square — padding the frame and using object-contain shows
+// it in full instead of object-cover cropping its top/bottom to fill a
+// square frame. Reads the equipped layers itself (rather than taking them
+// as a prop) so the two callers below don't have to thread them through.
+function CompanionAvatar({ className }: { className: string }) {
+  const layers = useEquippedAvatarLayers();
+  if (layers.length > 0) {
     return (
       <span
         className={`flex items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-white/70 p-1.5 shadow-md ${className}`}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={image} alt="" className="h-full w-full object-contain" />
+        <EquippedAvatarLayers layers={layers} />
       </span>
     );
   }
@@ -236,11 +239,9 @@ function PendingReviewNode({ item }: { item: CalendarItemOut }) {
 function ActiveNode({
   item,
   isCurrent,
-  companionAvatarImage,
 }: {
   item: CalendarItemOut;
   isCurrent: boolean;
-  companionAvatarImage: string | null | undefined;
 }) {
   const size = isCurrent ? CIRCLE_CURRENT : CIRCLE_UPCOMING;
 
@@ -259,10 +260,7 @@ function ActiveNode({
               className="absolute -right-6 -top-2 h-6 w-6"
               style={{ animation: "flutter-b 2.8s ease-in-out infinite 0.4s" }}
             />
-            <CompanionAvatar
-              image={companionAvatarImage}
-              className="absolute -right-4 bottom-0 z-10 h-14 w-14"
-            />
+            <CompanionAvatar className="absolute -right-4 bottom-0 z-10 h-14 w-14" />
           </>
         )}
         <div
@@ -292,12 +290,10 @@ function StepNode({
   item,
   point,
   isCurrent,
-  companionAvatarImage,
 }: {
   item: CalendarItemOut;
   point: Point;
   isCurrent: boolean;
-  companionAvatarImage: string | null | undefined;
 }) {
   const isCompleted = item.status === "completed";
   const isPendingReview = item.status === "pending_review";
@@ -332,14 +328,13 @@ function StepNode({
       className="absolute rounded-3xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
       style={wrapperStyle}
     >
-      <ActiveNode item={item} isCurrent={isCurrent} companionAvatarImage={companionAvatarImage} />
+      <ActiveNode item={item} isCurrent={isCurrent} />
     </Link>
   );
 }
 
 export function PreschoolGameMap({ items }: { items: CalendarItemOut[] }) {
   const t = useTranslations("PreschoolGameMap");
-  const equippedAvatarImage = useAuthStore((state) => state.user?.equippedAvatar?.image);
   const [roadRef, width] = useMeasuredWidth(360);
 
   if (items.length === 0) {
@@ -402,13 +397,7 @@ export function PreschoolGameMap({ items }: { items: CalendarItemOut[] }) {
         <TrailDecorations segments={segments} />
 
         {items.map((item, index) => (
-          <StepNode
-            key={item.id}
-            item={item}
-            point={points[index]}
-            isCurrent={index === currentIndex}
-            companionAvatarImage={equippedAvatarImage}
-          />
+          <StepNode key={item.id} item={item} point={points[index]} isCurrent={index === currentIndex} />
         ))}
       </div>
     </div>

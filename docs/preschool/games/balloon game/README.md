@@ -11,9 +11,9 @@ Component: `frontend/components/preschool/balloon-pop-game.tsx` →
 pop on tap with a particle burst and a procedural Web Audio "pop" (no audio
 asset pipeline exists for sound effects — only for real recorded words, see
 below). A ruby-icon counter (`score`) tracks rubies earned this session —
-popping a balloon (below) and, on the "learning" screen, tapping a card for
-the first time (§4) both add one — and every 30 rubies, flies a 💎 to the
-header and calls `POST /auth/me/balloon-pop-reward`. See
+popping a balloon (below) and, on the "learning" screen, tapping any card
+(§4, repeats included) both add one — and every 30 rubies, flies a 💎 to
+the header and calls `POST /auth/me/balloon-pop-reward`. See
 `docs/core/gamification.md` for how this fits into the rest of the diamond
 economy (lesson/topic/semester bonuses, the avatar shop, ...).
 
@@ -188,14 +188,10 @@ it as many times as they like, using the exact same `displayCards` subset
 the "game" screen draws from. Tapping calls the same `playCard` playback
 logic as popping a balloon.
 
-The *first* tap on each card also awards a ruby via the same
-`onCardLearned` → `handleCardLearned` path `handlePop` uses (§ above) — a
-repeat tap on an already-tapped card just replays the sound, no extra ruby.
-`BalloonLearningCards` tracks which keys it's already awarded in its own
-`learnedKeys` state, reset whenever `items` gets a new array reference (a
-mode/cardCount change reselects `displayCards`) — so re-entering the
-learning screen for the *same* selection doesn't let a child farm rubies by
-re-tapping the grid, but picking a new mode/cardCount does start it fresh.
+Every tap also awards a ruby via the same `onCardLearned` →
+`handleCardLearned` path `handlePop` uses (§ above) — repeat taps on the
+same card included, same as re-popping balloons of the same card in the
+"game" screen.
 
 ## 5. Bonus quiz
 
