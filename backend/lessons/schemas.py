@@ -184,6 +184,10 @@ class AddAnnotationIn(Schema):
     body: str = ''
 
 
+class DeleteMaterialSentencesIn(Schema):
+    sentence_indices: list[int]
+
+
 class StudentLessonOut(Schema):
     id: int
     lesson: LessonOut

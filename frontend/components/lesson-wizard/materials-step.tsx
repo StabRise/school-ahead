@@ -6,15 +6,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/card";
 import { ReadAlongContent } from "@/components/read-along-content";
 import { ReadAlongControlPanel } from "@/components/read-along-control-panel";
+import { AddAnnotationCommentDialog } from "./add-annotation-comment-dialog";
 import { AnnotationCanvas } from "./annotation-canvas";
 import { MaterialAnnotationPanel } from "./material-annotation-panel";
 import { useReadAlongPlayer } from "@/lib/use-read-along-player";
 import { readingBlocksFromMaterialBlocks } from "@/lib/reading-blocks";
-import type { DrawTool } from "@/lib/material-annotations";
+import { HIGHLIGHT_COLORS, type DrawTool } from "@/lib/material-annotations";
 import type { SpeechLanguage } from "@/lib/piper-tts";
 import {
   getListAnnotationsQueryKey,
   useAddAnnotation,
+  useDeleteMaterialSentences,
   useListAnnotations,
 } from "@/lib/api/browser/student-lessons/student-lessons";
 import type { StudentLessonMaterialOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
@@ -26,7 +28,16 @@ import type { StudentLessonMaterialOut } from "@/lib/api/browser/schoolAheadAPI.
 // a right-side panel for highlights/comments (see backend/lessons/models.py's
 // MaterialAnnotation — everything drawn/highlighted/commented here persists
 // and reloads on the student's next visit).
-function MaterialDetail({ material, onBack }: { material: StudentLessonMaterialOut; onBack?: () => void }) {
+function MaterialDetail({
+  material,
+  onBack,
+  onChanged,
+}: {
+  material: StudentLessonMaterialOut;
+  onBack?: () => void;
+  /** Called after the material's saved content changes (e.g. a deletion) — lets the wizard refetch so re-opening this material later reflects it too. */
+  onChanged: () => void;
+}) {
   const t = useTranslations("MaterialsStep");
   const tReadAlong = useTranslations("ReadAlong");
   const player = useReadAlongPlayer(true);
@@ -36,6 +47,11 @@ function MaterialDetail({ material, onBack }: { material: StudentLessonMaterialO
 
   const [drawMode, setDrawMode] = useState(false);
   const [tool, setTool] = useState<DrawTool>("rectangle");
+  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
+  // Captured the instant "add comment" is clicked, not read live at submit
+  // time — opening the dialog moves focus away from the document and can
+  // collapse the student's text selection before they finish typing.
+  const pendingCommentIndicesRef = useRef<number[] | null>(null);
 
   useEffect(() => {
     if (loadedMaterialId.current === material.id) return;
@@ -54,14 +70,15 @@ function MaterialDetail({ material, onBack }: { material: StudentLessonMaterialO
   const annotationsQuery = useListAnnotations(material.id);
   const annotations = useMemo(() => annotationsQuery.data ?? [], [annotationsQuery.data]);
   const addAnnotation = useAddAnnotation();
+  const deleteMaterialSentences = useDeleteMaterialSentences();
 
-  const highlightedSentenceIndices = useMemo(() => {
-    const indices = new Set<number>();
+  const highlightColors = useMemo(() => {
+    const colors = new Map<number, string>();
     for (const annotation of annotations) {
       if (annotation.kind !== "highlight" || annotation.sentence_start === null || annotation.sentence_end === null) continue;
-      for (let i = annotation.sentence_start; i <= annotation.sentence_end; i++) indices.add(i);
+      for (let i = annotation.sentence_start; i <= annotation.sentence_end; i++) colors.set(i, annotation.color || HIGHLIGHT_COLORS[0]);
     }
-    return indices;
+    return colors;
   }, [annotations]);
 
   const comments = useMemo(() => annotations.filter((annotation) => annotation.kind === "comment"), [annotations]);
@@ -76,25 +93,59 @@ function MaterialDetail({ material, onBack }: { material: StudentLessonMaterialO
     );
   };
 
-  const handleHighlight = () => {
+  const handleHighlight = (color: string) => {
     if (!player.selectionTarget) return;
     const { sentenceIndices } = player.selectionTarget;
     submitAnnotation("highlight", {
+      color,
       sentence_start: sentenceIndices[0],
       sentence_end: sentenceIndices[sentenceIndices.length - 1],
     });
     player.clearSelection();
   };
 
-  const handleAddComment = (body: string) => {
+  // Snapshots the selection's sentence range *before* the dialog opens —
+  // see pendingCommentIndicesRef's comment above.
+  const handleRequestComment = () => {
     if (!player.selectionTarget) return;
-    const { sentenceIndices } = player.selectionTarget;
+    pendingCommentIndicesRef.current = player.selectionTarget.sentenceIndices;
+    setCommentDialogOpen(true);
+  };
+
+  const handleSubmitComment = (body: string) => {
+    const sentenceIndices = pendingCommentIndicesRef.current;
+    if (!sentenceIndices) return;
     submitAnnotation("comment", {
       sentence_start: sentenceIndices[0],
       sentence_end: sentenceIndices[sentenceIndices.length - 1],
       body,
     });
+    pendingCommentIndicesRef.current = null;
+    setCommentDialogOpen(false);
     player.clearSelection();
+  };
+
+  // Permanently removes the selected sentences from the material's saved
+  // content (backend/lessons/services.py's delete_material_sentences also
+  // remaps/drops any highlight or comment anchored to those sentences).
+  // Reloads the player straight from the mutation's response for instant
+  // feedback, and calls onChanged so the wizard's own data (which still
+  // holds the pre-delete content) is fresh if the student navigates away
+  // and reopens this material later.
+  const handleDeleteSelection = () => {
+    if (!player.selectionTarget) return;
+    const { sentenceIndices } = player.selectionTarget;
+    player.clearSelection();
+    deleteMaterialSentences.mutate(
+      { materialId: material.id, data: { sentence_indices: sentenceIndices } },
+      {
+        onSuccess: (updatedMaterial) => {
+          player.load(readingBlocksFromMaterialBlocks(updatedMaterial.content), player.language, player.readingTitle);
+          queryClient.invalidateQueries({ queryKey: getListAnnotationsQueryKey(material.id) });
+          onChanged();
+        },
+      },
+    );
   };
 
   const handleJumpToComment = (sentenceStart: number) => {
@@ -102,56 +153,58 @@ function MaterialDetail({ material, onBack }: { material: StudentLessonMaterialO
   };
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-      <div className="min-w-0 flex-1">
-        {onBack && (
-          <button type="button" onClick={onBack} className="mb-3 w-fit text-sm text-gray-600 hover:text-gray-900">
-            ← {t("backToListButton")}
-          </button>
-        )}
-        {material.source_url && (
-          <p className="mb-3 text-sm text-gray-500">
-            {t("sourceLinkLabel")}{" "}
-            <a href={material.source_url} target="_blank" rel="noreferrer" className="text-blue-600 underline hover:no-underline">
-              {material.source_url}
-            </a>
-          </p>
-        )}
+    // Right padding on wide screens clears the annotation panel, which is
+    // fixed to the viewport's right edge (see MaterialAnnotationPanel) —
+    // fixed rather than a normal flex column so it stays visible while
+    // scrolling a long material, instead of scrolling away with the content.
+    <div className="lg:pr-80">
+      {onBack && (
+        <button type="button" onClick={onBack} className="mb-3 w-fit text-sm text-gray-600 hover:text-gray-900">
+          ← {t("backToListButton")}
+        </button>
+      )}
+      {material.source_url && (
+        <p className="mb-3 text-sm text-gray-500">
+          {t("sourceLinkLabel")}{" "}
+          <a href={material.source_url} target="_blank" rel="noreferrer" className="text-blue-600 underline hover:no-underline">
+            {material.source_url}
+          </a>
+        </p>
+      )}
 
-        <div ref={contentRef} className="relative">
-          <ReadAlongContent
-            blocks={player.readingBlocks}
-            speakingIndex={player.speakingIndex}
-            sentenceRefs={player.sentenceRefs}
-            selectionTarget={drawMode ? null : player.selectionTarget}
-            onReadSelection={player.playSelection}
-            readSelectionLabel={tReadAlong("readSelectionButton")}
-            highlightedSentenceIndices={highlightedSentenceIndices}
-          />
-          <AnnotationCanvas
-            containerRef={contentRef}
-            drawMode={drawMode}
-            tool={tool}
-            color="#dc2626"
-            annotations={annotations}
-            onDraw={(kind, geometry, body) => submitAnnotation(kind, { color: "#dc2626", geometry, body })}
-          />
-        </div>
-
-        <div className="h-24" aria-hidden="true" />
-
-        <ReadAlongControlPanel
+      <div ref={contentRef} className="relative">
+        <ReadAlongContent
+          blocks={player.readingBlocks}
           speakingIndex={player.speakingIndex}
-          currentParagraphIndex={player.currentParagraphIndex}
-          paragraphCount={player.paragraphCount}
-          language={player.language}
-          onFromStart={player.playFromStart}
-          onPrevious={player.playPreviousParagraph}
-          onPlayPause={player.playPause}
-          onNext={player.playNextParagraph}
-          onLanguageChange={player.changeLanguage}
+          sentenceRefs={player.sentenceRefs}
+          selectionTarget={drawMode ? null : player.selectionTarget}
+          onReadSelection={player.playSelection}
+          readSelectionLabel={tReadAlong("readSelectionButton")}
+          highlightColors={highlightColors}
+        />
+        <AnnotationCanvas
+          containerRef={contentRef}
+          drawMode={drawMode}
+          tool={tool}
+          color="#dc2626"
+          annotations={annotations}
+          onDraw={(kind, geometry, body) => submitAnnotation(kind, { color: "#dc2626", geometry, body })}
         />
       </div>
+
+      <div className="h-24" aria-hidden="true" />
+
+      <ReadAlongControlPanel
+        speakingIndex={player.speakingIndex}
+        currentParagraphIndex={player.currentParagraphIndex}
+        paragraphCount={player.paragraphCount}
+        language={player.language}
+        onFromStart={player.playFromStart}
+        onPrevious={player.playPreviousParagraph}
+        onPlayPause={player.playPause}
+        onNext={player.playNextParagraph}
+        onLanguageChange={player.changeLanguage}
+      />
 
       <MaterialAnnotationPanel
         drawMode={drawMode}
@@ -160,9 +213,16 @@ function MaterialDetail({ material, onBack }: { material: StudentLessonMaterialO
         onToolChange={setTool}
         hasSelection={player.selectionTarget !== null}
         onHighlight={handleHighlight}
-        onAddComment={handleAddComment}
+        onRequestComment={handleRequestComment}
+        onDeleteSelection={handleDeleteSelection}
         comments={comments}
         onJumpToComment={handleJumpToComment}
+      />
+
+      <AddAnnotationCommentDialog
+        open={commentDialogOpen}
+        onOpenChange={setCommentDialogOpen}
+        onSubmit={handleSubmitComment}
       />
     </div>
   );
@@ -173,7 +233,14 @@ function MaterialDetail({ material, onBack }: { material: StudentLessonMaterialO
 // distinct from the tutor-authored LessonAttachments shown on the "Теорія"
 // tab (components/lesson-wizard/lesson-content.tsx). A single material opens
 // straight into its detail/playback view; more than one shows a list first.
-export function MaterialsStep({ materials }: { materials: StudentLessonMaterialOut[] }) {
+export function MaterialsStep({
+  materials,
+  onChanged,
+}: {
+  materials: StudentLessonMaterialOut[];
+  /** Called when a material's saved content changes (e.g. a deletion) — the wizard should refetch its StudentLesson data. */
+  onChanged: () => void;
+}) {
   const t = useTranslations("MaterialsStep");
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -184,7 +251,13 @@ export function MaterialsStep({ materials }: { materials: StudentLessonMaterialO
   const selected = materials.length === 1 ? materials[0] : materials.find((material) => material.id === selectedId);
 
   if (selected) {
-    return <MaterialDetail material={selected} onBack={materials.length > 1 ? () => setSelectedId(null) : undefined} />;
+    return (
+      <MaterialDetail
+        material={selected}
+        onBack={materials.length > 1 ? () => setSelectedId(null) : undefined}
+        onChanged={onChanged}
+      />
+    );
   }
 
   return (

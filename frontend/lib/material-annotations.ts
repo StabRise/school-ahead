@@ -20,6 +20,11 @@ export type TextNoteGeometry = { x: number; y: number };
 
 const DEFAULT_STROKE_COLOR = "#dc2626";
 
+// The 4 pastel colors offered next to "Виділити кольором" — kept clear of
+// yellow, which is reserved for the "currently speaking" highlight (see
+// components/read-along-content.tsx) so the two never look the same.
+export const HIGHLIGHT_COLORS = ["#FBCFE8", "#BBF7D0", "#BFDBFE", "#FED7AA"] as const;
+
 function toRectGeometry(geometry: unknown): RectGeometry | null {
   const g = geometry as Partial<RectGeometry> | null;
   if (!g || typeof g.x !== "number" || typeof g.y !== "number" || typeof g.width !== "number" || typeof g.height !== "number") {

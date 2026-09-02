@@ -263,7 +263,7 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
           </div>
         </div>
       ) : effectiveStep === "readingMaterials" ? (
-        <MaterialsStep materials={data.reading_materials} />
+        <MaterialsStep materials={data.reading_materials} onChanged={refetch} />
       ) : effectiveStep === "assessment" ? (
         <AssessmentStep studentLesson={data} onChanged={refetch} />
       ) : effectiveStep === "comments" ? (

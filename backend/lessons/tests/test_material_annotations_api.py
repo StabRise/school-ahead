@@ -119,3 +119,93 @@ def test_annotations_scoped_to_owner(api_client, auth_header, other_student, mat
 
     list_response = api_client.get(f'/student-lessons/materials/{material.id}/annotations', headers=headers)
     assert list_response.status_code == 403
+
+
+@pytest.fixture
+def rich_material(topic, student):
+    """4 blocks: a heading (sentence index 0), a 3-sentence paragraph
+    (indices 1-3), an unindexed image, and a 1-sentence paragraph (index 4)
+    — enough shape to exercise cross-block deletion and an empty block being
+    dropped entirely."""
+    lesson = Lesson.objects.create(
+        topic=topic, order_index=2, title='Rich lesson',
+        lesson_type=LessonType.THEORY, grading_type='binary',
+    )
+    student_lesson = StudentLesson.objects.create(
+        student=student, lesson=lesson, scheduled_date=datetime.date.today()
+    )
+    return StudentLessonMaterial.objects.create(
+        student_lesson=student_lesson,
+        title='Rich',
+        content=[
+            {'kind': 'heading', 'sentences': ['Title']},
+            {'kind': 'paragraph', 'sentences': ['S1', 'S2', 'S3']},
+            {'kind': 'image', 'src': 'https://example.com/img.png', 'alt': 'img'},
+            {'kind': 'paragraph', 'sentences': ['S4']},
+        ],
+        language='en',
+    )
+
+
+def test_delete_sentences_removes_from_content_and_drops_empty_block(api_client, auth_header, student, rich_material):
+    headers = auth_header(student.user)
+
+    response = api_client.post(
+        f'/student-lessons/materials/{rich_material.id}/delete-sentences',
+        json={'sentence_indices': [2, 4]},
+        headers=headers,
+    )
+    assert response.status_code == 200
+    assert response.data['content'] == [
+        {'kind': 'heading', 'sentences': ['Title'], 'src': None, 'alt': None},
+        {'kind': 'paragraph', 'sentences': ['S1', 'S3'], 'src': None, 'alt': None},
+        {'kind': 'image', 'sentences': None, 'src': 'https://example.com/img.png', 'alt': 'img'},
+    ]
+
+
+def test_delete_sentences_remaps_overlapping_annotation(api_client, auth_header, student, rich_material):
+    headers = auth_header(student.user)
+    highlight = api_client.post(
+        f'/student-lessons/materials/{rich_material.id}/annotations',
+        json={'kind': 'highlight', 'sentence_start': 1, 'sentence_end': 3},
+        headers=headers,
+    ).data
+
+    api_client.post(
+        f'/student-lessons/materials/{rich_material.id}/delete-sentences',
+        json={'sentence_indices': [2]},
+        headers=headers,
+    )
+
+    list_response = api_client.get(f'/student-lessons/materials/{rich_material.id}/annotations', headers=headers)
+    [remapped] = [a for a in list_response.data if a['id'] == highlight['id']]
+    # Old range [1,3] = S1,S2,S3; S2 (index 2) deleted; S1/S3 shift to 1/2.
+    assert remapped['sentence_start'] == 1
+    assert remapped['sentence_end'] == 2
+
+
+def test_delete_sentences_drops_annotation_entirely_within_deleted_range(api_client, auth_header, student, rich_material):
+    headers = auth_header(student.user)
+    comment = api_client.post(
+        f'/student-lessons/materials/{rich_material.id}/annotations',
+        json={'kind': 'comment', 'sentence_start': 2, 'sentence_end': 2, 'body': 'about S2'},
+        headers=headers,
+    ).data
+
+    api_client.post(
+        f'/student-lessons/materials/{rich_material.id}/delete-sentences',
+        json={'sentence_indices': [2]},
+        headers=headers,
+    )
+
+    list_response = api_client.get(f'/student-lessons/materials/{rich_material.id}/annotations', headers=headers)
+    assert comment['id'] not in [a['id'] for a in list_response.data]
+
+
+def test_delete_sentences_scoped_to_owner(api_client, auth_header, other_student, rich_material):
+    response = api_client.post(
+        f'/student-lessons/materials/{rich_material.id}/delete-sentences',
+        json={'sentence_indices': [0]},
+        headers=auth_header(other_student.user),
+    )
+    assert response.status_code == 403

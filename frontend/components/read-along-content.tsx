@@ -16,7 +16,7 @@ export function ReadAlongContent({
   selectionTarget,
   onReadSelection,
   readSelectionLabel,
-  highlightedSentenceIndices,
+  highlightColors,
 }: {
   blocks: ReadingBlock[];
   speakingIndex: number | null;
@@ -24,8 +24,8 @@ export function ReadAlongContent({
   selectionTarget: SelectionReadTarget | null;
   onReadSelection: () => void;
   readSelectionLabel: string;
-  /** Sentences (by global index) with a persistent highlight, independent of speakingIndex — set by loaded annotations. */
-  highlightedSentenceIndices?: Set<number>;
+  /** Sentences (by global index) with a persistent highlight color, independent of speakingIndex — set by loaded highlight annotations. */
+  highlightColors?: Map<number, string>;
 }) {
   let runningIndex = 0;
 
@@ -70,16 +70,19 @@ export function ReadAlongContent({
               {block.sentences.map((sentence) => {
                 const index = runningIndex++;
                 const isSpeaking = index === speakingIndex;
-                const isHighlighted = highlightedSentenceIndices?.has(index) ?? false;
+                const highlightColor = highlightColors?.get(index);
                 return (
                   <span
                     key={index}
                     ref={(el) => {
                       sentenceRefs.current[index] = el;
                     }}
-                    className={`rounded transition-colors ${
-                      isSpeaking ? "bg-yellow-200" : isHighlighted ? "bg-yellow-100" : ""
-                    }`}
+                    className={`rounded transition-colors ${isSpeaking ? "bg-yellow-200" : ""}`}
+                    // The "currently speaking" highlight (className above)
+                    // always wins over a persistent highlight color — an
+                    // inline style would otherwise override that class for
+                    // the same sentence.
+                    style={!isSpeaking && highlightColor ? { backgroundColor: highlightColor } : undefined}
                   >
                     {sentence}{" "}
                   </span>

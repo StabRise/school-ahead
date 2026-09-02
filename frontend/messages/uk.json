@@ -531,9 +531,12 @@
     "tool_text_note": "Текстове поле",
     "textNotePlaceholder": "Текст нотатки",
     "selectionTitle": "Виділений текст",
-    "highlightButton": "Виділити кольором",
+    "highlightLabel": "Виділити кольором",
+    "commentDialogTitle": "Коментар до виділеного тексту",
     "commentPlaceholder": "Напишіть коментар до виділеного тексту",
     "addCommentButton": "Додати коментар",
+    "deleteSelectionButton": "Видалити виділений текст",
+    "cancelButton": "Скасувати",
     "commentsTitle": "Коментарі",
     "noComments": "Коментарів ще немає"
   },

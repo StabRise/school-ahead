@@ -24,6 +24,7 @@ from .schemas import (
     AddMaterialIn,
     CompletionProgressOut,
     ConfirmUnderstandingIn,
+    DeleteMaterialSentencesIn,
     LessonCommentOut,
     MaterialAnnotationOut,
     MyAssignableLessonOut,
@@ -243,6 +244,22 @@ def add_material(request: HttpRequest, student_lesson_id: int, payload: AddMater
         source_url=payload.source_url,
         language=payload.language,
     )
+
+
+@router.post(
+    '/materials/{material_id}/delete-sentences',
+    response=StudentLessonMaterialOut,
+    operation_id='delete_material_sentences',
+)
+def delete_material_sentences(request: HttpRequest, material_id: int, payload: DeleteMaterialSentencesIn):
+    """Permanently removes the given sentences from a material's saved
+    content — see services.delete_material_sentences for how existing
+    annotations anchored to sentence ranges get remapped/dropped."""
+    require_csrf(request)
+    material = _get_owned_material(request, material_id)
+    services.delete_material_sentences(material, set(payload.sentence_indices))
+    material.refresh_from_db()
+    return material
 
 
 @router.get(
