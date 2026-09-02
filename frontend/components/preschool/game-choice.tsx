@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { BalloonPopGame } from "@/components/preschool/balloon-pop-game";
 import { TrainsGame } from "@/components/preschool/trains-game";
+import { ReadingGame } from "@/components/preschool/reading-game";
 
 // Celebration screen shown once every one of today's lessons (tails
 // included) is Completed, Pending Review, or Need Help — see
@@ -16,7 +17,7 @@ import { TrainsGame } from "@/components/preschool/trains-game";
 // own — contrast the standalone /games entry point (games-page.tsx,
 // game-play-page.tsx), which reuses this file's GamePicker/GameCard but
 // navigates to /games/{game} instead so each game has its own URL.
-export type PreschoolGameId = "balloons" | "trains";
+export type PreschoolGameId = "balloons" | "trains" | "reading";
 
 const DEFAULT_GAME: PreschoolGameId = "balloons";
 
@@ -41,6 +42,22 @@ function TrainIcon() {
       <rect x="6" y="18" width="42" height="28" rx="6" fill="#38bdf8" />
       <rect x="12" y="4" width="14" height="14" rx="2" fill="#38bdf8" />
       <rect x="52" y="14" width="42" height="32" rx="6" fill="#fbbf24" />
+    </svg>
+  );
+}
+
+function ReadingIcon() {
+  return (
+    <svg viewBox="0 0 64 52" className="h-16 w-16 drop-shadow" aria-hidden="true">
+      <rect x="4" y="6" width="24" height="40" rx="4" fill="#fbbf24" />
+      <rect x="36" y="6" width="24" height="40" rx="4" fill="#38bdf8" />
+      <path d="M28 6 Q32 12 36 6 V46 Q32 40 28 46 Z" fill="#f1f5f9" />
+      <text x="16" y="30" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#0369a1">
+        М
+      </text>
+      <text x="48" y="30" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#dc2626">
+        А
+      </text>
     </svg>
   );
 }
@@ -107,6 +124,13 @@ export function GamePicker({
           highlighted={DEFAULT_GAME === "trains"}
           onSelect={() => onSelect("trains")}
         />
+        <GameCard
+          title={t("readingTitle")}
+          subtitle={t("readingSubtitle")}
+          icon={<ReadingIcon />}
+          highlighted={DEFAULT_GAME === "reading"}
+          onSelect={() => onSelect("reading")}
+        />
       </div>
     </div>
   );
@@ -137,6 +161,10 @@ export function PreschoolCelebration({
       {selectedGame === "balloons" ? (
         <div className="flex flex-1 flex-col p-2 sm:p-4">
           <BalloonPopGame />
+        </div>
+      ) : selectedGame === "reading" ? (
+        <div className="flex flex-1 flex-col p-2 sm:p-4">
+          <ReadingGame />
         </div>
       ) : (
         <TrainsGame />

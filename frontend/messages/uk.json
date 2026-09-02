@@ -112,7 +112,20 @@
     "balloonsSubtitle": "Лопай кульки, що падають",
     "trainsTitle": "Потяг",
     "trainsSubtitle": "Натискай букви на клавіатурі",
+    "readingTitle": "Склади",
+    "readingSubtitle": "Збери картинку зі складом",
     "switchGame": "Обрати іншу гру"
+  },
+  "ReadingGame": {
+    "settingsButton": "Налаштування",
+    "consonantLabel": "Приголосна",
+    "syllableCountLabel": "Кількість складів",
+    "showCaptionsLabel": "Підписи під картками",
+    "uppercaseLabel": "Великі літери",
+    "mutedLabel": "Без звуку",
+    "levelCompleteTitle": "Молодець! Усі картки на місці!",
+    "playAgainButton": "Ще раз",
+    "nextLetterButton": "Далі: {letter}"
   },
   "StudentDashboard": {
     "title": "Сьогоднішні уроки",

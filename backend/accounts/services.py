@@ -166,6 +166,23 @@ def award_balloon_quiz_diamond(student: StudentProfile) -> None:
     student.refresh_from_db(fields=['diamond_balance_cache'])
 
 
+# Diamond reward for clearing a consonant level of the reading (syllable
+# drag-and-drop) minigame (see frontend/components/preschool/reading-game.tsx)
+# — awarded once every syllable card has a matching picture card placed on
+# it. Same trust model as BALLOON_POP_MILESTONE_DIAMONDS above: no
+# server-side tracking of placements, the frontend calls this once per level
+# cleared.
+READING_GAME_LEVEL_REWARD_DIAMONDS = 1
+
+
+def award_reading_game_diamond(student: StudentProfile) -> None:
+    """Same atomic F() update as award_balloon_pop_diamond."""
+    StudentProfile.objects.filter(pk=student.pk).update(
+        diamond_balance_cache=F('diamond_balance_cache') + READING_GAME_LEVEL_REWARD_DIAMONDS
+    )
+    student.refresh_from_db(fields=['diamond_balance_cache'])
+
+
 def is_item_unlocked(student: StudentProfile, item: AvatarItem) -> bool:
     """Free items are unlocked for everyone; priced ones need a purchase
     record. See docs/core/avatar.md section 2.2."""
