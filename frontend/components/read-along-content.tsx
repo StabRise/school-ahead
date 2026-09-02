@@ -2,12 +2,19 @@
 
 import { useEffect, useState, type RefObject } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { X } from "lucide-react";
+import { BookPlus, Check, X } from "lucide-react";
 import { isTranslatorSupported, translateText } from "@/lib/chrome-translator";
+import { useAddDictionaryItem } from "@/lib/api/browser/dictionary/dictionary";
 import type { SpeechLanguage } from "@/lib/piper-tts";
 import { flatSentencesOf, type ReadingBlock } from "@/lib/reading-blocks";
 import type { SelectionReadTarget } from "@/lib/use-read-along-player";
 import type { TranslationScope } from "@/stores/auth-store";
+
+const DICTIONARY_MAX_WORDS = 5;
+
+function wordCount(text: string): number {
+  return text.split(/\s+/).filter(Boolean).length;
+}
 
 // Renders a loaded ReadAlongPlayer's content: heading/paragraph/image
 // blocks, each sentence its own highlightable span, plus the floating
@@ -43,46 +50,95 @@ export function ReadAlongContent({
   translateOnSelect?: boolean;
 }) {
   const t = useTranslations("ReadAlong");
+  const tDict = useTranslations("Dictionary");
   const locale = useLocale() as SpeechLanguage;
   const [translation, setTranslation] = useState<{
     original: string;
+    /** The literal substring the student selected — always just the word/phrase, regardless of translationScope. Used for the "add to dictionary" button (both its word-count gating and its `text` field). */
+    selectedText: string;
     text: string;
     loading: boolean;
     error: boolean;
   } | null>(null);
+  const addDictionaryItem = useAddDictionaryItem();
+  const [dictionaryItemAdded, setDictionaryItemAdded] = useState(false);
 
-  // Clears any shown translation as soon as the selection it was for
-  // changes (cleared, or moved to different text) — a render-time state
-  // adjustment (see https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  // Clears any shown translation (and the "added to dictionary" checkmark)
+  // as soon as the selection it was for changes (cleared, or moved to
+  // different text) — a render-time state adjustment (see
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
   // rather than an effect, same pattern as lesson-wizard.tsx's landingTabApplied.
   const [lastSelectionTarget, setLastSelectionTarget] = useState(selectionTarget);
   if (selectionTarget !== lastSelectionTarget) {
     setLastSelectionTarget(selectionTarget);
     setTranslation(null);
+    setDictionaryItemAdded(false);
   }
 
   const canTranslate = sourceLanguage !== undefined && sourceLanguage !== locale && isTranslatorSupported();
+
+  const getLiteralSelection = (): string | undefined => window.getSelection()?.toString().trim() || undefined;
+
+  const getFullSentenceText = (): string | undefined => {
+    if (!selectionTarget) return undefined;
+    const allSentences = flatSentencesOf(blocks);
+    return selectionTarget.sentenceIndices.map((index) => allSentences[index]).join(" ");
+  };
 
   // In "word" scope, translates exactly the substring the student
   // highlighted; in "sentence" scope, the whole sentence(s) it falls within
   // (the same set onReadSelection/sentenceIndices reads aloud) — see the
   // Profile page's "Переклад матеріалів" settings.
-  const selectedOriginalText = (): string | undefined => {
-    if (!selectionTarget) return undefined;
-    if (translationScope === "sentence") {
-      const allSentences = flatSentencesOf(blocks);
-      return selectionTarget.sentenceIndices.map((index) => allSentences[index]).join(" ");
-    }
-    return window.getSelection()?.toString().trim() || undefined;
+  const runTranslation = (selectedText: string, textToTranslate: string) => {
+    if (!sourceLanguage) return;
+    setTranslation({ original: textToTranslate, selectedText, text: "", loading: true, error: false });
+    translateText(textToTranslate, sourceLanguage, locale)
+      .then((translated) =>
+        setTranslation({ original: textToTranslate, selectedText, text: translated, loading: false, error: false }),
+      )
+      .catch(() => setTranslation({ original: textToTranslate, selectedText, text: "", loading: false, error: true }));
   };
 
   const handleTranslateSelection = () => {
-    const original = selectedOriginalText();
-    if (!original || !sourceLanguage) return;
-    setTranslation({ original, text: "", loading: true, error: false });
-    translateText(original, sourceLanguage, locale)
-      .then((translated) => setTranslation({ original, text: translated, loading: false, error: false }))
-      .catch(() => setTranslation({ original, text: "", loading: false, error: true }));
+    const selectedText = getLiteralSelection();
+    if (!selectedText) return;
+    const textToTranslate = translationScope === "sentence" ? (getFullSentenceText() ?? selectedText) : selectedText;
+    runTranslation(selectedText, textToTranslate);
+  };
+
+  // Saves the translated word/phrase to the student's personal dictionary
+  // (see the icon button below) — `text`/`translation` are always the
+  // literal word/phrase (never the full sentence, even in "sentence"
+  // scope), while `sample`/`sample_translation` are always the full
+  // sentence, reusing whichever of the two is already the current
+  // translation result and only fetching the other one fresh.
+  const handleAddToDictionary = () => {
+    if (!translation || !sourceLanguage) return;
+    const sample = getFullSentenceText();
+    if (!sample) return;
+    const { selectedText } = translation;
+
+    const wordTranslation =
+      translationScope === "word" ? Promise.resolve(translation.text) : translateText(selectedText, sourceLanguage, locale);
+    const sampleTranslation =
+      translationScope === "sentence" ? Promise.resolve(translation.text) : translateText(sample, sourceLanguage, locale);
+
+    Promise.all([wordTranslation, sampleTranslation])
+      .then(([wordTranslationResult, sampleTranslationResult]) => {
+        addDictionaryItem.mutate(
+          {
+            data: {
+              text: selectedText,
+              lang: sourceLanguage,
+              translation: wordTranslationResult,
+              sample,
+              sample_translation: sampleTranslationResult,
+            },
+          },
+          { onSuccess: () => setDictionaryItemAdded(true) },
+        );
+      })
+      .catch(() => {});
   };
 
   // Auto-translates as soon as a new selection appears when the student has
@@ -93,16 +149,19 @@ export function ReadAlongContent({
   // triggers a translation as a side effect of just rendering.
   useEffect(() => {
     if (!translateOnSelect || !canTranslate || !selectionTarget) return;
-    const original = selectedOriginalText();
-    if (!original) return;
+    const selectedText = getLiteralSelection();
+    if (!selectedText) return;
+    const textToTranslate = translationScope === "sentence" ? (getFullSentenceText() ?? selectedText) : selectedText;
     let cancelled = false;
     void (async () => {
-      setTranslation({ original, text: "", loading: true, error: false });
+      setTranslation({ original: textToTranslate, selectedText, text: "", loading: true, error: false });
       try {
-        const translated = await translateText(original, sourceLanguage!, locale);
-        if (!cancelled) setTranslation({ original, text: translated, loading: false, error: false });
+        const translated = await translateText(textToTranslate, sourceLanguage!, locale);
+        if (!cancelled) {
+          setTranslation({ original: textToTranslate, selectedText, text: translated, loading: false, error: false });
+        }
       } catch {
-        if (!cancelled) setTranslation({ original, text: "", loading: false, error: true });
+        if (!cancelled) setTranslation({ original: textToTranslate, selectedText, text: "", loading: false, error: true });
       }
     })();
     return () => {
@@ -113,6 +172,13 @@ export function ReadAlongContent({
     // locale, translationScope, blocks) don't change mid-selection.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectionTarget, translateOnSelect, canTranslate]);
+
+  const canAddToDictionary =
+    translation !== null &&
+    !translation.loading &&
+    !translation.error &&
+    wordCount(translation.selectedText) >= 1 &&
+    wordCount(translation.selectedText) <= DICTIONARY_MAX_WORDS;
 
   let runningIndex = 0;
 
@@ -156,15 +222,34 @@ export function ReadAlongContent({
             <div className="flex w-64 flex-col gap-1 rounded-md bg-white p-3 text-left text-sm text-gray-900 shadow-lg ring-1 ring-gray-200">
               <div className="flex items-start gap-2">
                 <mark className="rounded bg-yellow-200 px-1 font-medium">{translation.original}</mark>
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => setTranslation(null)}
-                  aria-label={t("closeTranslation")}
-                  className="ml-auto shrink-0 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="size-4" />
-                </button>
+                <div className="ml-auto flex shrink-0 items-center gap-1">
+                  {canAddToDictionary && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={handleAddToDictionary}
+                      disabled={addDictionaryItem.isPending || dictionaryItemAdded}
+                      aria-label={tDict("addButton")}
+                      title={tDict("addButton")}
+                      className="text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed"
+                    >
+                      {dictionaryItemAdded ? (
+                        <Check className="size-4 text-green-600" />
+                      ) : (
+                        <BookPlus className="size-4" />
+                      )}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setTranslation(null)}
+                    aria-label={t("closeTranslation")}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
               </div>
               {translation.loading ? (
                 <span className="text-gray-500">{t("translating")}</span>

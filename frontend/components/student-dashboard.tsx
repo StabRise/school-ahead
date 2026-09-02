@@ -214,7 +214,7 @@ function LessonRow({
                 </button>
               </div>
               <p className="truncate font-medium">{item.lesson_title}</p>
-              <p className="line-clamp-2 text-xs text-gray-500">{item.topic_title}</p>
+              {/*<p className="line-clamp-2 text-xs text-gray-500">{item.topic_title}</p>*/}
             </div>
           </div>
           {homework && (

@@ -8,6 +8,7 @@ const MENU_ITEMS = [
   { href: "/subjects", labelKey: "subjects" },
   { href: "/calendar", labelKey: "calendar" },
   { href: "/read-along", labelKey: "readAlong" },
+  { href: "/dictionary", labelKey: "dictionary" },
 ] as const;
 
 const GAMES_ITEM = { href: "/games", labelKey: "games" } as const;

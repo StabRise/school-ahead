@@ -69,6 +69,7 @@
     "todayLessons": "Уроки сьогодні",
     "calendar": "Календар",
     "readAlong": "Читання тексту",
+    "dictionary": "Словник",
     "games": "Ігри",
     "tutorDashboard": "Панель тьютора",
     "preschoolMode": "Дитячий режим",
@@ -620,6 +621,19 @@
     "translationScopeWord": "Тільки виділене слово",
     "translationScopeSentence": "Все речення",
     "translateOnSelectLabel": "Перекладати одразу при виділенні тексту"
+  },
+  "Dictionary": {
+    "pageTitle": "Словник",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити словник. Спробуйте ще раз.",
+    "emptyState": "Поки що тут порожньо. Перекладайте слова у текстах і додавайте їх сюди.",
+    "filterAll": "Усі",
+    "statusNew": "Нове",
+    "statusInProgress": "Вивчаю",
+    "statusKnown": "Вже знаю",
+    "deleteButton": "Видалити зі словника",
+    "addButton": "Додати до словника",
+    "addedMessage": "Додано до словника"
   },
   "SubjectDetail": {
     "loading": "Завантаження...",
