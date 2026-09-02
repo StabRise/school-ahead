@@ -36,7 +36,7 @@ describe("selectLevel", () => {
     expect(syllables).toEqual(["МА", "МО", "МУ", "МЕ", "МИ", "МІ"]);
   });
 
-  it("caps the tray at syllableCount * 2 + 3 cards when more pictures are available", () => {
+  it("caps the tray at round(syllableCount * 1.5) cards when more pictures are available", () => {
     const manyCards: ReadingGameCard[] = Array.from({ length: 8 }, (_, i) => ({
       key: `Слово${i}`,
       image: `/w${i}.png`,
@@ -45,8 +45,8 @@ describe("selectLevel", () => {
     }));
 
     const { cards } = selectLevel(manyCards, 1);
-    expect(cards).toHaveLength(5); // 1 * 2 + 3
-    expect(new Set(cards.map((c) => c.key)).size).toBe(5); // no duplicates
+    expect(cards).toHaveLength(2); // round(1 * 1.5)
+    expect(new Set(cards.map((c) => c.key)).size).toBe(2); // no duplicates
   });
 
   it("keeps at least one card per active syllable even when capping", () => {
@@ -58,9 +58,9 @@ describe("selectLevel", () => {
     }));
     const twoSyllableCards = [...manyCards, { key: "Мед", image: "/Мед.png", syllable: "МЕ", sound: null }];
 
-    const { syllables, cards } = selectLevel(twoSyllableCards, 2); // cap = 2 * 2 + 3 = 7
+    const { syllables, cards } = selectLevel(twoSyllableCards, 2); // cap = round(2 * 1.5) = 3
     expect(syllables).toEqual(["МА", "МЕ"]);
-    expect(cards).toHaveLength(7);
+    expect(cards).toHaveLength(3);
     expect(cards.some((c) => c.syllable === "МЕ")).toBe(true);
   });
 });
