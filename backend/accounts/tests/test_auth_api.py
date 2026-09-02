@@ -9,6 +9,7 @@ from accounts.models import (
     RefreshToken,
     Role,
     StudentProfile,
+    TranslationScope,
     User,
 )
 
@@ -197,6 +198,70 @@ def test_update_interface_mode_requires_student_profile(api_client, auth_header)
     response = api_client.patch(
         '/auth/me/interface-mode',
         json={'interface_mode': InterfaceMode.PRESCHOOL},
+        headers=auth_header(user),
+    )
+
+    assert response.status_code == 403
+
+
+def test_me_translation_settings_default_for_students(api_client, auth_header):
+    user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
+    StudentProfile.objects.create(user=user)
+
+    response = api_client.get('/auth/me', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['translation_scope'] == TranslationScope.WORD
+    assert response.data['user']['translate_on_select'] is False
+
+
+def test_me_translation_settings_are_null_for_non_students(api_client, auth_header):
+    user = User.objects.create_user(email='tutor@example.com', role=Role.TUTOR)
+
+    response = api_client.get('/auth/me', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['translation_scope'] is None
+    assert response.data['user']['translate_on_select'] is None
+
+
+def test_update_translation_settings_persists_and_returns_updated_user(api_client, auth_header):
+    user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
+    student = StudentProfile.objects.create(user=user)
+
+    response = api_client.patch(
+        '/auth/me/translation-settings',
+        json={'translation_scope': TranslationScope.SENTENCE, 'translate_on_select': True},
+        headers=auth_header(user),
+    )
+
+    assert response.status_code == 200
+    assert response.data['user']['translation_scope'] == TranslationScope.SENTENCE
+    assert response.data['user']['translate_on_select'] is True
+    student.refresh_from_db()
+    assert student.translation_scope == TranslationScope.SENTENCE
+    assert student.translate_on_select is True
+
+
+def test_update_translation_settings_rejects_invalid_scope(api_client, auth_header):
+    user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
+    StudentProfile.objects.create(user=user)
+
+    response = api_client.patch(
+        '/auth/me/translation-settings',
+        json={'translation_scope': 'paragraph', 'translate_on_select': False},
+        headers=auth_header(user),
+    )
+
+    assert response.status_code == 400
+
+
+def test_update_translation_settings_requires_student_profile(api_client, auth_header):
+    user = User.objects.create_user(email='tutor@example.com', role=Role.TUTOR)
+
+    response = api_client.patch(
+        '/auth/me/translation-settings',
+        json={'translation_scope': TranslationScope.SENTENCE, 'translate_on_select': True},
         headers=auth_header(user),
     )
 

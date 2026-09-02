@@ -14,19 +14,30 @@ const intlMiddleware = createMiddleware(routing);
 // public page paths instead. See docs/architecture/05-auth-flow.md.
 const PUBLIC_PATHS = ["/login"];
 
+function pathWithoutLocale(pathname: string): string {
+  return "/" + pathname.split("/").slice(2).join("/");
+}
+
 function isPublicPath(pathname: string): boolean {
-  const withoutLocale = "/" + pathname.split("/").slice(2).join("/");
+  const withoutLocale = pathWithoutLocale(pathname);
   return PUBLIC_PATHS.some(
     (path) => withoutLocale === path || withoutLocale === "/",
   );
 }
 
 export default function middleware(request: NextRequest) {
-  if (
-    !isPublicPath(request.nextUrl.pathname) &&
-    !request.cookies.has("access_token")
-  ) {
-    const locale = request.nextUrl.pathname.split("/")[1] || routing.defaultLocale;
+  const pathname = request.nextUrl.pathname;
+  const locale = pathname.split("/")[1] || routing.defaultLocale;
+  const isAuthenticated = request.cookies.has("access_token");
+
+  // An already-authenticated visitor hitting /login (stale bookmark, back
+  // button after signing in, ...) should land in the app instead of seeing
+  // the sign-in button again.
+  if (pathWithoutLocale(pathname) === "/login" && isAuthenticated) {
+    return Response.redirect(new URL(`/${locale}`, request.url));
+  }
+
+  if (!isPublicPath(pathname) && !isAuthenticated) {
     return Response.redirect(new URL(`/${locale}/login`, request.url));
   }
 

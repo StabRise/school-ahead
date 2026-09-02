@@ -65,6 +65,7 @@
     "myAchievements": "Мої досягнення",
     "myClasses": "Мої класи",
     "myProfile": "Мій профіль",
+    "mySettings": "Налаштування",
     "todayLessons": "Уроки сьогодні",
     "calendar": "Календар",
     "readAlong": "Читання тексту",
@@ -611,6 +612,14 @@
     "confirmPurchaseBody": "«{item}» коштує 💎{price}. Купити цю річ?",
     "confirmPurchaseCancel": "Скасувати",
     "confirmPurchaseBuy": "Купити за 💎{price}"
+  },
+  "Settings": {
+    "title": "Налаштування",
+    "translationSettingsTitle": "Переклад матеріалів",
+    "translationScopeLabel": "Як перекладати",
+    "translationScopeWord": "Тільки виділене слово",
+    "translationScopeSentence": "Все речення",
+    "translateOnSelectLabel": "Перекладати одразу при виділенні тексту"
   },
   "SubjectDetail": {
     "loading": "Завантаження...",

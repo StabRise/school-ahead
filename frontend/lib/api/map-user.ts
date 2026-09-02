@@ -41,6 +41,8 @@ export function mapApiUserToAuthUser(user: UserOut): AuthUser {
     locale: user.locale,
     avatarUrl: user.avatar_url,
     interfaceMode: (user.interface_mode as AuthUser["interfaceMode"]) ?? null,
+    translationScope: (user.translation_scope as AuthUser["translationScope"]) ?? null,
+    translateOnSelect: user.translate_on_select ?? null,
     diamondBalance: user.diamond_balance ?? null,
     equippedAvatar: user.equipped_avatar ? mapAvatar(user.equipped_avatar) : null,
     equippedClothingItems: (user.equipped_clothing_items ?? []).map(mapAvatarItem),

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, type RefObject } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { X } from "lucide-react";
 import { isTranslatorSupported, translateText } from "@/lib/chrome-translator";
 import type { SpeechLanguage } from "@/lib/piper-tts";
 import { flatSentencesOf, type ReadingBlock } from "@/lib/reading-blocks";
 import type { SelectionReadTarget } from "@/lib/use-read-along-player";
+import type { TranslationScope } from "@/stores/auth-store";
 
 // Renders a loaded ReadAlongPlayer's content: heading/paragraph/image
 // blocks, each sentence its own highlightable span, plus the floating
@@ -23,6 +24,8 @@ export function ReadAlongContent({
   readSelectionLabel,
   highlightColors,
   sourceLanguage,
+  translationScope = "word",
+  translateOnSelect = false,
 }: {
   blocks: ReadingBlock[];
   speakingIndex: number | null;
@@ -32,12 +35,21 @@ export function ReadAlongContent({
   readSelectionLabel: string;
   /** Sentences (by global index) with a persistent highlight color, independent of speakingIndex — set by loaded highlight annotations. */
   highlightColors?: Map<number, string>;
-  /** The selected text's language — enables the "Перекласти" button (Chrome's built-in on-device Translator API) whenever it differs from the interface language. Omit to hide translation entirely. */
+  /** The selected text's language — enables translation (Chrome's built-in on-device Translator API) whenever it differs from the interface language. Omit to hide translation entirely. */
   sourceLanguage?: SpeechLanguage;
+  /** Whether a translation covers just the literal selection ("word") or the whole sentence(s) it falls within ("sentence") — see the Profile page's "Переклад матеріалів" settings. */
+  translationScope?: TranslationScope;
+  /** Translates as soon as text is selected instead of waiting for a "Перекласти" button click — same settings section. */
+  translateOnSelect?: boolean;
 }) {
   const t = useTranslations("ReadAlong");
   const locale = useLocale() as SpeechLanguage;
-  const [translation, setTranslation] = useState<{ text: string; loading: boolean; error: boolean } | null>(null);
+  const [translation, setTranslation] = useState<{
+    original: string;
+    text: string;
+    loading: boolean;
+    error: boolean;
+  } | null>(null);
 
   // Clears any shown translation as soon as the selection it was for
   // changes (cleared, or moved to different text) — a render-time state
@@ -51,15 +63,56 @@ export function ReadAlongContent({
 
   const canTranslate = sourceLanguage !== undefined && sourceLanguage !== locale && isTranslatorSupported();
 
-  const handleTranslateSelection = () => {
-    if (!selectionTarget || !sourceLanguage) return;
-    const allSentences = flatSentencesOf(blocks);
-    const text = selectionTarget.sentenceIndices.map((index) => allSentences[index]).join(" ");
-    setTranslation({ text: "", loading: true, error: false });
-    translateText(text, sourceLanguage, locale)
-      .then((translated) => setTranslation({ text: translated, loading: false, error: false }))
-      .catch(() => setTranslation({ text: "", loading: false, error: true }));
+  // In "word" scope, translates exactly the substring the student
+  // highlighted; in "sentence" scope, the whole sentence(s) it falls within
+  // (the same set onReadSelection/sentenceIndices reads aloud) — see the
+  // Profile page's "Переклад матеріалів" settings.
+  const selectedOriginalText = (): string | undefined => {
+    if (!selectionTarget) return undefined;
+    if (translationScope === "sentence") {
+      const allSentences = flatSentencesOf(blocks);
+      return selectionTarget.sentenceIndices.map((index) => allSentences[index]).join(" ");
+    }
+    return window.getSelection()?.toString().trim() || undefined;
   };
+
+  const handleTranslateSelection = () => {
+    const original = selectedOriginalText();
+    if (!original || !sourceLanguage) return;
+    setTranslation({ original, text: "", loading: true, error: false });
+    translateText(original, sourceLanguage, locale)
+      .then((translated) => setTranslation({ original, text: translated, loading: false, error: false }))
+      .catch(() => setTranslation({ original, text: "", loading: false, error: true }));
+  };
+
+  // Auto-translates as soon as a new selection appears when the student has
+  // turned that setting on — reacting to selectionTarget/translateOnSelect
+  // changing is exactly what an effect is for; the async translateText call
+  // (and its setTranslation calls) live inside a nested function rather
+  // than directly in the effect body so a render never synchronously
+  // triggers a translation as a side effect of just rendering.
+  useEffect(() => {
+    if (!translateOnSelect || !canTranslate || !selectionTarget) return;
+    const original = selectedOriginalText();
+    if (!original) return;
+    let cancelled = false;
+    void (async () => {
+      setTranslation({ original, text: "", loading: true, error: false });
+      try {
+        const translated = await translateText(original, sourceLanguage!, locale);
+        if (!cancelled) setTranslation({ original, text: translated, loading: false, error: false });
+      } catch {
+        if (!cancelled) setTranslation({ original, text: "", loading: false, error: true });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Only selectionTarget identity should re-trigger this — the other
+    // dependencies (translateOnSelect, canTranslate, sourceLanguage,
+    // locale, translationScope, blocks) don't change mid-selection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectionTarget, translateOnSelect, canTranslate]);
 
   let runningIndex = 0;
 
@@ -87,7 +140,7 @@ export function ReadAlongContent({
             >
               {readSelectionLabel}
             </button>
-            {canTranslate && (
+            {canTranslate && !translateOnSelect && (
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
@@ -100,7 +153,19 @@ export function ReadAlongContent({
           </div>
 
           {translation && (
-            <div className="flex w-64 items-start gap-2 rounded-md bg-white p-3 text-left text-sm text-gray-900 shadow-lg ring-1 ring-gray-200">
+            <div className="flex w-64 flex-col gap-1 rounded-md bg-white p-3 text-left text-sm text-gray-900 shadow-lg ring-1 ring-gray-200">
+              <div className="flex items-start gap-2">
+                <mark className="rounded bg-yellow-200 px-1 font-medium">{translation.original}</mark>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setTranslation(null)}
+                  aria-label={t("closeTranslation")}
+                  className="ml-auto shrink-0 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
               {translation.loading ? (
                 <span className="text-gray-500">{t("translating")}</span>
               ) : translation.error ? (
@@ -108,15 +173,6 @@ export function ReadAlongContent({
               ) : (
                 <span>{translation.text}</span>
               )}
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setTranslation(null)}
-                aria-label={t("closeTranslation")}
-                className="ml-auto shrink-0 text-gray-400 hover:text-gray-600"
-              >
-                <X className="size-4" />
-              </button>
             </div>
           )}
         </div>

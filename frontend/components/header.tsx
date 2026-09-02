@@ -178,6 +178,14 @@ export function Header() {
                         {t("myProfile")}
                       </Link>
                     </DropdownMenu.Item>
+                    <DropdownMenu.Item asChild>
+                      <Link
+                        href="/settings"
+                        className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
+                      >
+                        {t("mySettings")}
+                      </Link>
+                    </DropdownMenu.Item>
                     <div className="lg:hidden">
                       <PreschoolModeToggle />
                     </div>

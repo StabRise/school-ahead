@@ -10,7 +10,7 @@ from common.permissions import get_own_student_profile
 
 from . import services
 from .cookies import clear_auth_cookies, set_auth_cookies
-from .models import Avatar, AvatarItem, InterfaceMode
+from .models import Avatar, AvatarItem, InterfaceMode, TranslationScope
 from .schemas import (
     AvatarItemOut,
     AvatarOut,
@@ -20,6 +20,7 @@ from .schemas import (
     UpdateAvatarIn,
     UpdateAvatarItemsIn,
     UpdateInterfaceModeIn,
+    UpdateTranslationSettingsIn,
     UserOut,
 )
 
@@ -80,6 +81,8 @@ def _user_out(request: HttpRequest, user) -> UserOut:
         locale=user.locale,
         avatar_url=user.avatar_url,
         interface_mode=student_profile.interface_mode if student_profile else None,
+        translation_scope=student_profile.translation_scope if student_profile else None,
+        translate_on_select=student_profile.translate_on_select if student_profile else None,
         equipped_avatar=_avatar_out(student_profile.equipped_avatar, request, unlocked_ids) if student_profile else None,
         equipped_clothing_items=_equipped_items_out(student_profile, 'equipped_clothing_items', request, unlocked_ids)
         if student_profile
@@ -169,6 +172,28 @@ def update_interface_mode(request: HttpRequest, payload: UpdateInterfaceModeIn):
     student = get_own_student_profile(request)
     student.interface_mode = payload.interface_mode
     student.save(update_fields=['interface_mode'])
+    return MeOut(user=_user_out(request, request.auth))
+
+
+@router.patch(
+    '/me/translation-settings',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='update_translation_settings',
+)
+def update_translation_settings(request: HttpRequest, payload: UpdateTranslationSettingsIn):
+    """Persists the read-along "Перекласти" feature's settings (see the
+    Profile page's "Переклад Матеріалів" section): whether a translation
+    covers the whole sentence or just the selected word, and whether it
+    happens automatically on selection or needs the explicit button."""
+    require_csrf(request)
+    if payload.translation_scope not in TranslationScope.values:
+        raise HttpError(400, 'Invalid translation_scope')
+
+    student = get_own_student_profile(request)
+    student.translation_scope = payload.translation_scope
+    student.translate_on_select = payload.translate_on_select
+    student.save(update_fields=['translation_scope', 'translate_on_select'])
     return MeOut(user=_user_out(request, request.auth))
 
 

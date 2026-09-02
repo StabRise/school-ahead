@@ -51,6 +51,14 @@ class InterfaceMode(models.TextChoices):
     PRESCHOOL = 'preschool', 'Preschool'
 
 
+class TranslationScope(models.TextChoices):
+    """How much text the read-along "Перекласти" feature translates per
+    selection — see frontend/components/read-along-content.tsx."""
+
+    WORD = 'word', 'Word'
+    SENTENCE = 'sentence', 'Sentence'
+
+
 class Avatar(models.Model):
     """A selectable companion character's base body — see docs/core/avatar.md.
     Rendered as the bottom SVG layer, with a student's equipped `AvatarItem`s
@@ -147,6 +155,14 @@ class StudentProfile(models.Model):
     interface_mode = models.CharField(
         max_length=10, choices=InterfaceMode.choices, default=InterfaceMode.DEFAULT
     )
+    # Settings for the read-along "Перекласти" feature — see
+    # frontend/components/profile/translation-settings.tsx. Persisted here
+    # (rather than kept client-side) so they follow the student across
+    # sessions/devices, same as interface_mode above.
+    translation_scope = models.CharField(
+        max_length=10, choices=TranslationScope.choices, default=TranslationScope.WORD
+    )
+    translate_on_select = models.BooleanField(default=False)
     # The character companion chosen on the Student Profile page — see
     # docs/core/avatar.md section 2.1. Nullable: existing/new students start
     # with none picked and the frontend falls back to a default look.
