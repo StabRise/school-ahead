@@ -194,7 +194,7 @@ export function ReadAlongContent({
           }}
           className="z-50 flex flex-col items-center gap-2"
         >
-          {!translateOnSelect && (
+          {!translateOnSelect && !translation && (
             <button
               type="button"
               // Keeps the browser from collapsing the selection on

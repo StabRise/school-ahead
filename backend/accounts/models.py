@@ -48,6 +48,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 class InterfaceMode(models.TextChoices):
     DEFAULT = 'default', 'Default'
+    SIMPLE = 'simple', 'Simple'
     PRESCHOOL = 'preschool', 'Preschool'
 
 

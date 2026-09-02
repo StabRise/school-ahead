@@ -179,6 +179,22 @@ def test_update_interface_mode_persists_and_returns_updated_user(api_client, aut
     assert student.interface_mode == InterfaceMode.PRESCHOOL
 
 
+def test_update_interface_mode_accepts_simple(api_client, auth_header):
+    user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
+    student = StudentProfile.objects.create(user=user)
+
+    response = api_client.patch(
+        '/auth/me/interface-mode',
+        json={'interface_mode': InterfaceMode.SIMPLE},
+        headers=auth_header(user),
+    )
+
+    assert response.status_code == 200
+    assert response.data['user']['interface_mode'] == InterfaceMode.SIMPLE
+    student.refresh_from_db()
+    assert student.interface_mode == InterfaceMode.SIMPLE
+
+
 def test_update_interface_mode_rejects_invalid_value(api_client, auth_header):
     user = User.objects.create_user(email='student@example.com', role=Role.STUDENT)
     StudentProfile.objects.create(user=user)

@@ -182,7 +182,11 @@
     "weeklyProgressTitle": "Виконано за тиждень",
     "weeklyPercentLabel": "% тижня виконано",
     "expandLesson": "Розгорнути",
-    "collapseLesson": "Згорнути"
+    "collapseLesson": "Згорнути",
+    "columnLesson": "Урок",
+    "columnDate": "Дата",
+    "columnGrade": "Оцінка",
+    "columnStatus": "Статус"
   },
   "TutorDashboard": {
     "title": "Панель тьютора",
@@ -615,6 +619,10 @@
   },
   "Settings": {
     "title": "Налаштування",
+    "viewSectionTitle": "Вигляд",
+    "viewDefault": "Стандартний",
+    "viewSimple": "Спрощений",
+    "viewPreschool": "Дитячий",
     "translationSettingsTitle": "Переклад матеріалів",
     "translationScopeLabel": "Як перекладати",
     "translationScopeOff": "Не перекладати взагалі",
