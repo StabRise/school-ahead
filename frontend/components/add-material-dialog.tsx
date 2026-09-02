@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import * as Dialog from "@radix-ui/react-dialog";
+import { useRouter } from "@/i18n/navigation";
 import { useAddMaterial, useListMyAssignableLessons } from "@/lib/api/browser/student-lessons/student-lessons";
 import type { SpeechLanguage } from "@/lib/piper-tts";
 import type { ReadingBlock } from "@/lib/reading-blocks";
@@ -31,6 +32,7 @@ export function AddMaterialDialog({
   language: SpeechLanguage;
 }) {
   const t = useTranslations("AddMaterialDialog");
+  const router = useRouter();
   const [studentLessonId, setStudentLessonId] = useState<number | "">("");
 
   const lessonsQuery = useListMyAssignableLessons({ query: { enabled: open } });
@@ -44,15 +46,20 @@ export function AddMaterialDialog({
     e.preventDefault();
     if (effectiveLessonId === "") return;
 
+    const targetLessonId = effectiveLessonId;
     addMaterial.mutate(
       {
-        studentLessonId: effectiveLessonId,
+        studentLessonId: targetLessonId,
         data: { title: title ?? "", content: blocks, source_url: sourceUrl, language },
       },
       {
-        onSuccess: () => {
+        onSuccess: (createdMaterial) => {
           setStudentLessonId("");
           onOpenChange(false);
+          // Each material has its own link (?material=<id>) — see
+          // components/lesson-wizard/materials-step.tsx — so this lands
+          // directly on the one just added even if the lesson has others.
+          router.push(`/lessons/${targetLessonId}?step=readingMaterials&material=${createdMaterial.id}`);
         },
       },
     );

@@ -99,7 +99,7 @@ export function MaterialAnnotationPanel({
   /** Permanently removes the selected sentences from the material's saved content. */
   onDeleteSelection: () => void;
   comments: MaterialAnnotationOut[];
-  onJumpToComment: (sentenceStart: number) => void;
+  onJumpToComment: (sentenceStart: number, sentenceEnd: number) => void;
 }) {
   const t = useTranslations("MaterialAnnotationPanel");
 
@@ -172,7 +172,11 @@ export function MaterialAnnotationPanel({
                 <li key={comment.id}>
                   <button
                     type="button"
-                    onClick={() => comment.sentence_start !== null && onJumpToComment(comment.sentence_start)}
+                    onClick={() =>
+                      comment.sentence_start !== null &&
+                      comment.sentence_end !== null &&
+                      onJumpToComment(comment.sentence_start, comment.sentence_end)
+                    }
                     className="w-full rounded-md border border-gray-200 p-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                   >
                     {comment.body}

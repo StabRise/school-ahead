@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
+import { usePathname, useRouter } from "@/i18n/navigation";
 import { Card } from "@/components/card";
 import { ReadAlongContent } from "@/components/read-along-content";
 import { ReadAlongControlPanel } from "@/components/read-along-control-panel";
@@ -148,8 +150,23 @@ function MaterialDetail({
     );
   };
 
-  const handleJumpToComment = (sentenceStart: number) => {
-    player.sentenceRefs.current[sentenceStart]?.scrollIntoView({ behavior: "smooth", block: "center" });
+  // Scrolls to *and actually selects* (native browser selection, via the
+  // Range API) the sentences a comment was left on — clicking a comment
+  // should make it obvious which text it refers to, not just scroll near
+  // it. Also naturally re-arms selectionTarget for that range, so the
+  // student can re-highlight/re-comment/delete it right away if they want.
+  const handleJumpToComment = (sentenceStart: number, sentenceEnd: number) => {
+    const startEl = player.sentenceRefs.current[sentenceStart];
+    const endEl = player.sentenceRefs.current[sentenceEnd];
+    if (!startEl || !endEl) return;
+    startEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    const selection = window.getSelection();
+    if (!selection) return;
+    const range = document.createRange();
+    range.setStartBefore(startEl);
+    range.setEndAfter(endEl);
+    selection.removeAllRanges();
+    selection.addRange(range);
   };
 
   return (
@@ -242,7 +259,24 @@ export function MaterialsStep({
   onChanged: () => void;
 }) {
   const t = useTranslations("MaterialsStep");
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Each material has its own link (?material=<id>, alongside ?step=...) so
+  // it can be shared/bookmarked and so components/add-material-dialog.tsx
+  // can redirect straight to the one just added — same query-param-based
+  // sub-navigation lesson-wizard.tsx's own setStep already uses for ?step.
+  const materialIdParam = searchParams.get("material");
+  const selectedId = materialIdParam ? Number(materialIdParam) : null;
+
+  const setSelectedId = (id: number | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (id === null) params.delete("material");
+    else params.set("material", String(id));
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
 
   if (materials.length === 0) {
     return <p className="text-sm text-gray-500">{t("emptyState")}</p>;
