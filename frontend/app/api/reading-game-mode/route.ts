@@ -9,7 +9,15 @@ import { NextRequest, NextResponse } from "next/server";
 // middleware by its "/api" matcher, see middleware.ts).
 //
 // A consonant folder looks like:
-//   <consonant>/<Word>.png   — a picture card, filename is the whole word
+//   <consonant>/<Word>.png     — a picture card, filename is the whole word
+//   <consonant>/<Word>.mp3     — optional: a recorded pronunciation of that
+//                                same word, matched by filename (case-
+//                                insensitively, since the recording isn't
+//                                always capitalized the same as its image)
+//   <consonant>/<Syllable>.mp3 — optional: a recorded pronunciation of a
+//                                bare two-letter syllable (e.g. "Ма.mp3"),
+//                                distinguished from a word recording purely
+//                                by being exactly two letters long
 //
 // A card's syllable is its word's first two letters, uppercased (Ukrainian
 // consonant+vowel syllables, e.g. "Мед.png" -> "МЕ", "Миша.png" -> "МИ") —
@@ -25,13 +33,29 @@ import { NextRequest, NextResponse } from "next/server";
 // separators, "..", ...) is rejected outright.
 const VALID_CONSONANT = /^[А-ЩЬЮЯЄІЇҐа-щьюяєіїґ]{1,3}$/u;
 const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+const AUDIO_EXTENSIONS = new Set([".mp3"]);
 const READING_GAME_DIR = path.join(process.cwd(), "public", "static", "reading-game");
 
 export interface ReadingGameCard {
   key: string; // the word, e.g. "Мед" — also its image's filename minus extension
   image: string;
   syllable: string; // e.g. "МЕ"
+  // A recorded pronunciation of the word, if <Word>.mp3 exists alongside
+  // the image — see lib/reading-game.ts's playCardSound, which prefers this
+  // over TTS whenever it's present.
+  sound: string | null;
 }
+
+export interface ReadingGameModeResponse {
+  cards: ReadingGameCard[];
+  // Recorded pronunciation of a bare syllable (e.g. "МА" -> ".../Ма.mp3"),
+  // keyed by the same uppercased syllable string a card's `syllable` field
+  // uses — components/preschool/reading-game.tsx prefers this over TTS the
+  // same way card.sound is preferred for a word.
+  syllableSounds: Record<string, string>;
+}
+
+const EMPTY_RESPONSE: ReadingGameModeResponse = { cards: [], syllableSounds: {} };
 
 function syllableOf(word: string): string {
   return word.slice(0, 2).toLocaleUpperCase("uk");
@@ -39,25 +63,40 @@ function syllableOf(word: string): string {
 
 export async function GET(request: NextRequest) {
   const consonant = request.nextUrl.searchParams.get("folder");
-  if (!consonant || !VALID_CONSONANT.test(consonant)) return NextResponse.json({ cards: [] });
+  if (!consonant || !VALID_CONSONANT.test(consonant)) return NextResponse.json(EMPTY_RESPONSE);
 
   const folderDir = path.join(READING_GAME_DIR, consonant);
   const entries = await readdir(folderDir, { withFileTypes: true }).catch(() => []);
 
-  const cards: ReadingGameCard[] = [];
+  const images: { word: string; file: string }[] = [];
+  const soundsByLowerWord = new Map<string, string>();
+  const syllableSounds: Record<string, string> = {};
   for (const entry of entries) {
     if (!entry.isFile()) continue;
     const ext = path.extname(entry.name);
-    if (!IMAGE_EXTENSIONS.has(ext.toLowerCase())) continue;
     const word = entry.name.slice(0, -ext.length);
+    if (IMAGE_EXTENSIONS.has(ext.toLowerCase())) {
+      images.push({ word, file: entry.name });
+    } else if (AUDIO_EXTENSIONS.has(ext.toLowerCase())) {
+      soundsByLowerWord.set(word.toLocaleLowerCase("uk"), entry.name);
+      if (word.length === 2) {
+        syllableSounds[word.toLocaleUpperCase("uk")] = `/static/reading-game/${consonant}/${entry.name}`;
+      }
+    }
+  }
+
+  const cards: ReadingGameCard[] = [];
+  for (const { word, file } of images) {
     if (word.length < 2) continue;
+    const soundFile = soundsByLowerWord.get(word.toLocaleLowerCase("uk"));
     cards.push({
       key: word,
-      image: `/static/reading-game/${consonant}/${entry.name}`,
+      image: `/static/reading-game/${consonant}/${file}`,
       syllable: syllableOf(word),
+      sound: soundFile ? `/static/reading-game/${consonant}/${soundFile}` : null,
     });
   }
   cards.sort((a, b) => a.key.localeCompare(b.key, "uk"));
 
-  return NextResponse.json({ cards });
+  return NextResponse.json({ cards, syllableSounds });
 }

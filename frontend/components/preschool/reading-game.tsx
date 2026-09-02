@@ -5,13 +5,16 @@ import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { getMeQueryKey, useRewardReadingGame } from "@/lib/api/browser/auth/auth";
 import { mapApiUserToAuthUser } from "@/lib/api/map-user";
-import { prefetchVoice, speakSequence, warmupSpeech, speak } from "@/lib/piper-tts";
+import { prefetchVoice, speak, speakSequence, warmupSpeech } from "@/lib/piper-tts";
 import {
+  playCardSound,
+  playSyllableSound,
   selectLevel,
   sortConsonants,
-  useReadingGameCards,
   useReadingGameConsonants,
+  useReadingGameLevel,
   type ReadingGameCard,
+  type ReadingGameSyllableSounds,
 } from "@/lib/reading-game";
 import { useAuthStore } from "@/stores/auth-store";
 import { MAX_SYLLABLE_COUNT, MIN_SYLLABLE_COUNT, useReadingGameStore } from "@/stores/reading-game-store";
@@ -27,6 +30,19 @@ import { useDiamondRewardStore } from "@/stores/diamond-reward-store";
 // minigame's milestone reward (see accounts.services.award_reading_game_diamond).
 
 const TAP_THRESHOLD_PX = 6;
+
+// Syllable slots (and the picture cards, which share the same scale) grow
+// or shrink with how many syllables are actually on screen — 3 syllables
+// leaves room to make everything big and easy to grab, 9 needs to shrink to
+// still fit. Linear between MIN_SYLLABLE_COUNT and MAX_SYLLABLE_COUNT.
+const MIN_SLOT_REM = 6;
+const MAX_SLOT_REM = 10.5;
+
+function slotSizeRem(syllableCount: number): number {
+  const clamped = Math.min(MAX_SYLLABLE_COUNT, Math.max(MIN_SYLLABLE_COUNT, syllableCount));
+  const t = (clamped - MIN_SYLLABLE_COUNT) / (MAX_SYLLABLE_COUNT - MIN_SYLLABLE_COUNT);
+  return MAX_SLOT_REM - t * (MAX_SLOT_REM - MIN_SLOT_REM);
+}
 
 function getAudioContextClass(): typeof AudioContext | undefined {
   return (
@@ -120,6 +136,21 @@ interface SlotRegistry {
   hitTest: (x: number, y: number) => string | null;
 }
 
+// Distance from (x, y) to the nearest point of `rect` — 0 when the point is
+// already inside it.
+function distanceToRect(x: number, y: number, rect: DOMRect): number {
+  const dx = Math.max(rect.left - x, 0, x - rect.right);
+  const dy = Math.max(rect.top - y, 0, y - rect.bottom);
+  return Math.hypot(dx, dy);
+}
+
+// A young child rarely releases a dragged card exactly over its slot —
+// hitTest picks the *nearest* slot rather than requiring the drop point to
+// land inside one, as long as it's within a forgiving margin of that slot's
+// own size (so the margin scales with slotSizeRem too, staying generous at
+// every syllable count).
+const SNAP_TOLERANCE_RATIO = 0.6;
+
 function useSlotRegistry(): SlotRegistry {
   const slotsRef = useRef<Map<string, HTMLDivElement>>(new Map());
   return useMemo(
@@ -129,11 +160,19 @@ function useSlotRegistry(): SlotRegistry {
         else slotsRef.current.delete(syllable);
       },
       hitTest: (x, y) => {
+        let closest: string | null = null;
+        let closestDistance = Infinity;
+        let closestTolerance = 0;
         for (const [syllable, el] of slotsRef.current) {
           const rect = el.getBoundingClientRect();
-          if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return syllable;
+          const distance = distanceToRect(x, y, rect);
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            closest = syllable;
+            closestTolerance = Math.max(rect.width, rect.height) * SNAP_TOLERANCE_RATIO;
+          }
         }
-        return null;
+        return closest !== null && closestDistance <= closestTolerance ? closest : null;
       },
     }),
     [],
@@ -145,18 +184,21 @@ function SyllableSlot({
   uppercase,
   placedCards,
   registerRef,
+  sizeRem,
 }: {
   syllable: string;
   uppercase: boolean;
   placedCards: ReadingGameCard[];
   registerRef: (syllable: string, el: HTMLDivElement | null) => void;
+  sizeRem: number;
 }) {
   return (
     <div
       ref={(el) => registerRef(syllable, el)}
-      className="flex min-h-[6.5rem] w-24 flex-col items-center justify-center gap-1 rounded-2xl border-4 border-dashed border-white/80 bg-white/40 p-2 text-center shadow-inner"
+      className="flex flex-col items-center justify-center gap-1 rounded-2xl border-4 border-dashed border-white/80 bg-white/40 p-2 text-center shadow-inner"
+      style={{ width: `${sizeRem}rem`, minHeight: `${sizeRem}rem` }}
     >
-      <span className="text-3xl font-extrabold drop-shadow-sm">
+      <span className="font-extrabold drop-shadow-sm" style={{ fontSize: `${sizeRem * 0.34}rem` }}>
         {/* Consonant blue, vowel red — docs/preschool/games/reading/README.md
             §4: "голосні букви завжди червоні, приголосні - сині" */}
         <span style={{ color: "#0369a1" }}>{uppercase ? syllable[0] : syllable[0].toLowerCase()}</span>
@@ -170,7 +212,8 @@ function SyllableSlot({
               key={card.key}
               src={card.image}
               alt={card.key}
-              className="h-8 w-8 rounded-md object-cover ring-2 ring-white"
+              className="rounded-md object-cover ring-2 ring-white"
+              style={{ width: `${sizeRem * 0.28}rem`, height: `${sizeRem * 0.28}rem` }}
             />
           ))}
         </div>
@@ -184,6 +227,7 @@ function DraggableCard({
   showCaptions,
   uppercase,
   slots,
+  sizeRem,
   onMatch,
   onMiss,
   onTap,
@@ -192,6 +236,7 @@ function DraggableCard({
   showCaptions: boolean;
   uppercase: boolean;
   slots: SlotRegistry;
+  sizeRem: number;
   onMatch: (card: ReadingGameCard) => void;
   onMiss: () => void;
   onTap: (card: ReadingGameCard) => void;
@@ -249,9 +294,17 @@ function DraggableCard({
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={card.image} alt="" className="h-16 w-16 rounded-xl object-cover sm:h-20 sm:w-20" draggable={false} />
+      <img
+        src={card.image}
+        alt=""
+        className="rounded-xl object-cover"
+        style={{ width: `${sizeRem}rem`, height: `${sizeRem}rem` }}
+        draggable={false}
+      />
       {showCaptions && (
-        <span className="text-sm font-bold text-gray-700">{uppercase ? card.key.toUpperCase() : card.key.toLowerCase()}</span>
+        <span className="font-bold text-gray-700" style={{ fontSize: `${Math.max(0.875, sizeRem * 0.14)}rem` }}>
+          {uppercase ? card.key.toUpperCase() : card.key.toLowerCase()}
+        </span>
       )}
     </button>
   );
@@ -266,6 +319,7 @@ function ReadingLevel({
   consonant,
   syllables,
   cards,
+  syllableSounds,
   showCaptions,
   uppercase,
   muted,
@@ -275,6 +329,7 @@ function ReadingLevel({
   consonant: string;
   syllables: string[];
   cards: ReadingGameCard[];
+  syllableSounds: ReadingGameSyllableSounds;
   showCaptions: boolean;
   uppercase: boolean;
   muted: boolean;
@@ -292,20 +347,33 @@ function ReadingLevel({
   const queryClient = useQueryClient();
   const rewardReadingGame = useRewardReadingGame();
 
+  // Only a syllable without its own recording, plus a word without its own
+  // recording, actually needs TTS — anything with a recording (syllableSounds
+  // / card.sound) is spoken from that instead, see handleMatch/handleTap
+  // below.
   useEffect(() => {
     if (muted || cards.length === 0) return;
     let cancelled = false;
-    const vocabulary = Array.from(new Set([...syllables, ...cards.map((c) => c.key)]));
+    const vocabulary = Array.from(
+      new Set([...syllables.filter((s) => !syllableSounds[s]), ...cards.filter((c) => !c.sound).map((c) => c.key)]),
+    );
     void prefetchVoice("uk", "short").then(() => {
       if (!cancelled) warmupSpeech(vocabulary, "uk", "short");
     });
     return () => {
       cancelled = true;
     };
-  }, [syllables, cards, muted]);
+  }, [syllables, cards, syllableSounds, muted]);
 
   const trayCards = cards.filter((card) => !placedKeys.has(card.key));
   const levelComplete = cards.length > 0 && trayCards.length === 0;
+
+  // Bigger slots/cards when there are few syllables on screen, smaller when
+  // there are many — see slotSizeRem. Picture cards run a bit smaller than
+  // their target slot so a dragged card never looks larger than where it's
+  // headed.
+  const slotSize = slotSizeRem(syllables.length || MIN_SYLLABLE_COUNT);
+  const cardSize = slotSize * 0.8;
 
   // Clearing every card in the level (docs/preschool/games/reading/
   // README.md §5: "Завершення рівня") awards 1 Diamond — deduped via
@@ -333,14 +401,25 @@ function ReadingLevel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [levelComplete]);
 
+  // Both the syllable and the word that follows prefer their own recording
+  // (docs/preschool/games/reading/README.md §5) and only fall back to TTS
+  // when the level has none for them.
+  const playSyllable = (syllable: string): Promise<void> =>
+    syllableSounds[syllable] ? playSyllableSound(syllableSounds, syllable) : speakSequence([syllable], "uk", undefined, "short");
+
+  const playWord = (card: ReadingGameCard): void => {
+    if (card.sound) void playCardSound(card);
+    else speak(card.key, "uk", "short");
+  };
+
   const handleMatch = (card: ReadingGameCard) => {
     setPlacedKeys((current) => new Set(current).add(card.key));
     playMatchSound();
-    if (!muted) void speakSequence([card.syllable, card.key], "uk", undefined, "short");
+    if (!muted) void playSyllable(card.syllable).then(() => playWord(card));
   };
 
   const handleTap = (card: ReadingGameCard) => {
-    if (!muted) speak(card.key, "uk", "short");
+    if (!muted) playWord(card);
   };
 
   return (
@@ -354,6 +433,7 @@ function ReadingLevel({
               uppercase={uppercase}
               placedCards={cards.filter((card) => card.syllable === syllable && placedKeys.has(card.key))}
               registerRef={slots.set}
+              sizeRem={slotSize}
             />
           ))}
         </div>
@@ -366,6 +446,7 @@ function ReadingLevel({
               showCaptions={showCaptions}
               uppercase={uppercase}
               slots={slots}
+              sizeRem={cardSize}
               onMatch={handleMatch}
               onMiss={playMissSound}
               onTap={handleTap}
@@ -424,7 +505,7 @@ export function ReadingGame() {
 
   const rawConsonants = useReadingGameConsonants();
   const consonants = useMemo(() => sortConsonants(rawConsonants), [rawConsonants]);
-  const levelCards = useReadingGameCards(consonant);
+  const { cards: levelCards, syllableSounds } = useReadingGameLevel(consonant);
   const { syllables, cards } = useMemo(() => selectLevel(levelCards, syllableCount), [levelCards, syllableCount]);
 
   // A consonant persisted from an earlier session might no longer exist as
@@ -523,6 +604,7 @@ export function ReadingGame() {
         consonant={consonant}
         syllables={syllables}
         cards={cards}
+        syllableSounds={syllableSounds}
         showCaptions={showCaptions}
         uppercase={uppercase}
         muted={muted}

@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { compareSyllables, selectLevel, sortConsonants, type ReadingGameCard } from "./reading-game";
 
 const CARDS: ReadingGameCard[] = [
-  { key: "Мавпа", image: "/Мавпа.png", syllable: "МА" },
-  { key: "Морква", image: "/Морква.png", syllable: "МО" },
-  { key: "Морозиво", image: "/Морозиво.png", syllable: "МО" },
-  { key: "Муха", image: "/Муха.png", syllable: "МУ" },
-  { key: "Мед", image: "/Мед.png", syllable: "МЕ" },
-  { key: "Миша", image: "/Миша.png", syllable: "МИ" },
-  { key: "Місяць", image: "/Місяць.png", syllable: "МІ" },
+  { key: "Мавпа", image: "/Мавпа.png", syllable: "МА", sound: null },
+  { key: "Морква", image: "/Морква.png", syllable: "МО", sound: "/Морква.mp3" },
+  { key: "Морозиво", image: "/Морозиво.png", syllable: "МО", sound: "/Морозиво.mp3" },
+  { key: "Муха", image: "/Муха.png", syllable: "МУ", sound: null },
+  { key: "Мед", image: "/Мед.png", syllable: "МЕ", sound: null },
+  { key: "Миша", image: "/Миша.png", syllable: "МИ", sound: null },
+  { key: "Місяць", image: "/Місяць.png", syllable: "МІ", sound: null },
 ];
 
 describe("compareSyllables", () => {
@@ -34,6 +34,34 @@ describe("selectLevel", () => {
   it("caps at every available syllable once the count exceeds them", () => {
     const { syllables } = selectLevel(CARDS, 9);
     expect(syllables).toEqual(["МА", "МО", "МУ", "МЕ", "МИ", "МІ"]);
+  });
+
+  it("caps the tray at syllableCount * 2 + 3 cards when more pictures are available", () => {
+    const manyCards: ReadingGameCard[] = Array.from({ length: 8 }, (_, i) => ({
+      key: `Слово${i}`,
+      image: `/w${i}.png`,
+      syllable: "МА",
+      sound: null,
+    }));
+
+    const { cards } = selectLevel(manyCards, 1);
+    expect(cards).toHaveLength(5); // 1 * 2 + 3
+    expect(new Set(cards.map((c) => c.key)).size).toBe(5); // no duplicates
+  });
+
+  it("keeps at least one card per active syllable even when capping", () => {
+    const manyCards: ReadingGameCard[] = Array.from({ length: 8 }, (_, i) => ({
+      key: `Слово${i}`,
+      image: `/w${i}.png`,
+      syllable: "МА",
+      sound: null,
+    }));
+    const twoSyllableCards = [...manyCards, { key: "Мед", image: "/Мед.png", syllable: "МЕ", sound: null }];
+
+    const { syllables, cards } = selectLevel(twoSyllableCards, 2); // cap = 2 * 2 + 3 = 7
+    expect(syllables).toEqual(["МА", "МЕ"]);
+    expect(cards).toHaveLength(7);
+    expect(cards.some((c) => c.syllable === "МЕ")).toBe(true);
   });
 });
 
