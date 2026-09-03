@@ -13,15 +13,21 @@ export interface StorySummary {
 // One card within a {...} word breakdown — most segments are just a
 // letter/syllable (rendered per docs/preschool/games/reading/Stories.md §3:
 // the letters/ flashcard image for a known two-letter syllable, plain
-// colored letters otherwise), but a segment written as "[Image #N]" instead
-// pins a specific photographed card to that slot (e.g. an illustration that
-// isn't one of letters/'s consonant+vowel syllables) — see Story.images.
-export type StoryWordSegment = { kind: "text"; text: string } | { kind: "image"; number: number };
+// colored letters otherwise), but a segment written as an image filename
+// (e.g. "img1.jpeg") instead pins that specific photographed card to that
+// slot (e.g. an illustration that isn't one of letters/'s consonant+vowel
+// syllables) — resolved against the story's own folder, public/static/
+// stories/<slug>/<filename>.
+export type StoryWordSegment = { kind: "text"; text: string } | { kind: "image"; filename: string };
 
+// {...} always contains one or more "-"-separated segments — even a lone
+// image reference like "{ img1.jpeg }" is a one-segment "word" (see
+// parseSyllableGroup below), so there's no separate standalone "image" part
+// kind: a photo instead of a letter card is just what one segment renders
+// as.
 export type StoryParagraphPart =
   | { kind: "text"; text: string }
-  | { kind: "word"; segments: StoryWordSegment[] } // e.g. {К - ВІ - Т - КА} -> 4 segments
-  | { kind: "image"; number: number }; // e.g. [Image #25] -> 25 — a photographed card sheet, see Story.images
+  | { kind: "word"; segments: StoryWordSegment[] }; // e.g. {К - ВІ - Т - КА} -> 4 segments
 
 export interface StoryParagraph {
   parts: StoryParagraphPart[];
@@ -43,52 +49,42 @@ export interface Story {
 // the renderer, not here.
 const SYLLABLE_GROUP_RE = /\{([^}]+)\}/g;
 
-// A photographed card sheet for one word (docs/preschool/games/reading/
-// Stories.md §3) — the same "draw it on paper, photograph it" workflow as
-// public/static/letters' sheets (see backend's slice_flashcard_grid
-// command), just referenced by number instead of sliced into per-syllable
-// files. Written the way pasting a document with inline images into plain
-// text usually renders them ("[Image #25]"), case/spacing-insensitively.
-const IMAGE_REF_RE = /\[image\s*#?\s*(\d+)\]/gi;
-
-// Same shape as IMAGE_REF_RE but anchored to match a whole string exactly
-// (no "g" flag — this is used once per segment via .match, not scanned
-// across a larger string, so it doesn't need IMAGE_REF_RE's own lastIndex
-// statefulness) — used to recognize a lone "[Image #N]" word-breakdown
-// segment (see parseWordSegment below), as opposed to IMAGE_REF_RE finding
-// one anywhere inside running paragraph text.
-const IMAGE_REF_WHOLE_RE = /^\[image\s*#?\s*(\d+)\]$/i;
-
-// Matches whichever of the two inline markers comes first — combining them
-// into one alternation (rather than running SYLLABLE_GROUP_RE and
-// IMAGE_REF_RE as two separate passes) keeps their relative order in the
-// source text intact.
-const INLINE_MARKER_RE = new RegExp(`${SYLLABLE_GROUP_RE.source}|${IMAGE_REF_RE.source}`, "gi");
+// A segment (or, per parseSyllableGroup below, a whole {...} group) that's
+// just an image filename — e.g. "img1.jpeg" living right next to story.md
+// (docs/preschool/games/reading/Stories.md §3) — rather than a letter or
+// syllable. Anchored both ends and excludes whitespace/braces so it only
+// matches one clean filename token, never a run of several dash-separated
+// segments (a filename itself is assumed not to contain "-", since that
+// would otherwise be indistinguishable from a segment separator).
+const IMAGE_FILENAME_RE = /^[^\s{}]+\.(jpe?g|png|webp|gif)$/i;
 
 function parseWordSegment(raw: string): StoryWordSegment {
-  const match = raw.match(IMAGE_REF_WHOLE_RE);
-  return match ? { kind: "image", number: Number(match[1]) } : { kind: "text", text: raw };
+  return IMAGE_FILENAME_RE.test(raw) ? { kind: "image", filename: raw } : { kind: "text", text: raw };
+}
+
+// A {...} group's content is either one bare image filename (checked
+// against the *whole*, untrimmed-of-dashes content first, so a filename
+// itself may safely contain "-", e.g. "{ img-1.jpeg }") or, otherwise, the
+// usual "-"-separated syllable/letter segments (any of which may itself be
+// an image filename instead, e.g. "{К - img1.jpeg - Т - КА}").
+function parseSyllableGroup(raw: string): StoryWordSegment[] {
+  const trimmed = raw.trim();
+  if (IMAGE_FILENAME_RE.test(trimmed)) return [{ kind: "image", filename: trimmed }];
+  return trimmed
+    .split("-")
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .map(parseWordSegment);
 }
 
 export function parseStoryParagraph(text: string): StoryParagraph {
   const parts: StoryParagraphPart[] = [];
   let lastIndex = 0;
-  for (const match of text.matchAll(INLINE_MARKER_RE)) {
+  for (const match of text.matchAll(SYLLABLE_GROUP_RE)) {
     const index = match.index ?? 0;
     if (index > lastIndex) parts.push({ kind: "text", text: text.slice(lastIndex, index) });
-
-    const [, syllableGroup, imageNumber] = match;
-    if (syllableGroup !== undefined) {
-      const segments = syllableGroup
-        .split("-")
-        .map((segment) => segment.trim())
-        .filter(Boolean)
-        .map(parseWordSegment);
-      if (segments.length > 0) parts.push({ kind: "word", segments });
-    } else if (imageNumber !== undefined) {
-      parts.push({ kind: "image", number: Number(imageNumber) });
-    }
-
+    const segments = parseSyllableGroup(match[1]);
+    if (segments.length > 0) parts.push({ kind: "word", segments });
     lastIndex = index + match[0].length;
   }
   if (lastIndex < text.length) parts.push({ kind: "text", text: text.slice(lastIndex) });

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseStory, parseStoryParagraph, parseStoryTitle, type StoryWordSegment } from "./story-parser";
 
 const text = (value: string): StoryWordSegment => ({ kind: "text", text: value });
-const img = (number: number): StoryWordSegment => ({ kind: "image", number });
+const img = (filename: string): StoryWordSegment => ({ kind: "image", filename });
 
 describe("parseStoryParagraph", () => {
   it("splits plain text around a syllable-word group, trimming each segment", () => {
@@ -28,37 +28,23 @@ describe("parseStoryParagraph", () => {
     });
   });
 
-  it("splits plain text around a standalone [Image #N] reference", () => {
-    const { parts } = parseStoryParagraph("Щоранку [Image #25] виходив із хатинки.");
+  it("treats a whole {...} group as one image card when its content is just an image filename", () => {
+    const { parts } = parseStoryParagraph("Тішиться дід. { img1.jpeg } Пішов він на город.");
     expect(parts).toEqual([
-      { kind: "text", text: "Щоранку " },
-      { kind: "image", number: 25 },
-      { kind: "text", text: " виходив із хатинки." },
+      { kind: "text", text: "Тішиться дід. " },
+      { kind: "word", segments: [img("img1.jpeg")] },
+      { kind: "text", text: " Пішов він на город." },
     ]);
   });
 
-  it("recognizes a standalone [Image #N] regardless of casing or spacing around the number", () => {
-    expect(parseStoryParagraph("[image25]").parts).toEqual([{ kind: "image", number: 25 }]);
-    expect(parseStoryParagraph("[IMAGE # 3]").parts).toEqual([{ kind: "image", number: 3 }]);
+  it("recognizes an image filename regardless of extension casing, and allows a dash inside it", () => {
+    expect(parseStoryParagraph("{IMG1.JPEG}").parts).toEqual([{ kind: "word", segments: [img("IMG1.JPEG")] }]);
+    expect(parseStoryParagraph("{ img-1.png }").parts).toEqual([{ kind: "word", segments: [img("img-1.png")] }]);
   });
 
-  it("keeps syllable groups and image references in their original order", () => {
-    const { parts } = parseStoryParagraph("{ві - н} бачить [Image #7] і {К - А - Т}.");
-    expect(parts).toEqual([
-      { kind: "word", segments: [text("ві"), text("н")] },
-      { kind: "text", text: " бачить " },
-      { kind: "image", number: 7 },
-      { kind: "text", text: " і " },
-      { kind: "word", segments: [text("К"), text("А"), text("Т")] },
-      { kind: "text", text: "." },
-    ]);
-  });
-
-  it("treats a word-breakdown segment written as [Image #N] as its own card image, not text", () => {
-    const { parts } = parseStoryParagraph("{К - [Image #30] - Т - КА}");
-    expect(parts).toEqual([
-      { kind: "word", segments: [text("К"), img(30), text("Т"), text("КА")] },
-    ]);
+  it("treats a word-breakdown segment written as an image filename as its own card image, not text", () => {
+    const { parts } = parseStoryParagraph("{К - img1.jpeg - Т - КА}");
+    expect(parts).toEqual([{ kind: "word", segments: [text("К"), img("img1.jpeg"), text("Т"), text("КА")] }]);
   });
 });
 
