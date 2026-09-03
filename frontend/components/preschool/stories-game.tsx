@@ -1,19 +1,27 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkBreaks from "remark-breaks";
 import { useRouter } from "@/i18n/navigation";
 import { speakSequence } from "@/lib/piper-tts";
 import { useStories, useStory, type Story, type StoryWordSegment, type StorySummary } from "@/lib/story";
+import { extractStorySpeechRuns, remarkStoryCards, STORY_CARD_TAG } from "@/lib/story-markdown";
+import { parseSyllableGroup } from "@/lib/story-parser";
 import { useStoriesGameStore } from "@/stores/stories-game-store";
 
 // Preschool "Казки" (Stories) reading minigame — see docs/preschool/games/
 // reading/Stories.md for the design brief. Two screens:
 //   - a picker (StoryPicker) listing every <slug>/story.md under
 //     public/static/stories (see lib/story.ts's useStories);
-//   - the story itself (StoryPage), a "page" of prose where every "{...}"
-//     group (see lib/story-parser.ts) is purely visual — tapping one just
-//     opens it bigger, no read-aloud — but renders as one of two things:
+//   - the story itself (StoryPage) — its body is real Markdown, rendered
+//     with react-markdown (same library as components/markdown.tsx), so
+//     headings/emphasis/lists/blockquotes/etc. all render normally. On top
+//     of that, lib/story-markdown.ts's remarkStoryCards plugin recognizes
+//     "{...}" anywhere in the Markdown and turns it into a <story-card>
+//     element (StoryCard below) — purely visual, tapping one just opens it
+//     bigger, no read-aloud — rendered as one of two things:
 //     - a lone image segment with nothing else, e.g. "{ img1.jpeg }", is a
 //       full story illustration (StoryIllustration below): a plain
 //       rectangular picture at its own aspect ratio, no card border;
@@ -183,6 +191,44 @@ function StoryIllustration({ url, size }: { url: string; size: "sm" | "lg" }) {
   );
 }
 
+// Renders one "{...}" reference found anywhere in the story's Markdown —
+// react-markdown dispatches to this via the `components` map, keyed by
+// STORY_CARD_TAG, for every <story-card raw="..."> element
+// lib/story-markdown.ts's remarkStoryCards plugin inserts. `raw` is the
+// group's unparsed inner content; parseSyllableGroup (lib/story-parser.ts)
+// is the same pure segment parser the unit tests cover.
+function StoryCard({
+  raw,
+  storySlug,
+  onOpen,
+}: {
+  raw: string;
+  storySlug: string;
+  onOpen: (segments: StoryWordSegment[]) => void;
+}) {
+  const segments = useMemo(() => parseSyllableGroup(raw), [raw]);
+  if (segments.length === 0) return null;
+
+  if (isIllustration(segments)) {
+    return (
+      // not-prose: the .prose typography plugin styling the story body
+      // (see StoryPage below) puts a large top/bottom margin on every
+      // <img>, including the ones inside our own cards — not-prose opts
+      // this whole subtree back out of that (see Tailwind Typography's
+      // docs), which is what keeps the card row from ballooning in height.
+      <button type="button" onClick={() => onOpen(segments)} className="not-prose mx-auto block cursor-pointer">
+        <StoryIllustration url={storyImageUrl(storySlug, segments[0].filename)} size="sm" />
+      </button>
+    );
+  }
+
+  return (
+    <button type="button" onClick={() => onOpen(segments)} className="not-prose mx-0.5 cursor-pointer align-middle">
+      <WordCardRow segments={segments} storySlug={storySlug} size="sm" />
+    </button>
+  );
+}
+
 // Shared full-screen chrome — a dark scrim that closes on tap anywhere
 // (including the content itself, since nothing inside stops propagation),
 // the ✕ button, Escape, or Space (a document-level listener rather than an
@@ -281,16 +327,25 @@ function StoryPage({
   // reading/Stories.md §5) — {...} word/image cards are purely visual
   // (tapping one just opens it bigger), so there's no text to read aloud
   // for them.
+  const speechRuns = useMemo(() => extractStorySpeechRuns(story.body), [story.body]);
   const playPage = async (): Promise<void> => {
     if (muted) return;
     const token = ++tokenRef.current;
-    for (const paragraph of story.paragraphs) {
-      for (const part of paragraph.parts) {
-        if (token !== tokenRef.current) return;
-        if (part.kind === "text" && part.text.trim()) await speakSequence([part.text], "uk", undefined, "sentence");
-      }
+    for (const run of speechRuns) {
+      if (token !== tokenRef.current) return;
+      await speakSequence([run], "uk", undefined, "sentence");
     }
   };
+
+  const markdownComponents = useMemo(
+    (): Components =>
+      ({
+        [STORY_CARD_TAG]: ({ raw }: { raw: string }) => (
+          <StoryCard raw={raw} storySlug={slug} onOpen={setFullscreenSegments} />
+        ),
+      }) as unknown as Components,
+    [slug],
+  );
 
   return (
     <div className="relative flex flex-1 flex-col overflow-y-auto rounded-3xl bg-[#fffdf7] p-4 shadow-inner ring-4 ring-inset ring-white/90 sm:p-8">
@@ -319,41 +374,13 @@ function StoryPage({
         <h2 className="text-3xl font-extrabold text-gray-800">{story.title}</h2>
       </div>
 
-      <div className="mx-auto flex max-w-2xl flex-col gap-4 text-xl leading-loose text-gray-700">
-        {story.paragraphs.map((paragraph, paragraphIndex) => (
-          // whitespace-pre-line preserves a single "\n" inside one
-          // paragraph as an actual line break (e.g. Колобок.md's song
-          // verses, several short lines with no blank line between them —
-          // parseStoryParagraph keeps them as one paragraph's text) while
-          // still collapsing runs of plain spaces normally.
-          <p key={paragraphIndex} className="whitespace-pre-line">
-            {paragraph.parts.map((part, partIndex) => {
-              if (part.kind === "text") return <span key={partIndex}>{part.text}</span>;
-              if (isIllustration(part.segments)) {
-                return (
-                  <button
-                    key={partIndex}
-                    type="button"
-                    onClick={() => setFullscreenSegments(part.segments)}
-                    className="mx-auto block cursor-pointer"
-                  >
-                    <StoryIllustration url={storyImageUrl(slug, part.segments[0].filename)} size="sm" />
-                  </button>
-                );
-              }
-              return (
-                <button
-                  key={partIndex}
-                  type="button"
-                  onClick={() => setFullscreenSegments(part.segments)}
-                  className="mx-0.5 cursor-pointer align-middle"
-                >
-                  <WordCardRow segments={part.segments} storySlug={slug} size="sm" />
-                </button>
-              );
-            })}
-          </p>
-        ))}
+      {/* prose-lg for the fairy-tale-sized body text (headings, emphasis,
+          lists, blockquotes — anything real Markdown supports); max-w-none
+          since the mx-auto max-w-2xl wrapper already constrains width. */}
+      <div className="prose prose-lg mx-auto max-w-2xl text-gray-700 prose-p:leading-loose">
+        <ReactMarkdown remarkPlugins={[remarkStoryCards, remarkBreaks]} components={markdownComponents}>
+          {story.body}
+        </ReactMarkdown>
       </div>
 
       {fullscreenSegments && (

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { parseStory, type Story, type StorySummary } from "@/lib/story-parser";
 
-export type { Story, StorySummary, StoryParagraph, StoryParagraphPart, StoryWordSegment } from "@/lib/story-parser";
+export type { Story, StorySummary, StoryWordSegment } from "@/lib/story-parser";
 
 let storiesPromise: Promise<StorySummary[]> | null = null;
 
@@ -50,12 +50,13 @@ function fetchStory(slug: string): Promise<Story | null> {
   return cached;
 }
 
-// One story's parsed title+paragraphs, cached module-wide. `null` while
+// One story's parsed title+subtitle+body, cached module-wide. `null` while
 // `slug` is null, still loading (including right after it changes), or
 // once loaded, if the folder/story.md turned out not to exist. Any image a
-// paragraph references (see StoryWordSegment's "image" kind) is resolved
-// by the caller directly from `slug` (public/static/stories/<slug>/
-// <filename>) — there's no separate lookup to fetch for it.
+// "{...}" reference names (see StoryWordSegment's "image" kind, resolved
+// while rendering the body — see stories-game.tsx) is resolved by the
+// caller directly from `slug` (public/static/stories/<slug>/<filename>) —
+// there's no separate lookup to fetch for it.
 export function useStory(slug: string | null): Story | null {
   const [loaded, setLoaded] = useState<{ slug: string | null; story: Story | null }>({ slug: null, story: null });
 
