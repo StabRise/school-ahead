@@ -20,6 +20,7 @@ dependencies = [
     "gunicorn>=26.1.0",
     "mcp<2.0.0",
     "ninja-api-key>=2.0.0",
+    "pillow>=12.3.0",
     "psycopg[binary]>=3.3.4",
     "requests>=2.34.2",
     "whitenoise>=6.12.0",

@@ -56,6 +56,7 @@
   },
   "Header": {
     "brand": "Ahead",
+    "readingGameLink": "Вчуся Читати",
     "login": "Увійти",
     "logout": "Вийти",
     "userMenu": "Меню користувача",
@@ -157,6 +158,10 @@
     "trainsSubtitle": "Натискай букви на клавіатурі",
     "readingTitle": "Склади",
     "readingSubtitle": "Збери картинку зі складом",
+    "cardsTitle": "Картки",
+    "cardsSubtitle": "Слухай склади та картинки",
+    "storiesTitle": "Казки",
+    "storiesSubtitle": "Читай казку по складах",
     "switchGame": "Обрати іншу гру"
   },
   "ReadingGame": {
@@ -169,6 +174,28 @@
     "levelCompleteTitle": "Молодець! Усі картки на місці!",
     "playAgainButton": "Ще раз",
     "nextLetterButton": "Далі: {letter}"
+  },
+  "CardsGame": {
+    "settingsButton": "Налаштування",
+    "consonantLabel": "Приголосна",
+    "showCaptionsLabel": "Підписи під картками",
+    "mutedLabel": "Без звуку",
+    "levelCompleteTitle": "Молодець! Усі картки вивчено!",
+    "playAgainButton": "Ще раз",
+    "nextLetterButton": "Далі: {letter}",
+    "screenModeGame": "Гра",
+    "screenModeGameHint": "Перевірка знань",
+    "screenModeLearning": "Навчання",
+    "targetLabel": "Знайди: {syllable}",
+    "replaySoundLabel": "Повторити звук",
+    "scoreLabel": "Правильних відповідей: {count}"
+  },
+  "StoriesGame": {
+    "pickerTitle": "Обери казку",
+    "pickerSubtitle": "Натисни на назву, щоб почати читати",
+    "noStories": "Казок поки що немає",
+    "backToListButton": "До вибору книжок",
+    "closeImageLabel": "Закрити"
   },
   "StudentDashboard": {
     "title": "Сьогоднішні уроки",
