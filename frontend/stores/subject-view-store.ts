@@ -8,7 +8,6 @@ import { persist } from "zustand/middleware";
 // of resetting to the defaults every time.
 
 export type CoursePlanViewMode = "brief" | "full";
-export type TutorSubjectViewMode = "brief" | "full" | "student";
 
 interface SubjectViewState {
   coursePlanViewMode: CoursePlanViewMode;
@@ -19,8 +18,9 @@ interface SubjectViewState {
   coursePlanTopicsExpanded: boolean | null;
   setCoursePlanTopicsExpanded: (expanded: boolean | null) => void;
 
-  tutorViewMode: TutorSubjectViewMode;
-  setTutorViewMode: (mode: TutorSubjectViewMode) => void;
+  // The tutor's Subject detail page no longer has a brief/full/student view
+  // toggle — one merged view always shows everything — but keeps its own
+  // sticky expand/collapse-all preference for the topic accordions.
   tutorTopicsExpanded: boolean | null;
   setTutorTopicsExpanded: (expanded: boolean | null) => void;
 }
@@ -33,8 +33,6 @@ export const useSubjectViewStore = create<SubjectViewState>()(
       coursePlanTopicsExpanded: null,
       setCoursePlanTopicsExpanded: (coursePlanTopicsExpanded) => set({ coursePlanTopicsExpanded }),
 
-      tutorViewMode: "brief",
-      setTutorViewMode: (tutorViewMode) => set({ tutorViewMode }),
       tutorTopicsExpanded: null,
       setTutorTopicsExpanded: (tutorTopicsExpanded) => set({ tutorTopicsExpanded }),
     }),

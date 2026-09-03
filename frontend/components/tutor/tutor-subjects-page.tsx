@@ -3,55 +3,36 @@
 import { useTranslations } from "next-intl";
 import type { AssignmentOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { useTutoringApiListAssignments } from "@/lib/api/browser/tutor/tutor";
-import { Card } from "@/components/card";
-import { PageContainer } from "@/components/page-container";
+import { Link } from "@/i18n/navigation";
+import { SimplePageContainer } from "@/components/simple/page-container";
 import { IsFilledBadge } from "@/components/subjects/is-filled-badge";
+import { SimpleEntityIcon } from "@/components/simple/entity-icon";
+import { SortableHeader, useSortState } from "@/components/simple/sortable-header";
 
-// Deterministic per-subject accent color — same trick as the student view's
-// SubjectCard (frontend/components/subjects/subject-card.tsx), AssignmentOut
-// still has no color field from the backend.
-const ICON_COLORS = [
-  "bg-blue-500",
-  "bg-purple-500",
-  "bg-emerald-500",
-  "bg-amber-500",
-  "bg-rose-500",
-  "bg-cyan-500",
-];
+// Shared by the header row and every body row so columns line up like a
+// real table: icon / subject (flexible) / topics+lessons meta / filled.
+const ROW_GRID = "grid grid-cols-[1.5rem_minmax(0,1fr)_10rem_5rem] items-center gap-3";
 
-function SubjectCard({ assignment }: { assignment: AssignmentOut }) {
+type SortKey = "name";
+
+function SubjectRow({ assignment }: { assignment: AssignmentOut }) {
   const t = useTranslations("TutorSubjects");
-  const iconColor = ICON_COLORS[assignment.subject_id % ICON_COLORS.length];
 
   return (
-    <Card
-      href={`/tutor/subjects/${assignment.subject_id}`}
-      className="flex h-full flex-col gap-3 shadow-sm transition-shadow hover:shadow-md"
-    >
-      <div className="flex items-center gap-3">
-        {assignment.subject_icon ? (
-          <span className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-gray-100">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={assignment.subject_icon} alt="" className="h-full w-full object-cover" />
-          </span>
-        ) : (
-          <span
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-semibold text-white ${iconColor}`}
-          >
-            {assignment.subject_name.charAt(0).toUpperCase()}
-          </span>
-        )}
-        <span className="font-medium text-gray-900">{assignment.subject_name}</span>
-      </div>
-
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-gray-500">
+    <li>
+      <Link
+        href={`/tutor/subjects/${assignment.subject_id}`}
+        className={`${ROW_GRID} px-2 py-2 hover:bg-gray-50`}
+      >
+        <SimpleEntityIcon iconUrl={assignment.subject_icon} />
+        <span className="min-w-0 truncate font-medium text-gray-900">{assignment.subject_name}</span>
+        <span className="truncate text-xs text-gray-500">
           {t("topicsCount", { count: assignment.topic_count })} ·{" "}
           {t("lessonsCount", { count: assignment.lesson_count })}
         </span>
         <IsFilledBadge isFilled={assignment.is_filled} />
-      </div>
-    </Card>
+      </Link>
+    </li>
   );
 }
 
@@ -81,15 +62,26 @@ function groupByClass(assignments: AssignmentOut[]): ClassGroup[] {
   return Array.from(groups.values()).sort((a, b) => a.className.localeCompare(b.className));
 }
 
+// Notion-style, monochrome, borderless row list grouped by class — replaces
+// the Standard shadow-card grid, matching the student Simple views'
+// visual language. See stores/subject-view-store.ts's removal of the old
+// brief/full/student tutor toggle for the related subject-detail migration.
 export function TutorSubjectsPage() {
   const t = useTranslations("TutorSubjects");
+  const tColumn = useTranslations("MySubjects");
   const { data, isLoading, isError } = useTutoringApiListAssignments();
+  const { sort, toggleSort } = useSortState<SortKey>("name");
 
   const assignments = data ?? [];
-  const classGroups = groupByClass(assignments);
+  const classGroups = groupByClass(assignments).map((group) => ({
+    ...group,
+    assignments: [...group.assignments].sort(
+      (a, b) => (sort.direction === "asc" ? 1 : -1) * a.subject_name.localeCompare(b.subject_name, "uk"),
+    ),
+  }));
 
   return (
-    <PageContainer title={t("title")}>
+    <SimplePageContainer title={t("title")}>
       {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
       {isError && <p className="text-sm text-red-600">{t("error")}</p>}
 
@@ -98,21 +90,32 @@ export function TutorSubjectsPage() {
       )}
 
       {classGroups.length > 0 && (
-        <div className="flex flex-col gap-8">
-          {classGroups.map((group) => (
-            <div key={group.classId} className="flex flex-col gap-3">
-              <h2 className="text-lg font-semibold text-gray-900">{group.className}</h2>
-              <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="flex flex-col gap-6 overflow-x-auto">
+          {classGroups.map((group, index) => (
+            <div key={group.classId} className="flex flex-col gap-1">
+              <h2 className="text-sm font-semibold text-gray-900">{group.className}</h2>
+              {index === 0 && (
+                <div className={`${ROW_GRID} min-w-[32rem] px-2 pb-1`}>
+                  <span aria-hidden="true" />
+                  <SortableHeader
+                    label={tColumn("columnSubject")}
+                    active={sort.key === "name"}
+                    direction={sort.direction}
+                    onClick={() => toggleSort("name")}
+                  />
+                  <span aria-hidden="true" />
+                  <span aria-hidden="true" />
+                </div>
+              )}
+              <ul className="min-w-[32rem] divide-y divide-gray-100">
                 {group.assignments.map((assignment) => (
-                  <li key={assignment.subject_id}>
-                    <SubjectCard assignment={assignment} />
-                  </li>
+                  <SubjectRow key={assignment.subject_id} assignment={assignment} />
                 ))}
               </ul>
             </div>
           ))}
         </div>
       )}
-    </PageContainer>
+    </SimplePageContainer>
   );
 }

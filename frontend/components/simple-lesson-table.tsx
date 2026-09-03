@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowUpDown, ChevronDown, ChevronUp, FileText, ListChecks, Monitor, type LucideIcon } from "lucide-react";
 import { Link } from "@/i18n/navigation";
+import { Monitor } from "lucide-react";
 import { compareLessonItems } from "@/lib/lesson-order";
-import { STATUS_LABEL_KEY } from "@/components/status-badge";
+import { LESSON_TYPE_ICON } from "@/components/simple/lesson-type-icon";
+import { formatGradeLabel, formatShortDate, resolveStatusLabel } from "@/components/simple/format";
+import { SortableHeader, useSortState } from "@/components/simple/sortable-header";
 import type { BacklogItemOut, CalendarItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 
 // A today/week lesson or a backlog ("tail") lesson merged into one row —
@@ -28,17 +29,9 @@ export function mergeSimpleRows(lessons: CalendarItemOut[], backlog: BacklogItem
   return [...byId.values()];
 }
 
-const LESSON_TYPE_ICON: Record<string, LucideIcon> = {
-  theory: Monitor,
-  with_task: FileText,
-  with_quiz: ListChecks,
-};
-
 // Shared by the header row and every body row so columns line up like a
 // real table: icon / subject+lesson (flexible) / date / grade / status.
 const ROW_GRID = "grid grid-cols-[1.25rem_minmax(0,1fr)_5.5rem_3.5rem_7rem] items-center gap-3";
-
-const DATE_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" });
 
 // origin_label (backlog rows only) is the lesson's original scheduled day —
 // same field the Standard dashboard/calendar already format as their
@@ -46,10 +39,6 @@ const DATE_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "s
 // plain string comparison sorts them correctly.
 function rowDate(row: SimpleRow): string {
   return row.origin_label ?? row.scheduled_date;
-}
-
-function formatRowDate(row: SimpleRow): string {
-  return DATE_FORMAT.format(new Date(`${rowDate(row)}T00:00:00`));
 }
 
 // A fixed priority rank (not a translated-label sort, which would need a
@@ -104,50 +93,17 @@ function compareRows(a: SimpleRow, b: SimpleRow, key: SortKey, direction: SortDi
   }
 }
 
-function SortableHeader({
-  label,
-  active,
-  direction,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  direction: SortDirection;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex items-center gap-1 text-left text-xs font-medium text-gray-500 hover:text-gray-700"
-    >
-      {label}
-      {active ? (
-        direction === "asc" ? (
-          <ChevronUp className="size-3" />
-        ) : (
-          <ChevronDown className="size-3" />
-        )
-      ) : (
-        <ArrowUpDown className="size-3 text-gray-300" />
-      )}
-    </button>
-  );
-}
-
 function SimpleRowItem({ item }: { item: SimpleRow }) {
   const t = useTranslations("LessonWizard");
   const tStatus = useTranslations("LessonStatus");
   const Icon = LESSON_TYPE_ICON[item.lesson_type] ?? Monitor;
 
-  const gradeLabel =
-    item.grade_result === "pass"
-      ? t("scorePass")
-      : item.grade_result === "fail"
-        ? t("scoreFail")
-        : item.grade_points !== null
-          ? t("scoreValue", { points: item.grade_points })
-          : null;
+  const gradeLabel = formatGradeLabel({
+    gradePoints: item.grade_points,
+    gradeResult: item.grade_result,
+    t,
+    bare: false,
+  });
 
   return (
     <li>
@@ -158,11 +114,9 @@ function SimpleRowItem({ item }: { item: SimpleRow }) {
           <span className="text-gray-400">: </span>
           <span className="text-gray-600">{item.lesson_title}</span>
         </span>
-        <span className="text-xs text-gray-500">{formatRowDate(item)}</span>
+        <span className="text-xs text-gray-500">{formatShortDate(rowDate(item))}</span>
         <span className={`text-xs ${gradeLabel ? "text-gray-500" : "text-gray-300"}`}>{gradeLabel ?? "—"}</span>
-        <span className="truncate text-xs text-gray-500">
-          {tStatus(STATUS_LABEL_KEY[item.status] ?? STATUS_LABEL_KEY.assigned)}
-        </span>
+        <span className="truncate text-xs text-gray-500">{resolveStatusLabel(item.status, tStatus)}</span>
       </Link>
     </li>
   );
@@ -174,15 +128,9 @@ function SimpleRowItem({ item }: { item: SimpleRow }) {
 // (see the Settings page's "Вигляд" section for how a student picks it).
 export function SimpleLessonTable({ rows, emptyMessage }: { rows: SimpleRow[]; emptyMessage: string }) {
   const t = useTranslations("SimpleLessonTable");
-  const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({ key: "date", direction: "asc" });
+  const { sort, toggleSort } = useSortState<SortKey>("date");
 
   const sortedRows = [...rows].sort((a, b) => compareRows(a, b, sort.key, sort.direction));
-
-  const handleSort = (key: SortKey) => {
-    setSort((prev) =>
-      prev.key === key ? { key, direction: prev.direction === "asc" ? "desc" : "asc" } : { key, direction: "asc" },
-    );
-  };
 
   if (sortedRows.length === 0) {
     return <p className="text-sm text-gray-500">{emptyMessage}</p>;
@@ -196,25 +144,25 @@ export function SimpleLessonTable({ rows, emptyMessage }: { rows: SimpleRow[]; e
           label={t("columnLesson")}
           active={sort.key === "subject"}
           direction={sort.direction}
-          onClick={() => handleSort("subject")}
+          onClick={() => toggleSort("subject")}
         />
         <SortableHeader
           label={t("columnDate")}
           active={sort.key === "date"}
           direction={sort.direction}
-          onClick={() => handleSort("date")}
+          onClick={() => toggleSort("date")}
         />
         <SortableHeader
           label={t("columnGrade")}
           active={sort.key === "grade"}
           direction={sort.direction}
-          onClick={() => handleSort("grade")}
+          onClick={() => toggleSort("grade")}
         />
         <SortableHeader
           label={t("columnStatus")}
           active={sort.key === "status"}
           direction={sort.direction}
-          onClick={() => handleSort("status")}
+          onClick={() => toggleSort("status")}
         />
       </div>
       <ul className="min-w-[36rem] divide-y divide-gray-100">

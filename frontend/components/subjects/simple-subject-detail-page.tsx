@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { FileText, ListChecks, Monitor, type LucideIcon } from "lucide-react";
+import { Monitor } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { useGetSubject, useListSubjectTopics } from "@/lib/api/browser/academics/academics";
 import {
@@ -11,16 +11,11 @@ import {
   useListStudentSubjectLessons,
 } from "@/lib/api/browser/student-lessons/student-lessons";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
-import { STATUS_LABEL_KEY } from "@/components/status-badge";
+import { ProgressBar } from "@/components/progress-bar";
+import { LESSON_TYPE_ICON } from "@/components/simple/lesson-type-icon";
+import { formatGradeLabel, formatShortDate, resolveStatusLabel } from "@/components/simple/format";
+import { SimplePageContainer } from "@/components/simple/page-container";
 import type { SubjectLessonOut, TopicOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
-
-const LESSON_TYPE_ICON: Record<string, LucideIcon> = {
-  theory: Monitor,
-  with_task: FileText,
-  with_quiz: ListChecks,
-};
-
-const SCHEDULED_DATE_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" });
 
 // One lesson row inside a topic section — monochrome, tiny grey icon, plain
 // text meta (date/status/grade) instead of TopicAccordionItem's colored
@@ -36,19 +31,16 @@ function SimpleSubjectLessonRow({ lesson }: { lesson: SubjectLessonOut }) {
 
   // Bare points (no "/12" denominator) — same compact-chip convention as
   // the Simple calendar/dashboard rows.
-  const gradeLabel =
-    lesson.grade_result === "pass"
-      ? t("scorePass")
-      : lesson.grade_result === "fail"
-        ? t("scoreFail")
-        : lesson.grade_points !== null
-          ? String(lesson.grade_points)
-          : null;
+  const gradeLabel = formatGradeLabel({
+    gradePoints: lesson.grade_points,
+    gradeResult: lesson.grade_result,
+    t,
+    bare: true,
+  });
 
-  const statusLabel =
-    isAssigned && lesson.status ? tStatus(STATUS_LABEL_KEY[lesson.status] ?? STATUS_LABEL_KEY.assigned) : null;
+  const statusLabel = isAssigned && lesson.status ? resolveStatusLabel(lesson.status, tStatus) : null;
   const metaParts = [
-    lesson.scheduled_date ? SCHEDULED_DATE_FORMAT.format(new Date(`${lesson.scheduled_date}T00:00:00`)) : null,
+    lesson.scheduled_date ? formatShortDate(lesson.scheduled_date) : null,
     isAssigned ? statusLabel : tDetail("notAssignedYet"),
     isAssigned ? gradeLabel : null,
   ].filter(Boolean);
@@ -145,50 +137,48 @@ export function SimpleSubjectDetailPage({ subjectId }: { subjectId: number }) {
   const isErrorLessons = topicsQuery.isError || lessonsQuery.isError;
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
-      <div className="flex flex-col gap-2">
-        <Breadcrumbs items={breadcrumbItems} />
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold text-gray-900">{subject.name}</h1>
-          <span className="text-xs text-gray-500">{percent}%</span>
+    <SimplePageContainer>
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          <Breadcrumbs items={breadcrumbItems} />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-xl font-semibold text-gray-900">{subject.name}</h1>
+            <span className="text-xs text-gray-500">{percent}%</span>
+          </div>
+          <ProgressBar percent={percent} compact />
+          {subject.teacher_name && (
+            <p className="text-xs text-gray-500">
+              {t("teacherLabel")}: {subject.teacher_name}
+            </p>
+          )}
         </div>
-        <span className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
-          <span className="block h-full rounded-full bg-gray-900" style={{ width: `${percent}%` }} />
-        </span>
-        {subject.teacher_name && (
-          <p className="text-xs text-gray-500">
-            {t("teacherLabel")}: {subject.teacher_name}
-          </p>
-        )}
-      </div>
 
-      {nextLesson && (
-        <div className="flex flex-col gap-1 border-t border-gray-100 pt-4">
-          <span className="px-1.5 text-xs font-medium text-gray-500">{t("nextLessonLabel")}</span>
-          <Link
-            href={`/lessons/${nextLesson.id}`}
-            className="flex items-center justify-between gap-3 rounded px-1.5 py-1 hover:bg-gray-50"
-          >
-            <span className="min-w-0 truncate text-sm text-gray-900">
-              {nextLesson.topic_title} · {nextLesson.title}
-            </span>
-            <span className="shrink-0 text-xs text-gray-400">
-              {SCHEDULED_DATE_FORMAT.format(new Date(`${nextLesson.scheduled_date}T00:00:00`))}
-            </span>
-          </Link>
+        {nextLesson && (
+          <div className="flex flex-col gap-1 border-t border-gray-100 pt-4">
+            <span className="px-1.5 text-xs font-medium text-gray-500">{t("nextLessonLabel")}</span>
+            <Link
+              href={`/lessons/${nextLesson.id}`}
+              className="flex items-center justify-between gap-3 rounded px-1.5 py-1 hover:bg-gray-50"
+            >
+              <span className="min-w-0 truncate text-sm text-gray-900">
+                {nextLesson.topic_title} · {nextLesson.title}
+              </span>
+              <span className="shrink-0 text-xs text-gray-400">{formatShortDate(nextLesson.scheduled_date)}</span>
+            </Link>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-5 border-t border-gray-100 pt-4">
+          {isLoadingLessons && <p className="text-sm text-gray-500">{t("loading")}</p>}
+          {isErrorLessons && <p className="text-sm text-red-600">{t("error")}</p>}
+          {!isLoadingLessons && !isErrorLessons && topics.length === 0 && (
+            <p className="text-sm text-gray-500">{t("noTopics")}</p>
+          )}
+          {topics.map((topic) => (
+            <SimpleTopicSection key={topic.id} topic={topic} lessons={lessonsByTopicId.get(topic.id) ?? []} />
+          ))}
         </div>
-      )}
-
-      <div className="flex flex-col gap-5 border-t border-gray-100 pt-4">
-        {isLoadingLessons && <p className="text-sm text-gray-500">{t("loading")}</p>}
-        {isErrorLessons && <p className="text-sm text-red-600">{t("error")}</p>}
-        {!isLoadingLessons && !isErrorLessons && topics.length === 0 && (
-          <p className="text-sm text-gray-500">{t("noTopics")}</p>
-        )}
-        {topics.map((topic) => (
-          <SimpleTopicSection key={topic.id} topic={topic} lessons={lessonsByTopicId.get(topic.id) ?? []} />
-        ))}
       </div>
-    </div>
+    </SimplePageContainer>
   );
 }

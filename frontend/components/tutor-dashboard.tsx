@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { Baby } from "lucide-react";
+import { User } from "lucide-react";
 import {
   getTutoringApiNeedHelpQueryKey,
   useTutoringApiListAssignments,
@@ -14,8 +14,9 @@ import {
 } from "@/lib/api/browser/tutor/tutor";
 import type { TutorFeedItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Link, useRouter } from "@/i18n/navigation";
-import { Card } from "@/components/card";
-import { PageContainer } from "@/components/page-container";
+import { SimplePageContainer } from "@/components/simple/page-container";
+import { SimpleEntityIcon } from "@/components/simple/entity-icon";
+import { formatShortDate } from "@/components/simple/format";
 import { MyStudentsSidebar } from "@/components/tutor/my-students-sidebar";
 
 const UPDATED_AT_FORMAT = new Intl.DateTimeFormat("uk-UA", {
@@ -24,14 +25,14 @@ const UPDATED_AT_FORMAT = new Intl.DateTimeFormat("uk-UA", {
   hour: "2-digit",
   minute: "2-digit",
 });
-const SCHEDULED_DATE_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" });
 
-// The whole row navigates to the submission on click (see Card's `onClick`
-// branch — a plain, keyboard-operable div rather than a real <a>, since
-// this row also nests real <Link>s for the student/subject/class and,
-// for "Потрібна допомога" rows, a real <button> for the quick action).
-// Every nested Link/button stops the click from bubbling so it doesn't
-// also trigger the row's own navigation.
+// The whole row navigates to the submission on click — a plain, keyboard-
+// operable div (role="link"/tabIndex/Enter, same contract Card's onClick
+// branch used before) rather than a real <a>, since this row also nests
+// real <Link>s for the student/subject/class and, for "Потрібна допомога"
+// rows, a real <button> for the quick action. Every nested Link/button
+// stops the click from bubbling so it doesn't also trigger the row's own
+// navigation.
 function FeedRow({
   item,
   note,
@@ -47,16 +48,20 @@ function FeedRow({
   const router = useRouter();
   const isResolvable = onMarkHelped !== undefined;
   const stopPropagation = (e: React.SyntheticEvent) => e.stopPropagation();
+  const goToSubmission = () => router.push(`/tutor/submissions/${item.student_lesson_id}`);
 
   return (
     <li>
-      <Card
-        onClick={() => router.push(`/tutor/submissions/${item.student_lesson_id}`)}
-        className="flex gap-3"
+      <div
+        role="link"
+        tabIndex={0}
+        onClick={goToSubmission}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") goToSubmission();
+        }}
+        className="flex cursor-pointer gap-3 rounded px-2 py-2 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
       >
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700">
-          <Baby className="size-5" />
-        </span>
+        <SimpleEntityIcon fallback={User} />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex items-center justify-between gap-2">
             <Link
@@ -71,17 +76,17 @@ function FeedRow({
           <Link
             href={`/tutor/subjects/${item.subject_id}`}
             onClick={stopPropagation}
-            className="truncate text-base font-semibold text-gray-900 hover:underline"
+            className="truncate text-sm font-medium text-gray-900 hover:underline"
           >
             {item.subject_name}
           </Link>
-          <p className="truncate text-sm lowercase text-gray-500">{item.lesson_title}</p>
-          {note && <p className="text-sm text-gray-700">«{note}»</p>}
-          <p className="truncate text-xs text-gray-500">
+          <p className="truncate text-xs lowercase text-gray-500">{item.lesson_title}</p>
+          {note && <p className="text-xs text-gray-600">«{note}»</p>}
+          <p className="truncate text-xs text-gray-400">
             <Link href={`/tutor/classes/${item.class_id}`} onClick={stopPropagation} className="hover:underline">
               {item.class_name}
             </Link>{" "}
-            · {SCHEDULED_DATE_FORMAT.format(new Date(`${item.scheduled_date}T00:00:00`))}
+            · {formatShortDate(item.scheduled_date)}
           </p>
           {isResolvable && (
             <button
@@ -97,7 +102,7 @@ function FeedRow({
             </button>
           )}
         </div>
-      </Card>
+      </div>
     </li>
   );
 }
@@ -137,7 +142,7 @@ function FeedColumn({
       )}
 
       {items.length > 0 && (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col divide-y divide-gray-100">
           {items.map((item) => (
             <FeedRow
               key={item.student_lesson_id}
@@ -201,7 +206,7 @@ export function TutorDashboard() {
   };
 
   return (
-    <PageContainer>
+    <SimplePageContainer>
       <div className="flex flex-col gap-8 bg-white lg:flex-row lg:items-start lg:gap-8">
         {/* Left: filters */}
         <div className="flex w-full flex-col gap-3 lg:w-48 lg:shrink-0">
@@ -273,6 +278,6 @@ export function TutorDashboard() {
         {/* Right: Мої учні, visually set apart from the white page background */}
         <MyStudentsSidebar students={students ?? []} />
       </div>
-    </PageContainer>
+    </SimplePageContainer>
   );
 }

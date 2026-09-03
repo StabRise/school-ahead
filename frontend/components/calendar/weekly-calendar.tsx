@@ -280,7 +280,9 @@ function LessonCard({
 
 // Popup opened by LessonCard's "change date" button — lets the tutor pick
 // any date (not just a drag-and-drop target within the visible week).
-function RescheduleDialog({
+// Exported for reuse by components/calendar/simple-calendar.tsx's own
+// tutor-management mode.
+export function RescheduleDialog({
   item,
   onOpenChange,
   onSubmit,

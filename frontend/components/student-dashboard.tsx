@@ -17,6 +17,7 @@ import { PreschoolCelebration } from "@/components/preschool/game-choice";
 import { DefaultStepIcon } from "@/components/preschool/decorations";
 import { ContentTypeBadges } from "@/components/subjects/content-type-badges";
 import { SimpleDashboard } from "@/components/simple-dashboard";
+import { SimplePageContainer } from "@/components/simple/page-container";
 import { useAuthStore } from "@/stores/auth-store";
 import { useRouter } from "@/i18n/navigation";
 
@@ -396,13 +397,13 @@ export function StudentDashboard() {
 
   if (isSimple) {
     return (
-      <PageContainer title={t("title")} maxWidthClassName="xl:max-w-7xl">
+      <SimplePageContainer title={t("title")}>
         {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
         {isError && <p className="text-sm text-red-600">{t("error")}</p>}
         {!isLoading && !isError && (
           <SimpleDashboard lessons={data?.today ?? []} backlog={data?.backlog ?? []} />
         )}
-      </PageContainer>
+      </SimplePageContainer>
     );
   }
 

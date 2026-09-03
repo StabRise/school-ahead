@@ -3,7 +3,7 @@
 import { forwardRef, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { List, Pencil, type LucideIcon, Rows3, Trash2, UserPlus, UserSearch, Users } from "lucide-react";
+import { Pencil, type LucideIcon, Trash2, UserPlus, Users } from "lucide-react";
 import { getGetSubjectQueryKey, getListSubjectTopicsQueryKey, useGetSubject, useListSubjectTopics } from "@/lib/api/browser/academics/academics";
 import {
   getListTutorSubjectLessonsQueryKey,
@@ -29,21 +29,15 @@ import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Card } from "@/components/card";
 import { ExpandAllButton } from "@/components/expand-all-button";
-import { GradeSquareBadge } from "@/components/grade-square-badge";
 import { Tabs } from "@/components/tabs";
-import { ViewModeToggle } from "@/components/view-mode-toggle";
-import { getLessonTypeBorderColor } from "@/components/subjects/lesson-type-border-color";
 import { groupTopicsByBlock, type BlockGroup } from "@/components/subjects/group-topics-by-block";
 import { SemesterPlan } from "@/components/subjects/semester-plan";
+import { formatGradeLabel, formatShortDate } from "@/components/simple/format";
 import { useSubjectViewStore } from "@/stores/subject-view-store";
 import { AssignStudentDialog } from "./assign-student-dialog";
 import { LoadLessonsJsonDialog } from "./load-lessons-json-dialog";
 import { PlanSubjectLessonsDialog } from "./plan-subject-lessons-dialog";
 import { RescheduleAssignmentDialog } from "./reschedule-assignment-dialog";
-
-type ViewMode = "brief" | "full" | "student";
-
-const SCHEDULED_DATE_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short", year: "numeric" });
 
 function AssignedStudentsList({ students }: { students: SubjectLessonStudentOut[] }) {
   const t = useTranslations("TutorSubjectDetail");
@@ -59,7 +53,7 @@ function AssignedStudentsList({ students }: { students: SubjectLessonStudentOut[
             <span key={s.student_id}>
               <Link
                 href={`/tutor/students/${s.student_id}/calendar`}
-                title={SCHEDULED_DATE_FORMAT.format(new Date(s.scheduled_date))}
+                title={formatShortDate(s.scheduled_date)}
                 className="text-blue-700 hover:underline"
               >
                 {s.student_name}
@@ -178,16 +172,22 @@ function DeleteLessonButton({
   );
 }
 
+// One always-shown lesson row — merges what the old brief/full/student view
+// modes each showed instead of hiding two of the three behind a toggle:
+// title + task-content snippet + the full assigned-students list are always
+// visible (old "full" content, a strict superset of old "brief"'s bare
+// title), and picking a student in the always-visible filter above
+// additionally shows that student's own scheduled date, grade, and
+// reschedule/delete actions (old "student" mode's content) without hiding
+// anything else.
 function LessonRow({
   lesson,
-  viewMode,
   assignedStudents,
   selectedStudentId,
   onAssignmentChanged,
   onLessonDeleted,
 }: {
   lesson: LessonOut;
-  viewMode: ViewMode;
   assignedStudents: SubjectLessonStudentOut[];
   selectedStudentId: number | null;
   onAssignmentChanged: () => void;
@@ -195,86 +195,74 @@ function LessonRow({
 }) {
   const t = useTranslations("SubjectDetail");
   const tTutor = useTranslations("TutorSubjectDetail");
-  const borderColor = getLessonTypeBorderColor(lesson.lesson_type);
+  const tGrade = useTranslations("LessonWizard");
   const selectedAssignment =
     selectedStudentId === null ? null : (assignedStudents.find((s) => s.student_id === selectedStudentId) ?? null);
 
   return (
     <li>
-      <Card
-        href={`/tutor/lessons/${lesson.id}`}
-        className="flex flex-col gap-1.5 border-l-4 bg-white"
-        style={{ borderLeftColor: borderColor }}
-      >
-        {viewMode === "brief" && (
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-medium text-gray-900">
-              {t("lessonRow", { index: lesson.order_index, title: lesson.title })}
-            </span>
+      <Card href={`/tutor/lessons/${lesson.id}`} className="flex flex-col gap-1.5 border border-gray-100 bg-white">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-medium text-gray-900">
+            {t("lessonRow", { index: lesson.order_index, title: lesson.title })}
+          </span>
+          <div className="flex shrink-0 items-center gap-1.5">
             <AssignStudentDialog
               lessonId={lesson.id}
               onAssigned={onAssignmentChanged}
               trigger={<DialogTriggerIconButton icon={UserPlus} label={tTutor("assignToStudentButton")} />}
             />
+            <DeleteLessonButton
+              lessonId={lesson.id}
+              title={lesson.title}
+              disabled={assignedStudents.length > 0}
+              onDeleted={onLessonDeleted}
+            />
           </div>
-        )}
+        </div>
+        {lesson.task_content && <p className="text-xs text-gray-500">{lesson.task_content}</p>}
+        <AssignedStudentsList students={assignedStudents} />
 
-        {viewMode === "full" && (
-          <>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium text-gray-900">{lesson.title}</span>
-              <div className="flex shrink-0 items-center gap-1.5">
+        {selectedStudentId !== null && (
+          <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-1.5">
+            {selectedAssignment ? (
+              <>
+                <span className="text-xs text-gray-500">{formatShortDate(selectedAssignment.scheduled_date)}</span>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <span className="text-xs text-gray-500">
+                    {formatGradeLabel({
+                      gradePoints: selectedAssignment.grade_points,
+                      gradeResult: selectedAssignment.grade_result,
+                      t: tGrade,
+                      bare: true,
+                    }) ?? "—"}
+                  </span>
+                  {selectedAssignment.status !== "completed" && (
+                    <RescheduleAssignmentDialog
+                      studentLessonId={selectedAssignment.student_lesson_id}
+                      currentDate={selectedAssignment.scheduled_date}
+                      onRescheduled={onAssignmentChanged}
+                      trigger={<DialogTriggerIconButton icon={Pencil} label={tTutor("editAssignmentDateButton")} />}
+                    />
+                  )}
+                  {selectedAssignment.status === "assigned" && (
+                    <DeleteAssignmentButton
+                      studentLessonId={selectedAssignment.student_lesson_id}
+                      onDeleted={onAssignmentChanged}
+                    />
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <span className="text-xs font-medium text-gray-400">{tTutor("notAssignedToStudent")}</span>
                 <AssignStudentDialog
                   lessonId={lesson.id}
+                  defaultStudentId={selectedStudentId}
                   onAssigned={onAssignmentChanged}
-                  trigger={<DialogTriggerIconButton icon={UserPlus} label={tTutor("assignToStudentButton")} />}
+                  trigger={<DialogTriggerIconButton icon={UserPlus} label={tTutor("assignLessonButton")} />}
                 />
-                <DeleteLessonButton
-                  lessonId={lesson.id}
-                  title={lesson.title}
-                  disabled={assignedStudents.length > 0}
-                  onDeleted={onLessonDeleted}
-                />
-              </div>
-            </div>
-            {lesson.task_content && <p className="text-xs text-gray-500">{lesson.task_content}</p>}
-            <AssignedStudentsList students={assignedStudents} />
-          </>
-        )}
-
-        {viewMode === "student" && (
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-medium text-gray-900">{lesson.title}</span>
-            {selectedAssignment ? (
-              <div className="flex shrink-0 items-center gap-1.5">
-                <span className="text-xs text-gray-500">
-                  {SCHEDULED_DATE_FORMAT.format(new Date(selectedAssignment.scheduled_date))}
-                </span>
-                <GradeSquareBadge gradePoints={selectedAssignment.grade_points} gradeResult={selectedAssignment.grade_result} />
-                {selectedAssignment.status !== "completed" && (
-                  <RescheduleAssignmentDialog
-                    studentLessonId={selectedAssignment.student_lesson_id}
-                    currentDate={selectedAssignment.scheduled_date}
-                    onRescheduled={onAssignmentChanged}
-                    trigger={<DialogTriggerIconButton icon={Pencil} label={tTutor("editAssignmentDateButton")} />}
-                  />
-                )}
-                {selectedAssignment.status === "assigned" && (
-                  <DeleteAssignmentButton
-                    studentLessonId={selectedAssignment.student_lesson_id}
-                    onDeleted={onAssignmentChanged}
-                  />
-                )}
-              </div>
-            ) : selectedStudentId !== null ? (
-              <AssignStudentDialog
-                lessonId={lesson.id}
-                defaultStudentId={selectedStudentId}
-                onAssigned={onAssignmentChanged}
-                trigger={<DialogTriggerIconButton icon={UserPlus} label={tTutor("assignLessonButton")} />}
-              />
-            ) : (
-              <span className="shrink-0 text-xs font-medium text-gray-400">{tTutor("notAssignedToStudent")}</span>
+              </>
             )}
           </div>
         )}
@@ -403,7 +391,6 @@ function TopicSection({
   onDragEnd,
   onDragOver,
   onDrop,
-  viewMode,
   lessonStudentsByLessonId,
   selectedStudentId,
   onAssignmentChanged,
@@ -421,7 +408,6 @@ function TopicSection({
   onDragEnd: () => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void;
-  viewMode: ViewMode;
   lessonStudentsByLessonId: Map<number, SubjectLessonStudentOut[]>;
   selectedStudentId: number | null;
   onAssignmentChanged: () => void;
@@ -452,7 +438,7 @@ function TopicSection({
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      className={`overflow-hidden rounded-md border border-gray-200 transition-opacity ${isDragging ? "opacity-40" : ""} ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`}
+      className={`overflow-hidden rounded-md border border-gray-100 transition-opacity ${isDragging ? "opacity-40" : ""} ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-gray-50">
         <button
@@ -482,7 +468,7 @@ function TopicSection({
       </div>
 
       {expanded && (
-        <div className="flex flex-col gap-2 border-t border-gray-100 bg-gray-50/50 p-3">
+        <div className="flex flex-col gap-2 border-t border-gray-100 p-3">
           {deleteTopic.isError && <p className="text-sm text-red-600">{t("deleteTopicError")}</p>}
           {lessons.length === 0 ? (
             <p className="text-sm text-gray-500">{t("noLessonsInTopic")}</p>
@@ -494,7 +480,6 @@ function TopicSection({
                   <LessonRow
                     key={lesson.id}
                     lesson={lesson}
-                    viewMode={viewMode}
                     assignedStudents={assignedStudents}
                     selectedStudentId={selectedStudentId}
                     onAssignmentChanged={onAssignmentChanged}
@@ -515,23 +500,22 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
   const queryClient = useQueryClient();
 
   // Persisted across subjects via subject-view-store, so switching subjects
-  // keeps the last chosen view instead of resetting to "brief" every time.
-  const viewMode = useSubjectViewStore((s) => s.tutorViewMode);
-  const setViewMode = useSubjectViewStore((s) => s.setTutorViewMode);
+  // keeps the last chosen expand/collapse-all preference.
   const topicsExpandedPreference = useSubjectViewStore((s) => s.tutorTopicsExpanded);
   const setTopicsExpandedPreference = useSubjectViewStore((s) => s.setTutorTopicsExpanded);
-  const needsLessonStudents = viewMode !== "brief";
 
   const subjectQuery = useGetSubject(subjectId);
   const topicsQuery = useListSubjectTopics(subjectId);
   const lessonsQuery = useListTutorSubjectLessons(subjectId);
-  const lessonStudentsQuery = useListTutorSubjectLessonStudents(subjectId, {
-    query: { enabled: needsLessonStudents },
-  });
+  // Always fetched — the merged view (no more brief/full/student toggle)
+  // always shows the full assigned-students list.
+  const lessonStudentsQuery = useListTutorSubjectLessonStudents(subjectId);
 
   const schoolClassId = subjectQuery.data?.school_class_id;
+  // Always fetched once the class is known — the student filter is always
+  // visible now, not gated behind a "student" view mode.
   const classQuery = useGetTutorClass(schoolClassId ?? 0, {
-    query: { enabled: viewMode === "student" && schoolClassId !== undefined },
+    query: { enabled: schoolClassId !== undefined },
   });
 
   const topics = useMemo(() => topicsQuery.data ?? [], [topicsQuery.data]);
@@ -559,14 +543,6 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
 
   const [draftStudentId, setDraftStudentId] = useState<number | "">("");
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
-
-  const handleViewModeChange = (mode: ViewMode) => {
-    setViewMode(mode);
-    if (mode !== "student") {
-      setSelectedStudentId(null);
-      setDraftStudentId("");
-    }
-  };
 
   const handleStudentFilterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -704,16 +680,6 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
             content: (
               <div className="flex flex-col gap-6">
                 <div className="flex flex-wrap items-center justify-end gap-1">
-                  <ViewModeToggle
-                    value={viewMode}
-                    onChange={handleViewModeChange}
-                    options={[
-                      { value: "brief", icon: List, label: t("viewModeBrief") },
-                      { value: "full", icon: Rows3, label: t("viewModeFull") },
-                      { value: "student", icon: UserSearch, label: t("viewModeStudent") },
-                    ]}
-                  />
-                  <div className="mx-1 h-5 w-px bg-gray-200" aria-hidden="true" />
                   <ExpandAllButton
                     expanded={allExpanded}
                     onToggle={toggleAll}
@@ -729,38 +695,36 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                   <LoadLessonsJsonDialog subjectId={subjectId} />
                 </div>
 
-                {viewMode === "student" && (
-                  <form
-                    onSubmit={handleStudentFilterSubmit}
-                    className="flex flex-wrap items-end gap-2 rounded-md border border-gray-200 bg-gray-50/50 p-3"
-                  >
-                    <div className="flex flex-col gap-1">
-                      <label htmlFor="student-filter" className="text-xs font-medium text-gray-700">
-                        {t("selectStudentLabel")}
-                      </label>
-                      <select
-                        id="student-filter"
-                        value={draftStudentId}
-                        onChange={(e) => setDraftStudentId(e.target.value === "" ? "" : Number(e.target.value))}
-                        className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-700"
-                      >
-                        <option value="">{t("selectStudentPlaceholder")}</option>
-                        {classStudents.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={draftStudentId === ""}
-                      className="rounded-md bg-gray-900 px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                <form
+                  onSubmit={handleStudentFilterSubmit}
+                  className="flex flex-wrap items-end gap-2 border-t border-gray-100 pt-3"
+                >
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="student-filter" className="text-xs font-medium text-gray-700">
+                      {t("selectStudentLabel")}
+                    </label>
+                    <select
+                      id="student-filter"
+                      value={draftStudentId}
+                      onChange={(e) => setDraftStudentId(e.target.value === "" ? "" : Number(e.target.value))}
+                      className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-700"
                     >
-                      {t("submitButton")}
-                    </button>
-                  </form>
-                )}
+                      <option value="">{t("selectStudentPlaceholder")}</option>
+                      {classStudents.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={draftStudentId === ""}
+                    className="rounded-md bg-gray-900 px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    {t("submitButton")}
+                  </button>
+                </form>
 
                 {topics.length === 0 ? (
                   <p className="text-sm text-gray-500">{t("noTopics")}</p>
@@ -822,7 +786,6 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                                     e.stopPropagation();
                                     handleDrop(group, topic.id);
                                   }}
-                                  viewMode={viewMode}
                                   lessonStudentsByLessonId={lessonStudentsByLessonId}
                                   selectedStudentId={selectedStudentId}
                                   onAssignmentChanged={handleAssignmentChanged}
