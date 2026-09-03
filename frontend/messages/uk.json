@@ -182,7 +182,9 @@
     "weeklyProgressTitle": "Виконано за тиждень",
     "weeklyPercentLabel": "% тижня виконано",
     "expandLesson": "Розгорнути",
-    "collapseLesson": "Згорнути",
+    "collapseLesson": "Згорнути"
+  },
+  "SimpleLessonTable": {
     "columnLesson": "Урок",
     "columnDate": "Дата",
     "columnGrade": "Оцінка",
@@ -703,6 +705,9 @@
     "previousWeek": "Попередній тиждень",
     "nextWeek": "Наступний тиждень",
     "today": "Сьогодні",
+    "period4Days": "4 дні",
+    "periodWeek": "Тиждень",
+    "period10Days": "10 днів",
     "progress": "{completed}/{total} уроків завершено",
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити календар. Спробуйте ще раз.",
