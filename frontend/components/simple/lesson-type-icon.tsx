@@ -11,3 +11,12 @@ export const LESSON_TYPE_ICON: Record<string, LucideIcon> = {
   with_task: FileText,
   with_quiz: ListChecks,
 };
+
+// Per-type icon color for `colorful` rows (the Default dashboard) — Simple
+// rows stay flat grey regardless, so callers only look this up when
+// `colorful` is true.
+export const LESSON_TYPE_ICON_COLOR: Record<string, string> = {
+  theory: "text-blue-500",
+  with_task: "text-red-500",
+  with_quiz: "text-green-500",
+};

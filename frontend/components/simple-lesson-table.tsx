@@ -4,10 +4,21 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { Monitor } from "lucide-react";
 import { compareLessonItems } from "@/lib/lesson-order";
-import { LESSON_TYPE_ICON } from "@/components/simple/lesson-type-icon";
+import { LESSON_TYPE_ICON, LESSON_TYPE_ICON_COLOR } from "@/components/simple/lesson-type-icon";
 import { formatGradeLabel, formatShortDate, resolveStatusLabel } from "@/components/simple/format";
 import { SortableHeader, useSortState } from "@/components/simple/sortable-header";
+import { StatusBadge } from "@/components/status-badge";
 import type { BacklogItemOut, CalendarItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
+
+// Local (not UTC) YYYY-MM-DD — same rule as this table's other Simple-view
+// siblings' identical helper, used only to flag an overdue row in
+// `colorful` mode.
+function toLocalIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 // A today/week lesson or a backlog ("tail") lesson merged into one row —
 // every CalendarItemOut field plus the backlog-only origin_label, so both
@@ -31,7 +42,7 @@ export function mergeSimpleRows(lessons: CalendarItemOut[], backlog: BacklogItem
 
 // Shared by the header row and every body row so columns line up like a
 // real table: icon / subject+lesson (flexible) / date / grade / status.
-const ROW_GRID = "grid grid-cols-[1.25rem_minmax(0,1fr)_5.5rem_3.5rem_7rem] items-center gap-3";
+const ROW_GRID = "grid grid-cols-[1.25rem_minmax(0,1fr)_5.5rem_3.5rem_10rem] items-center gap-3";
 
 // origin_label (backlog rows only) is the lesson's original scheduled day —
 // same field the Standard dashboard/calendar already format as their
@@ -93,7 +104,7 @@ function compareRows(a: SimpleRow, b: SimpleRow, key: SortKey, direction: SortDi
   }
 }
 
-function SimpleRowItem({ item }: { item: SimpleRow }) {
+function SimpleRowItem({ item, colorful }: { item: SimpleRow; colorful?: boolean }) {
   const t = useTranslations("LessonWizard");
   const tStatus = useTranslations("LessonStatus");
   const Icon = LESSON_TYPE_ICON[item.lesson_type] ?? Monitor;
@@ -105,28 +116,53 @@ function SimpleRowItem({ item }: { item: SimpleRow }) {
     bare: false,
   });
 
+  // "не виконано вчасно" — overdue and not done yet — gets a dark red date
+  // in colorful mode (the Default dashboard); Simple mode never flags this.
+  const isOverdue = colorful && rowDate(item) < toLocalIsoDate(new Date()) && item.status !== "completed";
+
   return (
     <li>
       <Link href={`/lessons/${item.id}`} className={`${ROW_GRID} px-2 py-2 hover:bg-gray-50`}>
-        <Icon className="size-4 text-gray-400" aria-hidden="true" />
+        <Icon
+          className={`size-4 ${colorful ? (LESSON_TYPE_ICON_COLOR[item.lesson_type] ?? "text-gray-400") : "text-gray-400"}`}
+          aria-hidden="true"
+        />
         <span className="min-w-0 truncate">
           <span className="font-medium text-gray-900">{item.subject_name}</span>
           <span className="text-gray-400">: </span>
           <span className="text-gray-600">{item.lesson_title}</span>
         </span>
-        <span className="text-xs text-gray-500">{formatShortDate(rowDate(item))}</span>
+        <span className={`text-xs ${isOverdue ? "font-semibold text-red-800" : "text-gray-500"}`}>
+          {formatShortDate(rowDate(item))}
+        </span>
         <span className={`text-xs ${gradeLabel ? "text-gray-500" : "text-gray-300"}`}>{gradeLabel ?? "—"}</span>
-        <span className="truncate text-xs text-gray-500">{resolveStatusLabel(item.status, tStatus)}</span>
+        {colorful ? (
+          <div className="flex justify-center">
+            <StatusBadge status={item.status} small />
+          </div>
+        ) : (
+          <span className="truncate text-xs text-gray-500">{resolveStatusLabel(item.status, tStatus)}</span>
+        )}
       </Link>
     </li>
   );
 }
 
-// Notion-style, monochrome (no colored badges, no card borders) sortable
-// table — the "Simple" view's shared building block, used by both
-// components/simple-dashboard.tsx and components/calendar/simple-calendar.tsx
-// (see the Settings page's "Вигляд" section for how a student picks it).
-export function SimpleLessonTable({ rows, emptyMessage }: { rows: SimpleRow[]; emptyMessage: string }) {
+// Notion-style, borderless sortable table — the "Simple" view's shared
+// building block, used by both components/simple-dashboard.tsx and
+// components/calendar/simple-calendar.tsx (see the Settings page's "Вигляд"
+// section for how a student picks it). `colorful` keeps the same dense
+// table shape but restores the Default dashboard's colored status badges
+// and dark-red overdue dates instead of Simple's plain grey text.
+export function SimpleLessonTable({
+  rows,
+  emptyMessage,
+  colorful,
+}: {
+  rows: SimpleRow[];
+  emptyMessage: string;
+  colorful?: boolean;
+}) {
   const t = useTranslations("SimpleLessonTable");
   const { sort, toggleSort } = useSortState<SortKey>("date");
 
@@ -138,7 +174,7 @@ export function SimpleLessonTable({ rows, emptyMessage }: { rows: SimpleRow[]; e
 
   return (
     <div className="overflow-x-auto">
-      <div className={`${ROW_GRID} min-w-[36rem] px-2 pb-2`}>
+      <div className={`${ROW_GRID} min-w-[39rem] px-2 pb-2`}>
         <span aria-hidden="true" />
         <SortableHeader
           label={t("columnLesson")}
@@ -165,9 +201,9 @@ export function SimpleLessonTable({ rows, emptyMessage }: { rows: SimpleRow[]; e
           onClick={() => toggleSort("status")}
         />
       </div>
-      <ul className="min-w-[36rem] divide-y divide-gray-100">
+      <ul className="min-w-[39rem] divide-y divide-gray-100">
         {sortedRows.map((item) => (
-          <SimpleRowItem key={item.id} item={item} />
+          <SimpleRowItem key={item.id} item={item} colorful={colorful} />
         ))}
       </ul>
     </div>

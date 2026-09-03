@@ -454,9 +454,9 @@
   "LessonStatus": {
     "statusAssigned": "Призначено",
     "statusInProgress": "У процесі",
-    "statusNeedHelp": "Потрібна допомога",
+    "statusNeedHelp": "Є питанн",
     "statusPendingReview": "На перевірці",
-    "statusRevisionRequired": "Потрібно виправити",
+    "statusRevisionRequired": "Повернено",
     "statusCompleted": "Завершено"
   },
   "LessonWizard": {
