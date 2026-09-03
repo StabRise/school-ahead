@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import { useRouter } from "@/i18n/navigation";
-import { speakSequence } from "@/lib/piper-tts";
 import { useStories, useStory, type Story, type StoryWordSegment, type StorySummary } from "@/lib/story";
-import { extractStorySpeechRuns, remarkStoryCards, STORY_CARD_TAG } from "@/lib/story-markdown";
+import { remarkStoryCards, STORY_CARD_TAG } from "@/lib/story-markdown";
 import { parseSyllableGroup } from "@/lib/story-parser";
-import { useStoriesGameStore } from "@/stores/stories-game-store";
+import { StoryBook } from "@/components/preschool/story-book";
 
 // Preschool "Казки" (Stories) reading minigame — see docs/preschool/games/
 // reading/Stories.md for the design brief. Two screens:
@@ -279,63 +278,26 @@ function StoryPicker({ stories, onSelect }: { stories: StorySummary[]; onSelect:
       {stories.length === 0 ? (
         <p className="text-gray-500">{t("noStories")}</p>
       ) : (
-        <div className="flex flex-wrap justify-center gap-4">
+        // No enclosing frame here — the books sit directly on
+        // StoriesShell's own gradient background, same one-frame
+        // convention as game-choice.tsx's GamePicker (a plain row of
+        // individually-framed cards, not a second bordered box around
+        // the whole group).
+        <ul className="flex flex-wrap justify-center gap-x-6 gap-y-8">
           {stories.map((story) => (
-            <button
-              key={story.slug}
-              type="button"
-              onClick={() => onSelect(story.slug)}
-              className="flex w-56 cursor-pointer flex-col items-center gap-2 rounded-3xl bg-white p-6 text-center shadow-lg ring-2 ring-gray-200 transition hover:scale-[1.03]"
-            >
-              <span className="text-lg font-bold text-gray-700">{story.title}</span>
-            </button>
+            <li key={story.slug}>
+              <StoryBook title={story.title} coverUrl={story.cover} onClick={() => onSelect(story.slug)} />
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );
 }
 
-function StoryPage({
-  slug,
-  story,
-  muted,
-  onBack,
-}: {
-  slug: string;
-  story: Story;
-  muted: boolean;
-  onBack: () => void;
-}) {
+function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack: () => void }) {
   const t = useTranslations("StoriesGame");
   const [fullscreenSegments, setFullscreenSegments] = useState<StoryWordSegment[] | null>(null);
-  // Bumped on every playPage call (and on unmount) so a stale in-flight
-  // read-aloud can't keep going after a newer one (or a story switch) has
-  // superseded it — same cancellation pattern as reading-game.tsx's
-  // ReadingLevel prefetch effect, just via a ref instead of a boolean
-  // closure since playPage recurses across an arbitrary number of parts.
-  const tokenRef = useRef(0);
-
-  useEffect(() => {
-    const token = tokenRef;
-    return () => {
-      token.current++;
-    };
-  }, []);
-
-  // "🔊 Прочитати" reads only the plain prose (docs/preschool/games/
-  // reading/Stories.md §5) — {...} word/image cards are purely visual
-  // (tapping one just opens it bigger), so there's no text to read aloud
-  // for them.
-  const speechRuns = useMemo(() => extractStorySpeechRuns(story.body), [story.body]);
-  const playPage = async (): Promise<void> => {
-    if (muted) return;
-    const token = ++tokenRef.current;
-    for (const run of speechRuns) {
-      if (token !== tokenRef.current) return;
-      await speakSequence([run], "uk", undefined, "sentence");
-    }
-  };
 
   const markdownComponents = useMemo(
     (): Components =>
@@ -348,25 +310,21 @@ function StoryPage({
   );
 
   return (
-    <div className="relative flex flex-1 flex-col overflow-y-auto rounded-3xl bg-[#fffdf7] p-4 shadow-inner ring-4 ring-inset ring-white/90 sm:p-8">
-      <div className="mb-4 flex items-center justify-between gap-2">
+    // rounded-3xl (matching StoriesShell's own rounding) + a plain
+    // paper-colored fill, no separate ring/shadow — StoriesShell already
+    // provides the game's one frame, so this only needs to change the
+    // background color, not add a second border on top of it.
+    <div className="relative flex flex-1 flex-col overflow-y-auto rounded-3xl bg-[#fffdf7] p-4 sm:p-8">
+      <div className="mb-4">
         <button
           type="button"
-          aria-label={t("backButton")}
           onClick={onBack}
-          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+          title={t("backToListButton")}
+          aria-label={t("backToListButton")}
+          className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-3xl shadow-lg ring-2 ring-white transition hover:scale-105"
         >
-          ◀
+          📚
         </button>
-        {!muted && (
-          <button
-            type="button"
-            onClick={() => void playPage()}
-            className="flex cursor-pointer items-center gap-2 rounded-full bg-sky-500 px-4 py-2 text-sm font-bold text-white shadow-lg"
-          >
-            🔊 {t("readPageButton")}
-          </button>
-        )}
       </div>
 
       <div className="mb-6 text-center">
@@ -417,23 +375,10 @@ function StoriesShell({
   onSelect: (slug: string) => void;
   onBack: () => void;
 }) {
-  const t = useTranslations("StoriesGame");
-  const muted = useStoriesGameStore((s) => s.muted);
-  const setMuted = useStoriesGameStore((s) => s.setMuted);
-
   return (
     <div className="relative flex min-h-[32rem] flex-1 flex-col overflow-hidden rounded-3xl bg-gradient-to-b from-amber-100 via-orange-50 to-rose-100 ring-4 ring-inset ring-white/90 shadow-lg">
-      <button
-        type="button"
-        aria-label={t("mutedLabel")}
-        onClick={() => setMuted(!muted)}
-        className="absolute left-4 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
-      >
-        {muted ? "🔇" : "🔊"}
-      </button>
-
       {slug && story ? (
-        <StoryPage slug={slug} story={story} muted={muted} onBack={onBack} />
+        <StoryPage slug={slug} story={story} onBack={onBack} />
       ) : (
         <StoryPicker stories={stories} onSelect={onSelect} />
       )}

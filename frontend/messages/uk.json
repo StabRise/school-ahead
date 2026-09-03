@@ -190,12 +190,10 @@
     "scoreLabel": "Правильних відповідей: {count}"
   },
   "StoriesGame": {
-    "mutedLabel": "Без звуку",
     "pickerTitle": "Обери казку",
     "pickerSubtitle": "Натисни на назву, щоб почати читати",
     "noStories": "Казок поки що немає",
-    "backButton": "Назад до вибору казки",
-    "readPageButton": "Прочитати",
+    "backToListButton": "До вибору книжок",
     "closeImageLabel": "Закрити"
   },
   "StudentDashboard": {

@@ -8,6 +8,10 @@
 export interface StorySummary {
   slug: string;
   title: string;
+  // URL of <slug>/cover.<ext>, resolved server-side (see /api/stories) —
+  // null when the story has no cover art yet. Shown on the picker's book
+  // (components/preschool/story-book.tsx).
+  cover: string | null;
 }
 
 // One card within a {...} word breakdown — most segments are just a

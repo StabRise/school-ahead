@@ -1,6 +1,4 @@
 import type { Parent, Text } from "mdast";
-import remarkParse from "remark-parse";
-import { unified } from "unified";
 import type { Data, Node } from "unist";
 import { visit } from "unist-util-visit";
 
@@ -57,24 +55,4 @@ export function remarkStoryCards() {
       return index + replacement.length; // resume the visit past the nodes we just inserted
     });
   };
-}
-
-// Every plain text run in `body`'s Markdown, in document order, with
-// "{...}" card references already split out (via the same remark plugin
-// used for rendering) so none of their raw content ends up in the result —
-// there's nothing to read aloud for a picture. Used by the "🔊 Прочитати"
-// whole-page read-aloud (components/preschool/stories-game.tsx), which
-// speaks each returned run in turn.
-export function extractStorySpeechRuns(body: string): string[] {
-  // .parse() only runs remark-parse itself — remarkStoryCards is a
-  // transformer, which only runs via .run()/.runSync() (or .process()), so
-  // it has to be applied as a separate step for its "{...}" splitting to
-  // actually happen here.
-  const processor = unified().use(remarkParse).use(remarkStoryCards);
-  const tree = processor.runSync(processor.parse(body));
-  const runs: string[] = [];
-  visit(tree, "text", (node: Text) => {
-    if (node.value.trim()) runs.push(node.value);
-  });
-  return runs;
 }
