@@ -1,6 +1,6 @@
 # Balloon Pop Game
 
-One of the two "celebration minigame" choices offered on `/` once every
+One of the five "celebration minigame" choices offered on `/` once every
 lesson for the day (and every backlog tail) is cleared — see
 `docs/views/preschool/README.md` §2 for how it's triggered and picked. This
 doc covers the game itself in depth: its content model (the piece meant to
