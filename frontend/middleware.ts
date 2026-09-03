@@ -12,7 +12,11 @@ const intlMiddleware = createMiddleware(routing);
 // Note: Next.js route groups like `(auth)`/`(student)` are stripped from the
 // URL entirely, so this can't key off group names — it keys off actual
 // public page paths instead. See docs/architecture/05-auth-flow.md.
-const PUBLIC_PATHS = ["/login"];
+//
+// "/reading-game" is the "Казки" minigame (components/preschool/
+// stories-game.tsx's StoriesGame) shared publicly, no login needed — see
+// app/[locale]/reading-game/page.tsx.
+const PUBLIC_PATHS = ["/login", "/reading-game"];
 
 function pathWithoutLocale(pathname: string): string {
   return "/" + pathname.split("/").slice(2).join("/");

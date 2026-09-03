@@ -224,12 +224,23 @@ export function Header() {
           </DropdownMenu.Root>
         </div>
       ) : (
-        <Link
-          href="/login"
-          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-        >
-          {t("login")}
-        </Link>
+        <div className="flex items-center gap-4">
+          {/* /reading-game is the one page a signed-out visitor can use —
+              see middleware.ts's PUBLIC_PATHS and app/[locale]/reading-game
+              — so it's the only nav link shown before login. */}
+          <Link
+            href="/reading-game"
+            className="text-sm font-medium text-gray-700 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          >
+            {t("readingGameLink")}
+          </Link>
+          <Link
+            href="/login"
+            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          >
+            {t("login")}
+          </Link>
+        </div>
       )}
     </header>
   );

@@ -376,7 +376,7 @@ function StoriesShell({
   onBack: () => void;
 }) {
   return (
-    <div className="relative flex min-h-[32rem] flex-1 flex-col overflow-hidden rounded-3xl bg-gradient-to-b from-amber-100 via-orange-50 to-rose-100 ring-4 ring-inset ring-white/90 shadow-lg">
+    <div className="relative flex">
       {slug && story ? (
         <StoryPage slug={slug} story={story} onBack={onBack} />
       ) : (
@@ -388,7 +388,7 @@ function StoriesShell({
 
 // Non-routed variant for the post-lesson celebration overlay
 // (components/preschool/game-choice.tsx's PreschoolCelebration) — an
-// ephemeral inline pick, same as every other minigame there, so it just
+// ephemeral inline pick, same as every other minigame there, so it jus\
 // keeps which story is open in local state instead of the URL.
 export function StoriesGame() {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
