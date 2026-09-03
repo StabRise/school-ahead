@@ -9,12 +9,13 @@ import {
   useListLessonComments,
 } from "@/lib/api/browser/student-lessons/student-lessons";
 import type { StudentLessonOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
-import { StatusBadge, STATUS_LABEL_KEY } from "@/components/status-badge";
+import { StatusBadge } from "@/components/status-badge";
 import { ScoreBadge } from "@/components/score-badge";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { SubmissionThread } from "@/components/submission-thread";
 import { Card } from "@/components/card";
 import { useAuthStore } from "@/stores/auth-store";
+import { formatGradeLabel, resolveStatusLabel } from "@/components/simple/format";
 import { LessonContent } from "./lesson-content";
 import { MaterialsStep } from "./materials-step";
 import { QuizStep } from "./quiz-step";
@@ -47,18 +48,11 @@ function SimpleLessonStatusGrade({
   const t = useTranslations("LessonWizard");
   const tStatus = useTranslations("LessonStatus");
 
-  const gradeLabel =
-    gradePoints !== null
-      ? t("scoreValue", { points: gradePoints })
-      : gradeResult === "pass"
-        ? t("scorePass")
-        : gradeResult === "fail"
-          ? t("scoreFail")
-          : t("scoreNotGraded");
+  const gradeLabel = formatGradeLabel({ gradePoints, gradeResult, t, bare: false }) ?? t("scoreNotGraded");
 
   return (
     <span className="text-xs text-gray-500">
-      {tStatus(STATUS_LABEL_KEY[status] ?? STATUS_LABEL_KEY.assigned)} · {gradeLabel}
+      {resolveStatusLabel(status, tStatus)} · {gradeLabel}
     </span>
   );
 }

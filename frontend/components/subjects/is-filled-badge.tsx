@@ -11,9 +11,5 @@ export function IsFilledBadge({ isFilled }: { isFilled: boolean }) {
 
   if (!isFilled) return null;
 
-  return (
-    <span className="inline-flex w-fit shrink-0 items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-      ✅ {t("isFilledBadge")}
-    </span>
-  );
+  return <span className="shrink-0 text-xs text-gray-500">{t("isFilledBadge")}</span>;
 }

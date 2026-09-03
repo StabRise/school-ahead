@@ -10,13 +10,15 @@ import {
   useUpdateTutorLesson,
 } from "@/lib/api/browser/tutor/tutor";
 import type { LessonOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
+import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Card } from "@/components/card";
-import { StatusBadge } from "@/components/status-badge";
 import { Markdown } from "@/components/markdown";
 import { MarkdownEditor } from "@/components/markdown-editor";
-import { ContentTypeBadges } from "@/components/subjects/content-type-badges";
 import { LessonContent } from "@/components/lesson-wizard/lesson-content";
+import { LESSON_TYPE_ICON } from "@/components/simple/lesson-type-icon";
+import { formatShortDate, resolveStatusLabel } from "@/components/simple/format";
+import { Monitor } from "lucide-react";
 import { AssignStudentDialog } from "./assign-student-dialog";
 
 const LESSON_TYPE_OPTIONS = [
@@ -30,11 +32,16 @@ const GRADING_TYPE_OPTIONS = [
   { value: "binary", labelKey: "gradingTypeBinary" },
 ] as const;
 
-const SCHEDULED_DATE_FORMAT = new Intl.DateTimeFormat("uk-UA", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
+// theory/with_quiz/with_task -> the same content-type i18n keys
+// ContentTypeBadges (components/subjects/content-type-badges.tsx) uses —
+// reused here as a plain grey icon+label instead of that component's
+// colored pill, since ContentTypeBadges is still used as-is by other,
+// out-of-scope Standard views.
+const CONTENT_TYPE_LABEL_KEY: Record<string, string> = {
+  theory: "contentTheory",
+  with_quiz: "contentQuiz",
+  with_task: "contentTask",
+};
 
 // Inline "edit mode" for the lesson's own fields (title, content,
 // task_content, lesson_type, grading_type) — quiz questions/choices stay
@@ -168,6 +175,8 @@ function LessonEditForm({ lesson, onSaved, onCancel }: { lesson: LessonOut; onSa
 
 export function TutorLessonDetailPage({ lessonId }: { lessonId: number }) {
   const t = useTranslations("TutorLessonDetail");
+  const tContentType = useTranslations("SubjectDetail");
+  const tStatus = useTranslations("LessonStatus");
   const [isEditing, setIsEditing] = useState(false);
 
   const lessonQuery = useGetTutorLesson(lessonId);
@@ -182,6 +191,7 @@ export function TutorLessonDetailPage({ lessonId }: { lessonId: number }) {
 
   const lesson = lessonQuery.data;
   const students = studentsQuery.data ?? [];
+  const LessonTypeIcon = LESSON_TYPE_ICON[lesson.lesson_type] ?? Monitor;
 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: t("breadcrumbMySubjects"), href: "/tutor/subjects" },
@@ -211,9 +221,12 @@ export function TutorLessonDetailPage({ lessonId }: { lessonId: number }) {
       <div className="flex flex-col gap-3">
         <Breadcrumbs items={breadcrumbItems} />
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-semibold text-gray-900">{lesson.title}</h1>
-            <ContentTypeBadges lessonType={lesson.lesson_type} />
+            <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+              <LessonTypeIcon className="size-3.5 text-gray-400" aria-hidden="true" />
+              {tContentType(CONTENT_TYPE_LABEL_KEY[lesson.lesson_type] ?? "contentTheory")}
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -270,21 +283,19 @@ export function TutorLessonDetailPage({ lessonId }: { lessonId: number }) {
         )}
 
         {students.length > 0 && (
-          <ul className="flex flex-col gap-2">
+          <ul className="divide-y divide-gray-100">
             {students.map((item) => (
               <li key={item.student_lesson_id}>
-                <Card
+                <Link
                   href={`/tutor/submissions/${item.student_lesson_id}`}
-                  className="flex items-center justify-between gap-4"
+                  className="flex items-center justify-between gap-4 rounded px-2 py-2 hover:bg-gray-50"
                 >
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-900">{item.student_name}</span>
-                    <span className="text-xs text-gray-500">
-                      {SCHEDULED_DATE_FORMAT.format(new Date(`${item.scheduled_date}T00:00:00`))}
-                    </span>
+                    <span className="text-xs text-gray-500">{formatShortDate(item.scheduled_date)}</span>
                   </div>
-                  <StatusBadge status={item.status} />
-                </Card>
+                  <span className="shrink-0 text-xs text-gray-500">{resolveStatusLabel(item.status, tStatus)}</span>
+                </Link>
               </li>
             ))}
           </ul>

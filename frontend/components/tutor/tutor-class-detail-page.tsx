@@ -5,45 +5,22 @@ import { useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import type { AssignmentOut, TutorStudentOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { getGetTutorClassQueryKey, useGetTutorClass, useRecalculateClassWorkload } from "@/lib/api/browser/tutor/tutor";
+import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
-import { Card } from "@/components/card";
 import { IsFilledBadge } from "@/components/subjects/is-filled-badge";
+import { SimpleEntityIcon } from "@/components/simple/entity-icon";
 import { LoadSubjectMarkdownDialog } from "./load-subject-markdown-dialog";
 import { PlanLessonsDialog } from "./plan-lessons-dialog";
 import { UploadPlanDialog } from "./upload-plan-dialog";
 
-const ICON_COLORS = [
-  "bg-blue-500",
-  "bg-purple-500",
-  "bg-emerald-500",
-  "bg-amber-500",
-  "bg-rose-500",
-  "bg-cyan-500",
-];
-
 function SubjectRow({ subject }: { subject: AssignmentOut }) {
   const t = useTranslations("TutorClassDetail");
-  const iconColor = ICON_COLORS[subject.subject_id % ICON_COLORS.length];
 
   return (
     <li>
-      <Card
-        href={`/tutor/subjects/${subject.subject_id}`}
-        className="flex items-center gap-3 bg-white transition-shadow hover:shadow-md"
-      >
-        {subject.subject_icon ? (
-          <span className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-gray-100">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={subject.subject_icon} alt="" className="h-full w-full object-cover" />
-          </span>
-        ) : (
-          <span
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-semibold text-white ${iconColor}`}
-          >
-            {subject.subject_name.charAt(0).toUpperCase()}
-          </span>
-        )}
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <Link href={`/tutor/subjects/${subject.subject_id}`} className="flex items-center gap-3 rounded px-2 py-2 hover:bg-gray-50">
+        <SimpleEntityIcon iconUrl={subject.subject_icon} />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="font-medium text-gray-900">{subject.subject_name}</span>
           <span className="text-xs text-gray-500">
             {t("topicsCount", { count: subject.topic_count })} ·{" "}
@@ -58,23 +35,20 @@ function SubjectRow({ subject }: { subject: AssignmentOut }) {
           )}
         </div>
         <IsFilledBadge isFilled={subject.is_filled} />
-      </Card>
+      </Link>
     </li>
   );
 }
 
 function StudentRow({ student }: { student: TutorStudentOut }) {
-  const t = useTranslations("TutorClassDetail");
-
   return (
     <li>
-      <Card
+      <Link
         href={`/tutor/students/${student.id}/calendar`}
-        className="flex items-center justify-between gap-3 bg-white transition-shadow hover:shadow-md"
+        className="flex items-center justify-between gap-3 rounded px-2 py-2 hover:bg-gray-50"
       >
         <span className="font-medium text-gray-900">{student.name}</span>
-        <span className="shrink-0 text-xs text-blue-600">{t("viewCalendarLink")}</span>
-      </Card>
+      </Link>
     </li>
   );
 }
@@ -132,11 +106,7 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-semibold text-gray-900">{data.name}</h1>
-            {data.is_class_teacher && (
-              <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                {t("youAreClassTeacher")}
-              </span>
-            )}
+            {data.is_class_teacher && <span className="shrink-0 text-xs text-gray-500">{t("youAreClassTeacher")}</span>}
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <RecalculateWorkloadButton classId={classId} />
@@ -156,7 +126,7 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
         {data.subjects.length === 0 ? (
           <p className="text-sm text-gray-500">{t("noSubjects")}</p>
         ) : (
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <ul className="divide-y divide-gray-100">
             {data.subjects.map((subject) => (
               <SubjectRow key={subject.subject_id} subject={subject} />
             ))}
@@ -169,7 +139,7 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
         {data.students.length === 0 ? (
           <p className="text-sm text-gray-500">{t("noStudents")}</p>
         ) : (
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <ul className="divide-y divide-gray-100">
             {data.students.map((student) => (
               <StudentRow key={student.id} student={student} />
             ))}

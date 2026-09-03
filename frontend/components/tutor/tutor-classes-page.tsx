@@ -3,38 +3,34 @@
 import { useTranslations } from "next-intl";
 import type { TutorClassOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { useListTutorClasses } from "@/lib/api/browser/tutor/tutor";
-import { Card } from "@/components/card";
-import { PageContainer } from "@/components/page-container";
+import { Link } from "@/i18n/navigation";
+import { SimplePageContainer } from "@/components/simple/page-container";
 
-function ClassCard({ item }: { item: TutorClassOut }) {
+// Shared by every row so columns line up like a real table: class name
+// (flexible) / teacher / student+subject counts.
+const ROW_GRID = "grid grid-cols-[minmax(0,1fr)_10rem_10rem] items-center gap-3";
+
+function ClassRow({ item }: { item: TutorClassOut }) {
   const t = useTranslations("TutorClasses");
 
   return (
-    <Card
-      href={`/tutor/classes/${item.id}`}
-      className="flex h-full flex-col gap-3 shadow-sm transition-shadow hover:shadow-md"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <span className="font-medium text-gray-900">{item.name}</span>
-        {item.is_class_teacher && (
-          <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-            {t("youAreClassTeacher")}
-          </span>
-        )}
-      </div>
-
-      <span className="text-xs text-gray-500">{item.academic_year}</span>
-
-      <span className="text-sm text-gray-700">
-        {t("classTeacherLabel")}:{" "}
-        <span className="font-medium">{item.class_teacher_name ?? t("classTeacherUnset")}</span>
-      </span>
-
-      <span className="text-xs text-gray-500">
-        {t("studentsCount", { count: item.student_count })} ·{" "}
-        {t("subjectsCount", { count: item.subject_count })}
-      </span>
-    </Card>
+    <li>
+      <Link href={`/tutor/classes/${item.id}`} className={`${ROW_GRID} px-2 py-2 hover:bg-gray-50`}>
+        <span className="min-w-0 truncate">
+          <span className="font-medium text-gray-900">{item.name}</span>
+          <span className="text-gray-400"> · </span>
+          <span className="text-xs text-gray-500">{item.academic_year}</span>
+          {item.is_class_teacher && <span className="ml-2 text-xs text-gray-400">{t("youAreClassTeacher")}</span>}
+        </span>
+        <span className="truncate text-xs text-gray-500">
+          {t("classTeacherLabel")}: {item.class_teacher_name ?? t("classTeacherUnset")}
+        </span>
+        <span className="truncate text-xs text-gray-500">
+          {t("studentsCount", { count: item.student_count })} ·{" "}
+          {t("subjectsCount", { count: item.subject_count })}
+        </span>
+      </Link>
+    </li>
   );
 }
 
@@ -45,7 +41,7 @@ export function TutorClassesPage() {
   const classes = data ?? [];
 
   return (
-    <PageContainer title={t("title")}>
+    <SimplePageContainer title={t("title")}>
       {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
       {isError && <p className="text-sm text-red-600">{t("error")}</p>}
 
@@ -54,14 +50,14 @@ export function TutorClassesPage() {
       )}
 
       {classes.length > 0 && (
-        <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {classes.map((item) => (
-            <li key={item.id}>
-              <ClassCard item={item} />
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-x-auto">
+          <ul className="min-w-[36rem] divide-y divide-gray-100">
+            {classes.map((item) => (
+              <ClassRow key={item.id} item={item} />
+            ))}
+          </ul>
+        </div>
       )}
-    </PageContainer>
+    </SimplePageContainer>
   );
 }

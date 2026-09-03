@@ -64,11 +64,11 @@ function CollapsibleSection({
   );
 }
 
-// Monochrome, borderless take on the Standard dashboard's WeeklyProgressCard
-// — same Mon-Sun completed-lesson bar chart, just grey bars instead of blue
-// and no card border, matching the Simple view's palette. Renders nothing
+// Borderless take on the Standard dashboard's WeeklyProgressCard — same
+// Mon-Sun completed-lesson bar chart, no card border. `colorful` restores
+// the original blue bars instead of Simple's flat grey. Renders nothing
 // while loading/erroring/empty, same as the Standard card.
-function SimpleWeeklyProgress() {
+function SimpleWeeklyProgress({ colorful }: { colorful?: boolean }) {
   const t = useTranslations("StudentDashboard");
   const weekStart = useMemo(() => startOfWeek(new Date()), []);
   const { data } = useGetWeeklyProgress({ week_start: toLocalIsoDate(weekStart) });
@@ -88,7 +88,9 @@ function SimpleWeeklyProgress() {
           <div key={day.date} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
             <span className="text-xs font-medium text-gray-700">{day.completed_count}</span>
             <div
-              className={`w-full rounded-t-sm ${day.completed_count > 0 ? "bg-gray-400" : "bg-gray-100"}`}
+              className={`w-full rounded-t-sm ${
+                day.completed_count > 0 ? (colorful ? "bg-blue-200" : "bg-gray-400") : "bg-gray-100"
+              }`}
               style={{
                 height: day.completed_count > 0 ? (day.completed_count / maxCount) * MAX_BAR_HEIGHT_PX : 2,
               }}
@@ -103,15 +105,15 @@ function SimpleWeeklyProgress() {
           </span>
         ))}
       </div>
-      <ProgressBar percent={data?.completed_percent ?? 0} label={t("weeklyPercentLabel")} />
+      <ProgressBar percent={data?.completed_percent ?? 0} label={t("weeklyPercentLabel")} colorful={colorful} />
     </div>
   );
 }
 
-// Monochrome, borderless take on the Standard dashboard's SubjectStatsCard —
-// same per-subject completion bars, no card border. Renders nothing while
-// empty, same as the Standard card.
-function SimpleSubjectStats() {
+// Borderless take on the Standard dashboard's SubjectStatsCard — same
+// per-subject completion bars, no card border. Renders nothing while empty,
+// same as the Standard card.
+function SimpleSubjectStats({ colorful }: { colorful?: boolean }) {
   const { data } = useListMyAchievements();
   const subjects = data ?? [];
 
@@ -123,21 +125,33 @@ function SimpleSubjectStats() {
     <ul className="flex flex-col gap-3">
       {subjects.map((subject) => (
         <li key={subject.subject_id}>
-          <ProgressBar percent={subject.completed_percent} label={subject.subject_name} />
+          <ProgressBar percent={subject.completed_percent} label={subject.subject_name} colorful={colorful} />
         </li>
       ))}
     </ul>
   );
 }
 
-export function SimpleDashboard({ lessons, backlog }: { lessons: CalendarItemOut[]; backlog: BacklogItemOut[] }) {
+// Shared by both the Simple view (colorful=false) and the Default view
+// (colorful=true) — same dense table + collapsible stats section either
+// way; only status badges, overdue dates, the histogram, and progress bars
+// change color. See components/student-dashboard.tsx.
+export function SimpleDashboard({
+  lessons,
+  backlog,
+  colorful,
+}: {
+  lessons: CalendarItemOut[];
+  backlog: BacklogItemOut[];
+  colorful?: boolean;
+}) {
   const t = useTranslations("StudentDashboard");
   const statisticsOpen = useSimpleDashboardStore((state) => state.statisticsOpen);
   const setStatisticsOpen = useSimpleDashboardStore((state) => state.setStatisticsOpen);
 
   return (
     <div className="flex flex-col gap-4">
-      <SimpleLessonTable rows={mergeSimpleRows(lessons, backlog)} emptyMessage={t("empty")} />
+      <SimpleLessonTable rows={mergeSimpleRows(lessons, backlog)} emptyMessage={t("empty")} colorful={colorful} />
 
       <CollapsibleSection
         title={t("statisticsSectionTitle")}
@@ -147,11 +161,11 @@ export function SimpleDashboard({ lessons, backlog }: { lessons: CalendarItemOut
         <div className="grid grid-cols-1 gap-6 pl-6 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
             <h4 className="text-xs font-medium text-gray-500">{t("weeklyProgressTitle")}</h4>
-            <SimpleWeeklyProgress />
+            <SimpleWeeklyProgress colorful={colorful} />
           </div>
           <div className="flex flex-col gap-2">
             <h4 className="text-xs font-medium text-gray-500">{t("statsTitle")}</h4>
-            <SimpleSubjectStats />
+            <SimpleSubjectStats colorful={colorful} />
           </div>
         </div>
       </CollapsibleSection>

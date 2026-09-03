@@ -20,12 +20,18 @@ const STATUS_COLOR_CLASSES: Record<string, string> = {
   completed: "bg-green-100 text-green-700",
 };
 
-export function StatusBadge({ status }: { status: string }) {
+// `small` shrinks padding/font for dense contexts (the Default dashboard's
+// table) — other call sites are unaffected since it defaults to off.
+export function StatusBadge({ status, small }: { status: string; small?: boolean }) {
   const t = useTranslations("LessonStatus");
   const key = STATUS_LABEL_KEY[status] ?? "statusAssigned";
   const colorClasses = STATUS_COLOR_CLASSES[status] ?? STATUS_COLOR_CLASSES.assigned;
   return (
-    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${colorClasses}`}>
+    <span
+      className={`shrink-0 whitespace-nowrap rounded-full font-medium ${colorClasses} ${
+        small ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-0.5 text-xs"
+      }`}
+    >
       {t(key)}
     </span>
   );

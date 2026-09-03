@@ -3,12 +3,14 @@
 import { useTranslations } from "next-intl";
 import { useGetTutorStudent } from "@/lib/api/browser/tutor/tutor";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
-import { WeeklyCalendar } from "@/components/calendar/weekly-calendar";
+import { SimpleCalendar } from "@/components/calendar/simple-calendar";
 
 // "View calendar" link on the class detail page's student roster — a
-// read-only view of one student's weekly calendar, reusing the same
-// WeeklyCalendar the student's own "Календар" page renders (see
-// components/calendar/weekly-calendar.tsx's `studentId` prop).
+// tutor-management view of one student's calendar (drag-to-reschedule,
+// delete, add-day-lesson), reusing the same SimpleCalendar the student's
+// own "Календар" page renders (see components/calendar/simple-calendar.tsx's
+// `studentId` prop) — monochrome styling, same capabilities WeeklyCalendar
+// gave tutors before this migration.
 export function TutorStudentCalendarPage({ studentId }: { studentId: number }) {
   const t = useTranslations("TutorStudentCalendar");
   const studentQuery = useGetTutorStudent(studentId);
@@ -32,7 +34,7 @@ export function TutorStudentCalendarPage({ studentId }: { studentId: number }) {
       <div className="mx-auto w-full max-w-6xl px-6 pt-6">
         <Breadcrumbs items={breadcrumbItems} />
       </div>
-      <WeeklyCalendar studentId={studentId} />
+      <SimpleCalendar studentId={studentId} />
     </div>
   );
 }

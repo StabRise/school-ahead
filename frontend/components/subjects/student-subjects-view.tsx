@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 import { useRouter } from "@/i18n/navigation";
-import { MySubjectsPage } from "./my-subjects-page";
 import { SimpleSubjectsPage } from "./simple-subjects-page";
 import { PreschoolSubjectsShelf } from "@/components/preschool/subjects-shelf";
 
@@ -32,8 +31,5 @@ export function StudentSubjectsView() {
   if (interfaceMode === "preschool") {
     return <PreschoolSubjectsShelf />;
   }
-  if (interfaceMode === "simple") {
-    return <SimpleSubjectsPage />;
-  }
-  return <MySubjectsPage />;
+  return <SimpleSubjectsPage colorful={interfaceMode !== "simple"} />;
 }

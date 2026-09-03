@@ -5,8 +5,8 @@ import type { BacklogItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { LessonBubble } from "@/components/preschool/lesson-bubble";
 
 // origin_label is a plain ISO date (see scheduling.services.backlog_label),
-// formatted here for display — same short shape as the tutor calendar's
-// RANGE_DAY_FORMAT (components/calendar/weekly-calendar.tsx).
+// formatted here for display — same short shape as the calendar's
+// RANGE_DAY_FORMAT (components/calendar/simple-calendar.tsx).
 const ORIGIN_DATE_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" });
 
 // "Хвостики" — overdue lessons, shown the same way on both the calendar and

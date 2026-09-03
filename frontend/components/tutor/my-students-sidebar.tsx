@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { User } from "lucide-react";
 import type { TutorStudentOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 import { Link } from "@/i18n/navigation";
+import { SimpleEntityIcon } from "@/components/simple/entity-icon";
 
 // Right-sidebar "Мої учні" list on the tutor dashboard — every student
 // reachable by the tutor, grouped by class. Given a highlighted background
@@ -33,8 +34,8 @@ export function MyStudentsSidebar({ students }: { students: TutorStudentOut[] })
   }, [students]);
 
   return (
-    <aside className="flex w-full flex-col gap-4 rounded-lg border border-blue-100 bg-blue-50 p-4 lg:w-64 lg:shrink-0">
-      <h3 className="text-lg font-semibold text-gray-900">{t("myStudentsTitle")}</h3>
+    <aside className="flex w-full flex-col gap-4 border-t border-gray-100 pt-4 lg:w-64 lg:shrink-0 lg:border-t-0 lg:border-l lg:pl-4 lg:pt-0">
+      <h3 className="text-sm font-semibold text-gray-900">{t("myStudentsTitle")}</h3>
 
       {studentsByClass.length === 0 && <p className="text-sm text-gray-500">{t("noStudents")}</p>}
 
@@ -43,16 +44,14 @@ export function MyStudentsSidebar({ students }: { students: TutorStudentOut[] })
           <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
             {t("classLabel", { name: group.className })}
           </h4>
-          <ul className="flex flex-col gap-0.5">
+          <ul className="flex flex-col divide-y divide-gray-50">
             {group.students.map((s) => (
               <li key={s.id}>
                 <Link
                   href={`/tutor/students/${s.id}/calendar`}
-                  className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-white hover:text-blue-700"
+                  className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
                 >
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700">
-                    <User className="size-3.5" />
-                  </span>
+                  <SimpleEntityIcon fallback={User} />
                   <span className="min-w-0 flex-1 truncate">{s.name}</span>
                   <span className="shrink-0 text-xs font-medium text-gray-500">
                     {Math.round(s.completed_percent)}%
