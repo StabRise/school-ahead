@@ -591,7 +591,8 @@
     "error": "Не вдалося завантажити предмети. Спробуйте ще раз.",
     "empty": "Предметів ще немає.",
     "blocksCount": "{count, plural, one {# семестр} few {# семестри} many {# семестрів} other {# семестра}}",
-    "progressLabel": "Прогрес"
+    "progressLabel": "Прогрес",
+    "columnSubject": "Предмет"
   },
   "MyAchievements": {
     "title": "Мої досягнення",
