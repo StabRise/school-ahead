@@ -195,7 +195,8 @@
     "pickerSubtitle": "Натисни на назву, щоб почати читати",
     "noStories": "Казок поки що немає",
     "backToListButton": "До вибору книжок",
-    "closeImageLabel": "Закрити"
+    "closeImageLabel": "Закрити",
+    "starsLabel": "Зірочок: {count} з {total}"
   },
   "StudentDashboard": {
     "title": "Сьогоднішні уроки",

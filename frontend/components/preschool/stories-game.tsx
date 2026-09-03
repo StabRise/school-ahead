@@ -1,14 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import { useRouter } from "@/i18n/navigation";
+import { getMeQueryKey, useRewardStoriesGame } from "@/lib/api/browser/auth/auth";
+import { mapApiUserToAuthUser } from "@/lib/api/map-user";
 import { useStories, useStory, type Story, type StoryWordSegment, type StorySummary } from "@/lib/story";
 import { remarkStoryCards, STORY_CARD_TAG } from "@/lib/story-markdown";
 import { parseSyllableGroup } from "@/lib/story-parser";
 import { StoryBook } from "@/components/preschool/story-book";
+import { useAuthStore } from "@/stores/auth-store";
+import { useDiamondRewardStore } from "@/stores/diamond-reward-store";
 
 // Preschool "Казки" (Stories) reading minigame — see docs/preschool/games/
 // reading/Stories.md for the design brief. Two screens:
@@ -34,6 +39,16 @@ import { StoryBook } from "@/components/preschool/story-book";
 //       text, and a segment written as an image filename shows that photo
 //       from public/static/stories/<slug>/<filename> instead.
 //   Tapping either opens the same content full-screen (FullscreenOverlay).
+
+// Every DIAMOND_MILESTONE_STARS story cards opened (a "word" per docs/
+// preschool/games/reading/Stories.md) earns a star, and every 5 stars
+// converts into 1 Diamond — awarded via POST /auth/me/stories-game-reward
+// and animated flying to the header's DiamondBadge, same mechanism as
+// trains-game.tsx's/reading-game.tsx's own milestones. Logged-in students
+// only (see StoryPage's `useAuthStore` check below) — the public,
+// no-login /reading-game mirror (docs/preschool/games/reading/Stories.md
+// §4) has no account to award a Diamond to.
+const DIAMOND_MILESTONE_STARS = 5;
 
 const UK_VOWELS = new Set(["А", "О", "У", "Е", "И", "І", "Я", "Ю", "Є", "Ї"]);
 
@@ -298,47 +313,124 @@ function StoryPicker({ stories, onSelect }: { stories: StorySummary[]; onSelect:
 function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack: () => void }) {
   const t = useTranslations("StoriesGame");
   const [fullscreenSegments, setFullscreenSegments] = useState<StoryWordSegment[] | null>(null);
+  const [stars, setStars] = useState(0);
+  const [starBump, setStarBump] = useState(0);
+  const starBadgeRef = useRef<HTMLDivElement>(null);
+  const awardedMilestonesRef = useRef<Set<number>>(new Set());
+
+  // Only a logged-in student earns stars/Diamonds here — the public,
+  // no-login /reading-game mirror renders this same StoryPage with no
+  // session, so `user` stays null there and this whole feature no-ops.
+  const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
+  const addDiamondFlight = useDiamondRewardStore((s) => s.addFlight);
+  const queryClient = useQueryClient();
+  const rewardStoriesGame = useRewardStoriesGame();
+
+  // Every DIAMOND_MILESTONE_STARS stars awards 1 Diamond — deduped via
+  // awardedMilestonesRef so React's dev-mode double-invoked effects (or a
+  // re-render before the mutation settles) can't double-award the same
+  // milestone, same pattern as reading-game.tsx/trains-game.tsx.
+  useEffect(() => {
+    if (!user || stars === 0 || stars % DIAMOND_MILESTONE_STARS !== 0) return;
+    if (awardedMilestonesRef.current.has(stars)) return;
+    awardedMilestonesRef.current.add(stars);
+
+    const badgeRect = starBadgeRef.current?.getBoundingClientRect();
+    const from = badgeRect
+      ? { x: badgeRect.left + badgeRect.width / 2, y: badgeRect.top + badgeRect.height / 2 }
+      : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    addDiamondFlight(from);
+
+    rewardStoriesGame.mutate(undefined, {
+      onSuccess: (response) => {
+        setUser(mapApiUserToAuthUser(response.user));
+        queryClient.invalidateQueries({ queryKey: getMeQueryKey() });
+      },
+    });
+    // rewardStoriesGame/setUser/queryClient/addDiamondFlight are stable
+    // across renders; only re-run when the star count itself changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stars, user]);
+
+  const handleOpenCard = (segments: StoryWordSegment[]) => {
+    setFullscreenSegments(segments);
+    if (user) {
+      setStars((current) => current + 1);
+      setStarBump((current) => current + 1);
+    }
+  };
 
   const markdownComponents = useMemo(
     (): Components =>
       ({
         [STORY_CARD_TAG]: ({ raw }: { raw: string }) => (
-          <StoryCard raw={raw} storySlug={slug} onOpen={setFullscreenSegments} />
+          <StoryCard raw={raw} storySlug={slug} onOpen={handleOpenCard} />
         ),
       }) as unknown as Components,
+    // handleOpenCard closes over `user`, which can only ever go from
+    // null to a real user (a session doesn't appear mid-story) — slug is
+    // the only thing this genuinely needs to re-key on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [slug],
   );
+
+  // Stars this round, 1-5, wrapping right after a Diamond is awarded —
+  // e.g. stars=6 shows "1/5", not "6/5".
+  const starsThisRound = stars === 0 ? 0 : ((stars - 1) % DIAMOND_MILESTONE_STARS) + 1;
 
   return (
     // rounded-3xl (matching StoriesShell's own rounding) + a plain
     // paper-colored fill, no separate ring/shadow — StoriesShell already
     // provides the game's one frame, so this only needs to change the
-    // background color, not add a second border on top of it.
-    <div className="relative flex flex-1 flex-col overflow-y-auto rounded-3xl bg-[#fffdf7] p-4 sm:p-8">
-      <div className="mb-4">
-        <button
-          type="button"
-          onClick={onBack}
-          title={t("backToListButton")}
-          aria-label={t("backToListButton")}
-          className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-3xl shadow-lg ring-2 ring-white transition hover:scale-105"
+    // background color, not add a second border on top of it. overflow-
+    // hidden (not the scrolling itself, see the inner div below) so the
+    // back button/star badge below — absolutely positioned against *this*
+    // container — stay fixed in their corners no matter how far the story
+    // text is scrolled, same convention as e.g. cards-game.tsx's ⚙️ button.
+    <div className="relative flex flex-1 flex-col overflow-hidden rounded-3xl bg-[#fffdf7]">
+      <button
+        type="button"
+        onClick={onBack}
+        title={t("backToListButton")}
+        aria-label={t("backToListButton")}
+        className="absolute left-4 top-4 z-10 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-3xl shadow-lg ring-2 ring-white transition hover:scale-105"
+      >
+        📚
+      </button>
+
+      {user && (
+        <div
+          ref={starBadgeRef}
+          key={starBump}
+          role="status"
+          aria-label={t("starsLabel", { count: starsThisRound, total: DIAMOND_MILESTONE_STARS })}
+          className="absolute right-4 top-4 z-10 flex items-center gap-1 rounded-full bg-white px-3 py-2 shadow-lg ring-2 ring-amber-200"
+          style={{ animation: starBump > 0 ? "score-pop 0.3s ease-out" : undefined }}
         >
-          📚
-        </button>
-      </div>
+          <span aria-hidden="true" className="text-lg">
+            ⭐
+          </span>
+          <span className="flex h-7 min-w-14 items-center justify-center rounded-full bg-amber-500 px-2 text-sm font-extrabold text-white">
+            {starsThisRound}/{DIAMOND_MILESTONE_STARS}
+          </span>
+        </div>
+      )}
 
-      <div className="mb-6 text-center">
-        {story.subtitle && <p className="text-sm italic text-gray-400">{story.subtitle}</p>}
-        <h2 className="text-3xl font-extrabold text-gray-800">{story.title}</h2>
-      </div>
+      <div className="flex-1 overflow-y-auto p-4 pt-20 sm:p-8 sm:pt-24">
+        <div className="mb-6 text-center">
+          {story.subtitle && <p className="text-sm italic text-gray-400">{story.subtitle}</p>}
+          <h2 className="text-3xl font-extrabold text-gray-800">{story.title}</h2>
+        </div>
 
-      {/* prose-lg for the fairy-tale-sized body text (headings, emphasis,
-          lists, blockquotes — anything real Markdown supports); max-w-none
-          since the mx-auto max-w-2xl wrapper already constrains width. */}
-      <div className="prose prose-lg mx-auto max-w-2xl text-gray-700 prose-p:leading-loose">
-        <ReactMarkdown remarkPlugins={[remarkStoryCards, remarkBreaks]} components={markdownComponents}>
-          {story.body}
-        </ReactMarkdown>
+        {/* prose-lg for the fairy-tale-sized body text (headings, emphasis,
+            lists, blockquotes — anything real Markdown supports); max-w-none
+            since the mx-auto max-w-2xl wrapper already constrains width. */}
+        <div className="prose prose-lg mx-auto max-w-2xl text-gray-700 prose-p:leading-loose">
+          <ReactMarkdown remarkPlugins={[remarkStoryCards, remarkBreaks]} components={markdownComponents}>
+            {story.body}
+          </ReactMarkdown>
+        </div>
       </div>
 
       {fullscreenSegments && (
@@ -407,11 +499,14 @@ export function StoriesGame() {
 }
 
 // Routed variant for the standalone /games/stories[/<storySlug>] pages
-// (see app/[locale]/(student)/games/stories/[storySlug]/page.tsx) — each
-// story gets its own URL, so picking one navigates there (and pressing
-// "back" navigates to the bare /games/stories picker) instead of touching
-// local state, which is what makes a reload (F5) keep the same story open.
-export function StoriesGamePage({ slug = null }: { slug?: string | null }) {
+// (see app/[locale]/(student)/games/stories/[storySlug]/page.tsx) and their
+// public, no-login mirror at /reading-game[/<storySlug>] (see
+// app/[locale]/reading-game/[storySlug]/page.tsx and middleware.ts's
+// PUBLIC_PATHS) — each story gets its own URL under whichever `basePath`
+// the caller mounted this at, so picking one navigates there (and pressing
+// "back" navigates to the bare picker) instead of touching local state,
+// which is what makes a reload (F5) keep the same story open.
+export function StoriesGamePage({ slug = null, basePath }: { slug?: string | null; basePath: string }) {
   const router = useRouter();
   const stories = useStories();
   const story = useStory(slug);
@@ -421,8 +516,8 @@ export function StoriesGamePage({ slug = null }: { slug?: string | null }) {
       slug={slug}
       story={story}
       stories={stories}
-      onSelect={(selectedSlug) => router.push(`/games/stories/${encodeURIComponent(selectedSlug)}`)}
-      onBack={() => router.push("/games/stories")}
+      onSelect={(selectedSlug) => router.push(`${basePath}/${encodeURIComponent(selectedSlug)}`)}
+      onBack={() => router.push(basePath)}
     />
   );
 }

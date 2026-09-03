@@ -593,3 +593,55 @@ def test_reward_reading_game_can_be_awarded_repeatedly(api_client, auth_header):
     assert response.data['user']['diamond_balance'] == 2
     student.refresh_from_db()
     assert student.diamond_balance_cache == 2
+
+
+def test_reward_trains_game_awards_one_diamond(api_client, auth_header):
+    user, student, _avatar = _make_student_with_avatar(diamonds=5)
+
+    response = api_client.post('/auth/me/trains-game-reward', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['diamond_balance'] == 6
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 6
+
+
+def test_reward_trains_game_can_be_awarded_repeatedly(api_client, auth_header):
+    """No server-side tracking of letters collected (see accounts.services.
+    award_trains_game_diamond) — every call adds another Diamond, trusting
+    the frontend to only call this once per 10-letter milestone reached."""
+    user, student, _avatar = _make_student_with_avatar(diamonds=0)
+
+    api_client.post('/auth/me/trains-game-reward', headers=auth_header(user))
+    response = api_client.post('/auth/me/trains-game-reward', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['diamond_balance'] == 2
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 2
+
+
+def test_reward_stories_game_awards_one_diamond(api_client, auth_header):
+    user, student, _avatar = _make_student_with_avatar(diamonds=5)
+
+    response = api_client.post('/auth/me/stories-game-reward', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['diamond_balance'] == 6
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 6
+
+
+def test_reward_stories_game_can_be_awarded_repeatedly(api_client, auth_header):
+    """No server-side tracking of cards opened (see accounts.services.
+    award_stories_game_diamond) — every call adds another Diamond, trusting
+    the frontend to only call this once per 5-star milestone reached."""
+    user, student, _avatar = _make_student_with_avatar(diamonds=0)
+
+    api_client.post('/auth/me/stories-game-reward', headers=auth_header(user))
+    response = api_client.post('/auth/me/stories-game-reward', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['diamond_balance'] == 2
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 2

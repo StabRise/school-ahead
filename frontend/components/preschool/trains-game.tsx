@@ -2,10 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
+import { getMeQueryKey, useRewardTrainsGame } from "@/lib/api/browser/auth/auth";
+import { mapApiUserToAuthUser } from "@/lib/api/map-user";
 import { prefetchVoice, speak, type SpeechLanguage } from "@/lib/piper-tts";
 import { useBackgroundMusic } from "@/lib/use-background-music";
+import { useAuthStore } from "@/stores/auth-store";
 import { useTrainsGameStore, type KeyboardZone } from "@/stores/trains-game-store";
 import { useGameMusicStore } from "@/stores/game-music-store";
+import { useDiamondRewardStore } from "@/stores/diamond-reward-store";
 
 // Celebration reward minigame, alternative to BalloonPopGame — same trigger
 // (every one of today's lessons, tails included, is Completed, Pending
@@ -73,6 +78,13 @@ const CHUG_INTERVAL_MS = 260;
 
 const MIN_SPEED = 0.5;
 const MAX_SPEED = 3;
+
+// Every MILESTONE_LETTERS collected letters converts into 1 Diamond,
+// awarded via POST /auth/me/trains-game-reward and animated flying to the
+// header's DiamondBadge (components/header.tsx) — see
+// stores/diamond-reward-store.ts and components/flying-diamond.tsx, same
+// mechanism as reading-game.tsx's/balloon-pop-game.tsx's own milestones.
+const DIAMOND_MILESTONE_LETTERS = 10;
 
 function randomColor(): string {
   return WAGON_COLOR_HEXES[Math.floor(Math.random() * WAGON_COLOR_HEXES.length)];
@@ -250,8 +262,40 @@ export function TrainsGame() {
   const musicVolume = useGameMusicStore((s) => s.volume);
   const setMusicVolume = useGameMusicStore((s) => s.setVolume);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const awardedMilestonesRef = useRef<Set<number>>(new Set());
+  const setUser = useAuthStore((s) => s.setUser);
+  const addDiamondFlight = useDiamondRewardStore((s) => s.addFlight);
+  const queryClient = useQueryClient();
+  const rewardTrainsGame = useRewardTrainsGame();
 
   useBackgroundMusic();
+
+  // Every DIAMOND_MILESTONE_LETTERS collected letters awards 1 Diamond —
+  // deduped via awardedMilestonesRef so React's dev-mode double-invoked
+  // effects (or a re-render before the mutation settles) can't double-award
+  // the same milestone, same pattern as reading-game.tsx/balloon-pop-game.tsx.
+  useEffect(() => {
+    const count = collected.length;
+    if (count === 0 || count % DIAMOND_MILESTONE_LETTERS !== 0) return;
+    if (awardedMilestonesRef.current.has(count)) return;
+    awardedMilestonesRef.current.add(count);
+
+    const panelRect = collectedPanelRef.current?.getBoundingClientRect();
+    const from = panelRect
+      ? { x: panelRect.left + panelRect.width / 2, y: panelRect.top + panelRect.height / 2 }
+      : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    addDiamondFlight(from);
+
+    rewardTrainsGame.mutate(undefined, {
+      onSuccess: (response) => {
+        setUser(mapApiUserToAuthUser(response.user));
+        queryClient.invalidateQueries({ queryKey: getMeQueryKey() });
+      },
+    });
+    // rewardTrainsGame/setUser/queryClient/addDiamondFlight are stable
+    // across renders; only re-run when the collected count itself changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collected.length]);
 
   // Picks the very first letter client-side only, after mount — doing this
   // in a useState initializer would run during server render too and mismatch
