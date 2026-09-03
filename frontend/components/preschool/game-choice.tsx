@@ -6,6 +6,8 @@ import { useTranslations } from "next-intl";
 import { BalloonPopGame } from "@/components/preschool/balloon-pop-game";
 import { TrainsGame } from "@/components/preschool/trains-game";
 import { ReadingGame } from "@/components/preschool/reading-game";
+import { CardsGame } from "@/components/preschool/cards-game";
+import { StoriesGame } from "@/components/preschool/stories-game";
 
 // Celebration screen shown once every one of today's lessons (tails
 // included) is Completed, Pending Review, or Need Help — see
@@ -17,7 +19,7 @@ import { ReadingGame } from "@/components/preschool/reading-game";
 // own — contrast the standalone /games entry point (games-page.tsx,
 // game-play-page.tsx), which reuses this file's GamePicker/GameCard but
 // navigates to /games/{game} instead so each game has its own URL.
-export type PreschoolGameId = "balloons" | "trains" | "reading";
+export type PreschoolGameId = "balloons" | "trains" | "reading" | "cards" | "stories";
 
 const DEFAULT_GAME: PreschoolGameId = "balloons";
 
@@ -58,6 +60,33 @@ function ReadingIcon() {
       <text x="48" y="30" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#dc2626">
         А
       </text>
+    </svg>
+  );
+}
+
+function CardsIcon() {
+  return (
+    <svg viewBox="0 0 64 52" className="h-16 w-16 drop-shadow" aria-hidden="true">
+      <rect x="4" y="8" width="24" height="36" rx="4" fill="#f1f5f9" stroke="#cbd5e1" strokeWidth="2" />
+      <rect x="26" y="4" width="24" height="36" rx="4" fill="white" stroke="#cbd5e1" strokeWidth="2" />
+      <text x="38" y="24" textAnchor="middle" fontSize="14" fontWeight="bold" fill="#0369a1">
+        М
+      </text>
+      <text x="47" y="24" textAnchor="middle" fontSize="14" fontWeight="bold" fill="#dc2626">
+        А
+      </text>
+      <circle cx="38" cy="32" r="5" fill="#fbbf24" />
+    </svg>
+  );
+}
+
+function StoriesIcon() {
+  return (
+    <svg viewBox="0 0 56 52" className="h-16 w-16 drop-shadow" aria-hidden="true">
+      <path d="M28 10 C22 6 12 6 6 9 V42 C12 39 22 39 28 43 Z" fill="#fbbf24" />
+      <path d="M28 10 C34 6 44 6 50 9 V42 C44 39 34 39 28 43 Z" fill="#fb923c" />
+      <line x1="28" y1="10" x2="28" y2="43" stroke="#c2410c" strokeWidth="1.5" />
+      <circle cx="17" cy="22" r="4" fill="#fff7ed" />
     </svg>
   );
 }
@@ -131,6 +160,20 @@ export function GamePicker({
           highlighted={DEFAULT_GAME === "reading"}
           onSelect={() => onSelect("reading")}
         />
+        <GameCard
+          title={t("cardsTitle")}
+          subtitle={t("cardsSubtitle")}
+          icon={<CardsIcon />}
+          highlighted={DEFAULT_GAME === "cards"}
+          onSelect={() => onSelect("cards")}
+        />
+        <GameCard
+          title={t("storiesTitle")}
+          subtitle={t("storiesSubtitle")}
+          icon={<StoriesIcon />}
+          highlighted={DEFAULT_GAME === "stories"}
+          onSelect={() => onSelect("stories")}
+        />
       </div>
     </div>
   );
@@ -165,6 +208,14 @@ export function PreschoolCelebration({
       ) : selectedGame === "reading" ? (
         <div className="flex flex-1 flex-col p-2 sm:p-4">
           <ReadingGame />
+        </div>
+      ) : selectedGame === "cards" ? (
+        <div className="flex flex-1 flex-col p-2 sm:p-4">
+          <CardsGame />
+        </div>
+      ) : selectedGame === "stories" ? (
+        <div className="flex flex-1 flex-col p-2 sm:p-4">
+          <StoriesGame />
         </div>
       ) : (
         <TrainsGame />

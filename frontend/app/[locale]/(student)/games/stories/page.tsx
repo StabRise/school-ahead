@@ -1,0 +1,5 @@
+import { GamePlayPage } from "@/components/preschool/game-play-page";
+
+export default function StoriesGamePage() {
+  return <GamePlayPage game="stories" />;
+}
