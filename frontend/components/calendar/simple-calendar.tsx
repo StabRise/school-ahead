@@ -16,11 +16,13 @@ import {
 } from "@/lib/api/browser/schedule/schedule";
 import { useDeleteTutorStudentLesson } from "@/lib/api/browser/tutor/tutor";
 import { PageContainer } from "@/components/page-container";
+import { ProgressBar } from "@/components/progress-bar";
 import { AddDayLessonDialog } from "@/components/calendar/add-day-lesson-dialog";
-import { RescheduleDialog } from "@/components/calendar/weekly-calendar";
+import { RescheduleDialog } from "@/components/calendar/reschedule-dialog";
 import { sortLessonItems } from "@/lib/lesson-order";
-import { LESSON_TYPE_ICON } from "@/components/simple/lesson-type-icon";
+import { LESSON_TYPE_ICON, LESSON_TYPE_ICON_COLOR } from "@/components/simple/lesson-type-icon";
 import { formatGradeLabel, formatShortDate, resolveStatusLabel } from "@/components/simple/format";
+import { StatusBadge } from "@/components/status-badge";
 import type { CalendarItemOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
 
 type PeriodLength = 4 | 7 | 10;
@@ -38,18 +40,14 @@ const PERIOD_GRID_COLS: Record<PeriodLength, string> = {
   10: "grid-cols-1 sm:grid-cols-2 md:grid-cols-5 xl:grid-cols-10",
 };
 
-// Matches weekly-calendar.tsx's own drag payload identifier — the two
-// components never share a drag gesture, so they only need to agree with
-// themselves, but reusing the same string keeps the convention obvious.
 const DRAG_DATA_TYPE = "application/x-student-lesson-id";
 
 const DAY_LABEL_FORMAT = new Intl.DateTimeFormat("uk-UA", { weekday: "short", day: "numeric", month: "short" });
 const RANGE_DAY_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short" });
 const RANGE_DAY_YEAR_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short", year: "numeric" });
 
-// Local (not UTC) YYYY-MM-DD — same rule as weekly-calendar.tsx's identical
-// helper, avoiding toISOString() shifting the date near midnight in
-// timezones behind UTC.
+// Local (not UTC) YYYY-MM-DD — avoids toISOString() shifting the date near
+// midnight in timezones behind UTC.
 function toLocalIsoDate(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -148,6 +146,7 @@ function SimpleDayLessonRow({
   readOnly,
   canManage,
   showTutorLinks,
+  colorful,
   onRequestReschedule,
   onRequestDelete,
 }: {
@@ -156,6 +155,7 @@ function SimpleDayLessonRow({
   readOnly?: boolean;
   canManage?: boolean;
   showTutorLinks?: boolean;
+  colorful?: boolean;
   onRequestReschedule?: (item: CalendarItemOut) => void;
   onRequestDelete?: (item: CalendarItemOut) => void;
 }) {
@@ -163,6 +163,7 @@ function SimpleDayLessonRow({
   const tCalendar = useTranslations("Calendar");
   const tStatus = useTranslations("LessonStatus");
   const Icon = LESSON_TYPE_ICON[item.lesson_type] ?? Monitor;
+  const iconColorClass = colorful ? (LESSON_TYPE_ICON_COLOR[item.lesson_type] ?? "text-gray-400") : "text-gray-400";
 
   const gradeLabel = formatGradeLabel({
     gradePoints: item.grade_points,
@@ -171,7 +172,9 @@ function SimpleDayLessonRow({
     bare: true,
   });
 
-  const statusLabel = resolveStatusLabel(item.status, tStatus);
+  // Status moves out of the plain-text meta line into a small colored
+  // badge in colorful mode — same convention as the dashboard table.
+  const statusLabel = colorful ? null : resolveStatusLabel(item.status, tStatus);
   const metaParts = [originLabel ?? null, statusLabel, gradeLabel].filter(Boolean);
   const showActionRow = showTutorLinks || canManage;
 
@@ -180,11 +183,16 @@ function SimpleDayLessonRow({
   const content = (
     <>
       <span className="flex min-w-0 items-center gap-1.5">
-        <Icon className="size-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+        <Icon className={`size-3.5 shrink-0 ${iconColorClass}`} aria-hidden="true" />
         <span className="truncate text-xs font-medium text-gray-900">{item.subject_name}</span>
       </span>
       <span className="truncate pl-5 text-xs text-gray-600">{item.lesson_title}</span>
-      <span className="truncate pl-5 text-[11px] text-gray-400">{metaParts.join(" · ")}</span>
+      <span className="flex items-center gap-1.5 pl-5">
+        {metaParts.length > 0 && (
+          <span className="truncate text-[11px] text-gray-400">{metaParts.join(" · ")}</span>
+        )}
+        {colorful && <StatusBadge status={item.status} small />}
+      </span>
       {showActionRow && (
         <span className="flex items-center gap-1 pl-5">
           {showTutorLinks && (
@@ -280,21 +288,21 @@ function SimpleDayLessonRow({
   );
 }
 
-// Notion-style, monochrome alternative to WeeklyCalendar — same week-grid
-// shape (a Google-Calendar-like weekly view, one column per day), week
-// navigation, and a period switcher (4 days / week / 10 days), rendered
-// with tiny grey icons/text instead of colored, bordered lesson cards. The
-// backlog ("хвости") isn't a separate section like the Standard view's —
-// it's folded directly into today's column, since a tail is exactly a
-// lesson that should have happened by today. See the Settings page's
-// "Вигляд" section (components/settings/view-settings.tsx).
+// The one calendar component for every student role/mode — a Google-
+// Calendar-like weekly view (one column per day), week navigation, and a
+// period switcher (4 days / week / 10 days). `colorful` (Default mode)
+// restores colored status badges/lesson-type icons/progress bar; Simple
+// mode keeps them monochrome — see the Settings page's "Вигляд" section
+// (components/settings/view-settings.tsx). The backlog ("хвости") isn't a
+// separate section — it's folded directly into today's column, since a
+// tail is exactly a lesson that should have happened by today.
 //
-// `studentId` puts this in tutor-management mode (same contract as
-// WeeklyCalendar): it hits the tutor-scoped student calendar/backlog
-// endpoints instead of the self-scoped "my calendar" ones, and lessons
-// become drag-to-reschedule/deletable instead of clickable. Both hook pairs
-// below are always called (rules of hooks) — `enabled` picks which fires.
-export function SimpleCalendar({ studentId }: { studentId?: number } = {}) {
+// `studentId` puts this in tutor-management mode: it hits the tutor-scoped
+// student calendar/backlog endpoints instead of the self-scoped "my
+// calendar" ones, and lessons become drag-to-reschedule/deletable instead
+// of clickable. Both hook pairs below are always called (rules of hooks) —
+// `enabled` picks which fires.
+export function SimpleCalendar({ studentId, colorful }: { studentId?: number; colorful?: boolean } = {}) {
   const t = useTranslations("Calendar");
   const queryClient = useQueryClient();
   const isTutorView = studentId !== undefined;
@@ -327,6 +335,12 @@ export function SimpleCalendar({ studentId }: { studentId?: number } = {}) {
   const items = calendarQuery.data ?? [];
   const isLoading = calendarQuery.isLoading || backlogQuery.isLoading;
   const isError = calendarQuery.isError || backlogQuery.isError;
+
+  // Same "X/Y completed this range" summary WeeklyCalendar used to show —
+  // the one piece of Standard-only richness Simple lacked.
+  const totalCount = items.length;
+  const completedCount = items.filter((item) => item.status === "completed").length;
+  const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const itemsByDate = useMemo(() => {
     const map = new Map<string, CalendarItemOut[]>();
@@ -403,6 +417,16 @@ export function SimpleCalendar({ studentId }: { studentId?: number } = {}) {
         </div>
       </div>
 
+      {!isLoading && !isError && totalCount > 0 && (
+        <div className="mb-6">
+          <ProgressBar
+            percent={progressPercent}
+            label={t("progress", { completed: completedCount, total: totalCount })}
+            colorful={colorful}
+          />
+        </div>
+      )}
+
       {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
       {isError && <p className="text-sm text-red-600">{t("error")}</p>}
       {reschedule.isError && <p className="mb-3 text-sm text-red-600">{t("rescheduleError")}</p>}
@@ -461,6 +485,7 @@ export function SimpleCalendar({ studentId }: { studentId?: number } = {}) {
                       readOnly={isTutorView}
                       canManage={isTutorView && item.status !== "completed"}
                       showTutorLinks={isTutorView}
+                      colorful={colorful}
                       onRequestReschedule={setRescheduleTarget}
                       onRequestDelete={handleDeleteStudentLesson}
                     />
@@ -470,6 +495,7 @@ export function SimpleCalendar({ studentId }: { studentId?: number } = {}) {
                       key={item.id}
                       item={item}
                       readOnly={isTutorView}
+                      colorful={colorful}
                       originLabel={formatShortDate(item.origin_label)}
                     />
                   ))}

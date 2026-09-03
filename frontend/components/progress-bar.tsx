@@ -1,5 +1,5 @@
 // Shared completion progress bar — same visual language as the calendar's
-// weekly progress indicator (frontend/components/calendar/weekly-calendar.tsx),
+// weekly progress indicator (frontend/components/calendar/simple-calendar.tsx),
 // reused for the Subject/Topic detail pages (docs/interfaces/student/subjects.md).
 
 // Six-band color scale used by `colorful` — red for barely-started, through

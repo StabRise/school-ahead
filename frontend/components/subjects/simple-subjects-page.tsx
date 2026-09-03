@@ -18,25 +18,43 @@ const ROW_GRID = "grid grid-cols-[1.5rem_minmax(0,1fr)_8rem_2.5rem] items-center
 
 type SortKey = "name" | "progress";
 
-function SimpleSubjectRow({ subject, percent }: { subject: SubjectOut; percent: number }) {
+function SimpleSubjectRow({
+  subject,
+  percent,
+  colorful,
+}: {
+  subject: SubjectOut;
+  percent: number;
+  colorful?: boolean;
+}) {
+  const activeBlock = subject.blocks.find((block) => block.status === "active");
+
   return (
     <li>
       <Link href={`/subjects/${subject.id}`} className={`${ROW_GRID} px-2 py-2 hover:bg-gray-50`}>
-        <SimpleEntityIcon iconUrl={subject.icon} />
-        <span className="min-w-0 truncate font-medium text-gray-900">{subject.name}</span>
-        <ProgressBar percent={percent} compact />
+        <SimpleEntityIcon iconUrl={subject.icon} colorful={colorful} seedId={subject.id} name={subject.name} />
+        <span className="min-w-0 truncate">
+          <span className="font-medium text-gray-900">{subject.name}</span>
+          {colorful && activeBlock && (
+            <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+              {activeBlock.label}
+            </span>
+          )}
+        </span>
+        <ProgressBar percent={percent} compact colorful={colorful} />
         <span className="text-right text-xs text-gray-500">{percent}%</span>
       </Link>
     </li>
   );
 }
 
-// Notion-style, monochrome alternative to the Standard "Мої предмети" card
-// grid — a dense, borderless, sortable list of subject rows instead of
-// shadowed cards, matching the Simple dashboard/calendar's visual language.
-// See the Settings page's "Вигляд" section
+// The one subjects-list component for every student role/mode — a dense,
+// borderless, sortable list of subject rows instead of the (now-deleted)
+// Standard shadowed-card grid. `colorful` (Default mode) restores the
+// per-subject colored icon and active-semester pill; Simple mode keeps
+// them monochrome/absent. See the Settings page's "Вигляд" section
 // (components/settings/view-settings.tsx).
-export function SimpleSubjectsPage() {
+export function SimpleSubjectsPage({ colorful }: { colorful?: boolean } = {}) {
   const t = useTranslations("MySubjects");
   const { data, isLoading, isError } = useGetMySubjects();
   const { sort, toggleSort } = useSortState<SortKey>("name");
@@ -96,7 +114,12 @@ export function SimpleSubjectsPage() {
           </div>
           <ul className="min-w-[28rem] divide-y divide-gray-100">
             {sortedSubjects.map((subject) => (
-              <SimpleSubjectRow key={subject.id} subject={subject} percent={percentBySubjectId.get(subject.id) ?? 0} />
+              <SimpleSubjectRow
+                key={subject.id}
+                subject={subject}
+                percent={percentBySubjectId.get(subject.id) ?? 0}
+                colorful={colorful}
+              />
             ))}
           </ul>
         </div>
