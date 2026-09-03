@@ -48,13 +48,16 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 class InterfaceMode(models.TextChoices):
     DEFAULT = 'default', 'Default'
+    SIMPLE = 'simple', 'Simple'
     PRESCHOOL = 'preschool', 'Preschool'
 
 
 class TranslationScope(models.TextChoices):
     """How much text the read-along "Перекласти" feature translates per
-    selection — see frontend/components/read-along-content.tsx."""
+    selection — see frontend/components/read-along-content.tsx. OFF turns
+    the whole translation feature off (no button, no popup)."""
 
+    OFF = 'off', 'Off'
     WORD = 'word', 'Word'
     SENTENCE = 'sentence', 'Sentence'
 

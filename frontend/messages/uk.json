@@ -48,7 +48,6 @@
     "fromStartButton": "Спочатку",
     "previousParagraphButton": "Попередній абзац",
     "nextParagraphButton": "Наступний абзац",
-    "readSelectionButton": "Прочитати",
     "translateSelectionButton": "Перекласти",
     "translating": "Переклад…",
     "translateError": "Не вдалося перекласти текст",
@@ -179,11 +178,18 @@
     "backlogTitle": "Хвости",
     "backlogHint": "Уроки, які не завершено вчасно",
     "backlogOrigin": "Дата: {label}",
+    "statisticsSectionTitle": "Статистика",
     "statsTitle": "Прогрес по предметах",
     "weeklyProgressTitle": "Виконано за тиждень",
     "weeklyPercentLabel": "% тижня виконано",
     "expandLesson": "Розгорнути",
     "collapseLesson": "Згорнути"
+  },
+  "SimpleLessonTable": {
+    "columnLesson": "Урок",
+    "columnDate": "Дата",
+    "columnGrade": "Оцінка",
+    "columnStatus": "Статус"
   },
   "TutorDashboard": {
     "title": "Панель тьютора",
@@ -586,7 +592,8 @@
     "error": "Не вдалося завантажити предмети. Спробуйте ще раз.",
     "empty": "Предметів ще немає.",
     "blocksCount": "{count, plural, one {# семестр} few {# семестри} many {# семестрів} other {# семестра}}",
-    "progressLabel": "Прогрес"
+    "progressLabel": "Прогрес",
+    "columnSubject": "Предмет"
   },
   "MyAchievements": {
     "title": "Мої досягнення",
@@ -616,8 +623,13 @@
   },
   "Settings": {
     "title": "Налаштування",
+    "viewSectionTitle": "Вигляд",
+    "viewDefault": "Стандартний",
+    "viewSimple": "Спрощений",
+    "viewPreschool": "Дитячий",
     "translationSettingsTitle": "Переклад матеріалів",
     "translationScopeLabel": "Як перекладати",
+    "translationScopeOff": "Не перекладати взагалі",
     "translationScopeWord": "Тільки виділене слово",
     "translationScopeSentence": "Все речення",
     "translateOnSelectLabel": "Перекладати одразу при виділенні тексту"
@@ -695,6 +707,9 @@
     "previousWeek": "Попередній тиждень",
     "nextWeek": "Наступний тиждень",
     "today": "Сьогодні",
+    "period4Days": "4 дні",
+    "periodWeek": "Тиждень",
+    "period10Days": "10 днів",
     "progress": "{completed}/{total} уроків завершено",
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити календар. Спробуйте ще раз.",

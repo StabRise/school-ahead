@@ -4,17 +4,19 @@ import { useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 import { useRouter } from "@/i18n/navigation";
 import { MySubjectsPage } from "./my-subjects-page";
+import { SimpleSubjectsPage } from "./simple-subjects-page";
 import { PreschoolSubjectsShelf } from "@/components/preschool/subjects-shelf";
 
 // This route is student-only — `GET /academics/my-subjects` 403s for any
 // other role (it resolves the caller's own StudentProfile). A tutor landing
 // here (e.g. a stale bookmark) gets bounced to their own subjects list
-// instead of hitting that error. Both interface modes below share the same
-// route/data — this just picks which experience renders it. See
-// docs/views/preschool/README.md.
+// instead of hitting that error. All three interface modes below share the
+// same route/data — this just picks which experience renders it. See
+// docs/views/preschool/README.md and the Settings page's "Вигляд" section
+// (components/settings/view-settings.tsx).
 export function StudentSubjectsView() {
   const role = useAuthStore((state) => state.user?.role);
-  const isPreschool = useAuthStore((state) => state.user?.interfaceMode === "preschool");
+  const interfaceMode = useAuthStore((state) => state.user?.interfaceMode);
   const router = useRouter();
 
   useEffect(() => {
@@ -27,8 +29,11 @@ export function StudentSubjectsView() {
     return null;
   }
 
-  if (isPreschool) {
+  if (interfaceMode === "preschool") {
     return <PreschoolSubjectsShelf />;
+  }
+  if (interfaceMode === "simple") {
+    return <SimpleSubjectsPage />;
   }
   return <MySubjectsPage />;
 }

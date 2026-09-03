@@ -16,6 +16,7 @@ import { PreschoolGameMap } from "@/components/preschool/game-map";
 import { PreschoolCelebration } from "@/components/preschool/game-choice";
 import { DefaultStepIcon } from "@/components/preschool/decorations";
 import { ContentTypeBadges } from "@/components/subjects/content-type-badges";
+import { SimpleDashboard } from "@/components/simple-dashboard";
 import { useAuthStore } from "@/stores/auth-store";
 import { useRouter } from "@/i18n/navigation";
 
@@ -346,7 +347,9 @@ function DashboardSidebar() {
 
 export function StudentDashboard() {
   const t = useTranslations("StudentDashboard");
-  const isPreschool = useAuthStore((state) => state.user?.interfaceMode === "preschool");
+  const interfaceMode = useAuthStore((state) => state.user?.interfaceMode);
+  const isPreschool = interfaceMode === "preschool";
+  const isSimple = interfaceMode === "simple";
   const { data, isLoading, isError } = useGetToday({ date: toLocalIsoDate(new Date()) });
 
   const lessons = useMemo(() => sortLessonItems(data?.today ?? []), [data?.today]);
@@ -388,6 +391,18 @@ export function StudentDashboard() {
           </div>
         )}
       </div>
+    );
+  }
+
+  if (isSimple) {
+    return (
+      <PageContainer title={t("title")} maxWidthClassName="xl:max-w-7xl">
+        {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
+        {isError && <p className="text-sm text-red-600">{t("error")}</p>}
+        {!isLoading && !isError && (
+          <SimpleDashboard lessons={data?.today ?? []} backlog={data?.backlog ?? []} />
+        )}
+      </PageContainer>
     );
   }
 

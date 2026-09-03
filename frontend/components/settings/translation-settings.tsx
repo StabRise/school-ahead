@@ -6,7 +6,13 @@ import { getMeQueryKey, useUpdateTranslationSettings } from "@/lib/api/browser/a
 import { mapApiUserToAuthUser } from "@/lib/api/map-user";
 import { useAuthStore, type TranslationScope } from "@/stores/auth-store";
 
-const SCOPES: TranslationScope[] = ["word", "sentence"];
+const SCOPES: TranslationScope[] = ["off", "word", "sentence"];
+
+const SCOPE_LABEL_KEY: Record<TranslationScope, string> = {
+  off: "translationScopeOff",
+  word: "translationScopeWord",
+  sentence: "translationScopeSentence",
+};
 
 // Settings for the read-along "Перекласти" feature (see
 // components/read-along-content.tsx) — persisted on StudentProfile so they
@@ -53,20 +59,22 @@ export function TranslationSettings() {
                 scope === option ? "bg-gray-900 text-white" : "text-gray-700 hover:bg-gray-50"
               }`}
             >
-              {t(option === "word" ? "translationScopeWord" : "translationScopeSentence")}
+              {t(SCOPE_LABEL_KEY[option])}
             </button>
           ))}
         </div>
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <span className="text-sm text-gray-700">{t("translateOnSelectLabel")}</span>
+        <span className={`text-sm ${scope === "off" ? "text-gray-400" : "text-gray-700"}`}>
+          {t("translateOnSelectLabel")}
+        </span>
         <button
           type="button"
           role="switch"
           aria-checked={translateOnSelect}
           aria-label={t("translateOnSelectLabel")}
-          disabled={updateSettings.isPending}
+          disabled={updateSettings.isPending || scope === "off"}
           onClick={() => save({ translation_scope: scope, translate_on_select: !translateOnSelect })}
           className={`relative h-5 w-9 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 ${
             translateOnSelect ? "bg-blue-600" : "bg-gray-300"

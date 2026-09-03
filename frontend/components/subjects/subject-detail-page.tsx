@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useGetSubject } from "@/lib/api/browser/academics/academics";
 import { useGetSubjectProgress } from "@/lib/api/browser/student-lessons/student-lessons";
+import { useAuthStore } from "@/stores/auth-store";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Markdown } from "@/components/markdown";
 import { ProgressBar } from "@/components/progress-bar";
@@ -12,10 +13,26 @@ import { CourseBadge } from "@/components/subjects/course-badge";
 import { SemesterPlan } from "@/components/subjects/semester-plan";
 import { NextLessonCard } from "./next-lesson-card";
 import { CoursePlan } from "./course-plan";
+import { SimpleSubjectDetailPage } from "./simple-subject-detail-page";
 
 type InfoPanel = "about" | "resources" | null;
 
+// Picks which experience renders the route — see the Settings page's
+// "Вигляд" section (components/settings/view-settings.tsx). Each variant
+// below owns its own data fetching, so this stays a plain router with no
+// hooks besides the mode check itself (rules-of-hooks: the two variants
+// need different hooks, so branching here instead of inside one component
+// with all hooks called unconditionally would call hooks conditionally).
 export function SubjectDetailPage({ subjectId }: { subjectId: number }) {
+  const isSimple = useAuthStore((state) => state.user?.interfaceMode === "simple");
+
+  if (isSimple) {
+    return <SimpleSubjectDetailPage subjectId={subjectId} />;
+  }
+  return <StandardSubjectDetailPage subjectId={subjectId} />;
+}
+
+function StandardSubjectDetailPage({ subjectId }: { subjectId: number }) {
   const t = useTranslations("SubjectDetail");
   const [openPanel, setOpenPanel] = useState<InfoPanel>(null);
 
