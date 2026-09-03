@@ -183,6 +183,40 @@ def award_reading_game_diamond(student: StudentProfile) -> None:
     student.refresh_from_db(fields=['diamond_balance_cache'])
 
 
+# Diamond reward for the trains minigame's 10-letter milestone (see
+# frontend/components/preschool/trains-game.tsx) — awarded every 10 letters
+# a student presses on the on-screen keyboard as the matching train car
+# rolls by. Same trust model as BALLOON_POP_MILESTONE_DIAMONDS above: no
+# server-side tracking of letters collected, the frontend calls this once
+# per milestone reached in a play session.
+TRAINS_GAME_MILESTONE_DIAMONDS = 1
+
+
+def award_trains_game_diamond(student: StudentProfile) -> None:
+    """Same atomic F() update as award_balloon_pop_diamond."""
+    StudentProfile.objects.filter(pk=student.pk).update(
+        diamond_balance_cache=F('diamond_balance_cache') + TRAINS_GAME_MILESTONE_DIAMONDS
+    )
+    student.refresh_from_db(fields=['diamond_balance_cache'])
+
+
+# Diamond reward for the "Казки" (Stories) minigame's 5-star milestone (see
+# frontend/components/preschool/stories-game.tsx) — a star is earned each
+# time a student opens a syllable/word card inside a story, and every 5
+# stars award a Diamond. Same trust model as BALLOON_POP_MILESTONE_DIAMONDS
+# above: no server-side tracking of cards opened, the frontend calls this
+# once per milestone reached in a play session.
+STORIES_GAME_MILESTONE_DIAMONDS = 1
+
+
+def award_stories_game_diamond(student: StudentProfile) -> None:
+    """Same atomic F() update as award_balloon_pop_diamond."""
+    StudentProfile.objects.filter(pk=student.pk).update(
+        diamond_balance_cache=F('diamond_balance_cache') + STORIES_GAME_MILESTONE_DIAMONDS
+    )
+    student.refresh_from_db(fields=['diamond_balance_cache'])
+
+
 def is_item_unlocked(student: StudentProfile, item: AvatarItem) -> bool:
     """Free items are unlocked for everyone; priced ones need a purchase
     record. See docs/core/avatar.md section 2.2."""

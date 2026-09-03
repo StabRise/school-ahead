@@ -18,6 +18,9 @@ topic/semester earning and now links back here).
 | Popping a balloon in the preschool Balloon Pop minigame | 1 ruby; every 30 rubies → +1 | `frontend/components/preschool/balloon-pop-game.tsx`, `POST /auth/me/balloon-pop-reward` |
 | Tapping any flashcard on that minigame's "learning" screen (repeats included) | 1 ruby (counts toward the same 30-ruby milestone above) | `BalloonLearningCards`' `onCardLearned`, see `docs/preschool/games/balloon game/README.md` §4 |
 | Passing the balloon game's bonus heart-balloon quiz (`> 60%`) | +1 | `POST /auth/me/balloon-quiz-reward`, see that doc §5 |
+| Clearing a consonant level of the reading (syllable drag-and-drop) minigame | +1 | `frontend/components/preschool/reading-game.tsx`, `POST /auth/me/reading-game-reward` |
+| Pressing the matching key in the trains minigame | 1 letter; every 10 letters → +1 | `frontend/components/preschool/trains-game.tsx`, `POST /auth/me/trains-game-reward` |
+| Opening a syllable/word card inside a story in the "Казки" minigame | 1 star; every 5 stars → +1 | `frontend/components/preschool/stories-game.tsx`, `POST /auth/me/stories-game-reward` — logged-in students only, not the public `/reading-game` mirror (`docs/preschool/games/reading/Stories.md` §4) |
 
 The four lesson-level rows all route through the single
 `lessons.services.mark_completed` — auto-graded quiz pass, theory
@@ -26,10 +29,14 @@ tutor resolving a Need Help request to Completed — so no completion path
 can skip an award. Full detail (idempotency guards, edge cases) lives in
 `docs/core/progress.md` §2.
 
-The three balloon-game rows are session-only counters with no server-side
-verification of balloons popped/cards tapped/quiz answers — the frontend
-calls the reward endpoint once per milestone/pass, on trust. Documented in
-full in `docs/preschool/games/balloon game/README.md`.
+Every preschool-minigame row is a session-only counter with no server-side
+verification of what it counts (balloons popped, cards tapped, quiz
+answers, consonant levels, letters, story cards) — the frontend calls the
+reward endpoint once per milestone/pass reached, on trust. The balloon
+game's three rows are documented in full in `docs/preschool/games/balloon
+game/README.md`; the others follow the exact same pattern (see each
+component's own `DIAMOND_MILESTONE*` constant and `awardedMilestonesRef`
+dedupe).
 
 ## 2. Storage
 

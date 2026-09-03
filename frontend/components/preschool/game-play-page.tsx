@@ -46,7 +46,7 @@ export function GamePlayPage({ game, storySlug }: { game: PreschoolGameId; story
         </div>
       ) : game === "stories" ? (
         <div className="mx-auto flex w-full flex-1 flex-col p-2 xl:max-w-5xl sm:p-4">
-          <StoriesGamePage slug={storySlug ?? null} />
+          <StoriesGamePage slug={storySlug ?? null} basePath="/games/stories" />
         </div>
       ) : (
         <TrainsGame />

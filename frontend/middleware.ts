@@ -14,8 +14,10 @@ const intlMiddleware = createMiddleware(routing);
 // public page paths instead. See docs/architecture/05-auth-flow.md.
 //
 // "/reading-game" is the "Казки" minigame (components/preschool/
-// stories-game.tsx's StoriesGame) shared publicly, no login needed — see
-// app/[locale]/reading-game/page.tsx.
+// stories-game.tsx's StoriesGamePage) shared publicly, no login needed —
+// each story also gets its own public link at "/reading-game/<storySlug>"
+// (see app/[locale]/reading-game/page.tsx and .../[storySlug]/page.tsx),
+// hence the prefix match in isPublicPath below rather than exact equality.
 const PUBLIC_PATHS = ["/login", "/reading-game"];
 
 function pathWithoutLocale(pathname: string): string {
@@ -24,9 +26,8 @@ function pathWithoutLocale(pathname: string): string {
 
 function isPublicPath(pathname: string): boolean {
   const withoutLocale = pathWithoutLocale(pathname);
-  return PUBLIC_PATHS.some(
-    (path) => withoutLocale === path || withoutLocale === "/",
-  );
+  if (withoutLocale === "/") return true;
+  return PUBLIC_PATHS.some((path) => withoutLocale === path || withoutLocale.startsWith(`${path}/`));
 }
 
 export default function middleware(request: NextRequest) {

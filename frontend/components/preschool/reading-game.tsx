@@ -542,7 +542,7 @@ export function ReadingGame() {
   };
 
   return (
-    <div className="relative flex min-h-[32rem] flex-1 flex-col overflow-hidden rounded-3xl bg-gradient-to-b from-sky-100 via-emerald-50 to-lime-100 ring-4 ring-inset ring-white/90 shadow-lg">
+    <div className="">
       <button
         ref={settingsButtonRef}
         type="button"
