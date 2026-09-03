@@ -9,11 +9,12 @@ import {
   useListLessonComments,
 } from "@/lib/api/browser/student-lessons/student-lessons";
 import type { StudentLessonOut } from "@/lib/api/browser/schoolAheadAPI.schemas";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge, STATUS_LABEL_KEY } from "@/components/status-badge";
 import { ScoreBadge } from "@/components/score-badge";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { SubmissionThread } from "@/components/submission-thread";
 import { Card } from "@/components/card";
+import { useAuthStore } from "@/stores/auth-store";
 import { LessonContent } from "./lesson-content";
 import { MaterialsStep } from "./materials-step";
 import { QuizStep } from "./quiz-step";
@@ -28,6 +29,39 @@ import { PageContainer } from "@/components/page-container";
 import { Link, useRouter, usePathname } from "@/i18n/navigation";
 
 const WIZARD_STEPS: WizardStep[] = ["materials", "readingMaterials", "assessment", "comments", "explanation"];
+
+// Plain-text status/grade for the Simple view's header — same information
+// as StatusBadge + ScoreBadge, just without the colored pills, matching
+// the monochrome convention used across the other Simple views (calendar,
+// dashboard, subject detail). See the Settings page's "Вигляд" section
+// (components/settings/view-settings.tsx).
+function SimpleLessonStatusGrade({
+  status,
+  gradePoints,
+  gradeResult,
+}: {
+  status: string;
+  gradePoints: number | null;
+  gradeResult: string | null;
+}) {
+  const t = useTranslations("LessonWizard");
+  const tStatus = useTranslations("LessonStatus");
+
+  const gradeLabel =
+    gradePoints !== null
+      ? t("scoreValue", { points: gradePoints })
+      : gradeResult === "pass"
+        ? t("scorePass")
+        : gradeResult === "fail"
+          ? t("scoreFail")
+          : t("scoreNotGraded");
+
+  return (
+    <span className="text-xs text-gray-500">
+      {tStatus(STATUS_LABEL_KEY[status] ?? STATUS_LABEL_KEY.assigned)} · {gradeLabel}
+    </span>
+  );
+}
 
 // Reads the active tab back out of `?step=...` — e.g. after an F5 reload,
 // which loses any in-memory React state. Invalid/missing values fall back
@@ -163,6 +197,7 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const stepFromUrl = parseStepParam(searchParams.get("step"));
+  const isSimple = useAuthStore((state) => state.user?.interfaceMode === "simple");
 
   const [step, setStepState] = useState<WizardStep | null>(stepFromUrl);
   // Whether the status-based landing tab (see initialStepForStatus) has been
@@ -221,7 +256,7 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   const effectiveStep: WizardStep = step ?? "materials";
 
   return (
-    <PageContainer>
+    <PageContainer maxWidthClassName="xl:max-w-7xl">
       <Breadcrumbs items={breadcrumbItems} />
       <div className="flex flex-col gap-3 border-b border-gray-200 pb-4 pt-4">
 
@@ -236,8 +271,18 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
             </Link>
           </div>
           <div className="flex items-center gap-2">
-            <StatusBadge status={data.status} />
-            <ScoreBadge gradePoints={data.grade_points} gradeResult={data.grade_result} />
+            {isSimple ? (
+              <SimpleLessonStatusGrade
+                status={data.status}
+                gradePoints={data.grade_points}
+                gradeResult={data.grade_result}
+              />
+            ) : (
+              <>
+                <StatusBadge status={data.status} />
+                <ScoreBadge gradePoints={data.grade_points} gradeResult={data.grade_result} />
+              </>
+            )}
           </div>
         </div>
         <StepSwitcher

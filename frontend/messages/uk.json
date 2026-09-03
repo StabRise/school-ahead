@@ -178,6 +178,7 @@
     "backlogTitle": "Хвости",
     "backlogHint": "Уроки, які не завершено вчасно",
     "backlogOrigin": "Дата: {label}",
+    "statisticsSectionTitle": "Статистика",
     "statsTitle": "Прогрес по предметах",
     "weeklyProgressTitle": "Виконано за тиждень",
     "weeklyPercentLabel": "% тижня виконано",
