@@ -13,7 +13,6 @@ import {
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { ProgressBar } from "@/components/progress-bar";
 import { Tabs } from "@/components/tabs";
-import { CourseBadge } from "@/components/subjects/course-badge";
 import { SemesterPlan } from "@/components/subjects/semester-plan";
 import { LESSON_TYPE_ICON, LESSON_TYPE_ICON_COLOR } from "@/components/simple/lesson-type-icon";
 import { formatGradeLabel, formatShortDate, resolveStatusLabel } from "@/components/simple/format";
@@ -166,7 +165,6 @@ export function SimpleSubjectDetailPage({ subjectId, colorful }: { subjectId: nu
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-xl font-semibold text-gray-900">{subject.name}</h1>
             <div className="flex items-center gap-2">
-              {colorful && <CourseBadge badge={progressQuery.data?.badge} />}
               <span className="text-xs text-gray-500">{percent}%</span>
             </div>
           </div>
