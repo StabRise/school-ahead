@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Everything the reading minigame (components/preschool/reading-game.tsx)
 // needs for one consonant level, read straight from its folder under
-// public/static/reading-game/<consonant> — no hardcoded vocabulary anywhere
+// public/static/letters/<consonant> — no hardcoded vocabulary anywhere
 // in the app. Reachable without a session (excluded from the locale/auth
 // middleware by its "/api" matcher, see middleware.ts).
 //
@@ -34,7 +34,7 @@ import { NextRequest, NextResponse } from "next/server";
 const VALID_CONSONANT = /^[А-ЩЬЮЯЄІЇҐа-щьюяєіїґ]{1,3}$/u;
 const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 const AUDIO_EXTENSIONS = new Set([".mp3"]);
-const READING_GAME_DIR = path.join(process.cwd(), "public", "static", "reading-game");
+const LETTERS_DIR = path.join(process.cwd(), "public", "static", "letters");
 
 export interface ReadingGameCard {
   key: string; // the word, e.g. "Мед" — also its image's filename minus extension
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
   const consonant = request.nextUrl.searchParams.get("folder");
   if (!consonant || !VALID_CONSONANT.test(consonant)) return NextResponse.json(EMPTY_RESPONSE);
 
-  const folderDir = path.join(READING_GAME_DIR, consonant);
+  const folderDir = path.join(LETTERS_DIR, consonant);
   const entries = await readdir(folderDir, { withFileTypes: true }).catch(() => []);
 
   const images: { word: string; file: string }[] = [];
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
     } else if (AUDIO_EXTENSIONS.has(ext.toLowerCase())) {
       soundsByLowerWord.set(word.toLocaleLowerCase("uk"), entry.name);
       if (word.length === 2) {
-        syllableSounds[word.toLocaleUpperCase("uk")] = `/static/reading-game/${consonant}/${entry.name}`;
+        syllableSounds[word.toLocaleUpperCase("uk")] = `/static/letters/${consonant}/${entry.name}`;
       }
     }
   }
@@ -91,9 +91,9 @@ export async function GET(request: NextRequest) {
     const soundFile = soundsByLowerWord.get(word.toLocaleLowerCase("uk"));
     cards.push({
       key: word,
-      image: `/static/reading-game/${consonant}/${file}`,
+      image: `/static/letters/${consonant}/${file}`,
       syllable: syllableOf(word),
-      sound: soundFile ? `/static/reading-game/${consonant}/${soundFile}` : null,
+      sound: soundFile ? `/static/letters/${consonant}/${soundFile}` : null,
     });
   }
   cards.sort((a, b) => a.key.localeCompare(b.key, "uk"));

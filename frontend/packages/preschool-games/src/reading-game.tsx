@@ -23,7 +23,7 @@ import { MusicToggleButton } from "./kit/music-toggle-button";
 // Preschool "syllable drag-and-drop" reading minigame — see
 // docs/preschool/games/reading/README.md for the design brief and
 // docs/preschool/games/reading/README.md's implementation notes for the
-// content model (public/static/reading-game/<Consonant>/<Word>.png, no
+// content model (public/static/letters/<Consonant>/<Word>.png, no
 // hardcoded vocabulary). A child drags each picture card onto the syllable
 // card it starts with; clearing every card in a level awards a Diamond via
 // POST /auth/me/reading-game-reward, same trust model as the balloon-pop
@@ -98,17 +98,29 @@ function SyllableSlot({
   placedCards,
   registerRef,
   sizeRem,
+  onPlay,
 }: {
   syllable: string;
   uppercase: boolean;
   placedCards: ReadingGameCard[];
   registerRef: (syllable: string, el: HTMLDivElement | null) => void;
   sizeRem: number;
+  onPlay: () => void;
 }) {
   return (
     <div
       ref={(el) => registerRef(syllable, el)}
-      className="flex flex-col items-center justify-center gap-1 rounded-2xl border-4 border-dashed border-white/80 bg-white/40 p-2 text-center shadow-inner"
+      role="button"
+      tabIndex={0}
+      aria-label={syllable}
+      onClick={onPlay}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onPlay();
+        }
+      }}
+      className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-4 border-dashed border-white/80 bg-white/40 p-2 text-center shadow-inner"
       style={{ width: `${sizeRem}rem`, minHeight: `${sizeRem}rem` }}
     >
       <span className="font-extrabold drop-shadow-sm" style={{ fontSize: `${sizeRem * 0.34}rem` }}>
@@ -329,6 +341,9 @@ function ReadingLevel({
               placedCards={cards.filter((card) => card.syllable === syllable && placedKeys.has(card.key))}
               registerRef={slots.set}
               sizeRem={slotSize}
+              onPlay={() => {
+                if (!muted) void playSyllable(syllable);
+              }}
             />
           ))}
         </div>

@@ -150,10 +150,10 @@ visitor can play any of the five, they just don't earn Diamonds (see
   place, chimes, and speaks the syllable then the full word; clearing every
   card in a level speaks a celebration and awards a Diamond via
   `POST /auth/me/reading-game-reward`. Content (which consonants/syllables
-  exist) is folder-driven from `public/static/reading-game/`.
+  exist) is folder-driven from `public/static/letters/`.
 * **Картки** (`cards-game.tsx` → `CardsGame`, see
   `docs/preschool/games/reading/Cards.md`) — flashcards for one consonant's
-  syllables, drawn from `public/static/letters/`. A "Навчання" (learning)
+  syllables, drawn from `public/static/syllables/`. A "Навчання" (learning)
   screen lets the child tap each card at their own pace; a "Гра" (game)
   screen tests recognition, with falling cards to tap against a
   spoken/shown target syllable — a star per correct match, every 10 stars

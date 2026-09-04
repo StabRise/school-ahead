@@ -32,7 +32,7 @@ import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 //       is a syllable breakdown: a bordered row of cards, one per
 //       "-"-separated segment (WordCardRow/WordSegmentCard below). Each
 //       segment is its own card: a known two-letter syllable shows that
-//       exact flashcard image from public/static/letters/<consonant>/
+//       exact flashcard image from public/static/syllables/<consonant>/
 //       <syllable>.png (vowel red, consonant blue, same as everywhere else
 //       that folder is used), a bare letter like "К" shows as plain colored
 //       text, and a segment written as an image filename shows that photo
@@ -146,7 +146,7 @@ function WordSegmentCard({
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={`/static/letters/${encodeURIComponent(lower[0])}/${encodeURIComponent(lower)}.png`}
+        src={`/static/syllables/${encodeURIComponent(lower[0])}/${encodeURIComponent(lower)}.png`}
         alt={segment.text.toLocaleUpperCase("uk")}
         draggable={false}
         style={boxStyle}
@@ -172,7 +172,7 @@ function WordSegmentCard({
 
 // The bordered "sheet" containing every card of one {...} word breakdown,
 // in a single row — the same photograph-a-hand-drawn-sheet look as
-// public/static/letters (docs/preschool/games/reading/Stories.md §3), just
+// public/static/syllables (docs/preschool/games/reading/Stories.md §3), just
 // composed live from individual cards instead of being one photo itself.
 // `size` picks the sheet's own chrome scale (border/gap/padding) — thin
 // inline vs. thick popup; `cardSizeRem` (popup only) shrinks the cards

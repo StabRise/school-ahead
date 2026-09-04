@@ -7,7 +7,7 @@ import { persist } from "zustand/middleware";
 // survive closing the tab instead of resetting to defaults every session —
 // same pattern as stores/reading-game-store.ts.
 
-// A consonant is just the name of its folder under public/static/letters
+// A consonant is just the name of its folder under public/static/syllables
 // (see /api/cards-game-modes) — no fixed set, so this is a plain string
 // rather than a literal union.
 export type CardsGameConsonant = string;

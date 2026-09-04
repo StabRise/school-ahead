@@ -15,7 +15,7 @@ import { MusicToggleButton } from "./kit/music-toggle-button";
 // Preschool "Cards" reading minigame — see docs/preschool/games/reading/
 // Cards.md for the design brief. Unlike the syllable drag-and-drop game
 // (reading-game.tsx), every card here is a single pre-rendered image
-// (public/static/letters/<Consonant>/<Syllable>.png — syllable text and its
+// (public/static/syllables/<Consonant>/<Syllable>.png — syllable text and its
 // illustration already baked into one picture, see backend's
 // slice_flashcard_grid command). Two screens, toggled bottom-right exactly
 // like balloon-pop-game.tsx's screenMode pill:
@@ -62,8 +62,8 @@ function CardsLevel({
   const celebrationRef = useRef<HTMLDivElement>(null);
 
   // Every syllable plus every non-empty pictured word needs TTS (there are
-  // no recorded pronunciations under public/static/letters, unlike
-  // public/static/reading-game) — prefetch the voice once, then warm up the
+  // no recorded pronunciations under public/static/syllables, unlike
+  // public/static/letters) — prefetch the voice once, then warm up the
   // whole level's vocabulary.
   useEffect(() => {
     if (muted || cards.length === 0) return;

@@ -7,7 +7,16 @@ from ninja_jwt.exceptions import TokenError
 from ninja_jwt.tokens import AccessToken
 from ninja_jwt.tokens import RefreshToken as JWTRefreshToken
 
-from .models import AvatarItem, RefreshToken, Role, SocialAccount, StudentProfile, User
+from .models import (
+    AvatarItem,
+    EquippedItemOrder,
+    EquippedItemPlacement,
+    RefreshToken,
+    Role,
+    SocialAccount,
+    StudentProfile,
+    User,
+)
 
 _google_request = google_requests.Request()
 
@@ -262,3 +271,43 @@ def purchase_avatar_item(student: StudentProfile, item: AvatarItem) -> None:
 
     student.unlocked_items.add(item)
     student.refresh_from_db(fields=['diamond_balance_cache'])
+
+
+def save_equipped_item_order(
+    student: StudentProfile, clothing_ids: list[int], headwear_ids: list[int], accessory_ids: list[int]
+) -> None:
+    """Persists the student's own stacking-order override, within each slot,
+    from the order PATCH /me/avatar-items's item ids already arrive in — see
+    EquippedItemOrder and accounts.api.update_avatar_items. Same "always
+    replace with the full state" contract as UpdateAvatarItemsIn itself:
+    every call here fully replaces this student's previous overrides rather
+    than diffing against them, since the frontend always sends its current
+    picks for every slot, not just what changed."""
+    student.item_orders.all().delete()
+    rows = [
+        EquippedItemOrder(student_profile=student, item_id=item_id, order=index)
+        for ids in (clothing_ids, headwear_ids, accessory_ids)
+        for index, item_id in enumerate(ids)
+    ]
+    EquippedItemOrder.objects.bulk_create(rows)
+
+
+def save_item_placement(
+    student: StudentProfile, item: AvatarItem, offset_x: float, offset_y: float, rotation: float, scale: float
+) -> None:
+    """Persists a student's own move/rotate/resize override for one equipped
+    item — see EquippedItemPlacement and accounts.api.
+    update_avatar_item_placement. Unlike save_equipped_item_order above,
+    this touches only the one item being moved, not the whole table: a
+    placement must survive unrelated equip/unequip/reorder actions."""
+    EquippedItemPlacement.objects.update_or_create(
+        student_profile=student,
+        item=item,
+        defaults={'offset_x': offset_x, 'offset_y': offset_y, 'rotation': rotation, 'scale': scale},
+    )
+
+
+def clear_item_placement(student: StudentProfile, item: AvatarItem) -> None:
+    """Resets one item back to the tutor-configured default position — see
+    accounts.api.reset_avatar_item_placement."""
+    student.item_placements.filter(item=item).delete()

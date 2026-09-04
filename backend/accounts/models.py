@@ -204,6 +204,64 @@ class StudentProfile(models.Model):
         return self.user.full_name or self.user.email
 
 
+class EquippedItemOrder(models.Model):
+    """A student's own override of AvatarItem.layer_order's stacking order,
+    within one slot only (clothing among clothing, accessory among
+    accessory — see docs/core/avatar.md section 2.2) — not wired as the
+    equipped_*_items M2M fields' `through=` (no existing precedent for that
+    in this codebase, and it would force every equip/unequip to go through
+    a slower add-with-through-defaults loop instead of the plain `.set()`
+    those keep using). Instead this is a plain side table, consulted only
+    when serializing (accounts.api._equipped_items_out): present for an
+    item -> use `order`; absent -> fall back to AvatarItem.layer_order, so a
+    student who's never reordered anything sees no change at all. Written
+    by accounts.services.save_equipped_item_order, from the order the
+    frontend's PATCH /me/avatar-items already sends its item ids in — see
+    that function."""
+
+    student_profile = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='item_orders')
+    item = models.ForeignKey(AvatarItem, on_delete=models.CASCADE)
+    order = models.PositiveSmallIntegerField()
+
+    class Meta:
+        unique_together = [('student_profile', 'item')]
+
+
+class EquippedItemPlacement(models.Model):
+    """A student's own move/rotate/resize override for one equipped
+    wardrobe item, set by clicking it on their own avatar preview to select
+    it (like a graphic editor) and then dragging it to move, rotate, or
+    resize — see components/profile/avatar-preview.tsx and docs/core/
+    avatar.md section 2.2. Purely cosmetic and private to that student: only
+    ever consulted when serializing *their own* /me response (accounts.api.
+    _equipped_items_out) — a different viewer of this student's avatar
+    (once that exists) always sees the tutor-configured AvatarItem.offset_x/
+    offset_y/scale instead, since nothing else reads this table. offset_x/
+    offset_y/scale here are absolute replacements (not deltas/multipliers)
+    for the AvatarItem fields of the same name, same conventions — see
+    those fields. rotation is degrees, clockwise, with no catalog-side
+    counterpart (art is always authored upright; only a student's own
+    override ever introduces rotation).
+
+    Deliberately its own table rather than added to EquippedItemOrder above:
+    that table is wholly replaced on every wardrobe save (accounts.services.
+    save_equipped_item_order), whereas a placement must survive unrelated
+    equip/unequip/reorder actions until the student moves that item again.
+    Written by accounts.services.save_item_placement /
+    clear_item_placement, from accounts.api.update_avatar_item_placement /
+    reset_avatar_item_placement."""
+
+    student_profile = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='item_placements')
+    item = models.ForeignKey(AvatarItem, on_delete=models.CASCADE)
+    offset_x = models.FloatField()
+    offset_y = models.FloatField()
+    rotation = models.FloatField(default=0.0)
+    scale = models.FloatField(default=1.0)
+
+    class Meta:
+        unique_together = [('student_profile', 'item')]
+
+
 class TutorProfile(models.Model):
     """Held by role=tutor users, and auto-provisioned for role=admin users too
     (see docs/architecture/02-data-model.md decision 7 — not implemented in this

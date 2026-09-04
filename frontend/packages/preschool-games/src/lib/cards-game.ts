@@ -24,7 +24,7 @@ function fetchConsonants(): Promise<string[]> {
 }
 
 // The "Cards" minigame's full consonant (level) list — every subfolder of
-// public/static/letters that's ready to play (see /api/cards-game-modes),
+// public/static/syllables that's ready to play (see /api/cards-game-modes),
 // fetched once and cached module-wide. Empty until the fetch resolves.
 export function useCardsGameConsonants(): string[] {
   const [consonants, setConsonants] = useState<string[]>([]);

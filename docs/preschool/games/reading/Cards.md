@@ -16,7 +16,7 @@ Component: frontend/packages/preschool-games/src/cards-game.tsx → CardsGame.
 
 3. Контент
 
-Картки лежать у frontend/public/static/letters/<Приголосна>/
+Картки лежать у frontend/public/static/syllables/<Приголосна>/
 <склад>.png — кожен файл уже містить і напис складу (голосна буква
 червона, приголосна синя), і малюнок предмета, що починається на цей
 склад (напр. ба.png → БА + баранець), намальований і сфотографований

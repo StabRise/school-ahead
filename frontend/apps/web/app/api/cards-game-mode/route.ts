@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Everything the "Cards" minigame (components/preschool/cards-game.tsx)
 // needs for one consonant level, read straight from its folder under
-// public/static/letters/<consonant> — see docs/preschool/games/reading/
+// public/static/syllables/<consonant> — see docs/preschool/games/reading/
 // Cards.md. A folder looks like:
 //   <consonant>/words.json      — { "<склад>": "<назва предмета>", ... },
 //                                  e.g. { "ба": "баран" }
@@ -18,10 +18,10 @@ import { NextRequest, NextResponse } from "next/server";
 //
 // `consonant` is restricted to a single Cyrillic letter — it's interpolated
 // straight into a filesystem path below, and every folder name under
-// public/static/letters matches that shape, so anything else (path
+// public/static/syllables matches that shape, so anything else (path
 // separators, "..", ...) is rejected outright.
 const VALID_CONSONANT = /^[А-ЩЬЮЯЄІЇҐа-щьюяєіїґ]{1,3}$/u;
-const LETTERS_DIR = path.join(process.cwd(), "public", "static", "letters");
+const SYLLABLES_DIR = path.join(process.cwd(), "public", "static", "syllables");
 
 export interface CardsGameCard {
   syllable: string; // e.g. "ба" — also the image's filename minus extension
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   const consonant = request.nextUrl.searchParams.get("folder");
   if (!consonant || !VALID_CONSONANT.test(consonant)) return NextResponse.json(EMPTY_RESPONSE);
 
-  const folderDir = path.join(LETTERS_DIR, consonant);
+  const folderDir = path.join(SYLLABLES_DIR, consonant);
   const words = await readFile(path.join(folderDir, "words.json"), "utf-8")
     .then((raw) => JSON.parse(raw) as Record<string, string>)
     .catch(() => null);
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     const imagePath = path.join(folderDir, `${syllable}.png`);
     const exists = await access(imagePath).then(() => true).catch(() => false);
     if (!exists) continue;
-    cards.push({ syllable, word, image: `/static/letters/${consonant}/${encodeURIComponent(`${syllable}.png`)}` });
+    cards.push({ syllable, word, image: `/static/syllables/${consonant}/${encodeURIComponent(`${syllable}.png`)}` });
   }
 
   return NextResponse.json({ cards });

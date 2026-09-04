@@ -18,6 +18,7 @@ from .schemas import (
     GoogleLoginOut,
     MeOut,
     UpdateAvatarIn,
+    UpdateAvatarItemPlacementIn,
     UpdateAvatarItemsIn,
     UpdateInterfaceModeIn,
     UpdateTranslationSettingsIn,
@@ -28,7 +29,10 @@ router = Router(tags=['auth'])
 
 
 def _avatar_item_out(
-    item: AvatarItem | None, request: HttpRequest, unlocked_ids: set[int] | None
+    item: AvatarItem | None,
+    request: HttpRequest,
+    unlocked_ids: set[int] | None,
+    placement: tuple[float, float, float, float] | None = None,
 ) -> AvatarItemOut | None:
     if item is None:
         return None
@@ -38,15 +42,24 @@ def _avatar_item_out(
     # accounts.services.is_item_unlocked's rule, inlined here since we
     # already have the id set precomputed for the whole response.
     is_unlocked = unlocked_ids is None or item.price == 0 or item.id in unlocked_ids
+    # placement is the requesting student's own EquippedItemPlacement
+    # override for this item, if any — see _equipped_items_out. Never set
+    # for catalog items (_avatar_out), only for a student's own equipped
+    # items, so anyone else's view of this student's avatar (once that
+    # exists) always falls back to the tutor-configured position/size below.
+    offset_x, offset_y, rotation, scale = (
+        placement if placement is not None else (item.offset_x, item.offset_y, 0.0, item.scale)
+    )
     return AvatarItemOut(
         id=item.id,
         slot=item.slot,
         key=item.key,
         name=item.name,
         image=image_url,
-        scale=item.scale,
-        offset_x=item.offset_x,
-        offset_y=item.offset_y,
+        scale=scale,
+        offset_x=offset_x,
+        offset_y=offset_y,
+        rotation=rotation,
         layer_order=item.layer_order,
         price=item.price,
         is_unlocked=is_unlocked,
@@ -63,8 +76,21 @@ def _avatar_out(avatar: Avatar | None, request: HttpRequest, unlocked_ids: set[i
 
 def _equipped_items_out(student_profile, field_name: str, request: HttpRequest, unlocked_ids) -> list[AvatarItemOut]:
     manager = getattr(student_profile, field_name)
-    items = manager.filter(is_active=True).order_by('layer_order', 'id')
-    return [_avatar_item_out(item, request, unlocked_ids) for item in items]
+    items = list(manager.filter(is_active=True))
+    # A student's own stacking-order override (EquippedItemOrder), if any —
+    # falls back to the catalog's default layer_order for any item without
+    # one (never reordered, or newly equipped since the last reorder).
+    custom_order = dict(student_profile.item_orders.values_list('item_id', 'order'))
+    items.sort(key=lambda item: (custom_order.get(item.id, item.layer_order), item.id))
+    # A student's own move/rotate/resize override (EquippedItemPlacement),
+    # if any — see _avatar_item_out and docs/core/avatar.md section 2.2.
+    placements = {
+        item_id: (offset_x, offset_y, rotation, scale)
+        for item_id, offset_x, offset_y, rotation, scale in student_profile.item_placements.values_list(
+            'item_id', 'offset_x', 'offset_y', 'rotation', 'scale'
+        )
+    }
+    return [_avatar_item_out(item, request, unlocked_ids, placements.get(item.id)) for item in items]
 
 
 def _user_out(request: HttpRequest, user) -> UserOut:
@@ -261,13 +287,72 @@ def update_avatar_items(request: HttpRequest, payload: UpdateAvatarItemsIn):
     """Equips/unequips the wardrobe on top of the current equipped_avatar —
     see docs/core/avatar.md section 2.2. Always sends the full wardrobe state
     (see UpdateAvatarItemsIn): every slot can hold several pieces worn
-    together at once, stacked by AvatarItem.layer_order. Every item must
-    already be unlocked (free, or bought via POST .../purchase)."""
+    together at once, stacked by AvatarItem.layer_order by default — a
+    student can override that stacking order within a slot simply by
+    sending its ids in the order they want (see
+    accounts.services.save_equipped_item_order and EquippedItemOrder).
+    Every item must already be unlocked (free, or bought via
+    POST .../purchase)."""
     require_csrf(request)
     student = get_own_student_profile(request)
     student.equipped_clothing_items.set(_resolve_slot_items(student, payload.clothing_item_ids, 'clothing'))
     student.equipped_headwear_items.set(_resolve_slot_items(student, payload.headwear_item_ids, 'headwear'))
     student.equipped_accessory_items.set(_resolve_slot_items(student, payload.accessory_item_ids, 'accessory'))
+    services.save_equipped_item_order(
+        student, payload.clothing_item_ids, payload.headwear_item_ids, payload.accessory_item_ids
+    )
+    return MeOut(user=_user_out(request, request.auth))
+
+
+def _get_own_equipped_item(student, item_id: int) -> AvatarItem:
+    """404s unless `item_id` is currently equipped by `student` in one of
+    the three wardrobe slots — shared by the placement endpoints below, so a
+    student can only move/reset items they actually have on right now."""
+    item = get_object_or_404(AvatarItem, id=item_id, is_active=True)
+    is_equipped = (
+        student.equipped_clothing_items.filter(id=item_id).exists()
+        or student.equipped_headwear_items.filter(id=item_id).exists()
+        or student.equipped_accessory_items.filter(id=item_id).exists()
+    )
+    if not is_equipped:
+        raise HttpError(404, 'Item is not currently equipped')
+    return item
+
+
+@router.patch(
+    '/me/avatar-items/{item_id}/placement',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='update_avatar_item_placement',
+)
+def update_avatar_item_placement(request: HttpRequest, item_id: int, payload: UpdateAvatarItemPlacementIn):
+    """A student clicking one of their own equipped wardrobe items on their
+    avatar preview to select it (like a graphic editor), then dragging it to
+    move, rotate, or resize — see EquippedItemPlacement and docs/core/
+    avatar.md section 2.2. Purely cosmetic and private to this student:
+    never shown to any other viewer of their avatar (see
+    EquippedItemPlacement's docstring)."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    item = _get_own_equipped_item(student, item_id)
+    services.save_item_placement(student, item, payload.offset_x, payload.offset_y, payload.rotation, payload.scale)
+    return MeOut(user=_user_out(request, request.auth))
+
+
+@router.delete(
+    '/me/avatar-items/{item_id}/placement',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='reset_avatar_item_placement',
+)
+def reset_avatar_item_placement(request: HttpRequest, item_id: int):
+    """Clears a student's own move/rotate/resize override for one equipped
+    item, reverting it to the tutor-configured default position/size — see
+    EquippedItemPlacement."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    item = _get_own_equipped_item(student, item_id)
+    services.clear_item_placement(student, item)
     return MeOut(user=_user_out(request, request.auth))
 
 

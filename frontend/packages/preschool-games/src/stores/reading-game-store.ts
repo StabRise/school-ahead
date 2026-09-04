@@ -7,7 +7,7 @@ import { persist } from "zustand/middleware";
 // instead of resetting to defaults every session.
 
 // A consonant is just the name of its folder under
-// public/static/reading-game (see /api/reading-game-modes) — no fixed set,
+// public/static/letters (see /api/reading-game-modes) — no fixed set,
 // so this is a plain string rather than a literal union.
 export type ReadingGameConsonant = string;
 

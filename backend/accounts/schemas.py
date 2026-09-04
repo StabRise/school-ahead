@@ -18,10 +18,18 @@ class AvatarItemOut(Schema):
     # Fine-tuning set from the tutor avatar editor — see AvatarItem.scale/
     # offset_x/offset_y. Applied by the frontend as a CSS transform on top of
     # this item's layer so every renderer (preview, wardrobe, ...) stays in
-    # sync without re-authoring the SVG.
+    # sync without re-authoring the SVG. For an equipped item, already
+    # reflects the requesting student's own move/rotate/resize override
+    # (EquippedItemPlacement) when one exists — see
+    # accounts.api._equipped_items_out.
     scale: float = 1.0
     offset_x: float = 0.0
     offset_y: float = 0.0
+    # A student's own rotate override of this equipped item — see scale/
+    # offset_x/offset_y above. 0 (never rotated) for catalog items and for
+    # any equipped item the student hasn't rotated; no catalog-side
+    # counterpart to fall back to (art is always authored upright).
+    rotation: float = 0.0
     # Stacking order among simultaneously-equipped items in the same slot —
     # see AvatarItem.layer_order.
     layer_order: int = 0
@@ -129,3 +137,16 @@ class UpdateAvatarItemTransformIn(Schema):
     offset_y: float
     layer_order: int
     price: int
+
+
+class UpdateAvatarItemPlacementIn(Schema):
+    """A student moving/rotating/resizing one of their own equipped
+    wardrobe items directly on their avatar preview — see
+    EquippedItemPlacement and accounts.api.update_avatar_item_placement.
+    offset_x/offset_y/scale are absolute replacements for AvatarItem.
+    offset_x/offset_y/scale (same conventions), not deltas/multipliers."""
+
+    offset_x: float
+    offset_y: float
+    rotation: float = 0.0
+    scale: float = 1.0

@@ -16,10 +16,10 @@ export interface StorySummary {
 
 // One card within a {...} word breakdown — most segments are just a
 // letter/syllable (rendered per docs/preschool/games/reading/Stories.md §3:
-// the letters/ flashcard image for a known two-letter syllable, plain
+// the syllables/ flashcard image for a known two-letter syllable, plain
 // colored letters otherwise), but a segment written as an image filename
 // (e.g. "img1.jpeg") instead pins that specific photographed card to that
-// slot (e.g. an illustration that isn't one of letters/'s consonant+vowel
+// slot (e.g. an illustration that isn't one of syllables/'s consonant+vowel
 // syllables) — resolved against the story's own folder, public/static/
 // stories/<slug>/<filename>.
 export type StoryWordSegment = { kind: "text"; text: string } | { kind: "image"; filename: string };
