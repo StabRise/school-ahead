@@ -15,6 +15,7 @@ function mapAvatarItem(item: AvatarItemOut): EquippedAvatarItem {
     scale: item.scale ?? 1,
     offsetX: item.offset_x ?? 0,
     offsetY: item.offset_y ?? 0,
+    rotation: item.rotation ?? 0,
     layerOrder: item.layer_order ?? 0,
     price: item.price ?? 0,
     isUnlocked: item.is_unlocked ?? true,

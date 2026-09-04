@@ -503,26 +503,71 @@ def test_unlocked_item_survives_switching_avatar_and_back(api_client, auth_heade
     assert student.diamond_balance_cache == 70
 
 
-def test_multiple_headwear_and_accessories_equip_together_sorted_by_layer_order(api_client, auth_header):
+def test_equipping_items_in_a_given_order_persists_that_stacking_order(api_client, auth_header):
+    """A student's own override of AvatarItem.layer_order (docs/core/
+    avatar.md section 2.2) — see accounts.services.save_equipped_item_order.
+    layer_order is set backwards from the equip order sent below, so this
+    can only pass if the response order comes from the override, not the
+    catalog default."""
     user, student, avatar = _make_student_with_avatar(diamonds=0)
-    beanie = AvatarItem.objects.create(
-        avatar=avatar, slot='headwear', key='beanie', name='Beanie', layer_order=0
+    scarf = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='scarf', name='Scarf', layer_order=10)
+    jacket = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='jacket', name='Jacket', layer_order=1)
+
+    response = api_client.patch(
+        '/auth/me/avatar-items', json={'clothing_item_ids': [scarf.id, jacket.id]}, headers=auth_header(user),
     )
-    flower_crown = AvatarItem.objects.create(
-        avatar=avatar, slot='headwear', key='flower-crown', name='Flower Crown', layer_order=1
+
+    assert response.status_code == 200
+    assert [i['key'] for i in response.data['user']['equipped_clothing_items']] == ['scarf', 'jacket']
+
+
+def test_reordering_equipped_items_flips_their_stacking_order(api_client, auth_header):
+    user, student, avatar = _make_student_with_avatar(diamonds=0)
+    scarf = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='scarf', name='Scarf')
+    jacket = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='jacket', name='Jacket')
+    api_client.patch(
+        '/auth/me/avatar-items', json={'clothing_item_ids': [scarf.id, jacket.id]}, headers=auth_header(user),
     )
-    glasses = AvatarItem.objects.create(
-        avatar=avatar, slot='accessory', key='glasses', name='Glasses', layer_order=0
+
+    reordered = api_client.patch(
+        '/auth/me/avatar-items', json={'clothing_item_ids': [jacket.id, scarf.id]}, headers=auth_header(user),
     )
-    backpack = AvatarItem.objects.create(
-        avatar=avatar, slot='accessory', key='backpack', name='Backpack', layer_order=1
-    )
+
+    assert reordered.status_code == 200
+    assert [i['key'] for i in reordered.data['user']['equipped_clothing_items']] == ['jacket', 'scarf']
+
+
+def test_item_with_no_stored_order_falls_back_to_layer_order(api_client, auth_header):
+    """An item equipped some other way than PATCH /me/avatar-items (e.g.
+    data from before this feature existed) has no EquippedItemOrder row at
+    all — see accounts.api._equipped_items_out's fallback."""
+    user, student, avatar = _make_student_with_avatar(diamonds=0)
+    scarf = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='scarf', name='Scarf', layer_order=5)
+    jacket = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='jacket', name='Jacket', layer_order=1)
+    student.equipped_clothing_items.add(scarf, jacket)
+
+    response = api_client.get('/auth/me', headers=auth_header(user))
+
+    assert [i['key'] for i in response.data['user']['equipped_clothing_items']] == ['jacket', 'scarf']
+
+
+def test_multiple_headwear_and_accessories_equip_together(api_client, auth_header):
+    """Equipping several items at once, in each of two slots, in one call —
+    docs/core/avatar.md section 2.2. Sent in the same order they're expected
+    back in, since (unlike before this equip endpoint also persisted a
+    per-student stacking order — see the order-related tests around this
+    one) send order is now authoritative, not just AvatarItem.layer_order."""
+    user, student, avatar = _make_student_with_avatar(diamonds=0)
+    beanie = AvatarItem.objects.create(avatar=avatar, slot='headwear', key='beanie', name='Beanie')
+    flower_crown = AvatarItem.objects.create(avatar=avatar, slot='headwear', key='flower-crown', name='Flower Crown')
+    glasses = AvatarItem.objects.create(avatar=avatar, slot='accessory', key='glasses', name='Glasses')
+    backpack = AvatarItem.objects.create(avatar=avatar, slot='accessory', key='backpack', name='Backpack')
 
     response = api_client.patch(
         '/auth/me/avatar-items',
         json={
-            'headwear_item_ids': [flower_crown.id, beanie.id],
-            'accessory_item_ids': [backpack.id, glasses.id],
+            'headwear_item_ids': [beanie.id, flower_crown.id],
+            'accessory_item_ids': [glasses.id, backpack.id],
         },
         headers=auth_header(user),
     )
@@ -530,6 +575,132 @@ def test_multiple_headwear_and_accessories_equip_together_sorted_by_layer_order(
     assert response.status_code == 200
     assert [i['key'] for i in response.data['user']['equipped_headwear_items']] == ['beanie', 'flower-crown']
     assert [i['key'] for i in response.data['user']['equipped_accessory_items']] == ['glasses', 'backpack']
+
+
+def test_multiple_slots_fall_back_to_layer_order_independently(api_client, auth_header):
+    """Same multi-slot setup as the test above, but equipped by directly
+    manipulating the M2M (as if from data that predates this feature) so
+    neither slot has a stored order override — both fall back to
+    AvatarItem.layer_order independently of one another."""
+    user, student, avatar = _make_student_with_avatar(diamonds=0)
+    beanie = AvatarItem.objects.create(avatar=avatar, slot='headwear', key='beanie', name='Beanie', layer_order=0)
+    flower_crown = AvatarItem.objects.create(
+        avatar=avatar, slot='headwear', key='flower-crown', name='Flower Crown', layer_order=1
+    )
+    glasses = AvatarItem.objects.create(avatar=avatar, slot='accessory', key='glasses', name='Glasses', layer_order=0)
+    backpack = AvatarItem.objects.create(avatar=avatar, slot='accessory', key='backpack', name='Backpack', layer_order=1)
+    student.equipped_headwear_items.add(flower_crown, beanie)
+    student.equipped_accessory_items.add(backpack, glasses)
+
+    response = api_client.get('/auth/me', headers=auth_header(user))
+
+    assert [i['key'] for i in response.data['user']['equipped_headwear_items']] == ['beanie', 'flower-crown']
+    assert [i['key'] for i in response.data['user']['equipped_accessory_items']] == ['glasses', 'backpack']
+
+
+def test_moving_an_equipped_item_persists_its_own_offset_rotation_and_scale(api_client, auth_header):
+    """Dragging/rotating/resizing an item on the avatar preview (docs/core/
+    avatar.md section 2.2) — see accounts.services.save_item_placement and
+    EquippedItemPlacement. Values sent below differ from the catalog
+    defaults set on the AvatarItem itself, so this can only pass if the
+    response reflects the override, not AvatarItem.offset_x/offset_y/scale."""
+    user, student, avatar = _make_student_with_avatar(diamonds=0)
+    jacket = AvatarItem.objects.create(
+        avatar=avatar, slot='clothing', key='jacket', name='Jacket', offset_x=1.0, offset_y=2.0, scale=1.0
+    )
+    student.equipped_clothing_items.add(jacket)
+
+    response = api_client.patch(
+        f'/auth/me/avatar-items/{jacket.id}/placement',
+        json={'offset_x': 12.5, 'offset_y': -8.0, 'rotation': 33.0, 'scale': 1.8},
+        headers=auth_header(user),
+    )
+
+    assert response.status_code == 200
+    [item_out] = response.data['user']['equipped_clothing_items']
+    assert item_out['offset_x'] == 12.5
+    assert item_out['offset_y'] == -8.0
+    assert item_out['rotation'] == 33.0
+    assert item_out['scale'] == 1.8
+
+
+def test_item_with_no_stored_placement_falls_back_to_catalog_position_and_scale(api_client, auth_header):
+    user, student, avatar = _make_student_with_avatar(diamonds=0)
+    jacket = AvatarItem.objects.create(
+        avatar=avatar, slot='clothing', key='jacket', name='Jacket', offset_x=1.0, offset_y=2.0, scale=1.5
+    )
+    student.equipped_clothing_items.add(jacket)
+
+    response = api_client.get('/auth/me', headers=auth_header(user))
+
+    [item_out] = response.data['user']['equipped_clothing_items']
+    assert item_out['offset_x'] == 1.0
+    assert item_out['offset_y'] == 2.0
+    assert item_out['rotation'] == 0.0
+    assert item_out['scale'] == 1.5
+
+
+def test_resetting_placement_reverts_to_catalog_position_and_scale(api_client, auth_header):
+    user, student, avatar = _make_student_with_avatar(diamonds=0)
+    jacket = AvatarItem.objects.create(
+        avatar=avatar, slot='clothing', key='jacket', name='Jacket', offset_x=1.0, offset_y=2.0, scale=1.5
+    )
+    student.equipped_clothing_items.add(jacket)
+    api_client.patch(
+        f'/auth/me/avatar-items/{jacket.id}/placement',
+        json={'offset_x': 12.5, 'offset_y': -8.0, 'rotation': 33.0, 'scale': 1.8},
+        headers=auth_header(user),
+    )
+
+    response = api_client.delete(f'/auth/me/avatar-items/{jacket.id}/placement', headers=auth_header(user))
+
+    assert response.status_code == 200
+    [item_out] = response.data['user']['equipped_clothing_items']
+    assert item_out['offset_x'] == 1.0
+    assert item_out['offset_y'] == 2.0
+    assert item_out['rotation'] == 0.0
+    assert item_out['scale'] == 1.5
+
+
+def test_moving_an_item_that_is_not_equipped_is_rejected(api_client, auth_header):
+    user, student, avatar = _make_student_with_avatar(diamonds=0)
+    jacket = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='jacket', name='Jacket')
+
+    response = api_client.patch(
+        f'/auth/me/avatar-items/{jacket.id}/placement',
+        json={'offset_x': 5.0, 'offset_y': 5.0},
+        headers=auth_header(user),
+    )
+
+    assert response.status_code == 404
+
+
+def test_placement_override_is_private_to_the_owning_student(api_client, auth_header):
+    """The 'for other users, as configured by tutor' half of the feature:
+    another student equipping the same catalog item never sees this
+    student's move/rotate override, only the tutor-set AvatarItem default —
+    see EquippedItemPlacement's docstring."""
+    user, student, avatar = _make_student_with_avatar(diamonds=0)
+    other_user = User.objects.create_user(email='other-shopper@example.com', role=Role.STUDENT)
+    other_student = StudentProfile.objects.create(user=other_user, equipped_avatar=avatar, diamond_balance_cache=0)
+    jacket = AvatarItem.objects.create(
+        avatar=avatar, slot='clothing', key='jacket', name='Jacket', offset_x=1.0, offset_y=2.0, scale=1.0
+    )
+    student.equipped_clothing_items.add(jacket)
+    other_student.equipped_clothing_items.add(jacket)
+    api_client.patch(
+        f'/auth/me/avatar-items/{jacket.id}/placement',
+        json={'offset_x': 40.0, 'offset_y': 40.0, 'rotation': 90.0, 'scale': 2.2},
+        headers=auth_header(user),
+    )
+
+    response = api_client.get('/auth/me', headers=auth_header(other_user))
+
+    [item_out] = response.data['user']['equipped_clothing_items']
+    assert item_out['offset_x'] == 1.0
+    assert item_out['offset_y'] == 2.0
+    assert item_out['rotation'] == 0.0
+    assert item_out['scale'] == 1.0
 
 
 def test_reward_balloon_pop_awards_one_diamond(api_client, auth_header):

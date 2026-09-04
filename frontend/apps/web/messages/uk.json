@@ -646,6 +646,13 @@
       "headwear": "Головний убір",
       "accessory": "Аксесуар"
     },
+    "wardrobeStackOrderLabel": "Порядок шарів",
+    "wardrobeMoveUp": "Перемістити вище",
+    "wardrobeMoveDown": "Перемістити нижче",
+    "wardrobeDragHint": "Перетягни, щоб перемістити, крутилку зверху — щоб повернути, а куточок знизу — щоб змінити розмір",
+    "wardrobeRotateItem": "Повернути",
+    "wardrobeResizeItem": "Змінити розмір",
+    "wardrobeResetPosition": "Скинути положення",
     "notEnoughDiamondsTitle": "Недостатньо діамантів",
     "notEnoughDiamondsTitleShort": "Ще замало!",
     "notEnoughDiamondsBody": "{item} коштує 💎{price}, а в тебе {balance}. Виконуй уроки, щоб заробити більше діамантів!",

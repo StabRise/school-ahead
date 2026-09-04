@@ -3,16 +3,31 @@
 import { useAuthStore, type EquippedAvatarItem } from "@school-ahead/api-client";
 
 export interface AvatarLayer {
+  // null for the base avatar body layer — every wardrobe item layer carries
+  // its AvatarItem id instead, so a consumer (see components/profile/
+  // avatar-preview.tsx's interactive editor) can tell which layer came from
+  // which equipped item without keeping a second parallel list.
+  itemId: number | null;
   image: string;
   scale: number;
   offsetX: number;
   offsetY: number;
+  // Degrees, clockwise — a student's own move/rotate override, see
+  // EquippedAvatarItem.rotation. Always 0 for the body layer.
+  rotation: number;
 }
 
 export function itemsToLayers(items: EquippedAvatarItem[] | undefined): AvatarLayer[] {
   return (items ?? [])
     .filter((item) => item.image)
-    .map((item) => ({ image: item.image as string, scale: item.scale, offsetX: item.offsetX, offsetY: item.offsetY }));
+    .map((item) => ({
+      itemId: item.id,
+      image: item.image as string,
+      scale: item.scale,
+      offsetX: item.offsetX,
+      offsetY: item.offsetY,
+      rotation: item.rotation,
+    }));
 }
 
 // Every layer (body -> clothing -> headwear -> accessory) the signed-in
@@ -29,7 +44,7 @@ export function useEquippedAvatarLayers(): AvatarLayer[] {
 
   return [
     ...(equippedAvatar?.image
-      ? [{ image: equippedAvatar.image, scale: equippedAvatar.scale, offsetX: 0, offsetY: 0 }]
+      ? [{ itemId: null, image: equippedAvatar.image, scale: equippedAvatar.scale, offsetX: 0, offsetY: 0, rotation: 0 }]
       : []),
     ...itemsToLayers(equippedClothingItems),
     ...itemsToLayers(equippedHeadwearItems),
@@ -46,14 +61,16 @@ export function useEquippedAvatarLayers(): AvatarLayer[] {
 export function EquippedAvatarLayers({ layers, className = "" }: { layers: AvatarLayer[]; className?: string }) {
   return (
     <div className={`relative h-full w-full overflow-hidden ${className}`}>
-      {layers.map((layer) => (
+      {layers.map((layer, index) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          key={layer.image}
+          key={layer.itemId ?? `${layer.image}-${index}`}
           src={layer.image}
           alt=""
           className="absolute inset-0 h-full w-full object-contain"
-          style={{ transform: `translate(${layer.offsetX}%, ${layer.offsetY}%) scale(${layer.scale})` }}
+          style={{
+            transform: `translate(${layer.offsetX}%, ${layer.offsetY}%) rotate(${layer.rotation}deg) scale(${layer.scale})`,
+          }}
         />
       ))}
     </div>
