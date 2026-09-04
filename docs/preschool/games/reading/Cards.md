@@ -1,9 +1,9 @@
 1. Назва проєкту
 
 "Картки" — друга гра в серії docs/preschool/games/reading, поряд зі
-"Складами" (README.md, components/preschool/reading-game.tsx) і
-"Казками" (Stories.md, components/preschool/stories-game.tsx).
-Component: frontend/components/preschool/cards-game.tsx → CardsGame.
+"Складами" (README.md, packages/preschool-games/src/reading-game.tsx) і
+"Казками" (Stories.md, packages/preschool-games/src/stories-game.tsx).
+Component: frontend/packages/preschool-games/src/cards-game.tsx → CardsGame.
 На відміну від "Складів" (Drag-and-Drop), тут кожна картка — вже
 готове зображення (склад + малюнок предмета в одному файлі), тож гра
 зводиться до "слухай і впізнавай", а не "перетягуй".
@@ -43,7 +43,7 @@ backend/lessons/management/commands/slice_flashcard_grid.py). Поруч
 
 Сітка карток обраної приголосної (шість карток — голосні А О У Е И
 І), той самий компонент BalloonLearningCards, що й на "learning"
-екрані гри "Кульки" (components/preschool/balloon-learning-cards.tsx).
+екрані гри "Кульки" (packages/preschool-games/src/balloon-learning-cards.tsx).
 Дитина натискає на картку → лунає склад, а потім — назва предмета на
 малюнку; повторний дотик просто повторює звук. Коли дитина торкнулась
 усіх карток приголосної хоча б раз — святкова анімація (🎉) з кнопками
@@ -67,9 +67,11 @@ backend/lessons/management/commands/slice_flashcard_grid.py). Поруч
 Рахунок і ціль — сесійні (обнуляються при зміні приголосної чи
 перезаході в екран); без серверної перевірки правильних відповідей.
 
-7. Відомі прогалини
-
-На відміну від ігор "Потяг", "Склади" і "Казки" (docs/core/
-gamification.md), гра "Картки" поки що **не** нараховує Діаманти —
-рахунок у режимі "Гра" суто візуальний/локальний, без виклику
-POST /auth/me/*-reward.
+Кожні 10 зірочок (DIAMOND_MILESTONE_STARS) нараховують 1 Діамант через
+POST /auth/me/cards-game-reward — той самий "count"-патерн, що й у
+"Потяга"/"Кульок"/"Казок" (docs/core/gamification.md), на відміну від
+"Складів", де Діамант дається за завершення рівня. Лише для
+автентифікованого учня — анонімний відвідувач (усі ігри публічні під
+/games, див. middleware.ts) так само бачить, як зростає рахунок, але
+Діамант не нараховується (див. useDiamondMilestoneReward у
+frontend/packages/preschool-games/src/kit/).

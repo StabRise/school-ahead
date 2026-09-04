@@ -217,6 +217,24 @@ def award_stories_game_diamond(student: StudentProfile) -> None:
     student.refresh_from_db(fields=['diamond_balance_cache'])
 
 
+# Diamond reward for the "Картки" (Cards) minigame's 10-star milestone (see
+# frontend/packages/preschool-games/src/cards-game.tsx's CardsFallingGame) —
+# a star is earned each time a student taps the falling card matching the
+# announced target syllable, and every 10 stars award a Diamond. Same trust
+# model as BALLOON_POP_MILESTONE_DIAMONDS above: no server-side tracking of
+# matches, the frontend calls this once per milestone reached in a play
+# session.
+CARDS_GAME_MILESTONE_DIAMONDS = 1
+
+
+def award_cards_game_diamond(student: StudentProfile) -> None:
+    """Same atomic F() update as award_balloon_pop_diamond."""
+    StudentProfile.objects.filter(pk=student.pk).update(
+        diamond_balance_cache=F('diamond_balance_cache') + CARDS_GAME_MILESTONE_DIAMONDS
+    )
+    student.refresh_from_db(fields=['diamond_balance_cache'])
+
+
 def is_item_unlocked(student: StudentProfile, item: AvatarItem) -> bool:
     """Free items are unlocked for everyone; priced ones need a purchase
     record. See docs/core/avatar.md section 2.2."""

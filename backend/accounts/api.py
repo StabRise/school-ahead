@@ -374,3 +374,19 @@ def reward_stories_game(request: HttpRequest):
     student = get_own_student_profile(request)
     services.award_stories_game_diamond(student)
     return MeOut(user=_user_out(request, request.auth))
+
+
+@router.post(
+    '/me/cards-game-reward',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='reward_cards_game',
+)
+def reward_cards_game(request: HttpRequest):
+    """Awards a Diamond for the "Картки" minigame's 10-star milestone
+    (frontend/packages/preschool-games/src/cards-game.tsx). See
+    accounts.services.award_cards_game_diamond for the trust model."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    services.award_cards_game_diamond(student)
+    return MeOut(user=_user_out(request, request.auth))

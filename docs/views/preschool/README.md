@@ -21,7 +21,8 @@ completely different UIs depending on the mode.
   (`frontend/components/preschool-mode-toggle.tsx`), a switch in the
   header's user dropdown menu.
 * **Frontend read:** `useAuthStore().user.interfaceMode` — hydrated from
-  `/auth/me` via `mapApiUserToAuthUser` (`frontend/lib/api/map-user.ts`).
+  `/auth/me` via `mapApiUserToAuthUser` (`@school-ahead/api-client`'s
+  `map-user.ts`).
 
 Every shared route has a thin client-component wrapper that branches on
 `interfaceMode` and renders either the existing (`default`) UI or a
@@ -35,7 +36,17 @@ views.
 | `/calendar` | `frontend/components/calendar/student-calendar-view.tsx` | `WeeklyCalendar` | `PreschoolCalendar` |
 | `/lessons/[id]` | `frontend/components/lesson-wizard/student-lesson-view.tsx` | `LessonWizard` | `PreschoolLessonView` |
 
-All preschool-specific components live under `frontend/components/preschool/`.
+Preschool-specific code is split across a bun workspace (see
+`docs/architecture/06-frontend-architecture.md`): the five minigames and
+their game-specific state/logic live in the `@school-ahead/preschool-games`
+package (`frontend/packages/preschool-games/`); presentational pieces
+reused across games *and* these dashboard/lesson screens (Raccoon,
+ScreenFrame, the decorations, the diamond-flight animation, the "big card"
+quiz UI, ...) live in `@school-ahead/preschool-ui`
+(`frontend/packages/preschool-ui/`); the screens listed in the table above
+that are tightly coupled to the general lesson wizard (`PreschoolLessonView`,
+`PreschoolQuizGame`) stay in the app itself, under
+`frontend/apps/web/components/preschool/`.
 
 ## 2. "My Today's Lessons" — the Adventure Road (`/`)
 
@@ -95,19 +106,22 @@ in-progress state is persisted between visits — the picker shows again next
 time the trigger fires (though each game's own *settings*, e.g. a chosen
 consonant or language, are `localStorage`-persisted independently — see
 each game's own doc). The exact same picker, reused as-is
-(`components/preschool/game-choice.tsx`'s `GamePicker`), also backs the
-standalone `/games` route (`games-page.tsx`), which links each choice to
-its own URL (`/games/balloons`, `/games/trains`, `/games/reading`,
-`/games/cards`, `/games/stories[/<story>]`) instead of swapping local
-state — so a game (a specific story, for "Казки") is directly
-linkable/bookmarkable there.
+(`@school-ahead/preschool-games`'s `game-choice.tsx`'s `GamePicker`), also
+backs the standalone `/games` route (`games-page.tsx`), which links each
+choice to its own URL (`/games/balloons`, `/games/trains`,
+`/games/reading`, `/games/cards`, `/games/stories[/<story>]`) instead of
+swapping local state — so a game (a specific story, for "Казки") is
+directly linkable/bookmarkable there. Every one of these routes is public
+(`middleware.ts`'s `PUBLIC_PATHS` covers all of `/games`) — an anonymous
+visitor can play any of the five, they just don't earn Diamonds (see
+`docs/core/gamification.md`).
 
 * **Balloon Pop** (`balloon-pop-game.tsx` → `BalloonPopGame`, see
   `docs/preschool/games/balloon game/README.md` for the full picture) —
   balloons spawn on an interval, drift down, and pop on tap with a particle
   burst and a procedural Web-Audio "pop". Content (modes, images, recorded
   pronunciations, translations) is entirely folder-driven from
-  `public/preschool/baloon-game/` — adding a mode is a filesystem change,
+  `public/static/balloon-game/` — adding a mode is a filesystem change,
   no code. A ruby-icon counter tracks rubies earned this session (popping a
   balloon, or tapping any flashcard on the "learning" screen) and, every 30
   rubies, awards a Diamond via `POST /auth/me/balloon-pop-reward`.
@@ -119,7 +133,7 @@ linkable/bookmarkable there.
   correct press plays a synthesized chime, flies that letter from the train
   to the right-side "collected" panel (a plain absolutely-positioned
   animation local to this game, not the header-reaching
-  `components/flying-diamond.tsx`), the train departs to the right, and the
+  `@school-ahead/preschool-ui`'s `flying-diamond.tsx`), the train departs to the right, and the
   panel's running list/count updates. Language is English/Ukrainian only
   here (unlike the balloon game, which also offers Polish) — the settings
   panel additionally has a keyboard-zone picker (all / left / center /
@@ -142,17 +156,17 @@ linkable/bookmarkable there.
   syllables, drawn from `public/static/letters/`. A "Навчання" (learning)
   screen lets the child tap each card at their own pace; a "Гра" (game)
   screen tests recognition, with falling cards to tap against a
-  spoken/shown target syllable.
+  spoken/shown target syllable — a star per correct match, every 10 stars
+  awarding a Diamond via `POST /auth/me/cards-game-reward`.
 * **Казки** (`stories-game.tsx` → `StoriesGame`/`StoriesGamePage`, see
   `docs/preschool/games/reading/Stories.md`) — a picker of "books"
   (`story-book.tsx`) leads into one story's Markdown text, where inline
   `{...}` references render as tappable syllable/picture cards (tapping one
   opens it full-screen, no read-aloud). Logged-in students earn a star per
   card opened and a Diamond every 5 stars via
-  `POST /auth/me/stories-game-reward`. Also reachable without logging in at
-  all, at `/reading-game[/<story>]` (see that doc §4) — the one page a
-  signed-out visitor can use, linked from the header ("Вчуся Читати") when
-  no session exists.
+  `POST /auth/me/stories-game-reward`. Public like every other minigame
+  (`/games/stories[/<story>]`, no login needed) — the header's "Вчуся
+  Читати" link for a signed-out visitor points here.
 
 ## 3. Weekly Calendar (`/calendar`)
 

@@ -6,7 +6,7 @@ lesson for the day (and every backlog tail) is cleared — see
 doc covers the game itself in depth: its content model (the piece meant to
 be edited without touching code), and the frontend architecture that reads it.
 
-Component: `frontend/components/preschool/balloon-pop-game.tsx` →
+Component: `frontend/packages/preschool-games/src/balloon-pop-game.tsx` →
 `BalloonPopGame`. Balloons spawn on an interval, drift down the screen, and
 pop on tap with a particle burst and a procedural Web Audio "pop" (no audio
 asset pipeline exists for sound effects — only for real recorded words, see
@@ -17,14 +17,14 @@ the header and calls `POST /auth/me/balloon-pop-reward`. See
 `docs/core/gamification.md` for how this fits into the rest of the diamond
 economy (lesson/topic/semester bonuses, the avatar shop, ...).
 
-## 1. The content model — `public/preschool/baloon-game/`
+## 1. The content model — `public/static/balloon-game/`
 
 **This is the part meant to be edited without touching any code.** The
 game's entire mode list, vocabulary, images, recordings, and text come from
 this one folder tree:
 
 ```
-public/preschool/baloon-game/
+public/static/balloon-game/
   <mode>/                       — one folder per mode; the folder name IS the mode
     <Card>.jpeg                 — an image, shared across every language
     <Card2>.png
@@ -39,7 +39,7 @@ public/preschool/baloon-game/
 `baloon-game/` and that list *is* the mode picker — there's no hardcoded
 mode registry anywhere in the app. Drop in a new folder with at least one
 image or one language's `sounds/` folder, and it's a selectable mode with no
-code change. `BalloonMode` (`frontend/stores/balloon-pop-game-store.ts`) is
+code change. `BalloonMode` (`frontend/packages/preschool-games/src/stores/balloon-pop-game-store.ts`) is
 just `string` for this reason — it used to be a fixed literal union before
 this became folder-driven.
 
@@ -115,7 +115,7 @@ every other mode keeps plain white text.
 
 ### Adding a new mode — checklist
 
-1. `mkdir public/preschool/baloon-game/<new-mode>`.
+1. `mkdir public/static/balloon-game/<new-mode>`.
 2. Drop in images and/or `<language>/sounds/*.mp3` files, named to match.
 3. Optionally add `<language>/title.json` for a proper display name, quiz
    phrasing, and/or translated card text.
@@ -145,7 +145,7 @@ in `middleware.ts`) so they're reachable without a session:
   into a filesystem path, since every real mode folder name matches that
   shape and it rules out path traversal outright.
 
-`frontend/lib/preschool-sounds.ts` wraps both behind two hooks —
+`frontend/packages/preschool-games/src/lib/preschool-sounds.ts` wraps both behind two hooks —
 `usePreschoolModes()` and `usePreschoolModeData(folders)` — each with a
 module-level cache so every mounted game/settings-panel instance shares one
 fetch per mode instead of re-requesting.
@@ -180,7 +180,7 @@ subset, so a later reshuffle never pays live synthesis latency either.
 
 ## 4. "Learning" screen
 
-`frontend/components/preschool/balloon-learning-cards.tsx` →
+`frontend/packages/preschool-games/src/balloon-learning-cards.tsx` →
 `BalloonLearningCards`. A static grid replacing the falling balloons,
 toggled via the bottom-right Game/Learning pill (shown whenever the mode has
 at least one card) — lets a child tap each item at their own pace and hear
@@ -195,7 +195,7 @@ same card included, same as re-popping balloons of the same card in the
 
 ## 5. Bonus quiz
 
-`frontend/components/preschool/balloon-quiz.tsx` → `BalloonQuiz`, opened by
+`frontend/packages/preschool-games/src/balloon-quiz.tsx` → `BalloonQuiz`, opened by
 tapping a heart-shaped "?" balloon (spawns randomly, ~10% chance per tick,
 at most one on screen at a time, checked in the same spawn interval as
 regular balloons). Every mode uses the same mechanic — no more per-mode
@@ -212,7 +212,7 @@ quiz kinds:
 
 ## 6. Persisted settings
 
-`frontend/stores/balloon-pop-game-store.ts` (`useBalloonPopGameStore`,
+`frontend/packages/preschool-games/src/stores/balloon-pop-game-store.ts` (`useBalloonPopGameStore`,
 `localStorage`-persisted): `mode`, `language` (`en`/`uk`/`pl`, shared with
 the Letter Train minigame's TTS language), `size`/`speed`/`maxOnScreen`
 (balloon sizing/fall speed/how many on screen), `muted`, `screenMode`
@@ -248,4 +248,4 @@ Alphabetical — the picker has no manual ordering, it's just whatever
 * Mode ordering is purely alphabetical — there's no way to curate a
   pedagogical order without renaming folders.
 * No admin UI for any of this yet — editing means touching files under
-  `public/preschool/baloon-game/` directly.
+  `public/static/balloon-game/` directly.

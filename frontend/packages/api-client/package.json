@@ -1,0 +1,39 @@
+{
+  "name": "@school-ahead/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./browser/*": "./src/browser/*.ts",
+    "./server/*": "./src/server/*.ts",
+    "./zod/*": "./src/zod/*.ts"
+  },
+  "scripts": {
+    "orval:generate": "orval",
+    "piper-voices:generate": "node scripts/generate-piper-voices.mjs",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@diffusionstudio/vits-web": "^1.0.3",
+    "@tanstack/react-query": "^5.101.4",
+    "axios": "^1.19.0",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.15"
+  },
+  "peerDependencies": {
+    "next": "16.3.1-canary.24",
+    "react": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.1-canary.24",
+    "jsdom": "^30.0.1",
+    "orval": "^8.24.0",
+    "typescript": "^5",
+    "vitest": "^4.1.11"
+  }
+}

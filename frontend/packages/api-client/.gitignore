@@ -1,0 +1,4 @@
+# orval-generated API client (bun run orval:generate) — not committed
+src/browser/
+src/server/
+src/zod/
