@@ -7,6 +7,7 @@ import remarkBreaks from "remark-breaks";
 import { useRouter } from "next/navigation";
 import { useRewardStoriesGame } from "@school-ahead/api-client/browser/auth/auth";
 import { useAuthStore } from "@school-ahead/api-client";
+import { PreschoolButton } from "@school-ahead/preschool-ui";
 import { useStories, useStory, type Story, type StoryWordSegment, type StorySummary } from "./lib/story";
 import { remarkStoryCards, STORY_CARD_TAG } from "./lib/story-markdown";
 import { parseSyllableGroup } from "./lib/story-parser";
@@ -436,21 +437,25 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
     // rounded-3xl (matching StoriesShell's own rounding) + a plain
     // paper-colored fill, no separate ring/shadow — StoriesShell already
     // provides the game's one frame, so this only needs to change the
-    // background color, not add a second border on top of it. overflow-
-    // hidden (not the scrolling itself, see the inner div below) so the
-    // back button/star badge below — absolutely positioned against *this*
-    // container — stay fixed in their corners no matter how far the story
-    // text is scrolled, same convention as e.g. cards-game.tsx's ⚙️ button.
+    // background color, not add a second border on top of it. The 📚
+    // button and star badge below are `fixed` (viewport-relative, not
+    // absolute within this card) so they stay visible regardless of page
+    // scroll — overflow-hidden here just clips the story content itself
+    // to this card's rounded corners.
     <div className="relative flex flex-1 flex-col overflow-hidden rounded-3xl bg-[#fffdf7]">
-      <button
-        type="button"
+      {/* Same PreschoolButton every other "back to picker"/home control
+          uses (see kit/home-button.tsx) — fixed to the viewport (not
+          absolute within this card) so it stays put regardless of page
+          scroll, right next to the fixed home button every game screen
+          also shows in that corner. */}
+      <PreschoolButton
+        icon="📚"
+        label={t("backToListButton")}
         onClick={onBack}
-        title={t("backToListButton")}
-        aria-label={t("backToListButton")}
-        className="absolute left-4 top-4 z-10 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-3xl shadow-lg ring-2 ring-white transition hover:scale-105"
-      >
-        📚
-      </button>
+        ringColorClassName="ring-amber-400"
+        position="static"
+        className="fixed left-20 top-20"
+      />
 
       {user && (
         <div
@@ -458,7 +463,9 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
           key={starBump}
           role="status"
           aria-label={t("starsLabel", { count: starsThisRound, total: DIAMOND_MILESTONE_STARS })}
-          className="absolute right-4 top-4 z-10 flex items-center gap-1 rounded-full bg-white px-3 py-2 shadow-lg ring-2 ring-amber-200"
+          // Fixed (not absolute within this card) for the same reason as
+          // the 📚 button above — always visible regardless of page scroll.
+          className="fixed right-4 top-20 z-10 flex items-center gap-1 rounded-full bg-white px-3 py-2 shadow-lg ring-2 ring-amber-200"
           style={{ animation: starBump > 0 ? "score-pop 0.3s ease-out" : undefined }}
         >
           <span aria-hidden="true" className="text-lg">

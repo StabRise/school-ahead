@@ -152,6 +152,7 @@
   "PreschoolGameChoice": {
     "title": "Усі уроки зроблено!",
     "subtitle": "У яку гру хочеш пограти?",
+    "playButton": "Грати",
     "balloonsTitle": "Кульки",
     "balloonsSubtitle": "Лопай кульки, що падають",
     "trainsTitle": "Потяг",

@@ -22,8 +22,6 @@ import { HomeButton } from "./kit/home-button";
 // navigates to /games/{game} instead so each game has its own URL.
 export type PreschoolGameId = "balloons" | "trains" | "reading" | "cards" | "stories";
 
-const DEFAULT_GAME: PreschoolGameId = "balloons";
-
 function BalloonIcon() {
   return (
     <svg viewBox="0 0 40 52" className="h-16 w-16 drop-shadow" aria-hidden="true">
@@ -92,30 +90,50 @@ function StoriesIcon() {
   );
 }
 
+// Each game's own accent color — the thick colored ring around its card
+// (see GameCard) and the "Play" pill's background, so the five cards read
+// as distinct at a glance instead of all being the same gray box.
+const GAME_ACCENTS: Record<PreschoolGameId, { ring: string; play: string }> = {
+  balloons: { ring: "ring-rose-300", play: "bg-rose-500" },
+  trains: { ring: "ring-sky-300", play: "bg-sky-500" },
+  reading: { ring: "ring-orange-300", play: "bg-orange-500" },
+  cards: { ring: "ring-amber-300", play: "bg-amber-500" },
+  stories: { ring: "ring-violet-300", play: "bg-violet-500" },
+};
+
 function GameCard({
+  game,
   title,
   subtitle,
   icon,
-  highlighted,
   onSelect,
 }: {
+  game: PreschoolGameId;
   title: string;
   subtitle: string;
   icon: ReactNode;
-  highlighted?: boolean;
   onSelect: () => void;
 }) {
+  const t = useTranslations("PreschoolGameChoice");
+  const accent = GAME_ACCENTS[game];
   return (
     <button
       type="button"
       onClick={onSelect}
-      className={`flex w-56 flex-col items-center gap-2 rounded-3xl bg-white p-6 text-center shadow-lg ring-2 transition hover:scale-[1.03] ${
-        highlighted ? "ring-rose-300" : "ring-gray-200"
-      }`}
+      className={`flex w-40 flex-col items-center gap-2 rounded-3xl bg-white p-4 text-center shadow-lg ring-4 transition hover:scale-105 sm:w-48 sm:gap-3 sm:p-5 ${accent.ring}`}
     >
       {icon}
-      <span className="text-lg font-bold text-gray-700">{title}</span>
-      <span className="text-sm text-gray-500">{subtitle}</span>
+      <span className="text-base font-bold text-gray-700 sm:text-lg">{title}</span>
+      <span className="text-xs text-gray-500 sm:text-sm">{subtitle}</span>
+      {/* Pushes the button to the same spot at the bottom of every card
+          regardless of how many lines the title/subtitle above wrapped to
+          — paired with the row's items-stretch so every card in a row is
+          the same height to begin with. */}
+      <span
+        className={`mt-auto w-full rounded-full px-4 py-2 text-sm font-extrabold text-white ${accent.play}`}
+      >
+        {t("playButton")}
+      </span>
     </button>
   );
 }
@@ -134,45 +152,52 @@ export function GamePicker({
 }) {
   const t = useTranslations("PreschoolGameChoice");
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
+    <div className="flex flex-1 flex-col items-center gap-6 overflow-y-auto p-6 text-center">
       <div className="flex flex-col items-center gap-1">
         <p className="text-2xl font-bold text-gray-700">{title}</p>
         <p className="text-sm text-gray-500">{subtitle}</p>
       </div>
-      <div className="flex flex-col gap-4 sm:flex-row">
+      {/* flex-wrap (not a single fixed row) — however many games there
+          are, this always wraps into as many rows as the viewport's width
+          needs, from one column on a phone up to all five side by side on
+          a wide desktop, rather than overflowing off-screen. items-stretch
+          (not items-start) so every card in a row matches the tallest
+          one's height, regardless of how many lines its own subtitle
+          wraps to — see GameCard's h-full + mt-auto button. */}
+      <div className="flex flex-wrap items-stretch justify-center gap-4 sm:gap-6">
         <GameCard
+          game="balloons"
           title={t("balloonsTitle")}
           subtitle={t("balloonsSubtitle")}
           icon={<BalloonIcon />}
-          highlighted={DEFAULT_GAME === "balloons"}
           onSelect={() => onSelect("balloons")}
         />
         <GameCard
+          game="trains"
           title={t("trainsTitle")}
           subtitle={t("trainsSubtitle")}
           icon={<TrainIcon />}
-          highlighted={DEFAULT_GAME === "trains"}
           onSelect={() => onSelect("trains")}
         />
         <GameCard
+          game="reading"
           title={t("readingTitle")}
           subtitle={t("readingSubtitle")}
           icon={<ReadingIcon />}
-          highlighted={DEFAULT_GAME === "reading"}
           onSelect={() => onSelect("reading")}
         />
         <GameCard
+          game="cards"
           title={t("cardsTitle")}
           subtitle={t("cardsSubtitle")}
           icon={<CardsIcon />}
-          highlighted={DEFAULT_GAME === "cards"}
           onSelect={() => onSelect("cards")}
         />
         <GameCard
+          game="stories"
           title={t("storiesTitle")}
           subtitle={t("storiesSubtitle")}
           icon={<StoriesIcon />}
-          highlighted={DEFAULT_GAME === "stories"}
           onSelect={() => onSelect("stories")}
         />
       </div>
