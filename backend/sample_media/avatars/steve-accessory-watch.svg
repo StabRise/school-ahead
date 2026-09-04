@@ -1,10 +1,66 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 896 1216" width="896" height="1216">
-  <path fill="#3A3E44" d="M592,668 L648,668 L648,690 L592,690 Z"/>
-  <path fill="#3A3E44" d="M592,742 L648,742 L648,764 L592,764 Z"/>
-  <path fill="#22262B" d="M586,686 L654,686 L654,746 L586,746 Z"/>
-  <path fill="#111318" d="M594,694 L646,694 L646,738 L594,738 Z"/>
-  <path fill="#3FA34D" d="M600,700 L610,700 L610,710 L600,710 Z"/>
-  <path fill="#E0B030" d="M614,700 L624,700 L624,710 L614,710 Z"/>
-  <path fill="#3E7BC4" d="M628,712 L638,712 L638,722 L628,722 Z"/>
-  <path fill="#D64545" d="M600,722 L610,722 L610,732 L600,732 Z"/>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 896 1216"
+   width="896"
+   height="1216"
+   version="1.1"
+   id="svg8"
+   sodipodi:docname="steve-accessory-watch.svg"
+   inkscape:version="1.4 (e7c3feb1, 2024-10-09)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs8" />
+  <sodipodi:namedview
+     id="namedview8"
+     pagecolor="#ffffff"
+     bordercolor="#999999"
+     borderopacity="1"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="0.64555921"
+     inkscape:cx="447.67389"
+     inkscape:cy="607.22548"
+     inkscape:window-width="1024"
+     inkscape:window-height="927"
+     inkscape:window-x="0"
+     inkscape:window-y="25"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg8" />
+  <path
+     fill="#3a3e44"
+     d="m 668,688 v 56 h -22 v -56 z"
+     id="path1" />
+  <path
+     fill="#3a3e44"
+     d="m 594,688 v 56 h -22 v -56 z"
+     id="path2" />
+  <path
+     fill="#22262b"
+     d="m 650,682 v 68 h -60 v -68 z"
+     id="path3" />
+  <path
+     fill="#111318"
+     d="m 642,690 v 52 h -44 v -52 z"
+     id="path4" />
+  <path
+     fill="#3fa34d"
+     d="m 636,696 v 10 h -10 v -10 z"
+     id="path5" />
+  <path
+     fill="#e0b030"
+     d="m 636,710 v 10 h -10 v -10 z"
+     id="path6" />
+  <path
+     fill="#3e7bc4"
+     d="m 624,724 v 10 h -10 v -10 z"
+     id="path7" />
+  <path
+     fill="#d64545"
+     d="m 614,696 v 10 h -10 v -10 z"
+     id="path8" />
 </svg>
