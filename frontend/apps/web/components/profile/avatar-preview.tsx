@@ -1,6 +1,7 @@
 "use client";
 
 import { EquippedAvatarLayers, itemsToLayers, useEquippedAvatarLayers } from "@school-ahead/preschool-ui";
+import { useAuthStore } from "@school-ahead/api-client";
 import { useAvatarTryOnStore } from "@/stores/avatar-tryon-store";
 
 // Full-size composited preview of the student's equipped avatar (body ->
@@ -12,6 +13,7 @@ import { useAvatarTryOnStore } from "@/stores/avatar-tryon-store";
 export function AvatarPreview() {
   const equippedLayers = useEquippedAvatarLayers();
   const tryOnItem = useAvatarTryOnStore((state) => state.tryOnItem);
+  const isPreschool = useAuthStore((state) => state.user?.interfaceMode === "preschool");
 
   const layers = [
     ...equippedLayers,
@@ -22,7 +24,11 @@ export function AvatarPreview() {
   ];
 
   return (
-    <div className="aspect-square w-100 shrink-0 rounded-xl bg-gray-100 p-8">
+    <div
+      className={`aspect-square w-100 shrink-0 rounded-xl p-8 ${
+        isPreschool ? "bg-gradient-to-br from-sky-100 via-emerald-50 to-lime-100 ring-4 ring-white shadow-lg" : "bg-gray-100"
+      }`}
+    >
       <EquippedAvatarLayers layers={layers} />
     </div>
   );

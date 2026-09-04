@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
-import { Lock } from "lucide-react";
+import { ChevronDown, Lock } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { getMeQueryKey, usePurchaseAvatarItem, useUpdateAvatarItems } from "@school-ahead/api-client/browser/auth/auth";
@@ -19,11 +19,13 @@ function WardrobeItemButton({
   item,
   isSelected,
   disabled,
+  isPreschool,
   onClick,
 }: {
   item: EquippedAvatarItem;
   isSelected: boolean;
   disabled: boolean;
+  isPreschool: boolean;
   onClick: () => void;
 }) {
   return (
@@ -33,10 +35,16 @@ function WardrobeItemButton({
       disabled={disabled}
       aria-pressed={item.isUnlocked ? isSelected : undefined}
       title={item.isUnlocked ? item.name : `${item.name} — 💎 ${item.price}`}
-      className={`relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border bg-white transition-colors disabled:cursor-default disabled:opacity-60 ${
+      className={`relative flex items-center justify-center overflow-hidden rounded-lg border bg-white transition-colors disabled:cursor-default disabled:opacity-60 ${
+        isPreschool ? "h-20 w-20 sm:h-24 sm:w-24" : "h-14 w-14"
+      } ${
         item.isUnlocked && isSelected
-          ? "border-gray-900 bg-gray-900/5"
-          : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+          ? isPreschool
+            ? "border-4 border-emerald-400 bg-emerald-50"
+            : "border-gray-900 bg-gray-900/5"
+          : isPreschool
+            ? "border-2 border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/50"
+            : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
       }`}
     >
       {item.image ? (
@@ -44,8 +52,12 @@ function WardrobeItemButton({
         <img src={item.image} alt="" className="h-full w-full object-contain" />
       ) : null}
       {!item.isUnlocked && (
-        <span className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-white/85 text-[10px] font-semibold text-gray-700">
-          <Lock className="h-3.5 w-3.5" />
+        <span
+          className={`absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-white/85 font-bold text-gray-700 ${
+            isPreschool ? "gap-1 text-xl" : "text-sm"
+          }`}
+        >
+          <Lock className={isPreschool ? "h-6 w-6" : "h-3.5 w-3.5"} />
           <span className="tabular-nums">💎{item.price}</span>
         </span>
       )}
@@ -70,6 +82,7 @@ function WardrobeItemButton({
 export function AvatarWardrobe() {
   const t = useTranslations("Profile");
   const user = useAuthStore((state) => state.user);
+  const isPreschool = user?.interfaceMode === "preschool";
   const setUser = useAuthStore((state) => state.setUser);
   const tryOnItem = useAvatarTryOnStore((state) => state.tryOnItem);
   const setTryOnItem = useAvatarTryOnStore((state) => state.setTryOnItem);
@@ -77,6 +90,11 @@ export function AvatarWardrobe() {
   const updateItems = useUpdateAvatarItems();
   const purchaseItem = usePurchaseAvatarItem();
   const [notEnoughDiamonds, setNotEnoughDiamonds] = useState<{ itemName: string; price: number } | null>(null);
+  // Accordion: one slot's items shown at a time (`null` = default to the
+  // first non-empty slot, not "everything collapsed") — three fully-
+  // expanded grids, especially at the bigger preschool tile size, made the
+  // page too long/cluttered to scan at a glance.
+  const [openSlot, setOpenSlot] = useState<Slot | null>(null);
 
   // Never leave a stray try-on preview showing elsewhere in the app if the
   // student navigates away mid-decision.
@@ -162,40 +180,64 @@ export function AvatarWardrobe() {
 
   if (items.length === 0) return null;
 
+  const visibleSlots = SLOTS.filter((slot) => items.some((item) => item.slot === slot));
+  const effectiveOpenSlot = openSlot ?? visibleSlots[0] ?? null;
+
   return (
-    <div className="flex flex-col gap-5">
-      {SLOTS.map((slot) => {
+    <div className="flex flex-col gap-3">
+      {visibleSlots.map((slot) => {
         const slotItems = items.filter((item) => item.slot === slot);
-        if (slotItems.length === 0) return null;
         const equippedIds = equippedIdsBySlot[slot];
+        const isOpen = effectiveOpenSlot === slot;
 
         return (
-          <div key={slot} className="flex flex-col gap-2">
-            <h4 className="text-sm font-semibold text-gray-700">{t(`wardrobeSlot.${slot}`)}</h4>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => handleClear(slot)}
-                disabled={isBusy}
-                aria-pressed={equippedIds.size === 0}
-                className={`flex h-14 w-14 items-center justify-center rounded-lg border text-xs text-gray-500 transition-colors disabled:cursor-default disabled:opacity-60 ${
-                  equippedIds.size === 0
-                    ? "border-gray-900 bg-gray-900/5"
-                    : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                {t("wardrobeNone")}
-              </button>
-              {slotItems.map((item) => (
-                <WardrobeItemButton
-                  key={item.id}
-                  item={item}
-                  isSelected={equippedIds.has(item.id)}
+          <div
+            key={slot}
+            className={`overflow-hidden rounded-2xl border ${isPreschool ? "border-2 border-gray-200" : "border-gray-200"}`}
+          >
+            <button
+              type="button"
+              onClick={() => setOpenSlot(isOpen ? null : slot)}
+              aria-expanded={isOpen}
+              className={`flex w-full items-center justify-between gap-2 bg-gray-50 px-4 font-semibold text-gray-700 transition-colors hover:bg-gray-100 ${
+                isPreschool ? "py-4 text-xl" : "py-2.5 text-sm"
+              }`}
+            >
+              {t(`wardrobeSlot.${slot}`)}
+              <ChevronDown
+                className={`shrink-0 transition-transform ${isOpen ? "rotate-180" : ""} ${isPreschool ? "h-6 w-6" : "h-4 w-4"}`}
+              />
+            </button>
+
+            {isOpen && (
+              <div className={`flex flex-wrap p-4 ${isPreschool ? "gap-3" : "gap-2"}`}>
+                <button
+                  type="button"
+                  onClick={() => handleClear(slot)}
                   disabled={isBusy}
-                  onClick={() => (item.isUnlocked ? handleToggle(slot, item.id) : handleTryOn(item))}
-                />
-              ))}
-            </div>
+                  aria-pressed={equippedIds.size === 0}
+                  className={`flex items-center justify-center rounded-lg border text-gray-500 transition-colors disabled:cursor-default disabled:opacity-60 ${
+                    isPreschool ? "h-20 w-20 text-sm sm:h-24 sm:w-24" : "h-14 w-14 text-xs"
+                  } ${
+                    equippedIds.size === 0
+                      ? "border-gray-900 bg-gray-900/5"
+                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  {t("wardrobeNone")}
+                </button>
+                {slotItems.map((item) => (
+                  <WardrobeItemButton
+                    key={item.id}
+                    item={item}
+                    isSelected={equippedIds.has(item.id)}
+                    disabled={isBusy}
+                    isPreschool={isPreschool}
+                    onClick={() => (item.isUnlocked ? handleToggle(slot, item.id) : handleTryOn(item))}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         );
       })}
@@ -206,6 +248,7 @@ export function AvatarWardrobe() {
         itemName={tryOnItem?.name ?? ""}
         price={tryOnItem?.price ?? 0}
         isPending={purchaseItem.isPending}
+        isPreschool={isPreschool}
         onConfirm={handleConfirmPurchase}
       />
 
@@ -215,6 +258,7 @@ export function AvatarWardrobe() {
         itemName={notEnoughDiamonds?.itemName ?? ""}
         price={notEnoughDiamonds?.price ?? 0}
         balance={user?.diamondBalance ?? 0}
+        isPreschool={isPreschool}
       />
     </div>
   );
