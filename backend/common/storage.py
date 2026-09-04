@@ -61,3 +61,15 @@ def quiz_choice_image_upload_to(instance, filename: str) -> str:
 
 def lessons_json_upload_to(instance, filename: str) -> str:
     return _unique_path('lessons_json', filename)
+
+
+def furniture_model_upload_to(instance, filename: str) -> str:
+    return _unique_path('furniture_models', filename)
+
+
+def furniture_texture_upload_to(instance, filename: str) -> str:
+    return _unique_path('furniture_textures', filename)
+
+
+def furniture_thumbnail_upload_to(instance, filename: str) -> str:
+    return _unique_path('furniture_thumbnails', filename)

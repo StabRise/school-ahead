@@ -71,6 +71,7 @@
     "readAlong": "Читання тексту",
     "dictionary": "Словник",
     "games": "Ігри",
+    "house": "Мій будинок",
     "tutorDashboard": "Панель тьютора",
     "preschoolMode": "Дитячий режим",
     "diamondBalance": "{count, plural, one {# діамант} few {# діаманти} many {# діамантів} other {# діаманта}}",
@@ -665,6 +666,23 @@
     "confirmPurchaseCancel": "Скасувати",
     "confirmPurchaseBuy": "Купити за 💎{price}",
     "confirmPurchaseBuyShort": "Так!"
+  },
+  "House": {
+    "pageTitle": "Мій будинок",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити будинок. Спробуйте ще раз.",
+    "emptyRoomHint": "Тут ще порожньо — купи меблі в магазині нижче!",
+    "shopTitle": "Магазин меблів",
+    "dragHint": "Клацни на меблі, щоб перемістити або повернути їх:",
+    "modeMove": "Перемістити",
+    "modeRotate": "Повернути",
+    "notEnoughDiamondsTitle": "Недостатньо діамантів",
+    "notEnoughDiamondsBody": "{item} коштує 💎{price}, а в тебе {balance}. Виконуй уроки, щоб заробити більше діамантів!",
+    "notEnoughDiamondsClose": "Зрозуміло",
+    "confirmPurchaseTitle": "Купити меблі?",
+    "confirmPurchaseBody": "«{item}» коштує 💎{price}. Купити цю річ?",
+    "confirmPurchaseCancel": "Скасувати",
+    "confirmPurchaseBuy": "Купити за 💎{price}"
   },
   "Settings": {
     "title": "Налаштування",

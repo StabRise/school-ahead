@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'accounts',
     'academics',
     'achievements',
+    'house',
     'lessons',
     'tutoring',
     'scheduling',
