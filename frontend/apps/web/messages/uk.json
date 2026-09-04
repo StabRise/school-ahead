@@ -198,6 +198,7 @@
     "noStories": "Казок поки що немає",
     "backToListButton": "До вибору книжок",
     "closeImageLabel": "Закрити",
+    "playAudioLabel": "Слухати",
     "starsLabel": "Зірочок: {count} з {total}"
   },
   "StudentDashboard": {
