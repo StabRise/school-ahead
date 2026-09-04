@@ -51,9 +51,10 @@ jobs:
 
   build-frontend:
     runs-on: ubuntu-latest
-    # frontend/lib/api/{browser,server,zod} are Orval-generated from Django's
-    # OpenAPI schema and deliberately gitignored (not committed) — see
-    # frontend/orval.config.ts and docs/architecture/06-frontend-architecture.md.
+    # frontend/packages/api-client/src/{browser,server,zod} are Orval-generated
+    # from Django's OpenAPI schema and deliberately gitignored (not committed)
+    # — see frontend/packages/api-client/orval.config.ts and
+    # docs/architecture/06-frontend-architecture.md.
     # They must exist in the build context before `docker build`, so this job
     # runs a throwaway Django+Postgres instance just to generate them.
     services:
@@ -139,7 +140,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
-          file: frontend/Dockerfile
+          file: frontend/apps/web/Dockerfile
           target: runner
           push: true
           tags: ${{ steps.meta.outputs.tags }}

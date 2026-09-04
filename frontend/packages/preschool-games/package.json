@@ -1,0 +1,44 @@
+{
+  "name": "@school-ahead/preschool-games",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./story-parser": "./src/lib/story-parser.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@school-ahead/api-client": "workspace:*",
+    "@school-ahead/preschool-ui": "workspace:*",
+    "@tanstack/react-query": "^5.101.4",
+    "next-intl": "^4.13.7",
+    "react-markdown": "^10.1.0",
+    "remark-breaks": "^4.0.0",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.1.0",
+    "zustand": "^5.0.15"
+  },
+  "peerDependencies": {
+    "next": "16.3.1-canary.24",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/mdast": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/unist": "^3",
+    "@vitejs/plugin-react": "^6.1.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.1-canary.24",
+    "jsdom": "^30.0.1",
+    "typescript": "^5",
+    "vitest": "^4.1.11"
+  }
+}

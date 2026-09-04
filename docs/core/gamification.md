@@ -15,12 +15,13 @@ topic/semester earning and now links back here).
 | Completing a lesson strictly before `scheduled_date` ("ahead") | +2 (instead of +1) | same |
 | Completing every `Lesson` in a `Topic` | +5, once per (student, Topic) | `_award_topic_completion_diamonds`, guarded by the `TopicCompletionBonus` row |
 | Completing every `Lesson` in a `Topic.subject_block` ("semester") | +10, once per (student, block) | `_award_semester_completion_diamonds`, guarded by the `SemesterCompletionBonus` row |
-| Popping a balloon in the preschool Balloon Pop minigame | 1 ruby; every 30 rubies → +1 | `frontend/components/preschool/balloon-pop-game.tsx`, `POST /auth/me/balloon-pop-reward` |
+| Popping a balloon in the preschool Balloon Pop minigame | 1 ruby; every 30 rubies → +1 | `frontend/packages/preschool-games/src/balloon-pop-game.tsx`, `POST /auth/me/balloon-pop-reward` |
 | Tapping any flashcard on that minigame's "learning" screen (repeats included) | 1 ruby (counts toward the same 30-ruby milestone above) | `BalloonLearningCards`' `onCardLearned`, see `docs/preschool/games/balloon game/README.md` §4 |
 | Passing the balloon game's bonus heart-balloon quiz (`> 60%`) | +1 | `POST /auth/me/balloon-quiz-reward`, see that doc §5 |
-| Clearing a consonant level of the reading (syllable drag-and-drop) minigame | +1 | `frontend/components/preschool/reading-game.tsx`, `POST /auth/me/reading-game-reward` |
-| Pressing the matching key in the trains minigame | 1 letter; every 10 letters → +1 | `frontend/components/preschool/trains-game.tsx`, `POST /auth/me/trains-game-reward` |
-| Opening a syllable/word card inside a story in the "Казки" minigame | 1 star; every 5 stars → +1 | `frontend/components/preschool/stories-game.tsx`, `POST /auth/me/stories-game-reward` — logged-in students only, not the public `/reading-game` mirror (`docs/preschool/games/reading/Stories.md` §4) |
+| Clearing a consonant level of the reading (syllable drag-and-drop) minigame | +1 | `frontend/packages/preschool-games/src/reading-game.tsx`, `POST /auth/me/reading-game-reward` |
+| Pressing the matching key in the trains minigame | 1 letter; every 10 letters → +1 | `frontend/packages/preschool-games/src/trains-game.tsx`, `POST /auth/me/trains-game-reward` |
+| Opening a syllable/word card inside a story in the "Казки" minigame | 1 star; every 5 stars → +1 | `frontend/packages/preschool-games/src/stories-game.tsx`, `POST /auth/me/stories-game-reward` — logged-in students only |
+| Tapping the falling card matching the target syllable in the "Картки" minigame | 1 star; every 10 stars → +1 | `frontend/packages/preschool-games/src/cards-game.tsx`, `POST /auth/me/cards-game-reward` |
 
 The four lesson-level rows all route through the single
 `lessons.services.mark_completed` — auto-graded quiz pass, theory
@@ -34,9 +35,16 @@ verification of what it counts (balloons popped, cards tapped, quiz
 answers, consonant levels, letters, story cards) — the frontend calls the
 reward endpoint once per milestone/pass reached, on trust. The balloon
 game's three rows are documented in full in `docs/preschool/games/balloon
-game/README.md`; the others follow the exact same pattern (see each
-component's own `DIAMOND_MILESTONE*` constant and `awardedMilestonesRef`
-dedupe).
+game/README.md`; every other minigame reward shares one implementation,
+`useDiamondMilestoneReward`
+(`frontend/packages/preschool-games/src/kit/use-diamond-milestone-reward.ts`),
+covering both this "count" shape (N items → 1 Diamond) and Reading's
+"level" shape (clear a level → 1 Diamond). All five minigames are public
+at `/games` (see `middleware.ts`'s `PUBLIC_PATHS`) — an anonymous visitor
+can play every one, they just never trigger the reward mutation, since
+`useDiamondMilestoneReward` reads the signed-in student off `useAuthStore`
+and no-ops the server call (and the Diamond flight animation) when there
+isn't one.
 
 ## 2. Storage
 
@@ -57,10 +65,10 @@ bonuses specifically, not a general ledger.
   (`GET /auth/me`) — `role=student` only, `null` for every other role.
 * **Reward animation:** a 💎 (labeled "+N" for a multi-diamond reward, e.g.
   a lesson that also closed its topic) flies from wherever the reward was
-  triggered to that header badge, via `components/flying-diamond.tsx` +
-  `stores/diamond-reward-store.ts` (`useDiamondRewardStore.addFlight`).
-  That store is a simple flight queue rendered once by
-  `components/diamond-reward-overlay.tsx`, mounted in
+  triggered to that header badge, via `@school-ahead/preschool-ui`'s
+  `flying-diamond.tsx` + `diamond-reward-store.ts`
+  (`useDiamondRewardStore.addFlight`). That store is a simple flight queue
+  rendered once by that package's `diamond-reward-overlay.tsx`, mounted in
   `app/[locale]/layout.tsx` alongside `<Header/>` — so a flight renders
   regardless of which page/component triggered it, and even when the
   header itself is hidden (the fullscreen preschool lesson view; the flight

@@ -1,21 +1,184 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
-  <defs>
-    <linearGradient id="kScooterDeck" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#3DBB8F"/>
-      <stop offset="100%" stop-color="#2C9C74"/>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 246.54726 294.0701"
+   width="246.54726"
+   height="294.0701"
+   version="1.1"
+   id="svg8"
+   sodipodi:docname="kitten-accessory-scooter.svg"
+   inkscape:version="1.4 (e7c3feb1, 2024-10-09)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview8"
+     pagecolor="#ffffff"
+     bordercolor="#999999"
+     borderopacity="1"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="4"
+     inkscape:cx="47.625"
+     inkscape:cy="212.5"
+     inkscape:window-width="1152"
+     inkscape:window-height="927"
+     inkscape:window-x="617"
+     inkscape:window-y="25"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="g8" />
+  <defs
+     id="defs2">
+    <linearGradient
+       id="kScooterDeck"
+       x1="2.2412621"
+       y1="738.86941"
+       x2="34.366019"
+       y2="738.86941"
+       gradientTransform="matrix(2.6770631,0,0,0.37354368,-43.65911,0.2272977)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0%"
+         stop-color="#3DBB8F"
+         id="stop1" />
+      <stop
+         offset="100%"
+         stop-color="#2C9C74"
+         id="stop2" />
     </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#kScooterDeck"
+       id="linearGradient9"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(0.66835985,0,0,0.0989028,195.34142,-276.75926)"
+       x1="2.2412621"
+       y1="738.86941"
+       x2="34.366019"
+       y2="738.86941" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#kScooterDeck"
+       id="linearGradient10"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(0.47029697,0,0,0.09857081,6.5083998,190.56366)"
+       x1="2.2412621"
+       y1="738.86941"
+       x2="34.366019"
+       y2="738.86941" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#kScooterDeck"
+       id="linearGradient11"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(2.6770631,0,0,0.37354368,-40.445982,-7.3671617)"
+       x1="2.2412621"
+       y1="738.86941"
+       x2="34.366019"
+       y2="738.86941" />
   </defs>
-  <g>
-    <path d="M48,282 L48,180" stroke="#8A8F98" stroke-width="7" stroke-linecap="round"/>
-    <path d="M26,180 L70,180" stroke="#8A8F98" stroke-width="9" stroke-linecap="round"/>
-    <circle cx="26" cy="180" r="6" fill="#E14B3F"/>
-    <circle cx="70" cy="180" r="6" fill="#E14B3F"/>
-    <rect x="6" y="276" width="86" height="12" rx="6" fill="url(#kScooterDeck)"/>
-    <path d="M48,286 L76,282" stroke="#5A5F68" stroke-width="6" stroke-linecap="round"/>
-    <circle cx="80" cy="288" r="14" fill="#2B2E34"/>
-    <circle cx="80" cy="288" r="6" fill="#8A8F98"/>
-    <path d="M48,286 L18,282" stroke="#5A5F68" stroke-width="6" stroke-linecap="round"/>
-    <circle cx="14" cy="288" r="14" fill="#2B2E34"/>
-    <circle cx="14" cy="288" r="6" fill="#8A8F98"/>
+  <g
+     id="g8">
+    <path
+       d="M 16.256258,273.06056 35.743742,172.93944"
+       stroke="#8a8f98"
+       stroke-width="7"
+       stroke-linecap="round"
+       id="path2" />
+    <path
+       d="M 14,172 H 58"
+       stroke="#8a8f98"
+       stroke-width="9"
+       stroke-linecap="round"
+       id="path3" />
+    <circle
+       cx="14"
+       cy="172"
+       r="6"
+       fill="#e14b3f"
+       id="circle3" />
+    <circle
+       cx="58"
+       cy="172"
+       r="6"
+       fill="#e14b3f"
+       id="circle4" />
+    <rect
+       x="-34.445972"
+       y="268.63287"
+       width="86"
+       height="12"
+       rx="6"
+       fill="url(#kScooterDeck)"
+       id="rect4"
+       style="fill:url(#linearGradient11)"
+       transform="rotate(-8.8964131)" />
+    <rect
+       x="196.8394"
+       y="-203.68301"
+       width="21.470898"
+       height="3.1772282"
+       rx="1.4979696"
+       fill="url(#kScooterDeck)"
+       id="rect4-2"
+       style="fill:url(#linearGradient9);stroke-width:0.257105"
+       transform="matrix(-0.52223304,0.85280282,-0.90902539,-0.41674073,0,0)" />
+    <path
+       d="M 50.5533,274.11254 77.597854,265.8305"
+       stroke="#5a5f68"
+       stroke-width="6"
+       stroke-linecap="round"
+       id="path4" />
+    <path
+       d="m 50.5533,274.11254 -30.25768,0.68758"
+       stroke="#5a5f68"
+       stroke-width="6"
+       stroke-linecap="round"
+       id="path6" />
+    <ellipse
+       cx="15.25"
+       cy="279.01031"
+       fill="#2b2e34"
+       id="circle7"
+       rx="11.25"
+       ry="12.989691"
+       style="stroke-width:0.863471" />
+    <ellipse
+       cx="15.25"
+       cy="279.01031"
+       fill="#8a8f98"
+       id="circle8"
+       rx="4.8214288"
+       ry="5.5670104"
+       style="stroke-width:0.863471" />
+    <ellipse
+       cx="86"
+       cy="267.45361"
+       fill="#2b2e34"
+       id="ellipse8-7"
+       rx="10"
+       ry="11.546391"
+       style="stroke-width:0.76753" />
+    <ellipse
+       cx="86"
+       cy="267.45361"
+       fill="#8a8f98"
+       id="ellipse9-7"
+       rx="4.2857146"
+       ry="4.9484534"
+       style="stroke-width:0.76753" />
+    <rect
+       x="7.5624695"
+       y="263.39462"
+       width="15.108175"
+       height="3.166563"
+       rx="1.0540588"
+       fill="url(#kScooterDeck)"
+       id="rect9"
+       style="fill:url(#linearGradient10);stroke-width:0.215309"
+       transform="matrix(0.98239148,-0.18683409,0.27179082,0.96235635,0,0)" />
   </g>
 </svg>
