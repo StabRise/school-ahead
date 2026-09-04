@@ -8,6 +8,7 @@ export * from "./equipped-avatar";
 export * from "./flying-diamond";
 export * from "./game-map";
 export * from "./lesson-bubble";
+export * from "./preschool-button";
 export * from "./quiz-ui";
 export * from "./raccoon";
 export * from "./random";

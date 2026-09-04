@@ -8,7 +8,7 @@ import { TrainsGame } from "./trains-game";
 import { ReadingGame } from "./reading-game";
 import { CardsGame } from "./cards-game";
 import { StoriesGame } from "./stories-game";
-import { BackToGamesButton } from "./kit/back-to-games-button";
+import { HomeButton } from "./kit/home-button";
 
 // Celebration screen shown once every one of today's lessons (tails
 // included) is Completed, Pending Review, or Need Help — see
@@ -221,7 +221,7 @@ export function PreschoolCelebration({
       ) : (
         <TrainsGame />
       )}
-      <BackToGamesButton onClick={() => setSelectedGame(null)} />
+      <HomeButton onClick={() => setSelectedGame(null)} />
     </div>
   );
 }

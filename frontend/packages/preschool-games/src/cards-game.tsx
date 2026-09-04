@@ -504,17 +504,17 @@ export function CardsGame() {
         type="button"
         aria-label={t("settingsButton")}
         onClick={() => setSettingsOpen((current) => !current)}
-        className="absolute left-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+        className="absolute left-20 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
       >
         ⚙️
       </button>
 
-      <MusicToggleButton className="absolute left-16 top-4 z-10" />
+      <MusicToggleButton className="absolute left-32 top-4 z-10" />
 
       {settingsOpen && (
         <div
           ref={settingsPanelRef}
-          className="absolute left-4 top-16 z-10 flex w-60 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200"
+          className="absolute left-20 top-16 z-10 flex w-60 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200"
         >
           <label className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("consonantLabel")}</span>

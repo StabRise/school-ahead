@@ -76,23 +76,51 @@ function isIllustration(segments: StoryWordSegment[]): segments is [{ kind: "ima
 // back to colored letters. An "image" segment shows its own photo from
 // this story's folder the same way, falling back to a "?" placeholder if
 // it hasn't been uploaded yet.
+// The fixed small square each card renders at inline, within running text
+// (StoryCard's "sm" row) — deliberately tiny so a word breakdown reads as
+// part of the sentence, not a big interruption in it.
+const SM_CARD_SIZE_REM = 2.75; // 44px
+
+// Popup ("lg") cards default to this size for a short 1-2 segment word, but
+// shrink for a longer breakdown so the whole row always fits on screen
+// without needing to scroll — see lgCardSizeRem below, same linear
+// interpolation approach as reading-game.tsx's slotSizeRem.
+const MAX_LG_CARD_REM = 15; // 240px
+const MIN_LG_CARD_REM = 6; // 96px
+const MIN_SEGMENTS_FOR_MAX_SIZE = 2;
+const MAX_SEGMENTS_FOR_MIN_SIZE = 6;
+
+function lgCardSizeRem(segmentCount: number): number {
+  const clamped = Math.min(MAX_SEGMENTS_FOR_MIN_SIZE, Math.max(MIN_SEGMENTS_FOR_MAX_SIZE, segmentCount));
+  const t = (clamped - MIN_SEGMENTS_FOR_MAX_SIZE) / (MAX_SEGMENTS_FOR_MIN_SIZE - MIN_SEGMENTS_FOR_MAX_SIZE);
+  return MAX_LG_CARD_REM - t * (MAX_LG_CARD_REM - MIN_LG_CARD_REM);
+}
+
 function WordSegmentCard({
   segment,
   storySlug,
-  size,
+  sizeRem,
 }: {
   segment: StoryWordSegment;
   storySlug: string;
-  size: "sm" | "lg";
+  sizeRem: number;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
-  const boxClass = size === "lg" ? "h-40 w-40 sm:h-60 sm:w-60" : "h-11 w-11";
-  const cardClass = `${boxClass} shrink-0 rounded-lg border-2 border-gray-400 bg-white object-cover`;
+  const boxStyle = { width: `${sizeRem}rem`, height: `${sizeRem}rem` };
+  const cardClass = "shrink-0 rounded-lg border-2 border-gray-400 bg-white object-cover";
+  // Scales with the box so a plain-letter card's glyphs stay legible (and
+  // don't overflow it) at any sizeRem, not just the two fixed sizes this
+  // used to support.
+  const fontSizeRem = sizeRem * 0.45;
 
   if (segment.kind === "image") {
     if (imageFailed) {
       return (
-        <span aria-hidden="true" className={`flex ${boxClass} shrink-0 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-gray-400`}>
+        <span
+          aria-hidden="true"
+          style={boxStyle}
+          className="flex shrink-0 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-gray-400"
+        >
           ?
         </span>
       );
@@ -103,6 +131,7 @@ function WordSegmentCard({
         src={storyImageUrl(storySlug, segment.filename)}
         alt=""
         draggable={false}
+        style={boxStyle}
         className={cardClass}
         onError={() => setImageFailed(true)}
       />
@@ -119,6 +148,7 @@ function WordSegmentCard({
         src={`/static/letters/${encodeURIComponent(lower[0])}/${encodeURIComponent(lower)}.png`}
         alt={segment.text.toLocaleUpperCase("uk")}
         draggable={false}
+        style={boxStyle}
         className={cardClass}
         onError={() => setImageFailed(true)}
       />
@@ -127,9 +157,8 @@ function WordSegmentCard({
 
   return (
     <span
-      className={`flex ${boxClass} shrink-0 items-center justify-center rounded-lg border-2 border-gray-400 bg-white font-extrabold ${
-        size === "lg" ? "text-[75px] sm:text-[90px]" : "text-xl"
-      }`}
+      style={{ ...boxStyle, fontSize: `${fontSizeRem}rem` }}
+      className="flex shrink-0 items-center justify-center rounded-lg border-2 border-gray-400 bg-white font-extrabold"
     >
       {[...segment.text.toLocaleUpperCase("uk")].map((letter, index) => (
         <span key={index} style={{ color: isVowelUk(letter) ? "#dc2626" : "#0369a1" }}>
@@ -144,15 +173,21 @@ function WordSegmentCard({
 // in a single row — the same photograph-a-hand-drawn-sheet look as
 // public/static/letters (docs/preschool/games/reading/Stories.md §3), just
 // composed live from individual cards instead of being one photo itself.
+// `size` picks the sheet's own chrome scale (border/gap/padding) — thin
+// inline vs. thick popup; `cardSizeRem` (popup only) shrinks the cards
+// themselves for a longer word, see lgCardSizeRem.
 function WordCardRow({
   segments,
   storySlug,
   size,
+  cardSizeRem,
 }: {
   segments: StoryWordSegment[];
   storySlug: string;
   size: "sm" | "lg";
+  cardSizeRem?: number;
 }) {
+  const resolvedCardSizeRem = cardSizeRem ?? (size === "lg" ? MAX_LG_CARD_REM : SM_CARD_SIZE_REM);
   return (
     <span
       className={`inline-flex items-center border-gray-700 bg-white shadow ${
@@ -160,7 +195,7 @@ function WordCardRow({
       }`}
     >
       {segments.map((segment, index) => (
-        <WordSegmentCard key={index} segment={segment} storySlug={storySlug} size={size} />
+        <WordSegmentCard key={index} segment={segment} storySlug={storySlug} sizeRem={resolvedCardSizeRem} />
       ))}
     </span>
   );
@@ -280,6 +315,46 @@ function FullscreenOverlay({ onClose, children }: { onClose: () => void; childre
   );
 }
 
+// How many books sit on one shelf before a new shelf starts underneath —
+// keeps a shelf plank's width believable instead of stretching it across
+// an arbitrary number of books.
+const BOOKS_PER_SHELF = 4;
+
+function chunkIntoShelves<T>(items: T[], size: number): T[][] {
+  const shelves: T[][] = [];
+  for (let i = 0; i < items.length; i += size) shelves.push(items.slice(i, i + size));
+  return shelves;
+}
+
+// One wooden shelf: a row of book covers sitting on a plank, itself sized
+// to that row's own books (not just visually near them) via inline-flex.
+function BookShelf({
+  stories,
+  onSelect,
+}: {
+  stories: StorySummary[];
+  onSelect: (slug: string) => void;
+}) {
+  return (
+    <div className="inline-flex flex-col items-stretch">
+      <ul className="z-10 flex flex-wrap items-end justify-center gap-x-6 gap-y-6 px-3 pb-2">
+        {stories.map((story) => (
+          <li key={story.slug}>
+            <StoryBook title={story.title} coverUrl={story.cover} onClick={() => onSelect(story.slug)} />
+          </li>
+        ))}
+      </ul>
+      {/* The plank the books above sit on, plus a soft drop shadow under it
+          for depth — purely decorative. */}
+      <div
+        aria-hidden="true"
+        className="h-4 rounded-b-lg bg-gradient-to-b from-amber-600 to-amber-800 shadow-[0_6px_8px_rgba(0,0,0,0.25)]"
+      />
+      <div aria-hidden="true" className="mx-2 h-2 rounded-full bg-black/15 blur-[2px]" />
+    </div>
+  );
+}
+
 function StoryPicker({ stories, onSelect }: { stories: StorySummary[]; onSelect: (slug: string) => void }) {
   const t = useTranslations("StoriesGame");
   return (
@@ -291,18 +366,16 @@ function StoryPicker({ stories, onSelect }: { stories: StorySummary[]; onSelect:
       {stories.length === 0 ? (
         <p className="text-gray-500">{t("noStories")}</p>
       ) : (
-        // No enclosing frame here — the books sit directly on
-        // StoriesShell's own gradient background, same one-frame
-        // convention as game-choice.tsx's GamePicker (a plain row of
-        // individually-framed cards, not a second bordered box around
-        // the whole group).
-        <ul className="flex flex-wrap justify-center gap-x-6 gap-y-8">
-          {stories.map((story) => (
-            <li key={story.slug}>
-              <StoryBook title={story.title} coverUrl={story.cover} onClick={() => onSelect(story.slug)} />
-            </li>
+        // One shelf per BOOKS_PER_SHELF books — a whole bookcase's worth
+        // when the library grows, not just one ever-widening row. No
+        // enclosing frame around the bookcase itself — the shelves sit
+        // directly on StoriesShell's own gradient background, same
+        // one-frame convention as game-choice.tsx's GamePicker.
+        <div className="flex flex-col items-center gap-10">
+          {chunkIntoShelves(stories, BOOKS_PER_SHELF).map((shelfStories, shelfIndex) => (
+            <BookShelf key={shelfIndex} stories={shelfStories} onSelect={onSelect} />
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );
@@ -418,9 +491,12 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
           {isIllustration(fullscreenSegments) ? (
             <StoryIllustration url={storyImageUrl(slug, fullscreenSegments[0].filename)} size="lg" />
           ) : (
-            <div className="max-w-full overflow-x-auto">
-              <WordCardRow segments={fullscreenSegments} storySlug={slug} size="lg" />
-            </div>
+            <WordCardRow
+              segments={fullscreenSegments}
+              storySlug={slug}
+              size="lg"
+              cardSizeRem={lgCardSizeRem(fullscreenSegments.length)}
+            />
           )}
         </FullscreenOverlay>
       )}

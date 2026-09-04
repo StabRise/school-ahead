@@ -8,7 +8,7 @@ import { StoriesGamePage } from "./stories-game";
 import type { PreschoolGameId } from "./game-choice";
 import { usePreschoolGamesGuard } from "./game-shell";
 import { GamePageContainer } from "./kit/game-page-container";
-import { BackToGamesButton } from "./kit/back-to-games-button";
+import { HomeButton } from "./kit/home-button";
 
 // Full-screen player for one preschool minigame at its own URL
 // (/games/balloons, /games/trains, /games/reading, /games/cards,
@@ -50,7 +50,7 @@ export function GamePlayPage({ game, storySlug }: { game: PreschoolGameId; story
       ) : (
         <TrainsGame />
       )}
-      <BackToGamesButton href="/games" />
+      <HomeButton href="/games" />
     </GamePageContainer>
   );
 }

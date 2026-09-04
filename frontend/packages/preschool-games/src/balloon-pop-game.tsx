@@ -24,6 +24,7 @@ import { BalloonQuiz, buildBalloonQuizQuestions, type BalloonQuizQuestion } from
 import { BalloonLearningCards, type LearningCard } from "./balloon-learning-cards";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { playCelebrationChime, playPopSound } from "./kit/sound-effects";
+import { MusicToggleButton } from "./kit/music-toggle-button";
 
 // Every DIAMOND_MILESTONE ruby balloons popped converts into 1 Diamond,
 // awarded via POST /auth/me/balloon-pop-reward and animated flying to the
@@ -448,8 +449,6 @@ export function BalloonPopGame() {
   const setScreenMode = useBalloonPopGameStore((s) => s.setScreenMode);
   const cardCount = useBalloonPopGameStore((s) => s.cardCount);
   const setCardCount = useBalloonPopGameStore((s) => s.setCardCount);
-  const musicEnabled = useGameMusicStore((s) => s.musicEnabled);
-  const setMusicEnabled = useGameMusicStore((s) => s.setMusicEnabled);
   const musicVolume = useGameMusicStore((s) => s.volume);
   const setMusicVolume = useGameMusicStore((s) => s.setVolume);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -748,7 +747,7 @@ export function BalloonPopGame() {
         // so the pill doesn't render clipped to whatever width the browser
         // happens to compute for the currently-selected option — wide
         // enough for "Українська", the longest of the three labels.
-        className="absolute left-4 top-4 z-10 h-9 w-32 truncate rounded-full bg-white pl-3 pr-1 text-sm font-bold text-gray-700 shadow-lg ring-2 ring-gray-200"
+        className="absolute left-20 top-4 z-10 h-9 w-32 truncate rounded-full bg-white pl-3 pr-1 text-sm font-bold text-gray-700 shadow-lg ring-2 ring-gray-200"
       >
         {GAME_LANGUAGES.map((lang) => (
           <option key={lang} value={lang}>
@@ -762,24 +761,17 @@ export function BalloonPopGame() {
         type="button"
         aria-label={t("settingsButton")}
         onClick={() => setSettingsOpen((current) => !current)}
-        className="absolute left-40 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+        className="absolute left-56 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
       >
         ⚙️
       </button>
 
-      <button
-        type="button"
-        aria-label={musicEnabled ? t("musicOnLabel") : t("musicOffLabel")}
-        onClick={() => setMusicEnabled(!musicEnabled)}
-        className="absolute left-52 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
-      >
-        {musicEnabled ? "🎵" : "🔇"}
-      </button>
+      <MusicToggleButton className="absolute left-72 top-4 z-10" />
 
       {settingsOpen && (
         <div
           ref={settingsPanelRef}
-          className="absolute left-40 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200"
+          className="absolute left-56 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200"
         >
           <label className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("modeLabel")}</span>

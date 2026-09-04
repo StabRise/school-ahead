@@ -1,6 +1,15 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/* Tailwind v4's automatic content detection only scans this app's own
+   directory tree — it never reaches sibling workspace packages, so any
+   class used ONLY inside @school-ahead/preschool-games or
+   @school-ahead/preschool-ui (not also written somewhere in apps/web)
+   would otherwise be silently dropped from the generated CSS (the
+   component still renders, just completely unstyled). */
+@source "../../../packages/preschool-games/src";
+@source "../../../packages/preschool-ui/src";
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -279,4 +288,33 @@ body {
   50% {
     transform: translateX(-50%) scale(1.12) rotate(-6deg);
   }
+}
+
+/* @school-ahead/preschool-ui's PreschoolButton (round, thick-bordered "cute"
+   buttons like the games' home button) — a plain CSS class rather than
+   Tailwind utilities so every consumer gets the same hover/press feel with
+   no per-caller class list to keep in sync. */
+@keyframes cute-button-bounce {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  30% {
+    transform: translateY(-6px) scale(1.1);
+  }
+  60% {
+    transform: translateY(0) scale(1.04);
+  }
+}
+
+.preschool-button {
+  transition: transform 0.15s ease-out;
+}
+
+.preschool-button:hover,
+.preschool-button:focus-visible {
+  animation: cute-button-bounce 0.5s ease-in-out;
+}
+
+.preschool-button:active {
+  transform: scale(0.92);
 }
