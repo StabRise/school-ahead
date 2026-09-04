@@ -19,21 +19,33 @@ describe("compareSyllables", () => {
 });
 
 describe("selectLevel", () => {
-  it("keeps only the first N syllables in vowel order, with every card for those syllables", () => {
+  it("picks N random syllables (count <= 6), with every card for those syllables", () => {
     const { syllables, cards } = selectLevel(CARDS, 3);
-    expect(syllables).toEqual(["МА", "МО", "МУ"]);
-    expect(cards.map((c) => c.key).sort()).toEqual(["Мавпа", "Морква", "Морозиво", "Муха"].sort());
+    expect(syllables).toHaveLength(3);
+    expect(new Set(syllables).size).toBe(3); // no duplicates
+    for (const syllable of syllables) expect(CARDS.some((c) => c.syllable === syllable)).toBe(true);
+    expect(cards.every((c) => syllables.includes(c.syllable))).toBe(true);
+    expect(cards.map((c) => c.key).sort()).toEqual(
+      CARDS.filter((c) => syllables.includes(c.syllable))
+        .map((c) => c.key)
+        .sort(),
+    );
   });
 
   it("can include more picture cards than distinct syllables (a syllable shared by two words)", () => {
     const { syllables, cards } = selectLevel(CARDS, 2);
-    expect(syllables).toEqual(["МА", "МО"]);
-    expect(cards).toHaveLength(3); // Мавпа + Морква + Морозиво
+    expect(syllables).toHaveLength(2);
+    expect(cards).toHaveLength(syllables.includes("МО") ? 3 : 2); // МО alone has 2 cards (Морква + Морозиво)
   });
 
-  it("caps at every available syllable once the count exceeds them", () => {
+  it("caps at every available syllable, in vowel order, once the count exceeds 6", () => {
     const { syllables } = selectLevel(CARDS, 9);
     expect(syllables).toEqual(["МА", "МО", "МУ", "МЕ", "МИ", "МІ"]);
+  });
+
+  it("varies the chosen syllables and their order across calls when count <= 6", () => {
+    const orders = new Set(Array.from({ length: 30 }, () => selectLevel(CARDS, 4).syllables.join(",")));
+    expect(orders.size).toBeGreaterThan(1);
   });
 
   it("caps the tray at round(syllableCount * 1.5) cards when more pictures are available", () => {
@@ -59,7 +71,7 @@ describe("selectLevel", () => {
     const twoSyllableCards = [...manyCards, { key: "Мед", image: "/Мед.png", syllable: "МЕ", sound: null }];
 
     const { syllables, cards } = selectLevel(twoSyllableCards, 2); // cap = round(2 * 1.5) = 3
-    expect(syllables).toEqual(["МА", "МЕ"]);
+    expect([...syllables].sort()).toEqual(["МА", "МЕ"]);
     expect(cards).toHaveLength(3);
     expect(cards.some((c) => c.syllable === "МЕ")).toBe(true);
   });

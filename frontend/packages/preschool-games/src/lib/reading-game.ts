@@ -98,7 +98,7 @@ function fetchConsonants(): Promise<string[]> {
 }
 
 // The reading minigame's full consonant (level) list — every subfolder of
-// public/static/reading-game, fetched once and cached module-wide. Empty
+// public/static/letters, fetched once and cached module-wide. Empty
 // until the fetch resolves.
 export function useReadingGameConsonants(): string[] {
   const [consonants, setConsonants] = useState<string[]>([]);
@@ -169,15 +169,19 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
-// Groups `cards` by syllable and returns the syllables in vowel order,
-// capped to the first `syllableCount` of them (the level's "how many
-// syllables" setting) — the picture cards to actually play with are every
-// card whose syllable made the cut, so a syllable with several matching
-// words can contribute more than one, up to `round(syllableCount * 1.5)`
-// cards total (fewer if that many simply aren't available). Every active
-// syllable keeps at least one card; which of the rest fill the remaining
-// budget is picked at random so a level with more pictures than the cap
-// isn't always the same subset.
+// Groups `cards` by syllable and picks which `syllableCount` of them make
+// up the level. At 6 or fewer, the syllables (and their on-screen order)
+// are random each time — enough of a level that a fixed, predictable order
+// stops being useful for the "spot the syllable" drill. Above 6, that's
+// most or all of the available syllables anyway, so they stay in vowel
+// order per docs/preschool/games/reading/README.md §3 ("додаються в
+// порядку голосної"). Either way, the picture cards to actually play with
+// are every card whose syllable made the cut, so a syllable with several
+// matching words can contribute more than one, up to
+// `round(syllableCount * 1.5)` cards total (fewer if that many simply
+// aren't available). Every active syllable keeps at least one card; which
+// of the rest fill the remaining budget is picked at random so a level
+// with more pictures than the cap isn't always the same subset.
 export function selectLevel(
   cards: ReadingGameCard[],
   syllableCount: number,
@@ -188,7 +192,11 @@ export function selectLevel(
     if (group) group.push(card);
     else bySyllable.set(card.syllable, [card]);
   }
-  const syllables = Array.from(bySyllable.keys()).sort(compareSyllables).slice(0, Math.max(0, syllableCount));
+  const allSyllables = Array.from(bySyllable.keys());
+  const syllables =
+    syllableCount <= 6
+      ? shuffle(allSyllables).slice(0, Math.max(0, syllableCount))
+      : allSyllables.sort(compareSyllables).slice(0, Math.max(0, syllableCount));
   const activeSyllables = new Set(syllables);
   const available = cards.filter((card) => activeSyllables.has(card.syllable));
 
