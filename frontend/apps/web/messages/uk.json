@@ -633,6 +633,9 @@
   "Profile": {
     "title": "Мій профіль",
     "preschoolTitle": "Твій персонаж",
+    "changeCharacterButton": "Змінити персонажа",
+    "changeCharacterTitle": "Обери персонажа",
+    "closeButton": "Закрити",
     "avatarSectionTitle": "Обери свого персонажа",
     "avatarNoneLabel": "Без персонажа",
     "loading": "Завантаження...",
@@ -644,12 +647,17 @@
       "accessory": "Аксесуар"
     },
     "notEnoughDiamondsTitle": "Недостатньо діамантів",
+    "notEnoughDiamondsTitleShort": "Ще замало!",
     "notEnoughDiamondsBody": "{item} коштує 💎{price}, а в тебе {balance}. Виконуй уроки, щоб заробити більше діамантів!",
     "notEnoughDiamondsClose": "Зрозуміло",
+    "priceLabel": "Треба",
+    "balanceLabel": "У тебе",
     "confirmPurchaseTitle": "Приміряти та купити?",
     "confirmPurchaseBody": "«{item}» коштує 💎{price}. Купити цю річ?",
+    "confirmPurchaseQuestion": "Купити?",
     "confirmPurchaseCancel": "Скасувати",
-    "confirmPurchaseBuy": "Купити за 💎{price}"
+    "confirmPurchaseBuy": "Купити за 💎{price}",
+    "confirmPurchaseBuyShort": "Так!"
   },
   "Settings": {
     "title": "Налаштування",

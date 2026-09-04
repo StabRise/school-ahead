@@ -11,7 +11,7 @@ import { useAuthStore } from "@school-ahead/api-client";
 // AvatarWardrobe) and home-decoration systems that doc also describes are
 // separate sections; this is deliberately just the base-body selection
 // step, on its own catalog (Avatar) and endpoint so those can layer on top.
-export function AvatarPicker() {
+export function AvatarPicker({ onSelected }: { onSelected?: () => void } = {}) {
   const t = useTranslations("Profile");
   const user = useAuthStore((state) => state.user);
   const isPreschool = user?.interfaceMode === "preschool";
@@ -21,14 +21,29 @@ export function AvatarPicker() {
   const updateAvatar = useUpdateAvatar();
   const isNoneSelected = !user?.equippedAvatar;
 
+  // Fires `onSelected` (e.g. closing a picker dialog — see
+  // components/profile/change-character-dialog.tsx) only once the store is
+  // actually updated, not eagerly on tap — TanStack Query's per-mutate
+  // onSuccess/onError/onSettled callbacks are tied to the calling
+  // component's lifecycle, so closing (and unmounting AvatarPicker, tearing
+  // down this useUpdateAvatar() instance) before the request resolves would
+  // silently drop the callback: the PATCH still succeeds server-side, but
+  // setUser() below never runs, so the new avatar only shows up after a
+  // full reload's fresh GET /auth/me. The "nothing to wait for" cases
+  // (already selected, or a mutation already in flight) still close right
+  // away since there's no pending callback to lose.
   const handleSelect = (avatarId: number | null) => {
-    if (updateAvatar.isPending || (user?.equippedAvatar?.id ?? null) === avatarId) return;
+    if (updateAvatar.isPending || (user?.equippedAvatar?.id ?? null) === avatarId) {
+      onSelected?.();
+      return;
+    }
     updateAvatar.mutate(
       { data: { avatar_id: avatarId } },
       {
         onSuccess: (response) => {
           setUser(mapApiUserToAuthUser(response.user));
           queryClient.invalidateQueries({ queryKey: getMeQueryKey() });
+          onSelected?.();
         },
       },
     );
