@@ -632,6 +632,7 @@
   },
   "Profile": {
     "title": "Мій профіль",
+    "preschoolTitle": "Твій персонаж",
     "avatarSectionTitle": "Обери свого персонажа",
     "avatarNoneLabel": "Без персонажа",
     "loading": "Завантаження...",

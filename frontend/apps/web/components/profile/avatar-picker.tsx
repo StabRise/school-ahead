@@ -14,6 +14,7 @@ import { useAuthStore } from "@school-ahead/api-client";
 export function AvatarPicker() {
   const t = useTranslations("Profile");
   const user = useAuthStore((state) => state.user);
+  const isPreschool = user?.interfaceMode === "preschool";
   const setUser = useAuthStore((state) => state.setUser);
   const queryClient = useQueryClient();
   const { data: avatars, isLoading, isError } = useListAvatars();
@@ -33,15 +34,20 @@ export function AvatarPicker() {
     );
   };
 
+  const tileClassName = isPreschool
+    ? "flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-gray-100 sm:h-24 sm:w-24"
+    : "flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-gray-100";
+  const labelClassName = `font-medium text-gray-700 ${isPreschool ? "text-base" : "text-xs"}`;
+
   return (
     <div className="flex flex-col gap-3">
-      <h3 className="text-lg font-semibold">{t("avatarSectionTitle")}</h3>
+      <h3 className={`font-semibold ${isPreschool ? "text-2xl" : "text-lg"}`}>{t("avatarSectionTitle")}</h3>
 
       {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
       {isError && <p className="text-sm text-red-600">{t("error")}</p>}
 
       {avatars && avatars.length > 0 && (
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+        <div className={`grid gap-3 ${isPreschool ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-3 sm:grid-cols-4 md:grid-cols-6"}`}>
           <button
             type="button"
             onClick={() => handleSelect(null)}
@@ -49,18 +55,20 @@ export function AvatarPicker() {
             aria-pressed={isNoneSelected}
             className={`flex flex-col items-center gap-1.5 rounded-lg border p-2 text-center transition-colors disabled:cursor-default disabled:opacity-60 ${
               isNoneSelected
-                ? "border-gray-900 bg-gray-900/5"
-                : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                ? isPreschool
+                  ? "border-4 border-emerald-400 bg-emerald-50"
+                  : "border-gray-900 bg-gray-900/5"
+                : isPreschool
+                  ? "border-2 border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/50"
+                  : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
             }`}
           >
             {/* Same "none" glyph as the wardrobe slots (wardrobeNone) —
                 header.tsx already falls back to the Google account picture,
                 or generated initials if there isn't one, once
                 equippedAvatar is cleared. */}
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-2xl text-gray-400">
-              🚫
-            </span>
-            <span className="text-xs font-medium text-gray-700">{t("avatarNoneLabel")}</span>
+            <span className={`${tileClassName} text-2xl text-gray-400`}>🚫</span>
+            <span className={labelClassName}>{t("avatarNoneLabel")}</span>
           </button>
           {avatars.map((avatar) => {
             const isSelected = user?.equippedAvatar?.id === avatar.id;
@@ -73,17 +81,21 @@ export function AvatarPicker() {
                 aria-pressed={isSelected}
                 className={`flex flex-col items-center gap-1.5 rounded-lg border p-2 text-center transition-colors disabled:cursor-default disabled:opacity-60 ${
                   isSelected
-                    ? "border-gray-900 bg-gray-900/5"
-                    : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                    ? isPreschool
+                      ? "border-4 border-emerald-400 bg-emerald-50"
+                      : "border-gray-900 bg-gray-900/5"
+                    : isPreschool
+                      ? "border-2 border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/50"
+                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                 }`}
               >
-                <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-gray-100">
+                <span className={tileClassName}>
                   {avatar.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={avatar.image} alt="" className="h-full w-full object-contain" />
                   ) : null}
                 </span>
-                <span className="text-xs font-medium text-gray-700">{avatar.name}</span>
+                <span className={labelClassName}>{avatar.name}</span>
               </button>
             );
           })}
