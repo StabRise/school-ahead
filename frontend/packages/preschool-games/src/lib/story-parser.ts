@@ -24,11 +24,15 @@ export interface StorySummary {
 // stories/<slug>/<filename>. A segment written as a sound filename (e.g.
 // "koza.mp3", resolved the same way) is a read-aloud clip instead — only
 // meaningful as a lone {...} group (see stories-game.tsx's isAudio), never
-// mixed into a syllable breakdown.
+// mixed into a syllable breakdown. A segment written as a video filename
+// (e.g. "1.avi", resolved the same way) is a short looping clip instead of
+// a still illustration — same "only meaningful as a lone {...} group" rule
+// as audio (see stories-game.tsx's isVideo).
 export type StoryWordSegment =
   | { kind: "text"; text: string }
   | { kind: "image"; filename: string }
-  | { kind: "audio"; filename: string };
+  | { kind: "audio"; filename: string }
+  | { kind: "video"; filename: string };
 
 export interface Story {
   title: string;
@@ -59,24 +63,32 @@ const IMAGE_FILENAME_RE = /^[^\s{}]+\.(jpe?g|png|webp|gif)$/i;
 // picture/syllable card.
 const AUDIO_FILENAME_RE = /^[^\s{}]+\.(mp3|wav|ogg|m4a)$/i;
 
+// Same idea again but for a short video clip (e.g. "1.avi", "1.mp4") — a
+// {...} group naming one of these renders as an inline looping clip
+// (StoryVideo in stories-game.tsx) instead of a still picture.
+const VIDEO_FILENAME_RE = /^[^\s{}]+\.(mp4|webm|mov|avi)$/i;
+
 function parseWordSegment(raw: string): StoryWordSegment {
   if (IMAGE_FILENAME_RE.test(raw)) return { kind: "image", filename: raw };
   if (AUDIO_FILENAME_RE.test(raw)) return { kind: "audio", filename: raw };
+  if (VIDEO_FILENAME_RE.test(raw)) return { kind: "video", filename: raw };
   return { kind: "text", text: raw };
 }
 
-// A {...} group's content is either one bare image/audio filename (checked
-// against the *whole*, untrimmed-of-dashes content first, so a filename
-// itself may safely contain "-", e.g. "{ img-1.jpeg }") or, otherwise, the
-// usual "-"-separated syllable/letter segments (any of which may itself be
-// an image filename instead, e.g. "{К - img1.jpeg - Т - КА}"). Called by
-// lib/story-markdown.ts's remark plugin once per "{...}" it finds anywhere
-// in the story's Markdown body — a word breakdown is a Markdown *extension*
-// on top of real Markdown, not something parseStory itself looks for.
+// A {...} group's content is either one bare image/audio/video filename
+// (checked against the *whole*, untrimmed-of-dashes content first, so a
+// filename itself may safely contain "-", e.g. "{ img-1.jpeg }") or,
+// otherwise, the usual "-"-separated syllable/letter segments (any of which
+// may itself be an image/audio/video filename instead, e.g.
+// "{К - img1.jpeg - Т - КА}"). Called by lib/story-markdown.ts's remark
+// plugin once per "{...}" it finds anywhere in the story's Markdown body —
+// a word breakdown is a Markdown *extension* on top of real Markdown, not
+// something parseStory itself looks for.
 export function parseSyllableGroup(raw: string): StoryWordSegment[] {
   const trimmed = raw.trim();
   if (IMAGE_FILENAME_RE.test(trimmed)) return [{ kind: "image", filename: trimmed }];
   if (AUDIO_FILENAME_RE.test(trimmed)) return [{ kind: "audio", filename: trimmed }];
+  if (VIDEO_FILENAME_RE.test(trimmed)) return [{ kind: "video", filename: trimmed }];
   return trimmed
     .split("-")
     .map((segment) => segment.trim())

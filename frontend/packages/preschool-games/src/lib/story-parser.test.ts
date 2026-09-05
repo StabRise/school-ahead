@@ -4,6 +4,7 @@ import { parseStory, parseStoryTitle, parseSyllableGroup, type StoryWordSegment 
 const text = (value: string): StoryWordSegment => ({ kind: "text", text: value });
 const img = (filename: string): StoryWordSegment => ({ kind: "image", filename });
 const audio = (filename: string): StoryWordSegment => ({ kind: "audio", filename });
+const video = (filename: string): StoryWordSegment => ({ kind: "video", filename });
 
 describe("parseSyllableGroup", () => {
   it("splits a syllable breakdown by '-', trimming each segment", () => {
@@ -34,6 +35,20 @@ describe("parseSyllableGroup", () => {
   it("recognizes a sound filename regardless of extension casing", () => {
     expect(parseSyllableGroup("KOZA.MP3")).toEqual([audio("KOZA.MP3")]);
     expect(parseSyllableGroup("koza.wav")).toEqual([audio("koza.wav")]);
+  });
+
+  it("treats the whole group as one video card when its content is just a video filename", () => {
+    expect(parseSyllableGroup(" 1.avi ")).toEqual([video("1.avi")]);
+  });
+
+  it("recognizes a video filename regardless of extension casing, and allows a dash inside it", () => {
+    expect(parseSyllableGroup("1.AVI")).toEqual([video("1.AVI")]);
+    expect(parseSyllableGroup("clip.mp4")).toEqual([video("clip.mp4")]);
+    expect(parseSyllableGroup("clip-1.webm")).toEqual([video("clip-1.webm")]);
+  });
+
+  it("treats a word-breakdown segment written as a video filename as its own card, not text", () => {
+    expect(parseSyllableGroup("К - 1.avi - Т - КА")).toEqual([text("К"), video("1.avi"), text("Т"), text("КА")]);
   });
 });
 
