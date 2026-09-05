@@ -1,10 +1,10 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
 import { GamePicker, type PreschoolGameId } from "./game-choice";
 import { usePreschoolGamesGuard } from "./game-shell";
 import { GamePageContainer } from "./kit/game-page-container";
+import { useLocaleAwareGamesRouter } from "./kit/use-locale-aware-router";
 
 // Standalone entry point to the preschool minigames (Header's "Games" nav
 // item), reachable at any time instead of only once today's lessons are
@@ -16,7 +16,7 @@ import { GamePageContainer } from "./kit/game-page-container";
 export function PreschoolGamesPage() {
   const t = useTranslations("GamesPage");
   const allowed = usePreschoolGamesGuard();
-  const router = useRouter();
+  const router = useLocaleAwareGamesRouter();
 
   if (!allowed) {
     return null;

@@ -21,8 +21,14 @@ export interface StorySummary {
 // (e.g. "img1.jpeg") instead pins that specific photographed card to that
 // slot (e.g. an illustration that isn't one of syllables/'s consonant+vowel
 // syllables) — resolved against the story's own folder, public/static/
-// stories/<slug>/<filename>.
-export type StoryWordSegment = { kind: "text"; text: string } | { kind: "image"; filename: string };
+// stories/<slug>/<filename>. A segment written as a sound filename (e.g.
+// "koza.mp3", resolved the same way) is a read-aloud clip instead — only
+// meaningful as a lone {...} group (see stories-game.tsx's isAudio), never
+// mixed into a syllable breakdown.
+export type StoryWordSegment =
+  | { kind: "text"; text: string }
+  | { kind: "image"; filename: string }
+  | { kind: "audio"; filename: string };
 
 export interface Story {
   title: string;
@@ -47,11 +53,19 @@ export interface Story {
 // would otherwise be indistinguishable from a segment separator).
 const IMAGE_FILENAME_RE = /^[^\s{}]+\.(jpe?g|png|webp|gif)$/i;
 
+// Same idea as IMAGE_FILENAME_RE but for a sound clip living next to
+// story.md (e.g. "koza.mp3") — a {...} group naming one of these renders as
+// an inline play button (StoryCard in stories-game.tsx) instead of a
+// picture/syllable card.
+const AUDIO_FILENAME_RE = /^[^\s{}]+\.(mp3|wav|ogg|m4a)$/i;
+
 function parseWordSegment(raw: string): StoryWordSegment {
-  return IMAGE_FILENAME_RE.test(raw) ? { kind: "image", filename: raw } : { kind: "text", text: raw };
+  if (IMAGE_FILENAME_RE.test(raw)) return { kind: "image", filename: raw };
+  if (AUDIO_FILENAME_RE.test(raw)) return { kind: "audio", filename: raw };
+  return { kind: "text", text: raw };
 }
 
-// A {...} group's content is either one bare image filename (checked
+// A {...} group's content is either one bare image/audio filename (checked
 // against the *whole*, untrimmed-of-dashes content first, so a filename
 // itself may safely contain "-", e.g. "{ img-1.jpeg }") or, otherwise, the
 // usual "-"-separated syllable/letter segments (any of which may itself be
@@ -62,6 +76,7 @@ function parseWordSegment(raw: string): StoryWordSegment {
 export function parseSyllableGroup(raw: string): StoryWordSegment[] {
   const trimmed = raw.trim();
   if (IMAGE_FILENAME_RE.test(trimmed)) return [{ kind: "image", filename: trimmed }];
+  if (AUDIO_FILENAME_RE.test(trimmed)) return [{ kind: "audio", filename: trimmed }];
   return trimmed
     .split("-")
     .map((segment) => segment.trim())

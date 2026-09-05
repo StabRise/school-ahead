@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db.models import F
+from django.http import HttpRequest
 from django.utils import timezone
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
@@ -8,6 +9,7 @@ from ninja_jwt.tokens import AccessToken
 from ninja_jwt.tokens import RefreshToken as JWTRefreshToken
 
 from .models import (
+    Avatar,
     AvatarItem,
     EquippedItemOrder,
     EquippedItemPlacement,
@@ -17,6 +19,7 @@ from .models import (
     StudentProfile,
     User,
 )
+from .schemas import AvatarItemOut, AvatarOut
 
 _google_request = google_requests.Request()
 
@@ -248,6 +251,73 @@ def is_item_unlocked(student: StudentProfile, item: AvatarItem) -> bool:
     """Free items are unlocked for everyone; priced ones need a purchase
     record. See docs/core/avatar.md section 2.2."""
     return item.price == 0 or student.unlocked_items.filter(pk=item.pk).exists()
+
+
+def avatar_item_out(
+    item: AvatarItem | None,
+    request: HttpRequest,
+    unlocked_ids: set[int] | None,
+    placement: tuple[float, float, float, float] | None = None,
+) -> AvatarItemOut | None:
+    if item is None:
+        return None
+    image_url = request.build_absolute_uri(item.image.url) if item.image else None
+    # unlocked_ids is None for a viewer with no shop-gating concept (no
+    # StudentProfile) — everything reads as unlocked. Otherwise gated by
+    # is_item_unlocked's rule, inlined here since we already have the id set
+    # precomputed for the whole response.
+    is_unlocked = unlocked_ids is None or item.price == 0 or item.id in unlocked_ids
+    # placement is the requesting student's own EquippedItemPlacement
+    # override for this item, if any — see equipped_items_out. Never set for
+    # catalog items (avatar_out), only for a student's own equipped items, so
+    # anyone else's view of this student's avatar always falls back to the
+    # tutor-configured position/size below.
+    offset_x, offset_y, rotation, scale = (
+        placement if placement is not None else (item.offset_x, item.offset_y, 0.0, item.scale)
+    )
+    return AvatarItemOut(
+        id=item.id,
+        slot=item.slot,
+        key=item.key,
+        name=item.name,
+        image=image_url,
+        scale=scale,
+        offset_x=offset_x,
+        offset_y=offset_y,
+        rotation=rotation,
+        layer_order=item.layer_order,
+        price=item.price,
+        is_unlocked=is_unlocked,
+    )
+
+
+def avatar_out(avatar: Avatar | None, request: HttpRequest, unlocked_ids: set[int] | None) -> AvatarOut | None:
+    if avatar is None:
+        return None
+    image_url = request.build_absolute_uri(avatar.image.url) if avatar.image else None
+    items = [avatar_item_out(item, request, unlocked_ids) for item in avatar.items.filter(is_active=True)]
+    return AvatarOut(id=avatar.id, key=avatar.key, name=avatar.name, image=image_url, scale=avatar.scale, items=items)
+
+
+def equipped_items_out(
+    student_profile: StudentProfile, field_name: str, request: HttpRequest, unlocked_ids: set[int] | None
+) -> list[AvatarItemOut]:
+    manager = getattr(student_profile, field_name)
+    items = list(manager.filter(is_active=True))
+    # A student's own stacking-order override (EquippedItemOrder), if any —
+    # falls back to the catalog's default layer_order for any item without
+    # one (never reordered, or newly equipped since the last reorder).
+    custom_order = dict(student_profile.item_orders.values_list('item_id', 'order'))
+    items.sort(key=lambda item: (custom_order.get(item.id, item.layer_order), item.id))
+    # A student's own move/rotate/resize override (EquippedItemPlacement), if
+    # any — see avatar_item_out and docs/core/avatar.md section 2.2.
+    placements = {
+        item_id: (offset_x, offset_y, rotation, scale)
+        for item_id, offset_x, offset_y, rotation, scale in student_profile.item_placements.values_list(
+            'item_id', 'offset_x', 'offset_y', 'rotation', 'scale'
+        )
+    }
+    return [avatar_item_out(item, request, unlocked_ids, placements.get(item.id)) for item in items]
 
 
 def purchase_avatar_item(student: StudentProfile, item: AvatarItem) -> None:

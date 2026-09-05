@@ -13,6 +13,7 @@ import type { LessonOut } from "@school-ahead/api-client/browser/schoolAheadAPI.
 import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Card } from "@/components/card";
+import { SimplePageContainer } from "@/components/simple/page-container";
 import { Markdown } from "@/components/markdown";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { LessonContent } from "@/components/lesson-wizard/lesson-content";
@@ -204,103 +205,107 @@ export function TutorLessonDetailPage({ lessonId }: { lessonId: number }) {
 
   if (isEditing) {
     return (
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6">
-        <Breadcrumbs items={breadcrumbItems} />
-        <LessonEditForm
-          key={lesson.id}
-          lesson={lesson}
-          onSaved={() => setIsEditing(false)}
-          onCancel={() => setIsEditing(false)}
-        />
-      </div>
+      <SimplePageContainer>
+        <div className="flex flex-col gap-6">
+          <Breadcrumbs items={breadcrumbItems} />
+          <LessonEditForm
+            key={lesson.id}
+            lesson={lesson}
+            onSaved={() => setIsEditing(false)}
+            onCancel={() => setIsEditing(false)}
+          />
+        </div>
+      </SimplePageContainer>
     );
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6">
-      <div className="flex flex-col gap-3">
-        <Breadcrumbs items={breadcrumbItems} />
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold text-gray-900">{lesson.title}</h1>
-            <span className="inline-flex items-center gap-1 text-xs text-gray-500">
-              <LessonTypeIcon className="size-3.5 text-gray-400" aria-hidden="true" />
-              {tContentType(CONTENT_TYPE_LABEL_KEY[lesson.lesson_type] ?? "contentTheory")}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsEditing(true)}
-              className="shrink-0 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              {t("editButton")}
-            </button>
-            <AssignStudentDialog lessonId={lessonId} />
+    <SimplePageContainer>
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3">
+          <Breadcrumbs items={breadcrumbItems} />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-semibold text-gray-900">{lesson.title}</h1>
+              <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                <LessonTypeIcon className="size-3.5 text-gray-400" aria-hidden="true" />
+                {tContentType(CONTENT_TYPE_LABEL_KEY[lesson.lesson_type] ?? "contentTheory")}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="shrink-0 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                {t("editButton")}
+              </button>
+              <AssignStudentDialog lessonId={lessonId} />
+            </div>
           </div>
         </div>
+
+        <Card className="flex flex-col gap-4">
+          <LessonContent content={lesson.content} materials={lesson.materials} />
+
+          {lesson.lesson_type === "with_task" && lesson.task_content && (
+            <div className="flex flex-col gap-2 border-t border-gray-200 pt-4">
+              <h2 className="text-sm font-semibold text-gray-900">{t("taskContentTitle")}</h2>
+              <Markdown content={lesson.task_content} embedYoutube embedPdf />
+            </div>
+          )}
+
+          {lesson.lesson_type === "with_quiz" && lesson.quiz_questions.length > 0 && (
+            <div className="flex flex-col gap-4 border-t border-gray-200 pt-4">
+              <h2 className="text-sm font-semibold text-gray-900">{t("quizQuestionsTitle")}</h2>
+              {lesson.quiz_questions.map((question, index) => (
+                <div key={question.id} className="flex flex-col gap-2">
+                  <p className="text-sm font-medium text-gray-900">
+                    {t("quizQuestionRow", { index: index + 1 })}
+                  </p>
+                  <Markdown content={question.prompt} />
+                  <ul className="flex flex-col gap-1 pl-4 text-sm text-gray-700">
+                    {question.choices.map((choice) => (
+                      <li key={choice.id} className="list-disc">
+                        <Markdown content={choice.text} />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <div className="flex flex-col gap-3">
+          <h2 className="text-lg font-semibold text-gray-900">{t("studentsTitle")}</h2>
+
+          {studentsQuery.isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
+          {studentsQuery.isError && <p className="text-sm text-red-600">{t("error")}</p>}
+          {!studentsQuery.isLoading && !studentsQuery.isError && students.length === 0 && (
+            <p className="text-sm text-gray-500">{t("noStudents")}</p>
+          )}
+
+          {students.length > 0 && (
+            <ul className="divide-y divide-gray-100">
+              {students.map((item) => (
+                <li key={item.student_lesson_id}>
+                  <Link
+                    href={`/tutor/submissions/${item.student_lesson_id}`}
+                    className="flex items-center justify-between gap-4 rounded px-2 py-2 hover:bg-gray-50"
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-medium text-gray-900">{item.student_name}</span>
+                      <span className="text-xs text-gray-500">{formatShortDate(item.scheduled_date)}</span>
+                    </div>
+                    <span className="shrink-0 text-xs text-gray-500">{resolveStatusLabel(item.status, tStatus)}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
-
-      <Card className="flex flex-col gap-4">
-        <LessonContent content={lesson.content} materials={lesson.materials} />
-
-        {lesson.lesson_type === "with_task" && lesson.task_content && (
-          <div className="flex flex-col gap-2 border-t border-gray-200 pt-4">
-            <h2 className="text-sm font-semibold text-gray-900">{t("taskContentTitle")}</h2>
-            <Markdown content={lesson.task_content} embedYoutube embedPdf />
-          </div>
-        )}
-
-        {lesson.lesson_type === "with_quiz" && lesson.quiz_questions.length > 0 && (
-          <div className="flex flex-col gap-4 border-t border-gray-200 pt-4">
-            <h2 className="text-sm font-semibold text-gray-900">{t("quizQuestionsTitle")}</h2>
-            {lesson.quiz_questions.map((question, index) => (
-              <div key={question.id} className="flex flex-col gap-2">
-                <p className="text-sm font-medium text-gray-900">
-                  {t("quizQuestionRow", { index: index + 1 })}
-                </p>
-                <Markdown content={question.prompt} />
-                <ul className="flex flex-col gap-1 pl-4 text-sm text-gray-700">
-                  {question.choices.map((choice) => (
-                    <li key={choice.id} className="list-disc">
-                      <Markdown content={choice.text} />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      <div className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-gray-900">{t("studentsTitle")}</h2>
-
-        {studentsQuery.isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
-        {studentsQuery.isError && <p className="text-sm text-red-600">{t("error")}</p>}
-        {!studentsQuery.isLoading && !studentsQuery.isError && students.length === 0 && (
-          <p className="text-sm text-gray-500">{t("noStudents")}</p>
-        )}
-
-        {students.length > 0 && (
-          <ul className="divide-y divide-gray-100">
-            {students.map((item) => (
-              <li key={item.student_lesson_id}>
-                <Link
-                  href={`/tutor/submissions/${item.student_lesson_id}`}
-                  className="flex items-center justify-between gap-4 rounded px-2 py-2 hover:bg-gray-50"
-                >
-                  <div className="flex flex-col">
-                    <span className="font-medium text-gray-900">{item.student_name}</span>
-                    <span className="text-xs text-gray-500">{formatShortDate(item.scheduled_date)}</span>
-                  </div>
-                  <span className="shrink-0 text-xs text-gray-500">{resolveStatusLabel(item.status, tStatus)}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
+    </SimplePageContainer>
   );
 }

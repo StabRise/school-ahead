@@ -9,18 +9,19 @@ const MENU_ITEMS = [
   { href: "/calendar", labelKey: "calendar" },
   { href: "/read-along", labelKey: "readAlong" },
   { href: "/dictionary", labelKey: "dictionary" },
+  { href: "/house", labelKey: "house" },
 ] as const;
 
-const GAMES_ITEM = { href: "/games", labelKey: "games" } as const;
-
-export function MainMenu({ isPreschool }: { isPreschool: boolean }) {
+// "Ігри" (Games) lives on the header's right side now, next to the
+// Preschool Mode toggle (see header.tsx) — always visible, not just in
+// preschool mode — so it's no longer one of this left-side nav's items.
+export function MainMenu() {
   const t = useTranslations("Header");
   const pathname = usePathname();
-  const items = isPreschool ? [...MENU_ITEMS, GAMES_ITEM] : MENU_ITEMS;
 
   return (
     <nav className="flex items-center gap-4">
-      {items.map((item) => {
+      {MENU_ITEMS.map((item) => {
         const isActive = pathname === item.href;
         return (
           <Link

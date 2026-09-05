@@ -1,9 +1,20 @@
 import json
 import zipfile
 
+from django.core.files.base import ContentFile
+from django.db import transaction
+from django.db.models import Count
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import get_object_or_404
+from ninja import File, Form, Router
+from ninja.errors import HttpError
+from ninja.files import UploadedFile
+from ninja.pagination import paginate
+
 from academics import services as academics_services
 from academics.models import Class, Plan, Subject, SubjectBlock, Topic
 from academics.schemas import SubjectOut, TopicOut, TopicsReorderIn
+from accounts import services as accounts_services
 from accounts.models import Avatar, AvatarItem, StudentProfile
 from accounts.schemas import (
     AvatarItemOut,
@@ -11,14 +22,11 @@ from accounts.schemas import (
     UpdateAvatarItemTransformIn,
     UpdateAvatarTransformIn,
 )
+from achievements import services as achievements_services
+from achievements.schemas import SubjectAchievementOut
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
 from common.permissions import ensure_is_tutor
-from django.core.files.base import ContentFile
-from django.db import transaction
-from django.db.models import Count
-from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404
 from lessons import services as lesson_services
 from lessons.models import (
     GradingType,
@@ -36,10 +44,6 @@ from lessons.schemas import (
     LessonUpdateIn,
     ProcessLessonsJsonOut,
 )
-from ninja import File, Form, Router
-from ninja.errors import HttpError
-from ninja.files import UploadedFile
-from ninja.pagination import paginate
 
 from . import services
 from .models import TutorSubjectAssignment
@@ -133,17 +137,47 @@ def _tutor_assignments_with_counts(request: HttpRequest, **filters):
     )
 
 
-def _tutor_student_out(student: StudentProfile, *, class_id: int | None = None, class_name: str | None = None) -> TutorStudentOut:
+def _tutor_student_out(
+    student: StudentProfile,
+    request: HttpRequest,
+    *,
+    class_id: int | None = None,
+    class_name: str | None = None,
+    with_avatar: bool = False,
+) -> TutorStudentOut:
     """Shared TutorStudentOut builder — `class_id`/`class_name` are only
     overridable for get_tutor_class's roster, where the caller already has
     the Class object in hand and skips select_related('school_class') on
-    the student queryset."""
+    the student queryset. `with_avatar` composites the student's equipped
+    avatar/wardrobe (same builders accounts.api._user_out uses for UserOut)
+    — only worth the extra queries for get_student's single-object page, so
+    every list endpoint sharing this builder leaves it off."""
+    unlocked_ids = set(student.unlocked_items.values_list('id', flat=True)) if with_avatar else None
     return TutorStudentOut(
         id=student.id,
         name=student.user.full_name or student.user.email,
         class_id=class_id if class_id is not None else student.school_class_id,
         class_name=class_name if class_name is not None else (student.school_class.name if student.school_class else ''),
         completed_percent=float(student.completed_lessons_percent_cache),
+        avatar_url=student.user.avatar_url,
+        equipped_avatar=accounts_services.avatar_out(student.equipped_avatar, request, unlocked_ids)
+        if with_avatar
+        else None,
+        equipped_clothing_items=accounts_services.equipped_items_out(
+            student, 'equipped_clothing_items', request, unlocked_ids
+        )
+        if with_avatar
+        else [],
+        equipped_headwear_items=accounts_services.equipped_items_out(
+            student, 'equipped_headwear_items', request, unlocked_ids
+        )
+        if with_avatar
+        else [],
+        equipped_accessory_items=accounts_services.equipped_items_out(
+            student, 'equipped_accessory_items', request, unlocked_ids
+        )
+        if with_avatar
+        else [],
     )
 
 
@@ -484,7 +518,7 @@ def list_assignable_students(request: HttpRequest, lesson_id: int):
         .select_related('user', 'school_class')
         .order_by('user__first_name', 'user__last_name')
     )
-    return [_tutor_student_out(s) for s in students]
+    return [_tutor_student_out(s, request) for s in students]
 
 
 @router.post(
@@ -531,17 +565,34 @@ def delete_student_lesson(request: HttpRequest, student_lesson_id: int, response
 @router.get('/students', response=list[TutorStudentOut])
 def list_students(request: HttpRequest):
     students = services.get_tutor_students(request.auth)
-    return [_tutor_student_out(s) for s in students]
+    return [_tutor_student_out(s, request) for s in students]
 
 
 @router.get('/students/{student_id}', response=TutorStudentOut, operation_id='get_tutor_student')
 def get_student(request: HttpRequest, student_id: int):
-    """Powers the "View calendar" page's breadcrumb/header — the roster
-    itself (get_tutor_class) already has this, this is for navigating there
-    directly by student_id."""
-    student = get_object_or_404(StudentProfile.objects.select_related('user', 'school_class'), id=student_id)
+    """Powers the "View calendar" page's breadcrumb/header and the student
+    overview page (with_avatar=True — its avatar + today's-lessons summary)
+    — this is for navigating there directly by student_id; the roster itself
+    (get_tutor_class) doesn't need the avatar composite."""
+    student = get_object_or_404(
+        StudentProfile.objects.select_related('user', 'school_class', 'equipped_avatar'), id=student_id
+    )
     services.ensure_is_tutor_for_class(request, student.school_class_id)
-    return _tutor_student_out(student)
+    return _tutor_student_out(student, request, with_avatar=True)
+
+
+@router.get(
+    '/students/{student_id}/achievements',
+    response=list[SubjectAchievementOut],
+    operation_id='list_tutor_student_achievements',
+)
+def list_student_achievements(request: HttpRequest, student_id: int):
+    """Per-subject completion for the "Статистика" tab on the tutor's
+    student-overview page — same computation as the student's own "Мої
+    досягнення" page (achievements.services.list_subject_achievements)."""
+    student = get_object_or_404(StudentProfile.objects.select_related('school_class'), id=student_id)
+    services.ensure_is_tutor_for_class(request, student.school_class_id)
+    return achievements_services.list_subject_achievements(student, request)
 
 
 @router.get(
@@ -677,7 +728,7 @@ def get_tutor_class(request: HttpRequest, class_id: int):
     return TutorClassDetailOut(
         **summary.dict(),
         students=[
-            _tutor_student_out(s, class_id=class_id, class_name=school_class.name) for s in students
+            _tutor_student_out(s, request, class_id=class_id, class_name=school_class.name) for s in students
         ],
         subjects=[_assignment_out(a, request) for a in assignments],
     )

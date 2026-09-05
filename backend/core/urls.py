@@ -14,6 +14,7 @@ from academics.api import router as academics_router
 from accounts.api import router as accounts_router
 from achievements.api import router as achievements_router
 from dictionary.api import router as dictionary_router
+from house.api import router as house_router
 from lessons.api import router as lessons_router
 from scheduling.api import router as scheduling_router
 from tts.api import router as tts_router
@@ -28,6 +29,7 @@ api.add_router('/schedule', scheduling_router)
 api.add_router('/achievements', achievements_router)
 api.add_router('/tts', tts_router)
 api.add_router('/dictionary', dictionary_router)
+api.add_router('/house', house_router)
 
 urlpatterns = [
     path('admin/', admin.site.urls),

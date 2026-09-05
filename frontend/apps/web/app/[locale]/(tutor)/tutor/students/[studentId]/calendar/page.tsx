@@ -1,4 +1,4 @@
-import { TutorStudentCalendarPage } from "@/components/tutor/tutor-student-calendar-page";
+import { TutorStudentOverviewPage } from "@/components/tutor/tutor-student-overview-page";
 
 export default async function StudentCalendarPage({
   params,
@@ -6,5 +6,5 @@ export default async function StudentCalendarPage({
   params: Promise<{ studentId: string }>;
 }) {
   const { studentId } = await params;
-  return <TutorStudentCalendarPage studentId={Number(studentId)} />;
+  return <TutorStudentOverviewPage studentId={Number(studentId)} activeTab="calendar" />;
 }

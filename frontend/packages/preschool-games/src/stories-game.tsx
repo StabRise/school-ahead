@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
-import { useRouter } from "next/navigation";
 import { useRewardStoriesGame } from "@school-ahead/api-client/browser/auth/auth";
 import { useAuthStore } from "@school-ahead/api-client";
 import { PreschoolButton } from "@school-ahead/preschool-ui";
@@ -13,6 +12,7 @@ import { remarkStoryCards, STORY_CARD_TAG } from "./lib/story-markdown";
 import { parseSyllableGroup } from "./lib/story-parser";
 import { StoryBook } from "./story-book";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
+import { useLocaleAwareGamesRouter } from "./kit/use-locale-aware-router";
 
 // Preschool "Казки" (Stories) reading minigame — see docs/preschool/games/
 // reading/Stories.md for the design brief. Two screens:
@@ -23,11 +23,13 @@ import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 //     headings/emphasis/lists/blockquotes/etc. all render normally. On top
 //     of that, lib/story-markdown.ts's remarkStoryCards plugin recognizes
 //     "{...}" anywhere in the Markdown and turns it into a <story-card>
-//     element (StoryCard below) — purely visual, tapping one just opens it
-//     bigger, no read-aloud — rendered as one of two things:
+//     element (StoryCard below) — rendered as one of three things:
 //     - a lone image segment with nothing else, e.g. "{ img1.jpeg }", is a
 //       full story illustration (StoryIllustration below): a plain
 //       rectangular picture at its own aspect ratio, no card border;
+//     - a lone audio segment with nothing else, e.g. "{ koza.mp3 }", is a
+//       small inline speaker button (StoryAudioButton below) that plays
+//       that clip on tap — no fullscreen, no read-aloud otherwise;
 //     - anything else ("{К - ВІ - Т - КА}", or an image mixed with letters)
 //       is a syllable breakdown: a bordered row of cards, one per
 //       "-"-separated segment (WordCardRow/WordSegmentCard below). Each
@@ -37,11 +39,13 @@ import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 //       that folder is used), a bare letter like "К" shows as plain colored
 //       text, and a segment written as an image filename shows that photo
 //       from public/static/stories/<slug>/<filename> instead.
-//   Tapping either opens the same content full-screen (FullscreenOverlay).
+//   Tapping an illustration or a syllable breakdown opens the same content
+//   full-screen (FullscreenOverlay); tapping an audio button just plays it.
 
-// Every DIAMOND_MILESTONE_STARS story cards opened (a "word" per docs/
-// preschool/games/reading/Stories.md) earns a star, and every 5 stars
-// converts into 1 Diamond — awarded via POST /auth/me/stories-game-reward
+// Every syllable/letter breakdown card opened (a "word" per docs/
+// preschool/games/reading/Stories.md — a plain illustration doesn't count,
+// see handleOpenCard below) earns a star, and every DIAMOND_MILESTONE_STARS
+// stars converts into 1 Diamond — awarded via POST /auth/me/stories-game-reward
 // and animated flying to the header's DiamondBadge, same mechanism as
 // trains-game.tsx's/reading-game.tsx's own milestones. Logged-in students
 // only (see StoryPage's `useAuthStore` check below) — the public /games
@@ -55,7 +59,7 @@ function isVowelUk(letter: string): boolean {
   return UK_VOWELS.has(letter.toLocaleUpperCase("uk"));
 }
 
-function storyImageUrl(storySlug: string, filename: string): string {
+function storyAssetUrl(storySlug: string, filename: string): string {
   return `/static/stories/${encodeURIComponent(storySlug)}/${encodeURIComponent(filename)}`;
 }
 
@@ -65,6 +69,14 @@ function storyImageUrl(storySlug: string, filename: string): string {
 // below), not a bordered letter-card (WordCardRow/WordSegmentCard).
 function isIllustration(segments: StoryWordSegment[]): segments is [{ kind: "image"; filename: string }] {
   return segments.length === 1 && segments[0].kind === "image";
+}
+
+// A {...} group with exactly one audio segment and nothing else (e.g.
+// "{ koza.mp3 }") is a read-aloud clip, not a syllable breakdown or an
+// illustration — rendered as a small inline play button (StoryAudioButton
+// below) instead of a picture or letter-card.
+function isAudio(segments: StoryWordSegment[]): segments is [{ kind: "audio"; filename: string }] {
+  return segments.length === 1 && segments[0].kind === "audio";
 }
 
 // One card inside a {...} word breakdown, at either its small inline size
@@ -129,13 +141,28 @@ function WordSegmentCard({
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={storyImageUrl(storySlug, segment.filename)}
+        src={storyAssetUrl(storySlug, segment.filename)}
         alt=""
         draggable={false}
         style={boxStyle}
         className={cardClass}
         onError={() => setImageFailed(true)}
       />
+    );
+  }
+
+  if (segment.kind === "audio") {
+    // Audio is only meant to appear as its own {...} group (see isAudio),
+    // rendered as StoryAudioButton instead of this card row — this is just
+    // a harmless fallback should one ever get mixed into a breakdown.
+    return (
+      <span
+        aria-hidden="true"
+        style={boxStyle}
+        className="flex shrink-0 items-center justify-center rounded-lg border-2 border-gray-400 bg-white text-lg"
+      >
+        🔊
+      </span>
     );
   }
 
@@ -239,6 +266,57 @@ function StoryIllustration({ url, size }: { url: string; size: "sm" | "lg" }) {
   );
 }
 
+// A {...} group with exactly one audio segment and nothing else (see
+// isAudio above) — a small inline play/stop toggle for the clip from this
+// story's folder. Unlike StoryIllustration/WordCardRow there's nothing to
+// look at full-screen, so StoryCard below fires this straight off the
+// button's own onClick instead of routing through onOpen. One Audio
+// element is kept (in a ref, not state — state would just fight with the
+// element's own playback) for the button's whole lifetime, reused every
+// click, so a second tap while playing can pause+rewind it back to a clean
+// stopped state instead of only being able to layer more copies on top.
+function StoryAudioButton({ url, label }: { url: string; label: string }) {
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const audio = new Audio(url);
+    audio.addEventListener("ended", () => setPlaying(false));
+    audioRef.current = audio;
+    return () => {
+      audio.pause();
+      audioRef.current = null;
+    };
+  }, [url]);
+
+  const handleClick = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (playing) {
+      audio.pause();
+      audio.currentTime = 0;
+      setPlaying(false);
+      return;
+    }
+    setPlaying(true);
+    // Best-effort, same as useBackgroundMusic — a blocked/failed play()
+    // shouldn't leave the button stuck showing "playing".
+    void audio.play().catch(() => setPlaying(false));
+  };
+
+  return (
+    <PreschoolButton
+      icon={playing ? "🔊" : "🔈"}
+      label={label}
+      onClick={handleClick}
+      ringColorClassName="ring-sky-400"
+      sizeClassName="h-10 w-10"
+      position="static"
+      className="not-prose mx-0.5 inline-flex align-middle text-xl"
+    />
+  );
+}
+
 // Renders one "{...}" reference found anywhere in the story's Markdown —
 // react-markdown dispatches to this via the `components` map, keyed by
 // STORY_CARD_TAG, for every <story-card raw="..."> element
@@ -254,8 +332,13 @@ function StoryCard({
   storySlug: string;
   onOpen: (segments: StoryWordSegment[]) => void;
 }) {
+  const t = useTranslations("StoriesGame");
   const segments = useMemo(() => parseSyllableGroup(raw), [raw]);
   if (segments.length === 0) return null;
+
+  if (isAudio(segments)) {
+    return <StoryAudioButton url={storyAssetUrl(storySlug, segments[0].filename)} label={t("playAudioLabel")} />;
+  }
 
   if (isIllustration(segments)) {
     return (
@@ -265,7 +348,7 @@ function StoryCard({
       // this whole subtree back out of that (see Tailwind Typography's
       // docs), which is what keeps the card row from ballooning in height.
       <button type="button" onClick={() => onOpen(segments)} className="not-prose mx-auto block cursor-pointer">
-        <StoryIllustration url={storyImageUrl(storySlug, segments[0].filename)} size="sm" />
+        <StoryIllustration url={storyAssetUrl(storySlug, segments[0].filename)} size="sm" />
       </button>
     );
   }
@@ -409,7 +492,9 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
 
   const handleOpenCard = (segments: StoryWordSegment[]) => {
     setFullscreenSegments(segments);
-    if (user) {
+    // A plain illustration isn't a "word" (see DIAMOND_MILESTONE_STARS
+    // above) — only a syllable/letter breakdown earns a star.
+    if (user && !isIllustration(segments)) {
       setStars((current) => current + 1);
       setStarBump((current) => current + 1);
     }
@@ -422,11 +507,14 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
           <StoryCard raw={raw} storySlug={slug} onOpen={handleOpenCard} />
         ),
       }) as unknown as Components,
-    // handleOpenCard closes over `user`, which can only ever go from
-    // null to a real user (a session doesn't appear mid-story) — slug is
-    // the only thing this genuinely needs to re-key on.
+    // handleOpenCard closes over `user`, which starts null and flips to a
+    // real user once useAuthStore's session check resolves (asynchronously,
+    // shortly after mount — not only "mid-story" as this comment used to
+    // assume) — leaving `user` out of these deps would freeze that first
+    // render's null into the closure forever, silently breaking the
+    // star/Diamond reward for every card opened after login resolves.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [slug],
+    [slug, user],
   );
 
   // Stars this round, 1-5, wrapping right after a Diamond is awarded —
@@ -496,7 +584,7 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
       {fullscreenSegments && (
         <FullscreenOverlay onClose={() => setFullscreenSegments(null)}>
           {isIllustration(fullscreenSegments) ? (
-            <StoryIllustration url={storyImageUrl(slug, fullscreenSegments[0].filename)} size="lg" />
+            <StoryIllustration url={storyAssetUrl(slug, fullscreenSegments[0].filename)} size="lg" />
           ) : (
             <WordCardRow
               segments={fullscreenSegments}
@@ -569,7 +657,7 @@ export function StoriesGame() {
 // bare picker) instead of touching local state, which is what makes a
 // reload (F5) keep the same story open.
 export function StoriesGamePage({ slug = null, basePath }: { slug?: string | null; basePath: string }) {
-  const router = useRouter();
+  const router = useLocaleAwareGamesRouter();
   const stories = useStories();
   const story = useStory(slug);
 

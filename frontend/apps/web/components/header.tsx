@@ -127,14 +127,20 @@ export function Header() {
           <span>{t("brand")}</span>
         </Link>
 
-        {user?.role === "student" && (
-          <MainMenu isPreschool={user.interfaceMode === "preschool"} />
-        )}
+        {user?.role === "student" && <MainMenu />}
         {user?.role === "tutor" && <TutorMainMenu />}
       </div>
 
       {user ? (
         <div className="flex items-center gap-3">
+          {user.role === "student" && (
+            <Link
+              href="/games"
+              className="text-sm font-medium text-gray-500 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            >
+              {t("games")}
+            </Link>
+          )}
           {user.role === "student" && <div className="hidden lg:block"><PreschoolModeToggle /></div>}
           {user.role === "student" && user.diamondBalance !== null && (
             <DiamondBadge count={user.diamondBalance} />
@@ -226,13 +232,12 @@ export function Header() {
       ) : (
         <div className="flex items-center gap-4">
           {/* All of /games is public — see middleware.ts's PUBLIC_PATHS —
-              but the Stories game is what this nav link before login has
-              always promoted, so it keeps pointing there specifically. */}
+              so a signed-out visitor can already play before logging in. */}
           <Link
-            href="/games/stories"
+            href="/games"
             className="text-sm font-medium text-gray-700 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
           >
-            {t("readingGameLink")}
+            {t("games")}
           </Link>
           <Link
             href="/login"

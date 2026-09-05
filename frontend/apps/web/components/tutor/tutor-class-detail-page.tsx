@@ -9,6 +9,7 @@ import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { IsFilledBadge } from "@/components/subjects/is-filled-badge";
 import { SimpleEntityIcon } from "@/components/simple/entity-icon";
+import { SimplePageContainer } from "@/components/simple/page-container";
 import { LoadSubjectMarkdownDialog } from "./load-subject-markdown-dialog";
 import { PlanLessonsDialog } from "./plan-lessons-dialog";
 import { UploadPlanDialog } from "./upload-plan-dialog";
@@ -100,52 +101,54 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
   ];
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6">
-      <div className="flex flex-col gap-3">
-        <Breadcrumbs items={breadcrumbItems} />
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold text-gray-900">{data.name}</h1>
-            {data.is_class_teacher && <span className="shrink-0 text-xs text-gray-500">{t("youAreClassTeacher")}</span>}
+    <SimplePageContainer>
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3">
+          <Breadcrumbs items={breadcrumbItems} />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-semibold text-gray-900">{data.name}</h1>
+              {data.is_class_teacher && <span className="shrink-0 text-xs text-gray-500">{t("youAreClassTeacher")}</span>}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <RecalculateWorkloadButton classId={classId} />
+              {data.is_class_teacher && <UploadPlanDialog classId={classId} />}
+              {data.is_class_teacher && <LoadSubjectMarkdownDialog classId={classId} />}
+              <PlanLessonsDialog classId={classId} />
+            </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <RecalculateWorkloadButton classId={classId} />
-            {data.is_class_teacher && <UploadPlanDialog classId={classId} />}
-            {data.is_class_teacher && <LoadSubjectMarkdownDialog classId={classId} />}
-            <PlanLessonsDialog classId={classId} />
-          </div>
+          <p className="text-sm text-gray-700">
+            {t("classTeacherLabel")}:{" "}
+            <span className="font-medium">{data.class_teacher_name ?? t("classTeacherUnset")}</span>
+          </p>
         </div>
-        <p className="text-sm text-gray-700">
-          {t("classTeacherLabel")}:{" "}
-          <span className="font-medium">{data.class_teacher_name ?? t("classTeacherUnset")}</span>
-        </p>
-      </div>
 
-      <div className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-gray-900">{t("subjectsTitle")}</h2>
-        {data.subjects.length === 0 ? (
-          <p className="text-sm text-gray-500">{t("noSubjects")}</p>
-        ) : (
-          <ul className="divide-y divide-gray-100">
-            {data.subjects.map((subject) => (
-              <SubjectRow key={subject.subject_id} subject={subject} />
-            ))}
-          </ul>
-        )}
-      </div>
+        <div className="flex flex-col gap-3">
+          <h2 className="text-lg font-semibold text-gray-900">{t("subjectsTitle")}</h2>
+          {data.subjects.length === 0 ? (
+            <p className="text-sm text-gray-500">{t("noSubjects")}</p>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {data.subjects.map((subject) => (
+                <SubjectRow key={subject.subject_id} subject={subject} />
+              ))}
+            </ul>
+          )}
+        </div>
 
-      <div className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-gray-900">{t("studentsTitle")}</h2>
-        {data.students.length === 0 ? (
-          <p className="text-sm text-gray-500">{t("noStudents")}</p>
-        ) : (
-          <ul className="divide-y divide-gray-100">
-            {data.students.map((student) => (
-              <StudentRow key={student.id} student={student} />
-            ))}
-          </ul>
-        )}
+        <div className="flex flex-col gap-3">
+          <h2 className="text-lg font-semibold text-gray-900">{t("studentsTitle")}</h2>
+          {data.students.length === 0 ? (
+            <p className="text-sm text-gray-500">{t("noStudents")}</p>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {data.students.map((student) => (
+                <StudentRow key={student.id} student={student} />
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
-    </div>
+    </SimplePageContainer>
   );
 }

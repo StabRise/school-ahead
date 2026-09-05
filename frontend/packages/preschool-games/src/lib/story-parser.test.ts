@@ -3,6 +3,7 @@ import { parseStory, parseStoryTitle, parseSyllableGroup, type StoryWordSegment 
 
 const text = (value: string): StoryWordSegment => ({ kind: "text", text: value });
 const img = (filename: string): StoryWordSegment => ({ kind: "image", filename });
+const audio = (filename: string): StoryWordSegment => ({ kind: "audio", filename });
 
 describe("parseSyllableGroup", () => {
   it("splits a syllable breakdown by '-', trimming each segment", () => {
@@ -24,6 +25,15 @@ describe("parseSyllableGroup", () => {
 
   it("treats a word-breakdown segment written as an image filename as its own card image, not text", () => {
     expect(parseSyllableGroup("К - img1.jpeg - Т - КА")).toEqual([text("К"), img("img1.jpeg"), text("Т"), text("КА")]);
+  });
+
+  it("treats the whole group as one audio card when its content is just a sound filename", () => {
+    expect(parseSyllableGroup(" koza.mp3 ")).toEqual([audio("koza.mp3")]);
+  });
+
+  it("recognizes a sound filename regardless of extension casing", () => {
+    expect(parseSyllableGroup("KOZA.MP3")).toEqual([audio("KOZA.MP3")]);
+    expect(parseSyllableGroup("koza.wav")).toEqual([audio("koza.wav")]);
   });
 });
 

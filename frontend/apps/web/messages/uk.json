@@ -56,7 +56,6 @@
   },
   "Header": {
     "brand": "Ahead",
-    "readingGameLink": "Вчуся Читати",
     "login": "Увійти",
     "logout": "Вийти",
     "userMenu": "Меню користувача",
@@ -71,6 +70,7 @@
     "readAlong": "Читання тексту",
     "dictionary": "Словник",
     "games": "Ігри",
+    "house": "Мій будинок",
     "tutorDashboard": "Панель тьютора",
     "preschoolMode": "Дитячий режим",
     "diamondBalance": "{count, plural, one {# діамант} few {# діаманти} many {# діамантів} other {# діаманта}}",
@@ -197,6 +197,7 @@
     "noStories": "Казок поки що немає",
     "backToListButton": "До вибору книжок",
     "closeImageLabel": "Закрити",
+    "playAudioLabel": "Слухати",
     "starsLabel": "Зірочок: {count} з {total}"
   },
   "StudentDashboard": {
@@ -275,10 +276,16 @@
     "recalculateWorkloadButton": "Перерахувати навантаження",
     "recalculateWorkloadError": "Не вдалося перерахувати навантаження. Спробуйте ще раз."
   },
-  "TutorStudentCalendar": {
+  "TutorStudentOverview": {
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити учня. Спробуйте ще раз.",
-    "breadcrumbMyClasses": "Мої класи"
+    "breadcrumbMyClasses": "Мої класи",
+    "completedLabel": "Виконано програми",
+    "todayTitle": "Сьогоднішні уроки",
+    "noLessonsToday": "На сьогодні уроків не заплановано",
+    "calendarTab": "Календар",
+    "statsTab": "Статистика по предметах",
+    "noSubjects": "У цього учня немає предметів"
   },
   "PlanLessons": {
     "triggerButton": "Запланувати уроки на період",
@@ -666,6 +673,23 @@
     "confirmPurchaseBuy": "Купити за 💎{price}",
     "confirmPurchaseBuyShort": "Так!"
   },
+  "House": {
+    "pageTitle": "Мій будинок",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити будинок. Спробуйте ще раз.",
+    "emptyRoomHint": "Тут ще порожньо — купи меблі в магазині нижче!",
+    "shopTitle": "Магазин меблів",
+    "dragHint": "Клацни на меблі, щоб перемістити або повернути їх:",
+    "modeMove": "Перемістити",
+    "modeRotate": "Повернути",
+    "notEnoughDiamondsTitle": "Недостатньо діамантів",
+    "notEnoughDiamondsBody": "{item} коштує 💎{price}, а в тебе {balance}. Виконуй уроки, щоб заробити більше діамантів!",
+    "notEnoughDiamondsClose": "Зрозуміло",
+    "confirmPurchaseTitle": "Купити меблі?",
+    "confirmPurchaseBody": "«{item}» коштує 💎{price}. Купити цю річ?",
+    "confirmPurchaseCancel": "Скасувати",
+    "confirmPurchaseBuy": "Купити за 💎{price}"
+  },
   "Settings": {
     "title": "Налаштування",
     "viewSectionTitle": "Вигляд",
@@ -755,13 +779,13 @@
     "period4Days": "4 дні",
     "periodWeek": "Тиждень",
     "period10Days": "10 днів",
+    "filterAll": "Усі уроки",
+    "filterIncomplete": "Незавершені уроки",
     "progress": "{completed}/{total} уроків завершено",
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити календар. Спробуйте ще раз.",
     "noLessons": "Немає уроків",
-    "backlogTitle": "Хвости",
-    "backlogHint": "Уроки, які не завершено вчасно",
-    "backlogOrigin": "Мало бути виконано: {label}",
+    "goToToday": "Перейти до сьогоднішніх уроків",
     "lessonTooltip": "{topic}\n{lesson}",
     "previewAsStudent": "Переглянути урок як учень",
     "openSubject": "Відкрити предмет",
