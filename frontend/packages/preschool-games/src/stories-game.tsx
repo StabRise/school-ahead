@@ -362,18 +362,38 @@ function StoryVideo({ url, size }: { url: string; size: "sm" | "lg" }) {
 // element's own playback) for the button's whole lifetime, reused every
 // click, so a second tap while playing can pause+rewind it back to a clean
 // stopped state instead of only being able to layer more copies on top.
-function StoryAudioButton({ url, label }: { url: string; label: string }) {
+// `onDuck`/`onUnduck` (useStoryBackgroundMusic's, threaded down from
+// StoryPage) pause the story's own background.mp3 for as long as this
+// clip is audible, so the two don't play over each other.
+function StoryAudioButton({
+  url,
+  label,
+  onDuck,
+  onUnduck,
+}: {
+  url: string;
+  label: string;
+  onDuck: () => void;
+  onUnduck: () => void;
+}) {
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const audio = new Audio(url);
-    audio.addEventListener("ended", () => setPlaying(false));
+    audio.addEventListener("ended", () => {
+      setPlaying(false);
+      onUnduck();
+    });
     audioRef.current = audio;
     return () => {
       audio.pause();
       audioRef.current = null;
     };
+    // onUnduck is useStoryBackgroundMusic's own useCallback (stable
+    // identity across renders), so omitting it here doesn't risk a stale
+    // closure — see that hook.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
   const handleClick = () => {
@@ -383,12 +403,18 @@ function StoryAudioButton({ url, label }: { url: string; label: string }) {
       audio.pause();
       audio.currentTime = 0;
       setPlaying(false);
+      onUnduck();
       return;
     }
     setPlaying(true);
+    onDuck();
     // Best-effort, same as useBackgroundMusic — a blocked/failed play()
-    // shouldn't leave the button stuck showing "playing".
-    void audio.play().catch(() => setPlaying(false));
+    // shouldn't leave the button stuck showing "playing" (or the
+    // background track stuck ducked for a clip that never actually played).
+    void audio.play().catch(() => {
+      setPlaying(false);
+      onUnduck();
+    });
   };
 
   return (
@@ -414,17 +440,28 @@ function StoryCard({
   raw,
   storySlug,
   onOpen,
+  onDuckMusic,
+  onUnduckMusic,
 }: {
   raw: string;
   storySlug: string;
   onOpen: (segments: StoryWordSegment[]) => void;
+  onDuckMusic: () => void;
+  onUnduckMusic: () => void;
 }) {
   const t = useTranslations("StoriesGame");
   const segments = useMemo(() => parseSyllableGroup(raw), [raw]);
   if (segments.length === 0) return null;
 
   if (isAudio(segments)) {
-    return <StoryAudioButton url={storyAssetUrl(storySlug, segments[0].filename)} label={t("playAudioLabel")} />;
+    return (
+      <StoryAudioButton
+        url={storyAssetUrl(storySlug, segments[0].filename)}
+        label={t("playAudioLabel")}
+        onDuck={onDuckMusic}
+        onUnduck={onUnduckMusic}
+      />
+    );
   }
 
   if (isIllustration(segments)) {
@@ -587,6 +624,19 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
     originRef: starBadgeRef,
   });
 
+  // A fullscreen video (unlike a fullscreen illustration or card row) has
+  // its own sound (see StoryVideo's "lg" size) — duck the background track
+  // for as long as it's open, same reason StoryAudioButton does.
+  useEffect(() => {
+    if (!fullscreenSegments || !isVideo(fullscreenSegments)) return;
+    backgroundMusic.duck();
+    return () => backgroundMusic.unduck();
+    // backgroundMusic.duck/unduck are useStoryBackgroundMusic's own
+    // useCallbacks (stable identity), so this only re-fires when the
+    // fullscreen selection itself changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullscreenSegments]);
+
   const handleOpenCard = (segments: StoryWordSegment[]) => {
     setFullscreenSegments(segments);
     // A plain illustration or video isn't a "word" (see
@@ -602,7 +652,13 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
     (): Components =>
       ({
         [STORY_CARD_TAG]: ({ raw }: { raw: string }) => (
-          <StoryCard raw={raw} storySlug={slug} onOpen={handleOpenCard} />
+          <StoryCard
+            raw={raw}
+            storySlug={slug}
+            onOpen={handleOpenCard}
+            onDuckMusic={backgroundMusic.duck}
+            onUnduckMusic={backgroundMusic.unduck}
+          />
         ),
       }) as unknown as Components,
     // handleOpenCard closes over `user`, which starts null and flips to a
@@ -611,8 +667,11 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
     // assume) — leaving `user` out of these deps would freeze that first
     // render's null into the closure forever, silently breaking the
     // star/Diamond reward for every card opened after login resolves.
+    // backgroundMusic.duck/unduck are useStoryBackgroundMusic's own
+    // useCallbacks (stable identity), so depending on them doesn't cause
+    // this to recreate every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [slug, user],
+    [slug, user, backgroundMusic.duck, backgroundMusic.unduck],
   );
 
   // Stars this round, 1-5, wrapping right after a Diamond is awarded —
@@ -646,11 +705,17 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
       {/* Only this story's own background.mp3 gets this button — most
           stories have none, so it only appears once useStoryBackgroundMusic
           confirms the file actually loaded (see that hook's `available`).
-          Same fixed-corner treatment, next in the row after 🏠/📚 above. */}
+          Same fixed-corner treatment, next in the row after 🏠/📚 above.
+          Icon reflects `playing` (actually audible right now), not just
+          the reader's last on/off choice — it shows 🔇 while temporarily
+          ducked for a word's own audio/video clip too, even though tapping
+          it in that moment still toggles the underlying preference (so a
+          reader who taps it mid-duck gets what they asked for once the
+          duck lifts, not silently ignored). */}
       {backgroundMusic.available && (
         <PreschoolButton
-          icon={backgroundMusic.enabled ? "🎵" : "🔇"}
-          label={backgroundMusic.enabled ? t("musicOnLabel") : t("musicOffLabel")}
+          icon={backgroundMusic.playing ? "🎵" : "🔇"}
+          label={backgroundMusic.playing ? t("musicOnLabel") : t("musicOffLabel")}
           onClick={backgroundMusic.toggle}
           ringColorClassName="ring-sky-400"
           position="static"
