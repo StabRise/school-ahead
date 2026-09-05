@@ -3,6 +3,7 @@ import datetime
 from ninja import Schema
 
 from accounts.schemas import AvatarItemOut, AvatarOut
+from house.schemas import FurnitureTextureOut
 from lessons.schemas import LessonSubmissionOut
 
 
@@ -204,3 +205,45 @@ class ImportSubjectMarkdownOut(Schema):
     lessons_created: int
     lessons_skipped: int
     lessons: list[SubjectMarkdownLessonOut]
+
+
+class TutorFurnitureItemOut(Schema):
+    """A house.FurnitureItem catalog row, from the furniture editor's point
+    of view — every item (active or not), with no per-student is_owned/
+    placement (unlike house.schemas.FurnitureItemOut). See
+    tutoring.api.list_tutor_furniture."""
+
+    id: int
+    key: str
+    name: str
+    model_file: str
+    model_format: str  # "obj" | "stl" — see house.services.model_format
+    material_file: str | None
+    textures: list[FurnitureTextureOut]
+    thumbnail_image: str
+    price: int
+    # "floor" | "wall" | "ceiling" — see house.models.FurnitureSurface.
+    surface: str
+    # "normal" | "with_hole" — see house.models.FurnitureKind.
+    kind: str
+    default_scale: float
+    default_rotation: list[float]
+    # A small nudge off the literal surface plane — see
+    # house-3d's lib/surface.ts, which clamps it to a modest range so a
+    # model whose own pivot isn't at its base (making it look sunk into the
+    # floor, or floating off the wall/ceiling) can be corrected without
+    # letting an item drift away from its surface entirely.
+    default_position: list[float]
+    is_active: bool
+
+
+class UpdateTutorFurnitureItemIn(Schema):
+    """The furniture editor's scale/rotate/position/price/surface/kind
+    controls — see tutoring.api.update_tutor_furniture_item."""
+
+    price: int
+    surface: str
+    kind: str
+    default_scale: float
+    default_rotation: list[float]
+    default_position: list[float]

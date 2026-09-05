@@ -71,5 +71,9 @@ def furniture_texture_upload_to(instance, filename: str) -> str:
     return _unique_path('furniture_textures', filename)
 
 
+def furniture_material_upload_to(instance, filename: str) -> str:
+    return _unique_path('furniture_materials', filename)
+
+
 def furniture_thumbnail_upload_to(instance, filename: str) -> str:
     return _unique_path('furniture_thumbnails', filename)

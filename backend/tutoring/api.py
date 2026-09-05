@@ -27,6 +27,9 @@ from achievements.schemas import SubjectAchievementOut
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
 from common.permissions import ensure_is_tutor
+from house import services as house_services
+from house.models import FurnitureItem, FurnitureKind, FurnitureSurface, FurnitureTexture
+from house.schemas import FurnitureTextureOut
 from lessons import services as lesson_services
 from lessons.models import (
     GradingType,
@@ -67,7 +70,9 @@ from .schemas import (
     TutorClassDetailOut,
     TutorClassOut,
     TutorFeedItemOut,
+    TutorFurnitureItemOut,
     TutorStudentOut,
+    UpdateTutorFurnitureItemIn,
 )
 
 router = Router(tags=['tutor'], auth=CookieOrBearerJWTAuth())
@@ -1040,3 +1045,170 @@ def update_tutor_avatar_item_transform(request: HttpRequest, item_id: int, paylo
     item.price = payload.price
     item.save(update_fields=['scale', 'offset_x', 'offset_y', 'layer_order', 'price'])
     return _tutor_avatar_item_out(item, request)
+
+
+def _tutor_furniture_item_out(item: FurnitureItem, request: HttpRequest) -> TutorFurnitureItemOut:
+    return TutorFurnitureItemOut(
+        id=item.id,
+        key=item.key,
+        name=item.name,
+        model_file=_absolute_file_url(item.model_file, request),
+        model_format=house_services.model_format(item),
+        material_file=_absolute_file_url(item.material_file, request),
+        textures=[
+            FurnitureTextureOut(id=t.id, url=_absolute_file_url(t.file, request), filename=t.original_filename)
+            for t in item.textures.all()
+        ],
+        thumbnail_image=_absolute_file_url(item.thumbnail_image, request),
+        price=item.price,
+        surface=item.surface,
+        kind=item.kind,
+        default_scale=item.default_scale,
+        default_rotation=[item.default_rotation_x, item.default_rotation_y, item.default_rotation_z],
+        default_position=[item.default_position_x, item.default_position_y, item.default_position_z],
+        is_active=item.is_active,
+    )
+
+
+@router.get('/furniture', response=list[TutorFurnitureItemOut], operation_id='list_tutor_furniture')
+def list_tutor_furniture(request: HttpRequest):
+    """The full house furniture catalog (active and inactive) — powers the
+    furniture editor page (Редактор фурнітури). See docs/core/gamification.md
+    and house.schemas.FurnitureItemOut for the student-facing counterpart."""
+    ensure_is_tutor(request)
+    items = FurnitureItem.objects.all().prefetch_related('textures')
+    return [_tutor_furniture_item_out(item, request) for item in items]
+
+
+@router.post('/furniture', response=TutorFurnitureItemOut, operation_id='create_tutor_furniture_item')
+def create_tutor_furniture_item(
+    request: HttpRequest,
+    key: str = Form(...),
+    name: str = Form(...),
+    price: int = Form(0),
+    surface: str = Form(FurnitureSurface.FLOOR),
+    kind: str = Form(FurnitureKind.NORMAL),
+    model_file: UploadedFile = File(...),
+    thumbnail_image: UploadedFile = File(...),
+    texture_files: list[UploadedFile] = File([]),
+    material_file: UploadedFile | None = File(None),
+):
+    """Uploads a new furniture item to the shop catalog — the "Upload"
+    action on the furniture editor. model_file must be .obj/.stl and
+    material_file (if given) .mtl, matching FurnitureItem's own field
+    validators (bypassed here since we build the row with .objects.create()
+    rather than a ModelForm, so it's re-checked by hand). Any number of
+    texture_files may be attached — see models.FurnitureTexture; more can
+    be added later via add_tutor_furniture_textures. Starts at the default
+    transform (position 0, rotation 0, scale 1) — see
+    update_tutor_furniture_item for adjusting it afterwards. kind=with_hole
+    (a window, door, ...) gets an opening cut into its surface — see
+    house.models.FurnitureKind."""
+    require_csrf(request)
+    ensure_is_tutor(request)
+
+    if not model_file.name.lower().endswith(('.obj', '.stl')):
+        raise HttpError(400, 'model_file must be .obj or .stl')
+    if material_file is not None and not material_file.name.lower().endswith('.mtl'):
+        raise HttpError(400, 'material_file must be .mtl')
+    if surface not in FurnitureSurface.values:
+        raise HttpError(400, f'surface must be one of {FurnitureSurface.values}')
+    if kind not in FurnitureKind.values:
+        raise HttpError(400, f'kind must be one of {FurnitureKind.values}')
+    if FurnitureItem.objects.filter(key=key).exists():
+        raise HttpError(409, f'A furniture item with key "{key}" already exists')
+
+    item = FurnitureItem(key=key, name=name, price=price, surface=surface, kind=kind)
+    item.model_file.save(model_file.name, model_file, save=False)
+    item.thumbnail_image.save(thumbnail_image.name, thumbnail_image, save=False)
+    if material_file is not None:
+        item.material_file.save(material_file.name, material_file, save=False)
+    item.save()
+    for texture_file in texture_files:
+        texture = FurnitureTexture(item=item, original_filename=texture_file.name)
+        texture.file.save(texture_file.name, texture_file, save=False)
+        texture.save()
+    return _tutor_furniture_item_out(item, request)
+
+
+@router.post(
+    '/furniture/{item_id}/textures', response=TutorFurnitureItemOut, operation_id='add_tutor_furniture_textures',
+)
+def add_tutor_furniture_textures(request: HttpRequest, item_id: int, texture_files: list[UploadedFile] = File(...)):
+    """Adds one or more texture images to an existing item — see
+    models.FurnitureTexture. Lets a tutor attach the rest of a .mtl's
+    referenced textures after the initial upload, without re-uploading the
+    model/material file."""
+    require_csrf(request)
+    ensure_is_tutor(request)
+    item = get_object_or_404(FurnitureItem, id=item_id)
+    for texture_file in texture_files:
+        texture = FurnitureTexture(item=item, original_filename=texture_file.name)
+        texture.file.save(texture_file.name, texture_file, save=False)
+        texture.save()
+    return _tutor_furniture_item_out(item, request)
+
+
+@router.delete(
+    '/furniture/{item_id}/textures/{texture_id}',
+    response=TutorFurnitureItemOut,
+    operation_id='delete_tutor_furniture_texture',
+)
+def delete_tutor_furniture_texture(request: HttpRequest, item_id: int, texture_id: int):
+    """Removes one texture from an item's catalog entry — see
+    models.FurnitureTexture. Returns the still-existing parent item (not
+    204) since deleting a texture doesn't delete the item itself."""
+    require_csrf(request)
+    ensure_is_tutor(request)
+    item = get_object_or_404(FurnitureItem, id=item_id)
+    texture = get_object_or_404(FurnitureTexture, id=texture_id, item=item)
+    texture.delete()
+    return _tutor_furniture_item_out(item, request)
+
+
+@router.patch('/furniture/{item_id}', response=TutorFurnitureItemOut, operation_id='update_tutor_furniture_item')
+def update_tutor_furniture_item(request: HttpRequest, item_id: int, payload: UpdateTutorFurnitureItemIn):
+    """Sets a furniture item's Diamond price, which surface it sticks to,
+    its kind (whether it gets a hole cut for it — see
+    house.models.FurnitureKind), and its catalog default scale/rotation/
+    position — the transform every purchase/Add starts from (see
+    house.services.purchase_item/place_item) — from the furniture editor's
+    controls. default_position is a small nudge off the surface (see
+    house-3d's lib/surface.ts, which clamps it to a modest range), for a
+    model whose own pivot isn't at its base and so looks sunk into the
+    floor (or floating off a wall/ceiling) at the catalog default."""
+    require_csrf(request)
+    ensure_is_tutor(request)
+    if payload.surface not in FurnitureSurface.values:
+        raise HttpError(400, f'surface must be one of {FurnitureSurface.values}')
+    if payload.kind not in FurnitureKind.values:
+        raise HttpError(400, f'kind must be one of {FurnitureKind.values}')
+    item = get_object_or_404(FurnitureItem, id=item_id)
+    item.price = payload.price
+    item.surface = payload.surface
+    item.kind = payload.kind
+    item.default_scale = payload.default_scale
+    item.default_rotation_x, item.default_rotation_y, item.default_rotation_z = payload.default_rotation
+    item.default_position_x, item.default_position_y, item.default_position_z = payload.default_position
+    item.save(
+        update_fields=[
+            'kind',
+            'price', 'surface', 'default_scale',
+            'default_rotation_x', 'default_rotation_y', 'default_rotation_z',
+            'default_position_x', 'default_position_y', 'default_position_z',
+        ]
+    )
+    return _tutor_furniture_item_out(item, request)
+
+
+@router.delete('/furniture/{item_id}', operation_id='delete_tutor_furniture_item')
+def delete_tutor_furniture_item(request: HttpRequest, item_id: int, response: HttpResponse):
+    """Removes a furniture item from the catalog entirely — cascades to
+    every student's FurniturePurchase/PlacedFurnitureItem for it (see
+    house.models), same as deleting it from the Django admin."""
+    require_csrf(request)
+    ensure_is_tutor(request)
+    item = get_object_or_404(FurnitureItem, id=item_id)
+    item.delete()
+    response.status_code = 204
+    return response

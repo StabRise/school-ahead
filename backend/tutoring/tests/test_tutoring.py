@@ -2,11 +2,14 @@ import datetime
 import json
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils.datastructures import MultiValueDict
+
 from academics import services as academics_services
 from academics.models import Class, School, Subject, Topic
 from accounts.models import Role, StudentProfile, TutorProfile, User
+from house.models import FurnitureItem, FurnitureTexture
 from lessons.models import Lesson, LessonType, StudentLesson, StudentLessonStatus
-
 from tutoring.models import TutorSubjectAssignment
 from tutoring.services import get_tutor_subject_ids
 
@@ -289,6 +292,7 @@ class TestGradingDelegation:
     def test_request_revision_accepts_multiple_images(self, api_client, auth_header, tutor, subject, student):
         from django.core.files.uploadedfile import SimpleUploadedFile
         from django.utils.datastructures import MultiValueDict
+
         from lessons import services
 
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
@@ -1478,3 +1482,270 @@ class TestAssignDayLesson:
         )
 
         assert response.status_code == 403
+
+
+class TestTutorFurnitureEditor:
+    def _obj_file(self, name='sofa.obj'):
+        return SimpleUploadedFile(name, b'v 0 0 0\n', content_type='application/octet-stream')
+
+    def _image_file(self, name='sofa.png'):
+        return SimpleUploadedFile(name, b'\x89PNG\r\n', content_type='image/png')
+
+    def _make_item(self, price=25):
+        return FurnitureItem.objects.create(
+            key='sofa', name='Sofa', model_file='sofa.obj', thumbnail_image='sofa.png', price=price
+        )
+
+    def test_list_returns_every_item_including_inactive(self, api_client, auth_header, tutor):
+        self._make_item()
+        FurnitureItem.objects.create(
+            key='lamp', name='Lamp', model_file='lamp.obj', thumbnail_image='lamp.png', is_active=False
+        )
+
+        response = api_client.get('/tutor/furniture', headers=auth_header(tutor.user))
+
+        assert response.status_code == 200
+        assert {row['key'] for row in response.data} == {'sofa', 'lamp'}
+
+    def test_list_rejected_for_non_tutor(self, api_client, auth_header):
+        user = User.objects.create_user(email='student2@example.com', role=Role.STUDENT)
+        StudentProfile.objects.create(user=user)
+
+        response = api_client.get('/tutor/furniture', headers=auth_header(user))
+
+        assert response.status_code == 403
+
+    def test_create_uploads_new_item(self, api_client, auth_header, tutor):
+        response = api_client.post(
+            '/tutor/furniture',
+            data={'key': 'lamp', 'name': 'Lamp', 'price': 10},
+            FILES={'model_file': self._obj_file(), 'thumbnail_image': self._image_file()},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['key'] == 'lamp'
+        assert response.data['price'] == 10
+        assert response.data['surface'] == 'floor'
+        assert response.data['default_scale'] == 1.0
+        item = FurnitureItem.objects.get(key='lamp')
+        assert item.model_file.name.endswith('.obj')
+        assert item.thumbnail_image.name.endswith('.png')
+
+    def test_create_accepts_wall_surface(self, api_client, auth_header, tutor):
+        response = api_client.post(
+            '/tutor/furniture',
+            data={'key': 'painting', 'name': 'Painting', 'surface': 'wall'},
+            FILES={'model_file': self._obj_file(), 'thumbnail_image': self._image_file()},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['surface'] == 'wall'
+
+    def test_create_rejects_invalid_surface(self, api_client, auth_header, tutor):
+        response = api_client.post(
+            '/tutor/furniture',
+            data={'key': 'painting', 'name': 'Painting', 'surface': 'orbit'},
+            FILES={'model_file': self._obj_file(), 'thumbnail_image': self._image_file()},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 400
+
+    def test_create_accepts_with_hole_kind(self, api_client, auth_header, tutor):
+        response = api_client.post(
+            '/tutor/furniture',
+            data={'key': 'window', 'name': 'Window', 'surface': 'wall', 'kind': 'with_hole'},
+            FILES={'model_file': self._obj_file(), 'thumbnail_image': self._image_file()},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['kind'] == 'with_hole'
+
+    def test_create_defaults_to_normal_kind(self, api_client, auth_header, tutor):
+        response = api_client.post(
+            '/tutor/furniture',
+            data={'key': 'lamp', 'name': 'Lamp'},
+            FILES={'model_file': self._obj_file(), 'thumbnail_image': self._image_file()},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['kind'] == 'normal'
+
+    def test_create_rejects_invalid_kind(self, api_client, auth_header, tutor):
+        response = api_client.post(
+            '/tutor/furniture',
+            data={'key': 'painting', 'name': 'Painting', 'kind': 'bogus'},
+            FILES={'model_file': self._obj_file(), 'thumbnail_image': self._image_file()},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 400
+
+    def test_create_rejects_wrong_model_extension(self, api_client, auth_header, tutor):
+        response = api_client.post(
+            '/tutor/furniture',
+            data={'key': 'lamp', 'name': 'Lamp'},
+            FILES={'model_file': self._image_file('sofa.png'), 'thumbnail_image': self._image_file()},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 400
+
+    def test_create_rejects_duplicate_key(self, api_client, auth_header, tutor):
+        self._make_item()
+
+        response = api_client.post(
+            '/tutor/furniture',
+            data={'key': 'sofa', 'name': 'Sofa 2'},
+            FILES={'model_file': self._obj_file(), 'thumbnail_image': self._image_file()},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 409
+
+    def test_update_sets_price_scale_rotation_position_and_kind(self, api_client, auth_header, tutor):
+        item = self._make_item()
+
+        response = api_client.patch(
+            f'/tutor/furniture/{item.id}',
+            json={
+                'price': 50,
+                'surface': 'wall',
+                'kind': 'with_hole',
+                'default_scale': 1.5,
+                'default_rotation': [0.0, 1.57, 0.0],
+                'default_position': [0.1, 0.2, 0.0],
+            },
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200, response.data
+        assert response.data['price'] == 50
+        assert response.data['surface'] == 'wall'
+        assert response.data['kind'] == 'with_hole'
+        assert response.data['default_scale'] == 1.5
+        assert response.data['default_rotation'] == [0.0, 1.57, 0.0]
+        assert response.data['default_position'] == [0.1, 0.2, 0.0]
+        item.refresh_from_db()
+        assert item.price == 50
+        assert item.surface == 'wall'
+        assert item.kind == 'with_hole'
+        assert item.default_rotation_y == 1.57
+        assert item.default_position_y == 0.2
+
+    def test_update_rejects_invalid_kind(self, api_client, auth_header, tutor):
+        item = self._make_item()
+
+        response = api_client.patch(
+            f'/tutor/furniture/{item.id}',
+            json={
+                'price': 0,
+                'surface': 'floor',
+                'kind': 'bogus',
+                'default_scale': 1.0,
+                'default_rotation': [0.0, 0.0, 0.0],
+                'default_position': [0.0, 0.0, 0.0],
+            },
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 400
+
+    def test_delete_removes_item(self, api_client, auth_header, tutor):
+        item = self._make_item()
+
+        response = api_client.delete(f'/tutor/furniture/{item.id}', headers=auth_header(tutor.user))
+
+        assert response.status_code == 204
+        assert not FurnitureItem.objects.filter(id=item.id).exists()
+
+    def test_update_and_delete_rejected_for_non_tutor(self, api_client, auth_header):
+        item = self._make_item()
+        user = User.objects.create_user(email='student3@example.com', role=Role.STUDENT)
+        StudentProfile.objects.create(user=user)
+
+        update_response = api_client.patch(
+            f'/tutor/furniture/{item.id}',
+            json={
+                'price': 1,
+                'surface': 'floor',
+                'kind': 'normal',
+                'default_scale': 1.0,
+                'default_rotation': [0.0, 0.0, 0.0],
+                'default_position': [0.0, 0.0, 0.0],
+            },
+            headers=auth_header(user),
+        )
+        delete_response = api_client.delete(f'/tutor/furniture/{item.id}', headers=auth_header(user))
+
+        assert update_response.status_code == 403
+        assert delete_response.status_code == 403
+
+    def test_create_accepts_multiple_texture_files(self, api_client, auth_header, tutor):
+        files = MultiValueDict({
+            'model_file': [self._obj_file()],
+            'thumbnail_image': [self._image_file()],
+            'texture_files': [self._image_file('diffuse.png'), self._image_file('specular.png')],
+        })
+        response = api_client.post(
+            '/tutor/furniture',
+            data={'key': 'lamp', 'name': 'Lamp'},
+            FILES=files,
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200, response.data
+        filenames = {t['filename'] for t in response.data['textures']}
+        assert filenames == {'diffuse.png', 'specular.png'}
+        item = FurnitureItem.objects.get(key='lamp')
+        assert item.textures.count() == 2
+
+    def test_add_textures_to_existing_item(self, api_client, auth_header, tutor):
+        item = self._make_item()
+        files = MultiValueDict({'texture_files': [self._image_file('normal.png')]})
+
+        response = api_client.post(
+            f'/tutor/furniture/{item.id}/textures',
+            FILES=files,
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200, response.data
+        assert [t['filename'] for t in response.data['textures']] == ['normal.png']
+        assert item.textures.count() == 1
+
+    def test_delete_texture_keeps_item(self, api_client, auth_header, tutor):
+        item = self._make_item()
+        texture = FurnitureTexture.objects.create(item=item, file='diffuse.png', original_filename='diffuse.png')
+
+        response = api_client.delete(
+            f'/tutor/furniture/{item.id}/textures/{texture.id}', headers=auth_header(tutor.user)
+        )
+
+        assert response.status_code == 200, response.data
+        assert response.data['textures'] == []
+        assert FurnitureItem.objects.filter(id=item.id).exists()
+        assert not FurnitureTexture.objects.filter(id=texture.id).exists()
+
+    def test_add_and_delete_texture_rejected_for_non_tutor(self, api_client, auth_header):
+        item = self._make_item()
+        texture = FurnitureTexture.objects.create(item=item, file='diffuse.png', original_filename='diffuse.png')
+        user = User.objects.create_user(email='student4@example.com', role=Role.STUDENT)
+        StudentProfile.objects.create(user=user)
+        files = MultiValueDict({'texture_files': [self._image_file('normal.png')]})
+
+        add_response = api_client.post(
+            f'/tutor/furniture/{item.id}/textures',
+            FILES=files,
+            headers=auth_header(user),
+        )
+        delete_response = api_client.delete(
+            f'/tutor/furniture/{item.id}/textures/{texture.id}', headers=auth_header(user)
+        )
+
+        assert add_response.status_code == 403
+        assert delete_response.status_code == 403
