@@ -3,7 +3,7 @@
 import { forwardRef, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { Pencil, type LucideIcon, Trash2, UserPlus, Users } from "lucide-react";
+import { BookOpen, Monitor, Pencil, type LucideIcon, Trash2, UserPlus } from "lucide-react";
 import { getGetSubjectQueryKey, getListSubjectTopicsQueryKey, useGetSubject, useListSubjectTopics } from "@school-ahead/api-client/browser/academics/academics";
 import {
   getListTutorSubjectLessonsQueryKey,
@@ -14,7 +14,6 @@ import {
   useGetTutorClass,
   useListTutorSubjectLessons,
   useListTutorSubjectLessonStudents,
-  useReorderTutorSubjectTopics,
   useSetSubjectFilled,
   useSetTopicBlock,
 } from "@school-ahead/api-client/browser/tutor/tutor";
@@ -27,58 +26,29 @@ import type {
 } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
-import { Card } from "@/components/card";
 import { SimplePageContainer } from "@/components/simple/page-container";
-import { ExpandAllButton } from "@/components/expand-all-button";
 import { Tabs } from "@/components/tabs";
-import { groupTopicsByBlock, type BlockGroup } from "@/components/subjects/group-topics-by-block";
+import { groupTopicsByBlock } from "@/components/subjects/group-topics-by-block";
 import { SemesterPlan } from "@/components/subjects/semester-plan";
+import { LESSON_TYPE_ICON, LESSON_TYPE_ICON_COLOR } from "@/components/simple/lesson-type-icon";
 import { formatGradeLabel, formatShortDate } from "@/components/simple/format";
-import { useSubjectViewStore } from "@/stores/subject-view-store";
+import { StatusBadge } from "@/components/status-badge";
 import { AssignStudentDialog } from "./assign-student-dialog";
 import { LoadLessonsJsonDialog } from "./load-lessons-json-dialog";
 import { PlanSubjectLessonsDialog } from "./plan-subject-lessons-dialog";
 import { RescheduleAssignmentDialog } from "./reschedule-assignment-dialog";
 
-function AssignedStudentsList({ students }: { students: SubjectLessonStudentOut[] }) {
-  const t = useTranslations("TutorSubjectDetail");
-
-  return (
-    <div className="flex items-start gap-1.5 text-xs text-gray-600">
-      <Users className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden="true" />
-      {students.length === 0 ? (
-        <span className="text-gray-400">{t("noStudentsAssigned")}</span>
-      ) : (
-        <span className="flex flex-wrap gap-x-1">
-          {students.map((s, index) => (
-            <span key={s.student_id}>
-              <Link
-                href={`/tutor/students/${s.student_id}/calendar`}
-                title={formatShortDate(s.scheduled_date)}
-                className="text-blue-700 hover:underline"
-              >
-                {s.student_name}
-              </Link>
-              {index < students.length - 1 && ","}
-            </span>
-          ))}
-        </span>
-      )}
-    </div>
-  );
-}
-
 // Rendered as a Dialog's `trigger` (AssignStudentDialog, RescheduleAssignmentDialog),
 // which Dialog.Trigger asChild clones its own onClick/ref/aria-* props onto —
 // must forward all of them to the real <button>, not just render its own, or
 // Radix's open-on-click handler never reaches the DOM and the button silently
-// does nothing. Card's `href` also makes the whole row a Link (see
-// components/card.tsx), so the click must stop bubbling to it too —
-// otherwise opening the dialog would also navigate to the lesson page.
-// Radix's own click handler (the forwarded `onClick`) is itself built with
-// composeEventHandlers, which skips running if the event already has
-// defaultPrevented — so preventDefault must come AFTER calling it, not
-// before, or the dialog never opens.
+// does nothing. The row also wraps everything in a Link (see LessonRow
+// below), so the click must stop bubbling to it too — otherwise opening the
+// dialog would also navigate to the lesson page. Radix's own click handler
+// (the forwarded `onClick`) is itself built with composeEventHandlers, which
+// skips running if the event already has defaultPrevented — so
+// preventDefault must come AFTER calling it, not before, or the dialog never
+// opens.
 const DialogTriggerIconButton = forwardRef<
   HTMLButtonElement,
   { icon: LucideIcon; label: string } & React.ComponentPropsWithoutRef<"button">
@@ -94,16 +64,16 @@ const DialogTriggerIconButton = forwardRef<
         e.preventDefault();
         e.stopPropagation();
       }}
-      className="shrink-0 rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-50"
+      className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
       {...props}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className="h-3.5 w-3.5" />
     </button>
   );
 });
 
 // Not a Dialog trigger — a direct action, so it just needs to stop the click
-// from bubbling to the surrounding Card link (see DialogTriggerIconButton's
+// from bubbling to the surrounding Link (see DialogTriggerIconButton's
 // comment) before confirming and firing the mutation.
 function DeleteAssignmentButton({ studentLessonId, onDeleted }: { studentLessonId: number; onDeleted: () => void }) {
   const t = useTranslations("TutorSubjectDetail");
@@ -126,9 +96,9 @@ function DeleteAssignmentButton({ studentLessonId, onDeleted }: { studentLessonI
       aria-label={t("deleteAssignmentButton")}
       onClick={handleClick}
       disabled={deleteAssignment.isPending}
-      className="shrink-0 rounded-md border border-red-300 p-1.5 text-red-700 hover:bg-red-50 disabled:opacity-50"
+      className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
     >
-      <Trash2 className="h-4 w-4" />
+      <Trash2 className="h-3.5 w-3.5" />
     </button>
   );
 }
@@ -166,21 +136,26 @@ function DeleteLessonButton({
       aria-label={disabled ? t("deleteLessonDisabledTitle") : t("deleteLessonButton")}
       onClick={handleClick}
       disabled={disabled || deleteLesson.isPending}
-      className="shrink-0 rounded-md border border-red-300 p-1.5 text-red-700 hover:bg-red-50 disabled:opacity-50"
+      className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
     >
-      <Trash2 className="h-4 w-4" />
+      <Trash2 className="h-3.5 w-3.5" />
     </button>
   );
 }
 
-// One always-shown lesson row — merges what the old brief/full/student view
-// modes each showed instead of hiding two of the three behind a toggle:
-// title + task-content snippet + the full assigned-students list are always
-// visible (old "full" content, a strict superset of old "brief"'s bare
-// title), and picking a student in the always-visible filter above
-// additionally shows that student's own scheduled date, grade, and
-// reschedule/delete actions (old "student" mode's content) without hiding
-// anything else.
+// Same compact icon-row language as the student's own Subject detail page
+// (components/subjects/simple-subject-detail-page.tsx's
+// SimpleSubjectLessonRow) instead of the previous bordered Card — but keeps
+// every tutor action the old card had: assign to a student, delete the
+// lesson, and — once a student is picked in the filter below — that
+// student's own date/grade with reschedule/remove-assignment actions. A
+// single AssignStudentDialog (pre-filled with the filtered student, if any)
+// replaces the old two separate assign buttons — the dialog's own picker
+// already lets the tutor target any class student, so a second button was
+// redundant. Not wrapping per-student names in their own links when no
+// student is filtered (unlike the old AssignedStudentsList) — nesting a
+// link inside this row's own Link doesn't work, and the same navigation is
+// one click away via the student filter or the class roster.
 function LessonRow({
   lesson,
   assignedStudents,
@@ -194,80 +169,77 @@ function LessonRow({
   onAssignmentChanged: () => void;
   onLessonDeleted: () => void;
 }) {
-  const t = useTranslations("SubjectDetail");
-  const tTutor = useTranslations("TutorSubjectDetail");
+  const t = useTranslations("TutorSubjectDetail");
   const tGrade = useTranslations("LessonWizard");
+  const Icon = LESSON_TYPE_ICON[lesson.lesson_type] ?? Monitor;
+  const iconColorClass = LESSON_TYPE_ICON_COLOR[lesson.lesson_type] ?? "text-gray-400";
   const selectedAssignment =
     selectedStudentId === null ? null : (assignedStudents.find((s) => s.student_id === selectedStudentId) ?? null);
 
+  const gradeLabel = selectedAssignment
+    ? formatGradeLabel({
+        gradePoints: selectedAssignment.grade_points,
+        gradeResult: selectedAssignment.grade_result,
+        t: tGrade,
+        bare: true,
+      })
+    : null;
+
   return (
     <li>
-      <Card href={`/tutor/lessons/${lesson.id}`} className="flex flex-col gap-1.5 border border-gray-100 bg-white">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium text-gray-900">
-            {t("lessonRow", { index: lesson.order_index, title: lesson.title })}
-          </span>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <AssignStudentDialog
-              lessonId={lesson.id}
-              onAssigned={onAssignmentChanged}
-              trigger={<DialogTriggerIconButton icon={UserPlus} label={tTutor("assignToStudentButton")} />}
-            />
-            <DeleteLessonButton
-              lessonId={lesson.id}
-              title={lesson.title}
-              disabled={assignedStudents.length > 0}
-              onDeleted={onLessonDeleted}
-            />
-          </div>
-        </div>
-        {lesson.task_content && <p className="text-xs text-gray-500">{lesson.task_content}</p>}
-        <AssignedStudentsList students={assignedStudents} />
-
-        {selectedStudentId !== null && (
-          <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-1.5">
-            {selectedAssignment ? (
-              <>
-                <span className="text-xs text-gray-500">{formatShortDate(selectedAssignment.scheduled_date)}</span>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <span className="text-xs text-gray-500">
-                    {formatGradeLabel({
-                      gradePoints: selectedAssignment.grade_points,
-                      gradeResult: selectedAssignment.grade_result,
-                      t: tGrade,
-                      bare: true,
-                    }) ?? "—"}
-                  </span>
-                  {selectedAssignment.status !== "completed" && (
-                    <RescheduleAssignmentDialog
-                      studentLessonId={selectedAssignment.student_lesson_id}
-                      currentDate={selectedAssignment.scheduled_date}
-                      onRescheduled={onAssignmentChanged}
-                      trigger={<DialogTriggerIconButton icon={Pencil} label={tTutor("editAssignmentDateButton")} />}
-                    />
-                  )}
-                  {selectedAssignment.status === "assigned" && (
-                    <DeleteAssignmentButton
-                      studentLessonId={selectedAssignment.student_lesson_id}
-                      onDeleted={onAssignmentChanged}
-                    />
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <span className="text-xs font-medium text-gray-400">{tTutor("notAssignedToStudent")}</span>
-                <AssignStudentDialog
-                  lessonId={lesson.id}
-                  defaultStudentId={selectedStudentId}
-                  onAssigned={onAssignmentChanged}
-                  trigger={<DialogTriggerIconButton icon={UserPlus} label={tTutor("assignLessonButton")} />}
+      <Link
+        href={`/tutor/lessons/${lesson.id}`}
+        title={lesson.task_content || undefined}
+        className="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-gray-50"
+      >
+        <Icon className={`size-3.5 shrink-0 ${iconColorClass}`} aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate text-xs text-gray-700">{lesson.title}</span>
+        <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+          {selectedStudentId === null ? (
+            <span className="max-w-40 truncate text-[11px] text-gray-400">
+              {assignedStudents.length === 0
+                ? t("noStudentsAssigned")
+                : assignedStudents.map((s) => s.student_name).join(", ")}
+            </span>
+          ) : selectedAssignment ? (
+            <>
+              <span className="truncate text-[11px] text-gray-400">
+                {formatShortDate(selectedAssignment.scheduled_date)}
+                {gradeLabel && ` · ${gradeLabel}`}
+              </span>
+              <StatusBadge status={selectedAssignment.status} small />
+              {selectedAssignment.status !== "completed" && (
+                <RescheduleAssignmentDialog
+                  studentLessonId={selectedAssignment.student_lesson_id}
+                  currentDate={selectedAssignment.scheduled_date}
+                  onRescheduled={onAssignmentChanged}
+                  trigger={<DialogTriggerIconButton icon={Pencil} label={t("editAssignmentDateButton")} />}
                 />
-              </>
-            )}
-          </div>
-        )}
-      </Card>
+              )}
+              {selectedAssignment.status === "assigned" && (
+                <DeleteAssignmentButton
+                  studentLessonId={selectedAssignment.student_lesson_id}
+                  onDeleted={onAssignmentChanged}
+                />
+              )}
+            </>
+          ) : (
+            <span className="text-[11px] font-medium text-gray-400">{t("notAssignedToStudent")}</span>
+          )}
+          <AssignStudentDialog
+            lessonId={lesson.id}
+            defaultStudentId={selectedStudentId ?? undefined}
+            onAssigned={onAssignmentChanged}
+            trigger={<DialogTriggerIconButton icon={UserPlus} label={t("assignToStudentButton")} />}
+          />
+          <DeleteLessonButton
+            lessonId={lesson.id}
+            title={lesson.title}
+            disabled={assignedStudents.length > 0}
+            onDeleted={onLessonDeleted}
+          />
+        </span>
+      </Link>
     </li>
   );
 }
@@ -354,44 +326,16 @@ function IsFilledToggle({ subject, subjectId }: { subject: SubjectOut; subjectId
   );
 }
 
-function ChevronIcon({ expanded }: { expanded: boolean }) {
-  return (
-    <svg
-      className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? "rotate-180" : ""}`}
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path
-        fillRule="evenodd"
-        d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-}
-
-function DragHandleIcon() {
-  return (
-    <svg className="h-4 w-4 shrink-0 text-gray-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path d="M7 4a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm3 6a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0zm0 6a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0zm4-12a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm3 6a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0zm0 6a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
-    </svg>
-  );
-}
-
+// Flat topic section — no accordion, no drag handle: every topic's lessons
+// are always shown, same as the student's own Subject detail page. Topic
+// reordering/block-moving no longer happens by dragging (dropped along with
+// the accordion); TopicBlockSelect below is still the way to move a topic
+// to a different block.
 function TopicSection({
   topic,
   lessons,
   blocks,
   subjectId,
-  expanded,
-  onToggle,
-  draggable,
-  isDragging,
-  onDragStart,
-  onDragEnd,
-  onDragOver,
-  onDrop,
   lessonStudentsByLessonId,
   selectedStudentId,
   onAssignmentChanged,
@@ -401,14 +345,6 @@ function TopicSection({
   lessons: LessonOut[];
   blocks: SubjectBlockOut[];
   subjectId: number;
-  expanded: boolean;
-  onToggle: () => void;
-  draggable: boolean;
-  isDragging: boolean;
-  onDragStart: (e: React.DragEvent) => void;
-  onDragEnd: () => void;
-  onDragOver: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent) => void;
   lessonStudentsByLessonId: Map<number, SubjectLessonStudentOut[]>;
   selectedStudentId: number | null;
   onAssignmentChanged: () => void;
@@ -433,28 +369,9 @@ function TopicSection({
   };
 
   return (
-    <div
-      draggable={draggable}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      className={`overflow-hidden rounded-md border border-gray-100 transition-opacity ${isDragging ? "opacity-40" : ""} ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-gray-50">
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={expanded}
-          className="flex flex-1 items-center gap-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-        >
-          {draggable && <DragHandleIcon />}
-          <ChevronIcon expanded={expanded} />
-          <div className="flex flex-col gap-0.5">
-            <span className="font-medium text-gray-900">{topic.title}</span>
-            <span className="text-xs text-gray-500">{t("lessonsCount", { count: lessons.length })}</span>
-          </div>
-        </button>
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1.5">
+        <span className="text-xs font-medium text-gray-500">{topic.title}</span>
         <div className="flex shrink-0 items-center gap-2">
           {blocks.length > 1 && <TopicBlockSelect topic={topic} blocks={blocks} subjectId={subjectId} />}
           <button
@@ -467,30 +384,22 @@ function TopicSection({
           </button>
         </div>
       </div>
-
-      {expanded && (
-        <div className="flex flex-col gap-2 border-t border-gray-100 p-3">
-          {deleteTopic.isError && <p className="text-sm text-red-600">{t("deleteTopicError")}</p>}
-          {lessons.length === 0 ? (
-            <p className="text-sm text-gray-500">{t("noLessonsInTopic")}</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {lessons.map((lesson) => {
-                const assignedStudents = lessonStudentsByLessonId.get(lesson.id) ?? [];
-                return (
-                  <LessonRow
-                    key={lesson.id}
-                    lesson={lesson}
-                    assignedStudents={assignedStudents}
-                    selectedStudentId={selectedStudentId}
-                    onAssignmentChanged={onAssignmentChanged}
-                    onLessonDeleted={onLessonDeleted}
-                  />
-                );
-              })}
-            </ul>
-          )}
-        </div>
+      {deleteTopic.isError && <p className="px-1.5 text-xs text-red-600">{t("deleteTopicError")}</p>}
+      {lessons.length === 0 ? (
+        <p className="px-4 text-xs text-gray-400">{t("noLessonsInTopic")}</p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-gray-50 pl-3">
+          {lessons.map((lesson) => (
+            <LessonRow
+              key={lesson.id}
+              lesson={lesson}
+              assignedStudents={lessonStudentsByLessonId.get(lesson.id) ?? []}
+              selectedStudentId={selectedStudentId}
+              onAssignmentChanged={onAssignmentChanged}
+              onLessonDeleted={onLessonDeleted}
+            />
+          ))}
+        </ul>
       )}
     </div>
   );
@@ -499,11 +408,6 @@ function TopicSection({
 export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
   const t = useTranslations("TutorSubjectDetail");
   const queryClient = useQueryClient();
-
-  // Persisted across subjects via subject-view-store, so switching subjects
-  // keeps the last chosen expand/collapse-all preference.
-  const topicsExpandedPreference = useSubjectViewStore((s) => s.tutorTopicsExpanded);
-  const setTopicsExpandedPreference = useSubjectViewStore((s) => s.setTutorTopicsExpanded);
 
   const subjectQuery = useGetSubject(subjectId);
   const topicsQuery = useListSubjectTopics(subjectId);
@@ -562,85 +466,6 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
 
   const blockGroups = useMemo(() => groupTopicsByBlock(topics, blocks), [topics, blocks]);
 
-  const [expandedOverrides, setExpandedOverrides] = useState<Record<number, boolean>>({});
-  const isExpanded = (topicId: number) => expandedOverrides[topicId] ?? topicsExpandedPreference ?? false;
-  const allExpanded = topics.length > 0 && topics.every((topic) => isExpanded(topic.id));
-
-  const toggleTopic = (topicId: number) => {
-    setExpandedOverrides((prev) => ({ ...prev, [topicId]: !isExpanded(topicId) }));
-  };
-
-  const toggleAll = () => {
-    const next = !allExpanded;
-    setTopicsExpandedPreference(next);
-    setExpandedOverrides(Object.fromEntries(topics.map((topic) => [topic.id, next])));
-  };
-
-  const [draggedTopicId, setDraggedTopicId] = useState<number | null>(null);
-  const reorderTopics = useReorderTutorSubjectTopics();
-  const setTopicBlockForDrag = useSetTopicBlock();
-
-  const findGroupAndIndex = (topicId: number) => {
-    for (const group of blockGroups) {
-      const index = group.topics.findIndex((topic) => topic.id === topicId);
-      if (index !== -1) return { group, index };
-    }
-    return null;
-  };
-
-  // Drops a topic either onto another topic (inserted immediately before
-  // it, targetTopicId set) or onto a group's empty space (appended at the
-  // end, targetTopicId null). Recomputes order_index for every topic from
-  // the resulting flattened order, then — only when the topic actually
-  // changed semester — pins it to the target block so the next
-  // assign_topics_to_blocks recompute can't silently move it back.
-  const handleDrop = (targetGroup: BlockGroup, targetTopicId: number | null) => {
-    if (draggedTopicId === null) return;
-    const source = findGroupAndIndex(draggedTopicId);
-    setDraggedTopicId(null);
-    if (!source) return;
-    if (source.group.key === targetGroup.key && targetTopicId === draggedTopicId) return;
-
-    const newGroups = blockGroups.map((group) => ({ ...group, topics: [...group.topics] }));
-    const newSourceGroup = newGroups.find((group) => group.key === source.group.key)!;
-    const newTargetGroup = newGroups.find((group) => group.key === targetGroup.key)!;
-
-    const sourceIndex = newSourceGroup.topics.findIndex((topic) => topic.id === draggedTopicId);
-    const [draggedTopic] = newSourceGroup.topics.splice(sourceIndex, 1);
-
-    let insertIndex = newTargetGroup.topics.length;
-    if (targetTopicId !== null) {
-      const targetIndex = newTargetGroup.topics.findIndex((topic) => topic.id === targetTopicId);
-      if (targetIndex !== -1) insertIndex = targetIndex;
-    }
-    newTargetGroup.topics.splice(insertIndex, 0, draggedTopic);
-
-    const items = newGroups
-      .flatMap((group) => group.topics)
-      .map((topic, index) => ({ id: topic.id, order_index: index + 1 }));
-
-    reorderTopics.mutate(
-      { subjectId, data: { items } },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListSubjectTopicsQueryKey(subjectId) });
-          queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsQueryKey(subjectId) });
-
-          if (targetGroup.blockId !== null && targetGroup.blockId !== source.group.blockId) {
-            setTopicBlockForDrag.mutate(
-              { topicId: draggedTopic.id, data: { subject_block_id: targetGroup.blockId } },
-              {
-                onSuccess: () => {
-                  queryClient.invalidateQueries({ queryKey: getListSubjectTopicsQueryKey(subjectId) });
-                },
-              },
-            );
-          }
-        },
-      },
-    );
-  };
-
   const isLoading = subjectQuery.isLoading || topicsQuery.isLoading || lessonsQuery.isLoading;
   const isError = subjectQuery.isError || topicsQuery.isError || lessonsQuery.isError;
 
@@ -661,17 +486,30 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
   return (
     <SimplePageContainer>
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
           <Breadcrumbs items={breadcrumbItems} />
-          <h1 className="text-2xl font-semibold text-gray-900">{subject.name}</h1>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-gray-700">
-              {t("classLabel")}: <span className="font-medium">{subject.class_name}</span>
-              <span className="mx-1.5 text-gray-300">·</span>
-              <span className="font-medium">{t("lessonsCount", { count: lessons.length })}</span>
-            </p>
+            <h1 className="text-xl font-semibold text-gray-900">{subject.name}</h1>
             <IsFilledToggle subject={subject} subjectId={subjectId} />
           </div>
+          <p className="text-xs text-gray-500">
+            {t("classLabel")}: {subject.class_name}
+            <span className="mx-1.5 text-gray-300">·</span>
+            {t("lessonsCount", { count: lessons.length })}
+          </p>
+          {selectedStudentId !== null && (
+            <p className="flex items-center gap-1 text-xs text-gray-500">
+              {t("selectStudentLabel")}: {classStudents.find((s) => s.id === selectedStudentId)?.name ?? "…"}
+              <Link
+                href={`/tutor/students/${selectedStudentId}/subjects/${subjectId}`}
+                title={t("viewStudentSubjectButton")}
+                aria-label={t("viewStudentSubjectButton")}
+                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              >
+                <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+            </p>
+          )}
         </div>
 
         <Tabs
@@ -680,15 +518,8 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
               value: "lessons",
               label: t("lessonsTab"),
               content: (
-                <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-5">
                   <div className="flex flex-wrap items-center justify-end gap-1">
-                    <ExpandAllButton
-                      expanded={allExpanded}
-                      onToggle={toggleAll}
-                      disabled={topics.length === 0}
-                      expandLabel={t("expandAll")}
-                      collapseLabel={t("collapseAll")}
-                    />
                     <PlanSubjectLessonsDialog
                       classId={subject.school_class_id}
                       subjectId={subjectId}
@@ -697,10 +528,7 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                     <LoadLessonsJsonDialog subjectId={subjectId} />
                   </div>
 
-                  <form
-                    onSubmit={handleStudentFilterSubmit}
-                    className="flex flex-wrap items-end gap-2 border-t border-gray-100 pt-3"
-                  >
+                  <form onSubmit={handleStudentFilterSubmit} className="flex flex-wrap items-end gap-2">
                     <div className="flex flex-col gap-1">
                       <label htmlFor="student-filter" className="text-xs font-medium text-gray-700">
                         {t("selectStudentLabel")}
@@ -731,74 +559,38 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                   {topics.length === 0 ? (
                     <p className="text-sm text-gray-500">{t("noTopics")}</p>
                   ) : (
-                    <div className="flex flex-col gap-4">
-                      <div className="flex flex-col gap-6">
-                        {blockGroups.map((group) => {
-                          const isDropTarget = group.key !== "unassigned";
-                          return (
-                            <div
-                              key={group.key}
-                              onDragOver={(e) => {
-                                if (isDropTarget && draggedTopicId !== null) e.preventDefault();
-                              }}
-                              onDrop={(e) => {
-                                if (!isDropTarget) return;
-                                e.preventDefault();
-                                handleDrop(group, null);
-                              }}
-                              className="flex flex-col gap-4"
-                            >
-                              {group.label && (
-                                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                                  <h2 className="text-lg font-semibold text-gray-900">{group.label}</h2>
-                                  {group.workload !== null && (
-                                    <span className="text-sm text-gray-500">
-                                      {t("workloadLabel", { value: group.workload.toFixed(2) })}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                              {group.topics.length === 0 ? (
-                                <p className="rounded-md border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-400">
-                                  {t("emptySemesterDropHint")}
-                                </p>
-                              ) : (
-                                group.topics.map((topic) => (
-                                  <TopicSection
-                                    key={topic.id}
-                                    topic={topic}
-                                    lessons={lessonsByTopicId.get(topic.id) ?? []}
-                                    blocks={blocks}
-                                    subjectId={subjectId}
-                                    expanded={isExpanded(topic.id)}
-                                    onToggle={() => toggleTopic(topic.id)}
-                                    draggable={isDropTarget}
-                                    isDragging={draggedTopicId === topic.id}
-                                    onDragStart={(e) => {
-                                      setDraggedTopicId(topic.id);
-                                      e.dataTransfer.effectAllowed = "move";
-                                    }}
-                                    onDragEnd={() => setDraggedTopicId(null)}
-                                    onDragOver={(e) => {
-                                      if (isDropTarget && draggedTopicId !== null) e.preventDefault();
-                                    }}
-                                    onDrop={(e) => {
-                                      if (!isDropTarget) return;
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      handleDrop(group, topic.id);
-                                    }}
-                                    lessonStudentsByLessonId={lessonStudentsByLessonId}
-                                    selectedStudentId={selectedStudentId}
-                                    onAssignmentChanged={handleAssignmentChanged}
-                                    onLessonDeleted={handleLessonDeleted}
-                                  />
-                                ))
+                    <div className="flex flex-col gap-6">
+                      {blockGroups.map((group) => (
+                        <div key={group.key} className="flex flex-col gap-4">
+                          {group.label && (
+                            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                              <h2 className="text-base font-semibold text-gray-900">{group.label}</h2>
+                              {group.workload !== null && (
+                                <span className="text-xs text-gray-500">
+                                  {t("workloadLabel", { value: group.workload.toFixed(2) })}
+                                </span>
                               )}
                             </div>
-                          );
-                        })}
-                      </div>
+                          )}
+                          {group.topics.length === 0 ? (
+                            <p className="text-sm text-gray-400">{t("emptySemesterHint")}</p>
+                          ) : (
+                            group.topics.map((topic) => (
+                              <TopicSection
+                                key={topic.id}
+                                topic={topic}
+                                lessons={lessonsByTopicId.get(topic.id) ?? []}
+                                blocks={blocks}
+                                subjectId={subjectId}
+                                lessonStudentsByLessonId={lessonStudentsByLessonId}
+                                selectedStudentId={selectedStudentId}
+                                onAssignmentChanged={handleAssignmentChanged}
+                                onLessonDeleted={handleLessonDeleted}
+                              />
+                            ))
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
