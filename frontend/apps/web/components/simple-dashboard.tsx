@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useGetWeeklyProgress } from "@school-ahead/api-client/browser/schedule/schedule";
 import { useListMyAchievements } from "@school-ahead/api-client/browser/achievements/achievements";
+import { Link } from "@/i18n/navigation";
 import { ProgressBar } from "@/components/progress-bar";
 import { mergeSimpleRows, SimpleLessonTable } from "@/components/simple-lesson-table";
 import { useSimpleDashboardStore } from "@/stores/simple-dashboard-store";
@@ -125,7 +126,13 @@ function SimpleSubjectStats({ colorful }: { colorful?: boolean }) {
     <ul className="flex flex-col gap-3">
       {subjects.map((subject) => (
         <li key={subject.subject_id}>
-          <ProgressBar percent={subject.completed_percent} label={subject.subject_name} colorful={colorful} />
+          <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
+            <Link href={`/subjects/${subject.subject_id}`} className="truncate text-gray-700 hover:underline">
+              {subject.subject_name}
+            </Link>
+            <span>{Math.round(subject.completed_percent)}%</span>
+          </div>
+          <ProgressBar percent={subject.completed_percent} colorful={colorful} />
         </li>
       ))}
     </ul>

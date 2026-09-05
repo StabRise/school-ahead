@@ -48,7 +48,7 @@ export function MyStudentsSidebar({ students }: { students: TutorStudentOut[] })
             {group.students.map((s) => (
               <li key={s.id}>
                 <Link
-                  href={`/tutor/students/${s.id}/calendar`}
+                  href={`/tutor/students/${s.id}`}
                   className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
                 >
                   <SimpleEntityIcon fallback={User} />

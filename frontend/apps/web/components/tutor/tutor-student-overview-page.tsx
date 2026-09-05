@@ -2,11 +2,12 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { User } from "lucide-react";
+import { BookOpen, User } from "lucide-react";
 import { useGetTutorStudent, useListTutorStudentAchievements } from "@school-ahead/api-client/browser/tutor/tutor";
 import { useGetTutorStudentBacklog, useGetTutorStudentCalendar } from "@school-ahead/api-client/browser/schedule/schedule";
 import { EquippedAvatarLayers, type AvatarLayer } from "@school-ahead/preschool-ui";
 import type { TutorStudentOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { ProgressBar } from "@/components/progress-bar";
@@ -84,7 +85,26 @@ function SubjectStatsTab({ studentId }: { studentId: number }) {
     <ul className="flex flex-col gap-3">
       {subjects.map((subject) => (
         <li key={subject.subject_id}>
-          <ProgressBar percent={subject.completed_percent} label={subject.subject_name} colorful />
+          <div className="mb-1 flex items-center justify-between gap-2 text-xs text-gray-500">
+            <Link
+              href={`/tutor/students/${studentId}/subjects/${subject.subject_id}`}
+              className="min-w-0 truncate text-gray-700 hover:underline"
+            >
+              {subject.subject_name}
+            </Link>
+            <span className="flex shrink-0 items-center gap-2">
+              <Link
+                href={`/tutor/subjects/${subject.subject_id}`}
+                title={t("viewSubjectButton")}
+                aria-label={t("viewSubjectButton")}
+                className="rounded-md p-1 text-gray-400 hover:bg-gray-50 hover:text-gray-700"
+              >
+                <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+              <span>{Math.round(subject.completed_percent)}%</span>
+            </span>
+          </div>
+          <ProgressBar percent={subject.completed_percent} colorful />
         </li>
       ))}
     </ul>

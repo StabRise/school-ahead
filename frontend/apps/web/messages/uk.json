@@ -285,7 +285,8 @@
     "noLessonsToday": "На сьогодні уроків не заплановано",
     "calendarTab": "Календар",
     "statsTab": "Статистика по предметах",
-    "noSubjects": "У цього учня немає предметів"
+    "noSubjects": "У цього учня немає предметів",
+    "viewSubjectButton": "Перейти до предмета"
   },
   "PlanLessons": {
     "triggerButton": "Запланувати уроки на період",
@@ -370,7 +371,10 @@
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити предмет. Спробуйте ще раз.",
     "breadcrumbMySubjects": "Мої предмети",
+    "breadcrumbMyClasses": "Мої класи",
     "classLabel": "Клас",
+    "teacherLabel": "Вчитель",
+    "viewSubjectButton": "Перейти до предмета",
     "isFilledLabel": "Предмет повністю наповнений уроками",
     "isFilledError": "Не вдалося зберегти. Спробуйте ще раз.",
     "lessonsTab": "Уроки",
@@ -378,21 +382,15 @@
     "noTopics": "Тем ще немає.",
     "noLessonsInTopic": "У цій темі ще немає уроків.",
     "lessonsCount": "Уроків: {count}",
-    "expandAll": "Розгорнути всі теми",
-    "collapseAll": "Згорнути всі теми",
-    "emptySemesterDropHint": "У цьому семестрі ще немає тем. Перетягніть сюди тему.",
+    "emptySemesterHint": "У цьому семестрі ще немає тем.",
     "workloadLabel": "Навантаження: {value} уроків/тиждень",
     "moveToBlockLabel": "Перемістити тему до блоку",
     "deleteTopicButton": "Видалити тему",
     "deleteTopicConfirm": "Видалити тему «{title}» разом з усіма її уроками ({count})? Цю дію не можна скасувати.",
     "deleteTopicError": "Не вдалося видалити тему. Спробуйте ще раз.",
-    "viewModeBrief": "Стислий вигляд",
-    "viewModeFull": "Повний вигляд",
-    "viewModeStudent": "Вигляд по учню",
     "noStudentsAssigned": "Не призначено жодному учню",
     "notAssignedToStudent": "Не призначено",
     "assignToStudentButton": "Призначити учню",
-    "assignLessonButton": "Призначити урок",
     "deleteLessonButton": "Видалити урок",
     "deleteLessonConfirm": "Видалити урок «{title}»? Цю дію не можна скасувати.",
     "deleteLessonError": "Не вдалося видалити урок. Спробуйте ще раз.",
@@ -408,7 +406,8 @@
     "deleteAssignmentError": "Не вдалося видалити призначення. Спробуйте ще раз.",
     "selectStudentLabel": "Учень",
     "selectStudentPlaceholder": "Оберіть учня",
-    "submitButton": "Показати"
+    "submitButton": "Показати",
+    "viewStudentSubjectButton": "Сторінка учня по предмету"
   },
   "TutorLessonDetail": {
     "loading": "Завантаження...",
@@ -744,8 +743,7 @@
     "noTopics": "Тем ще немає.",
     "noLessonsInTopic": "У цій темі ще немає уроків.",
     "workloadLabel": "Навантаження: {value} уроків/тиждень",
-    "lessonsProgress": "{completed}/{total} уроків пройдено",
-    "lessonRow": "Урок №{index}: {title}"
+    "lessonsProgress": "{completed}/{total} уроків пройдено"
   },
   "SubjectPlan": {
     "loading": "Завантаження...",

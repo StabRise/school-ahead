@@ -3,9 +3,8 @@ import { persist } from "zustand/middleware";
 
 // Client-side open/closed state for the Simple dashboard's "Статистика"
 // section (which holds "Виконано за тиждень" and "Прогрес по предметах" as
-// its two columns) — persisted to localStorage (same pattern as
-// subject-view-store) so a student's choice survives a reload instead of
-// resetting every visit.
+// its two columns) — persisted to localStorage so a student's choice
+// survives a reload instead of resetting every visit.
 
 interface SimpleDashboardState {
   statisticsOpen: boolean;

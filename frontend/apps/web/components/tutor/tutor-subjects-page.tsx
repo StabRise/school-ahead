@@ -64,8 +64,8 @@ function groupByClass(assignments: AssignmentOut[]): ClassGroup[] {
 
 // Notion-style, monochrome, borderless row list grouped by class — replaces
 // the Standard shadow-card grid, matching the student Simple views'
-// visual language. See stores/subject-view-store.ts's removal of the old
-// brief/full/student tutor toggle for the related subject-detail migration.
+// visual language — the same flat redesign later applied to the Subject
+// detail page (components/tutor/tutor-subject-detail-page.tsx).
 export function TutorSubjectsPage() {
   const t = useTranslations("TutorSubjects");
   const tColumn = useTranslations("MySubjects");
