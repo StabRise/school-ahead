@@ -730,7 +730,16 @@
     "statusKnown": "Вже знаю",
     "deleteButton": "Видалити зі словника",
     "addButton": "Додати до словника",
-    "addedMessage": "Додано до словника"
+    "addedMessage": "Додано до словника",
+    "editButton": "Редагувати переклад",
+    "saveButton": "Зберегти",
+    "cancelButton": "Скасувати",
+    "sortLabel": "Сортування",
+    "sortRecent": "Спочатку нові",
+    "sortAbc": "За абеткою",
+    "sortLevel": "За рівнем знання",
+    "langFilterLabel": "Мова",
+    "langFilterAll": "Усі мови"
   },
   "SubjectDetail": {
     "loading": "Завантаження...",
