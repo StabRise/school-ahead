@@ -1,7 +1,9 @@
 import datetime
 
-from lessons.schemas import LessonSubmissionOut
 from ninja import Schema
+
+from accounts.schemas import AvatarItemOut, AvatarOut
+from lessons.schemas import LessonSubmissionOut
 
 
 class AssignmentOut(Schema):
@@ -67,6 +69,17 @@ class TutorStudentOut(Schema):
     # see lessons.services._update_completion_percent_cache, refreshed on
     # every lesson completion rather than computed here on every request.
     completed_percent: float
+    avatar_url: str = ''
+    # Only populated (get_tutor_student) for the tutor's single-student
+    # overview page — every list endpoint sharing this schema (list_students,
+    # list_assignable_students, the class roster) leaves these at their
+    # empty defaults rather than paying the extra avatar/wardrobe queries
+    # per row. See accounts.schemas.UserOut for the identical shape this
+    # mirrors (accounts.services.avatar_out/equipped_items_out).
+    equipped_avatar: AvatarOut | None = None
+    equipped_clothing_items: list[AvatarItemOut] = []
+    equipped_headwear_items: list[AvatarItemOut] = []
+    equipped_accessory_items: list[AvatarItemOut] = []
 
 
 class TutorClassOut(Schema):

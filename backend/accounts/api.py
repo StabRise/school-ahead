@@ -12,7 +12,6 @@ from . import services
 from .cookies import clear_auth_cookies, set_auth_cookies
 from .models import Avatar, AvatarItem, InterfaceMode, TranslationScope
 from .schemas import (
-    AvatarItemOut,
     AvatarOut,
     GoogleLoginIn,
     GoogleLoginOut,
@@ -26,71 +25,6 @@ from .schemas import (
 )
 
 router = Router(tags=['auth'])
-
-
-def _avatar_item_out(
-    item: AvatarItem | None,
-    request: HttpRequest,
-    unlocked_ids: set[int] | None,
-    placement: tuple[float, float, float, float] | None = None,
-) -> AvatarItemOut | None:
-    if item is None:
-        return None
-    image_url = request.build_absolute_uri(item.image.url) if item.image else None
-    # unlocked_ids is None for a viewer with no shop-gating concept (no
-    # StudentProfile) — everything reads as unlocked. Otherwise gated by
-    # accounts.services.is_item_unlocked's rule, inlined here since we
-    # already have the id set precomputed for the whole response.
-    is_unlocked = unlocked_ids is None or item.price == 0 or item.id in unlocked_ids
-    # placement is the requesting student's own EquippedItemPlacement
-    # override for this item, if any — see _equipped_items_out. Never set
-    # for catalog items (_avatar_out), only for a student's own equipped
-    # items, so anyone else's view of this student's avatar (once that
-    # exists) always falls back to the tutor-configured position/size below.
-    offset_x, offset_y, rotation, scale = (
-        placement if placement is not None else (item.offset_x, item.offset_y, 0.0, item.scale)
-    )
-    return AvatarItemOut(
-        id=item.id,
-        slot=item.slot,
-        key=item.key,
-        name=item.name,
-        image=image_url,
-        scale=scale,
-        offset_x=offset_x,
-        offset_y=offset_y,
-        rotation=rotation,
-        layer_order=item.layer_order,
-        price=item.price,
-        is_unlocked=is_unlocked,
-    )
-
-
-def _avatar_out(avatar: Avatar | None, request: HttpRequest, unlocked_ids: set[int] | None) -> AvatarOut | None:
-    if avatar is None:
-        return None
-    image_url = request.build_absolute_uri(avatar.image.url) if avatar.image else None
-    items = [_avatar_item_out(item, request, unlocked_ids) for item in avatar.items.filter(is_active=True)]
-    return AvatarOut(id=avatar.id, key=avatar.key, name=avatar.name, image=image_url, scale=avatar.scale, items=items)
-
-
-def _equipped_items_out(student_profile, field_name: str, request: HttpRequest, unlocked_ids) -> list[AvatarItemOut]:
-    manager = getattr(student_profile, field_name)
-    items = list(manager.filter(is_active=True))
-    # A student's own stacking-order override (EquippedItemOrder), if any —
-    # falls back to the catalog's default layer_order for any item without
-    # one (never reordered, or newly equipped since the last reorder).
-    custom_order = dict(student_profile.item_orders.values_list('item_id', 'order'))
-    items.sort(key=lambda item: (custom_order.get(item.id, item.layer_order), item.id))
-    # A student's own move/rotate/resize override (EquippedItemPlacement),
-    # if any — see _avatar_item_out and docs/core/avatar.md section 2.2.
-    placements = {
-        item_id: (offset_x, offset_y, rotation, scale)
-        for item_id, offset_x, offset_y, rotation, scale in student_profile.item_placements.values_list(
-            'item_id', 'offset_x', 'offset_y', 'rotation', 'scale'
-        )
-    }
-    return [_avatar_item_out(item, request, unlocked_ids, placements.get(item.id)) for item in items]
 
 
 def _user_out(request: HttpRequest, user) -> UserOut:
@@ -109,14 +43,22 @@ def _user_out(request: HttpRequest, user) -> UserOut:
         interface_mode=student_profile.interface_mode if student_profile else None,
         translation_scope=student_profile.translation_scope if student_profile else None,
         translate_on_select=student_profile.translate_on_select if student_profile else None,
-        equipped_avatar=_avatar_out(student_profile.equipped_avatar, request, unlocked_ids) if student_profile else None,
-        equipped_clothing_items=_equipped_items_out(student_profile, 'equipped_clothing_items', request, unlocked_ids)
+        equipped_avatar=services.avatar_out(student_profile.equipped_avatar, request, unlocked_ids)
+        if student_profile
+        else None,
+        equipped_clothing_items=services.equipped_items_out(
+            student_profile, 'equipped_clothing_items', request, unlocked_ids
+        )
         if student_profile
         else [],
-        equipped_headwear_items=_equipped_items_out(student_profile, 'equipped_headwear_items', request, unlocked_ids)
+        equipped_headwear_items=services.equipped_items_out(
+            student_profile, 'equipped_headwear_items', request, unlocked_ids
+        )
         if student_profile
         else [],
-        equipped_accessory_items=_equipped_items_out(student_profile, 'equipped_accessory_items', request, unlocked_ids)
+        equipped_accessory_items=services.equipped_items_out(
+            student_profile, 'equipped_accessory_items', request, unlocked_ids
+        )
         if student_profile
         else [],
         diamond_balance=student_profile.diamond_balance_cache if student_profile else None,
@@ -233,7 +175,7 @@ def list_avatars(request: HttpRequest):
     unlocked_ids = (
         set(student_profile.unlocked_items.values_list('id', flat=True)) if student_profile else None
     )
-    return [_avatar_out(a, request, unlocked_ids) for a in Avatar.objects.filter(is_active=True)]
+    return [services.avatar_out(a, request, unlocked_ids) for a in Avatar.objects.filter(is_active=True)]
 
 
 @router.patch(

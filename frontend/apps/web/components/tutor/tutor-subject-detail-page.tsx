@@ -28,6 +28,7 @@ import type {
 import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Card } from "@/components/card";
+import { SimplePageContainer } from "@/components/simple/page-container";
 import { ExpandAllButton } from "@/components/expand-all-button";
 import { Tabs } from "@/components/tabs";
 import { groupTopicsByBlock, type BlockGroup } from "@/components/subjects/group-topics-by-block";
@@ -658,157 +659,159 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
   ];
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
-      <div className="flex flex-col gap-3">
-        <Breadcrumbs items={breadcrumbItems} />
-        <h1 className="text-2xl font-semibold text-gray-900">{subject.name}</h1>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-gray-700">
-            {t("classLabel")}: <span className="font-medium">{subject.class_name}</span>
-            <span className="mx-1.5 text-gray-300">·</span>
-            <span className="font-medium">{t("lessonsCount", { count: lessons.length })}</span>
-          </p>
-          <IsFilledToggle subject={subject} subjectId={subjectId} />
+    <SimplePageContainer>
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3">
+          <Breadcrumbs items={breadcrumbItems} />
+          <h1 className="text-2xl font-semibold text-gray-900">{subject.name}</h1>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-gray-700">
+              {t("classLabel")}: <span className="font-medium">{subject.class_name}</span>
+              <span className="mx-1.5 text-gray-300">·</span>
+              <span className="font-medium">{t("lessonsCount", { count: lessons.length })}</span>
+            </p>
+            <IsFilledToggle subject={subject} subjectId={subjectId} />
+          </div>
         </div>
-      </div>
 
-      <Tabs
-        tabs={[
-          {
-            value: "lessons",
-            label: t("lessonsTab"),
-            content: (
-              <div className="flex flex-col gap-6">
-                <div className="flex flex-wrap items-center justify-end gap-1">
-                  <ExpandAllButton
-                    expanded={allExpanded}
-                    onToggle={toggleAll}
-                    disabled={topics.length === 0}
-                    expandLabel={t("expandAll")}
-                    collapseLabel={t("collapseAll")}
-                  />
-                  <PlanSubjectLessonsDialog
-                    classId={subject.school_class_id}
-                    subjectId={subjectId}
-                    subjectName={subject.name}
-                  />
-                  <LoadLessonsJsonDialog subjectId={subjectId} />
-                </div>
-
-                <form
-                  onSubmit={handleStudentFilterSubmit}
-                  className="flex flex-wrap items-end gap-2 border-t border-gray-100 pt-3"
-                >
-                  <div className="flex flex-col gap-1">
-                    <label htmlFor="student-filter" className="text-xs font-medium text-gray-700">
-                      {t("selectStudentLabel")}
-                    </label>
-                    <select
-                      id="student-filter"
-                      value={draftStudentId}
-                      onChange={(e) => setDraftStudentId(e.target.value === "" ? "" : Number(e.target.value))}
-                      className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-700"
-                    >
-                      <option value="">{t("selectStudentPlaceholder")}</option>
-                      {classStudents.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
+        <Tabs
+          tabs={[
+            {
+              value: "lessons",
+              label: t("lessonsTab"),
+              content: (
+                <div className="flex flex-col gap-6">
+                  <div className="flex flex-wrap items-center justify-end gap-1">
+                    <ExpandAllButton
+                      expanded={allExpanded}
+                      onToggle={toggleAll}
+                      disabled={topics.length === 0}
+                      expandLabel={t("expandAll")}
+                      collapseLabel={t("collapseAll")}
+                    />
+                    <PlanSubjectLessonsDialog
+                      classId={subject.school_class_id}
+                      subjectId={subjectId}
+                      subjectName={subject.name}
+                    />
+                    <LoadLessonsJsonDialog subjectId={subjectId} />
                   </div>
-                  <button
-                    type="submit"
-                    disabled={draftStudentId === ""}
-                    className="rounded-md bg-gray-900 px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+
+                  <form
+                    onSubmit={handleStudentFilterSubmit}
+                    className="flex flex-wrap items-end gap-2 border-t border-gray-100 pt-3"
                   >
-                    {t("submitButton")}
-                  </button>
-                </form>
-
-                {topics.length === 0 ? (
-                  <p className="text-sm text-gray-500">{t("noTopics")}</p>
-                ) : (
-                  <div className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-6">
-                      {blockGroups.map((group) => {
-                        const isDropTarget = group.key !== "unassigned";
-                        return (
-                          <div
-                            key={group.key}
-                            onDragOver={(e) => {
-                              if (isDropTarget && draggedTopicId !== null) e.preventDefault();
-                            }}
-                            onDrop={(e) => {
-                              if (!isDropTarget) return;
-                              e.preventDefault();
-                              handleDrop(group, null);
-                            }}
-                            className="flex flex-col gap-4"
-                          >
-                            {group.label && (
-                              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                                <h2 className="text-lg font-semibold text-gray-900">{group.label}</h2>
-                                {group.workload !== null && (
-                                  <span className="text-sm text-gray-500">
-                                    {t("workloadLabel", { value: group.workload.toFixed(2) })}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                            {group.topics.length === 0 ? (
-                              <p className="rounded-md border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-400">
-                                {t("emptySemesterDropHint")}
-                              </p>
-                            ) : (
-                              group.topics.map((topic) => (
-                                <TopicSection
-                                  key={topic.id}
-                                  topic={topic}
-                                  lessons={lessonsByTopicId.get(topic.id) ?? []}
-                                  blocks={blocks}
-                                  subjectId={subjectId}
-                                  expanded={isExpanded(topic.id)}
-                                  onToggle={() => toggleTopic(topic.id)}
-                                  draggable={isDropTarget}
-                                  isDragging={draggedTopicId === topic.id}
-                                  onDragStart={(e) => {
-                                    setDraggedTopicId(topic.id);
-                                    e.dataTransfer.effectAllowed = "move";
-                                  }}
-                                  onDragEnd={() => setDraggedTopicId(null)}
-                                  onDragOver={(e) => {
-                                    if (isDropTarget && draggedTopicId !== null) e.preventDefault();
-                                  }}
-                                  onDrop={(e) => {
-                                    if (!isDropTarget) return;
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleDrop(group, topic.id);
-                                  }}
-                                  lessonStudentsByLessonId={lessonStudentsByLessonId}
-                                  selectedStudentId={selectedStudentId}
-                                  onAssignmentChanged={handleAssignmentChanged}
-                                  onLessonDeleted={handleLessonDeleted}
-                                />
-                              ))
-                            )}
-                          </div>
-                        );
-                      })}
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor="student-filter" className="text-xs font-medium text-gray-700">
+                        {t("selectStudentLabel")}
+                      </label>
+                      <select
+                        id="student-filter"
+                        value={draftStudentId}
+                        onChange={(e) => setDraftStudentId(e.target.value === "" ? "" : Number(e.target.value))}
+                        className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-700"
+                      >
+                        <option value="">{t("selectStudentPlaceholder")}</option>
+                        {classStudents.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  </div>
-                )}
-              </div>
-            ),
-          },
-          {
-            value: "plan",
-            label: t("planTab"),
-            content: <SemesterPlan subjectId={subjectId} />,
-          },
-        ]}
-      />
-    </div>
+                    <button
+                      type="submit"
+                      disabled={draftStudentId === ""}
+                      className="rounded-md bg-gray-900 px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                    >
+                      {t("submitButton")}
+                    </button>
+                  </form>
+
+                  {topics.length === 0 ? (
+                    <p className="text-sm text-gray-500">{t("noTopics")}</p>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      <div className="flex flex-col gap-6">
+                        {blockGroups.map((group) => {
+                          const isDropTarget = group.key !== "unassigned";
+                          return (
+                            <div
+                              key={group.key}
+                              onDragOver={(e) => {
+                                if (isDropTarget && draggedTopicId !== null) e.preventDefault();
+                              }}
+                              onDrop={(e) => {
+                                if (!isDropTarget) return;
+                                e.preventDefault();
+                                handleDrop(group, null);
+                              }}
+                              className="flex flex-col gap-4"
+                            >
+                              {group.label && (
+                                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                                  <h2 className="text-lg font-semibold text-gray-900">{group.label}</h2>
+                                  {group.workload !== null && (
+                                    <span className="text-sm text-gray-500">
+                                      {t("workloadLabel", { value: group.workload.toFixed(2) })}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              {group.topics.length === 0 ? (
+                                <p className="rounded-md border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-400">
+                                  {t("emptySemesterDropHint")}
+                                </p>
+                              ) : (
+                                group.topics.map((topic) => (
+                                  <TopicSection
+                                    key={topic.id}
+                                    topic={topic}
+                                    lessons={lessonsByTopicId.get(topic.id) ?? []}
+                                    blocks={blocks}
+                                    subjectId={subjectId}
+                                    expanded={isExpanded(topic.id)}
+                                    onToggle={() => toggleTopic(topic.id)}
+                                    draggable={isDropTarget}
+                                    isDragging={draggedTopicId === topic.id}
+                                    onDragStart={(e) => {
+                                      setDraggedTopicId(topic.id);
+                                      e.dataTransfer.effectAllowed = "move";
+                                    }}
+                                    onDragEnd={() => setDraggedTopicId(null)}
+                                    onDragOver={(e) => {
+                                      if (isDropTarget && draggedTopicId !== null) e.preventDefault();
+                                    }}
+                                    onDrop={(e) => {
+                                      if (!isDropTarget) return;
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleDrop(group, topic.id);
+                                    }}
+                                    lessonStudentsByLessonId={lessonStudentsByLessonId}
+                                    selectedStudentId={selectedStudentId}
+                                    onAssignmentChanged={handleAssignmentChanged}
+                                    onLessonDeleted={handleLessonDeleted}
+                                  />
+                                ))
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ),
+            },
+            {
+              value: "plan",
+              label: t("planTab"),
+              content: <SemesterPlan subjectId={subjectId} />,
+            },
+          ]}
+        />
+      </div>
+    </SimplePageContainer>
   );
 }

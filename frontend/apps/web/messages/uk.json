@@ -277,10 +277,16 @@
     "recalculateWorkloadButton": "Перерахувати навантаження",
     "recalculateWorkloadError": "Не вдалося перерахувати навантаження. Спробуйте ще раз."
   },
-  "TutorStudentCalendar": {
+  "TutorStudentOverview": {
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити учня. Спробуйте ще раз.",
-    "breadcrumbMyClasses": "Мої класи"
+    "breadcrumbMyClasses": "Мої класи",
+    "completedLabel": "Виконано програми",
+    "todayTitle": "Сьогоднішні уроки",
+    "noLessonsToday": "На сьогодні уроків не заплановано",
+    "calendarTab": "Календар",
+    "statsTab": "Статистика по предметах",
+    "noSubjects": "У цього учня немає предметів"
   },
   "PlanLessons": {
     "triggerButton": "Запланувати уроки на період",
@@ -774,13 +780,13 @@
     "period4Days": "4 дні",
     "periodWeek": "Тиждень",
     "period10Days": "10 днів",
+    "filterAll": "Усі уроки",
+    "filterIncomplete": "Незавершені уроки",
     "progress": "{completed}/{total} уроків завершено",
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити календар. Спробуйте ще раз.",
     "noLessons": "Немає уроків",
-    "backlogTitle": "Хвости",
-    "backlogHint": "Уроки, які не завершено вчасно",
-    "backlogOrigin": "Мало бути виконано: {label}",
+    "goToToday": "Перейти до сьогоднішніх уроків",
     "lessonTooltip": "{topic}\n{lesson}",
     "previewAsStudent": "Переглянути урок як учень",
     "openSubject": "Відкрити предмет",

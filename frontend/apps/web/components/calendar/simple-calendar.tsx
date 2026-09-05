@@ -3,14 +3,24 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Eye, Trash2, CalendarClock, Monitor } from "lucide-react";
+import {
+  BookOpen,
+  Eye,
+  Trash2,
+  CalendarClock,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  ListOrdered,
+  ListTodo,
+  Monitor,
+  LayoutList,
+} from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import {
   getGetTutorStudentCalendarQueryKey,
   getSchedulingApiCalendarQueryKey,
-  useGetTutorStudentBacklog,
   useGetTutorStudentCalendar,
-  useSchedulingApiBacklog,
   useSchedulingApiCalendar,
   useSchedulingApiReschedule,
 } from "@school-ahead/api-client/browser/schedule/schedule";
@@ -21,7 +31,7 @@ import { AddDayLessonDialog } from "@/components/calendar/add-day-lesson-dialog"
 import { RescheduleDialog } from "@/components/calendar/reschedule-dialog";
 import { sortLessonItems } from "@/lib/lesson-order";
 import { LESSON_TYPE_ICON, LESSON_TYPE_ICON_COLOR } from "@/components/simple/lesson-type-icon";
-import { formatGradeLabel, formatShortDate, resolveStatusLabel } from "@/components/simple/format";
+import { formatGradeLabel, resolveStatusLabel } from "@/components/simple/format";
 import { StatusBadge } from "@/components/status-badge";
 import type { CalendarItemOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 
@@ -102,47 +112,111 @@ function NavButton({
     <button
       type="button"
       onClick={onClick}
+      title={label}
       aria-label={label}
-      className="rounded-md border border-gray-200 px-3 py-1.5 text-sm hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      className="rounded-md border border-gray-200 p-1.5 text-sm hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
     >
       {children}
     </button>
   );
 }
 
-function PeriodSwitcher({ period, onChange }: { period: PeriodLength; onChange: (next: PeriodLength) => void }) {
-  const t = useTranslations("Calendar");
+// Segmented icon-button group shared by PeriodSwitcher and
+// LessonFilterSwitcher below — a border, one rounded-square button per
+// option, active option filled dark, every button's label given only as a
+// tooltip/aria-label (never printed) since the icon carries the meaning.
+function IconSegmentedControl<T extends string | number>({
+  options,
+  value,
+  onChange,
+  labelFor,
+  iconFor,
+}: {
+  options: T[];
+  value: T;
+  onChange: (next: T) => void;
+  labelFor: (option: T) => string;
+  iconFor: (option: T) => React.ReactNode;
+}) {
   return (
     <div className="inline-flex rounded-md border border-gray-300 p-0.5 text-sm">
-      {PERIODS.map((option) => (
+      {options.map((option) => (
         <button
           key={option}
           type="button"
           onClick={() => onChange(option)}
-          className={`rounded px-3 py-1 font-medium ${
-            period === option ? "bg-gray-900 text-white" : "text-gray-700 hover:bg-gray-50"
+          title={labelFor(option)}
+          aria-label={labelFor(option)}
+          aria-pressed={value === option}
+          className={`rounded p-1.5 font-medium ${
+            value === option ? "bg-gray-900 text-white" : "text-gray-700 hover:bg-gray-50"
           }`}
         >
-          {t(PERIOD_LABEL_KEY[option])}
+          {iconFor(option)}
         </button>
       ))}
     </div>
   );
 }
 
+// Plain numeral (4/7/10) rather than a pictograph — no lucide icon
+// distinguishes "4 days" from "10 days" from "a week", so the number itself
+// is the icon here; the full label ("Тиждень", …) only ever shows as the
+// button's tooltip, same convention as every other icon button in this bar.
+function PeriodSwitcher({ period, onChange }: { period: PeriodLength; onChange: (next: PeriodLength) => void }) {
+  const t = useTranslations("Calendar");
+  return (
+    <IconSegmentedControl
+      options={PERIODS}
+      value={period}
+      onChange={onChange}
+      labelFor={(option) => t(PERIOD_LABEL_KEY[option])}
+      iconFor={(option) => <span className="inline-block w-4 text-center tabular-nums">{option}</span>}
+    />
+  );
+}
+
+type LessonFilter = "all" | "incomplete";
+const LESSON_FILTERS: LessonFilter[] = ["all", "incomplete"];
+const LESSON_FILTER_LABEL_KEY: Record<LessonFilter, string> = {
+  all: "filterAll",
+  incomplete: "filterIncomplete",
+};
+const LESSON_FILTER_ICON: Record<LessonFilter, typeof ListOrdered> = {
+  all: ListTodo,
+  incomplete: LayoutList,
+};
+
+function LessonFilterSwitcher({ filter, onChange }: { filter: LessonFilter; onChange: (next: LessonFilter) => void }) {
+  const t = useTranslations("Calendar");
+  return (
+    <IconSegmentedControl
+      options={LESSON_FILTERS}
+      value={filter}
+      onChange={onChange}
+      labelFor={(option) => t(LESSON_FILTER_LABEL_KEY[option])}
+      iconFor={(option) => {
+        const Icon = LESSON_FILTER_ICON[option];
+        return <Icon className="size-4" aria-hidden="true" />;
+      }}
+    />
+  );
+}
+
 const iconButtonClasses = "rounded px-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700";
 
 // One lesson entry inside a day column — monochrome, tiny grey icon, subject
-// and lesson title on their own lines, then status/grade/backlog-origin as
-// small grey meta text below. In tutor-management mode (`canManage`/
-// `showTutorLinks`, set only when SimpleCalendar is given a `studentId`)
-// the row also gets a trailing action line mirroring WeeklyCalendar's
-// LessonCard: drag-to-reschedule, a "change date" button, "preview as
-// student"/"open subject" links, and a delete button for still-unstarted
-// assignments — same capabilities, monochrome styling.
+// and lesson title on their own lines (dark red when `overdue`), then status
+// as small grey meta text below (skipped once completed) and the grade, if
+// any, pinned to the row's bottom-right corner. In tutor-management mode
+// (`canManage`/`showTutorLinks`, set only when SimpleCalendar is given a
+// `studentId`) the row also gets a trailing action line mirroring
+// WeeklyCalendar's LessonCard: drag-to-reschedule, a "change date" button,
+// "preview as student"/"open subject" links, and a delete button for
+// still-unstarted assignments — same capabilities, monochrome styling.
 function SimpleDayLessonRow({
   item,
-  originLabel,
+  overdue,
   readOnly,
   canManage,
   showTutorLinks,
@@ -151,7 +225,7 @@ function SimpleDayLessonRow({
   onRequestDelete,
 }: {
   item: CalendarItemOut;
-  originLabel?: string;
+  overdue?: boolean;
   readOnly?: boolean;
   canManage?: boolean;
   showTutorLinks?: boolean;
@@ -164,6 +238,7 @@ function SimpleDayLessonRow({
   const tStatus = useTranslations("LessonStatus");
   const Icon = LESSON_TYPE_ICON[item.lesson_type] ?? Monitor;
   const iconColorClass = colorful ? (LESSON_TYPE_ICON_COLOR[item.lesson_type] ?? "text-gray-400") : "text-gray-400";
+  const isCompleted = item.status === "completed";
 
   const gradeLabel = formatGradeLabel({
     gradePoints: item.grade_points,
@@ -173,9 +248,10 @@ function SimpleDayLessonRow({
   });
 
   // Status moves out of the plain-text meta line into a small colored
-  // badge in colorful mode — same convention as the dashboard table.
-  const statusLabel = colorful ? null : resolveStatusLabel(item.status, tStatus);
-  const metaParts = [originLabel ?? null, statusLabel, gradeLabel].filter(Boolean);
+  // badge in colorful mode — same convention as the dashboard table. Once a
+  // lesson is completed, the grade (bottom-right corner) already says
+  // everything the status word would, so the label drops entirely instead.
+  const statusLabel = isCompleted || colorful ? null : resolveStatusLabel(item.status, tStatus);
   const showActionRow = showTutorLinks || canManage;
 
   const stopDragStart = (e: React.MouseEvent) => e.stopPropagation();
@@ -184,15 +260,20 @@ function SimpleDayLessonRow({
     <>
       <span className="flex min-w-0 items-center gap-1.5">
         <Icon className={`size-3.5 shrink-0 ${iconColorClass}`} aria-hidden="true" />
-        <span className="truncate text-xs font-medium text-gray-900">{item.subject_name}</span>
+        <span className={`truncate text-xs font-medium ${overdue ? "text-red-900" : "text-gray-900"}`}>
+          {item.subject_name}
+        </span>
       </span>
-      <span className="truncate pl-5 text-xs text-gray-600">{item.lesson_title}</span>
+      <span className={`truncate pl-5 text-xs ${overdue ? "text-red-900" : "text-gray-600"}`}>
+        {item.lesson_title}
+      </span>
       <span className="flex items-center gap-1.5 pl-5">
-        {metaParts.length > 0 && (
-          <span className="truncate text-[11px] text-gray-400">{metaParts.join(" · ")}</span>
-        )}
-        {colorful && <StatusBadge status={item.status} small />}
+        {statusLabel && <span className="truncate text-[11px] text-gray-400">{statusLabel}</span>}
+        {colorful && !isCompleted && <StatusBadge status={item.status} small />}
       </span>
+      {gradeLabel && (
+        <span className="absolute bottom-1 right-1.5 text-[11px] font-semibold text-gray-700">{gradeLabel}</span>
+      )}
       {showActionRow && (
         <span className="flex items-center gap-1 pl-5">
           {showTutorLinks && (
@@ -254,7 +335,7 @@ function SimpleDayLessonRow({
     </>
   );
 
-  const rowClassName = `flex flex-col gap-0.5 rounded px-1.5 py-1 hover:bg-gray-50 ${
+  const rowClassName = `relative flex flex-col gap-0.5 rounded px-1.5 py-1 pr-6 hover:bg-gray-50 ${
     canManage ? "cursor-grab active:cursor-grabbing" : ""
   }`;
 
@@ -293,22 +374,31 @@ function SimpleDayLessonRow({
 // period switcher (4 days / week / 10 days). `colorful` (Default mode)
 // restores colored status badges/lesson-type icons/progress bar; Simple
 // mode keeps them monochrome — see the Settings page's "Вигляд" section
-// (components/settings/view-settings.tsx). The backlog ("хвости") isn't a
-// separate section — it's folded directly into today's column, since a
-// tail is exactly a lesson that should have happened by today.
+// (components/settings/view-settings.tsx). Every lesson renders only on its
+// own `scheduled_date` column — an overdue lesson stays on the day it was
+// due (in dark red) instead of being folded into today's column, so
+// navigating to an earlier range is what surfaces it. A filter switcher
+// (all lessons / not-completed only) narrows which lessons show per day.
 //
 // `studentId` puts this in tutor-management mode: it hits the tutor-scoped
-// student calendar/backlog endpoints instead of the self-scoped "my
-// calendar" ones, and lessons become drag-to-reschedule/deletable instead
-// of clickable. Both hook pairs below are always called (rules of hooks) —
-// `enabled` picks which fires.
-export function SimpleCalendar({ studentId, colorful }: { studentId?: number; colorful?: boolean } = {}) {
+// student calendar endpoint instead of the self-scoped "my calendar" one,
+// and lessons become drag-to-reschedule/deletable instead of clickable.
+// Both hooks below are always called (rules of hooks) — `enabled` picks
+// which fires. `bare` drops the component's own PageContainer/title — for
+// embedding inside a caller that already provides one (the tutor student
+// overview page's "Календар" tab), so the page/side padding doesn't double up.
+export function SimpleCalendar({
+  studentId,
+  colorful,
+  bare,
+}: { studentId?: number; colorful?: boolean; bare?: boolean } = {}) {
   const t = useTranslations("Calendar");
   const queryClient = useQueryClient();
   const isTutorView = studentId !== undefined;
 
   const [period, setPeriod] = useState<PeriodLength>(7);
   const [rangeStart, setRangeStart] = useState(() => defaultRangeStart(7));
+  const [filter, setFilter] = useState<LessonFilter>("all");
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [rescheduleTarget, setRescheduleTarget] = useState<CalendarItemOut | null>(null);
   const rangeDays = useMemo(
@@ -328,16 +418,13 @@ export function SimpleCalendar({ studentId, colorful }: { studentId?: number; co
   );
   const calendarQuery = isTutorView ? studentCalendarQuery : ownCalendarQuery;
 
-  const ownBacklogQuery = useSchedulingApiBacklog({ query: { enabled: !isTutorView } });
-  const studentBacklogQuery = useGetTutorStudentBacklog(studentId ?? 0, { query: { enabled: isTutorView } });
-  const backlogQuery = isTutorView ? studentBacklogQuery : ownBacklogQuery;
-
   const items = calendarQuery.data ?? [];
-  const isLoading = calendarQuery.isLoading || backlogQuery.isLoading;
-  const isError = calendarQuery.isError || backlogQuery.isError;
+  const isLoading = calendarQuery.isLoading;
+  const isError = calendarQuery.isError;
 
   // Same "X/Y completed this range" summary WeeklyCalendar used to show —
-  // the one piece of Standard-only richness Simple lacked.
+  // the one piece of Standard-only richness Simple lacked. Always reflects
+  // every lesson in range, regardless of the display filter.
   const totalCount = items.length;
   const completedCount = items.filter((item) => item.status === "completed").length;
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
@@ -345,6 +432,7 @@ export function SimpleCalendar({ studentId, colorful }: { studentId?: number; co
   const itemsByDate = useMemo(() => {
     const map = new Map<string, CalendarItemOut[]>();
     for (const item of calendarQuery.data ?? []) {
+      if (filter === "incomplete" && item.status === "completed") continue;
       const dayItems = map.get(item.scheduled_date) ?? [];
       dayItems.push(item);
       map.set(item.scheduled_date, dayItems);
@@ -353,9 +441,7 @@ export function SimpleCalendar({ studentId, colorful }: { studentId?: number; co
       map.set(date, sortLessonItems(dayItems));
     }
     return map;
-  }, [calendarQuery.data]);
-
-  const sortedBacklog = useMemo(() => sortLessonItems(backlogQuery.data ?? []), [backlogQuery.data]);
+  }, [calendarQuery.data, filter]);
 
   const reschedule = useSchedulingApiReschedule();
   const deleteStudentLesson = useDeleteTutorStudentLesson();
@@ -395,24 +481,25 @@ export function SimpleCalendar({ studentId, colorful }: { studentId?: number; co
     setRangeStart(defaultRangeStart(next));
   };
 
-  return (
-    <PageContainer title={t("title")}>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+  const content = (
+    <>
+      <div className="mb-4 flex flex-col items-stretch gap-3 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+        <div className="flex items-center justify-center gap-2 sm:justify-start">
+          <LessonFilterSwitcher filter={filter} onChange={setFilter} />
+        </div>
+        <div className="flex items-center justify-center gap-2 text-sm font-semibold">
           <NavButton onClick={() => setRangeStart((prev) => addDays(prev, -period))} label={t("previousWeek")}>
-            ←
+            <ChevronLeft className="size-4" aria-hidden="true" />
           </NavButton>
-          <span className="text-sm font-medium">
-            {formatDateRange(rangeDays[0], rangeDays[period - 1])}
-          </span>
+          <span>{formatDateRange(rangeDays[0], rangeDays[period - 1])}</span>
           <NavButton onClick={() => setRangeStart((prev) => addDays(prev, period))} label={t("nextWeek")}>
-            →
+            <ChevronRight className="size-4" aria-hidden="true" />
           </NavButton>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-center gap-2 sm:justify-end">
           <PeriodSwitcher period={period} onChange={handlePeriodChange} />
           <NavButton onClick={() => setRangeStart(defaultRangeStart(period))} label={t("today")}>
-            {t("today")}
+            <CalendarDays className="size-4" aria-hidden="true" />
           </NavButton>
         </div>
       </div>
@@ -439,12 +526,6 @@ export function SimpleCalendar({ studentId, colorful }: { studentId?: number; co
             const isToday = dateKey === todayKey;
             const dayItems = itemsByDate.get(dateKey) ?? [];
             const isDragOver = isTutorView && dragOverDate === dateKey;
-            // Tails are folded into today's column instead of a separate
-            // backlog section — they only ever appear on the one column
-            // that's actually "today" (navigating away from today simply
-            // shows no tails, since there's no "today" column to fold them
-            // into there).
-            const backlogItems = isToday ? sortedBacklog : [];
 
             return (
               <div
@@ -467,36 +548,34 @@ export function SimpleCalendar({ studentId, colorful }: { studentId?: number; co
                 onDrop={isTutorView ? (e) => handleDrop(e, dateKey) : undefined}
               >
                 <div className="flex items-center justify-between gap-1.5">
-                  <div className={`text-xs font-medium capitalize ${isToday ? "text-gray-900" : "text-gray-400"}`}>
-                    {DAY_LABEL_FORMAT.format(day)}
-                  </div>
+                  {isToday ? (
+                    <Link
+                      href={isTutorView ? `/tutor/students/${studentId}` : "/"}
+                      title={t("goToToday")}
+                      className="text-xs font-medium capitalize text-gray-900 underline decoration-dotted underline-offset-2 hover:text-gray-600"
+                    >
+                      {DAY_LABEL_FORMAT.format(day)}
+                    </Link>
+                  ) : (
+                    <div className="text-xs font-medium capitalize text-gray-400">{DAY_LABEL_FORMAT.format(day)}</div>
+                  )}
                   {isTutorView && (
                     <AddDayLessonDialog studentId={studentId!} scheduledDate={dateKey} onAssigned={invalidateCalendar} />
                   )}
                 </div>
                 <ul className="flex flex-col gap-1">
-                  {dayItems.length === 0 && backlogItems.length === 0 && (
-                    <li className="text-xs text-gray-300">{t("noLessons")}</li>
-                  )}
+                  {dayItems.length === 0 && <li className="text-xs text-gray-300">{t("noLessons")}</li>}
                   {dayItems.map((item) => (
                     <SimpleDayLessonRow
                       key={item.id}
                       item={item}
+                      overdue={item.scheduled_date < todayKey && item.status !== "completed"}
                       readOnly={isTutorView}
                       canManage={isTutorView && item.status !== "completed"}
                       showTutorLinks={isTutorView}
                       colorful={colorful}
                       onRequestReschedule={setRescheduleTarget}
                       onRequestDelete={handleDeleteStudentLesson}
-                    />
-                  ))}
-                  {backlogItems.map((item) => (
-                    <SimpleDayLessonRow
-                      key={item.id}
-                      item={item}
-                      readOnly={isTutorView}
-                      colorful={colorful}
-                      originLabel={formatShortDate(item.origin_label)}
                     />
                   ))}
                 </ul>
@@ -515,6 +594,12 @@ export function SimpleCalendar({ studentId, colorful }: { studentId?: number; co
           isError={reschedule.isError}
         />
       )}
-    </PageContainer>
+    </>
   );
+
+  if (bare) {
+    return content;
+  }
+
+  return <PageContainer title={t("title")}>{content}</PageContainer>;
 }

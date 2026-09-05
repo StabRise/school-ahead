@@ -104,7 +104,7 @@ function compareRows(a: SimpleRow, b: SimpleRow, key: SortKey, direction: SortDi
   }
 }
 
-function SimpleRowItem({ item, colorful }: { item: SimpleRow; colorful?: boolean }) {
+function SimpleRowItem({ item, colorful, hrefFor }: { item: SimpleRow; colorful?: boolean; hrefFor: (item: SimpleRow) => string }) {
   const t = useTranslations("LessonWizard");
   const tStatus = useTranslations("LessonStatus");
   const Icon = LESSON_TYPE_ICON[item.lesson_type] ?? Monitor;
@@ -122,7 +122,7 @@ function SimpleRowItem({ item, colorful }: { item: SimpleRow; colorful?: boolean
 
   return (
     <li>
-      <Link href={`/lessons/${item.id}`} className={`${ROW_GRID} px-2 py-2 hover:bg-gray-50`}>
+      <Link href={hrefFor(item)} className={`${ROW_GRID} px-2 py-2 hover:bg-gray-50`}>
         <Icon
           className={`size-4 ${colorful ? (LESSON_TYPE_ICON_COLOR[item.lesson_type] ?? "text-gray-400") : "text-gray-400"}`}
           aria-hidden="true"
@@ -149,19 +149,27 @@ function SimpleRowItem({ item, colorful }: { item: SimpleRow; colorful?: boolean
 }
 
 // Notion-style, borderless sortable table — the "Simple" view's shared
-// building block, used by both components/simple-dashboard.tsx and
-// components/calendar/simple-calendar.tsx (see the Settings page's "Вигляд"
-// section for how a student picks it). `colorful` keeps the same dense
-// table shape but restores the Default dashboard's colored status badges
-// and dark-red overdue dates instead of Simple's plain grey text.
+// building block, used by components/simple-dashboard.tsx (see the Settings
+// page's "Вигляд" section for how a student picks it) and, read-only via a
+// tutor-scoped `hrefFor`, by the tutor's student-overview page. `colorful`
+// keeps the same dense table shape but restores the Default dashboard's
+// colored status badges and dark-red overdue dates instead of Simple's
+// plain grey text.
 export function SimpleLessonTable({
   rows,
   emptyMessage,
   colorful,
+  hrefFor = (item) => `/lessons/${item.id}`,
 }: {
   rows: SimpleRow[];
   emptyMessage: string;
   colorful?: boolean;
+  // Every row's own StudentLesson page by default — the student's own
+  // dashboard/calendar. A tutor viewing another student's table passes
+  // their own read-only lesson route instead (see
+  // tutor-student-overview-page.tsx), since /lessons/[id] only works for
+  // the signed-in student themself.
+  hrefFor?: (item: SimpleRow) => string;
 }) {
   const t = useTranslations("SimpleLessonTable");
   const { sort, toggleSort } = useSortState<SortKey>("date");
@@ -203,7 +211,7 @@ export function SimpleLessonTable({
       </div>
       <ul className="min-w-[39rem] divide-y divide-gray-100">
         {sortedRows.map((item) => (
-          <SimpleRowItem key={item.id} item={item} colorful={colorful} />
+          <SimpleRowItem key={item.id} item={item} colorful={colorful} hrefFor={hrefFor} />
         ))}
       </ul>
     </div>
