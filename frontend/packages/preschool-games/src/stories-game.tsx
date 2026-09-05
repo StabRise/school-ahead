@@ -10,6 +10,7 @@ import { PreschoolButton } from "@school-ahead/preschool-ui";
 import { useStories, useStory, type Story, type StoryWordSegment, type StorySummary } from "./lib/story";
 import { remarkStoryCards, STORY_CARD_TAG } from "./lib/story-markdown";
 import { parseSyllableGroup } from "./lib/story-parser";
+import { useStoryBackgroundMusic } from "./lib/use-story-background-music";
 import { StoryBook } from "./story-book";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { useLocaleAwareGamesRouter } from "./kit/use-locale-aware-router";
@@ -23,10 +24,14 @@ import { useLocaleAwareGamesRouter } from "./kit/use-locale-aware-router";
 //     headings/emphasis/lists/blockquotes/etc. all render normally. On top
 //     of that, lib/story-markdown.ts's remarkStoryCards plugin recognizes
 //     "{...}" anywhere in the Markdown and turns it into a <story-card>
-//     element (StoryCard below) — rendered as one of three things:
+//     element (StoryCard below) — rendered as one of four things:
 //     - a lone image segment with nothing else, e.g. "{ img1.jpeg }", is a
 //       full story illustration (StoryIllustration below): a plain
 //       rectangular picture at its own aspect ratio, no card border;
+//     - a lone video segment with nothing else, e.g. "{ 1.avi }", is a
+//       full story clip (StoryVideo below): same plain-rectangle treatment
+//       as an illustration, just a looping muted video instead of a still
+//       picture;
 //     - a lone audio segment with nothing else, e.g. "{ koza.mp3 }", is a
 //       small inline speaker button (StoryAudioButton below) that plays
 //       that clip on tap — no fullscreen, no read-aloud otherwise;
@@ -77,6 +82,14 @@ function isIllustration(segments: StoryWordSegment[]): segments is [{ kind: "ima
 // below) instead of a picture or letter-card.
 function isAudio(segments: StoryWordSegment[]): segments is [{ kind: "audio"; filename: string }] {
   return segments.length === 1 && segments[0].kind === "audio";
+}
+
+// A {...} group with exactly one video segment and nothing else (e.g.
+// "{ 1.avi }") is a full-story video clip, same standing as
+// isIllustration's still picture — rendered as StoryVideo instead of a
+// bordered letter-card.
+function isVideo(segments: StoryWordSegment[]): segments is [{ kind: "video"; filename: string }] {
+  return segments.length === 1 && segments[0].kind === "video";
 }
 
 // One card inside a {...} word breakdown, at either its small inline size
@@ -162,6 +175,20 @@ function WordSegmentCard({
         className="flex shrink-0 items-center justify-center rounded-lg border-2 border-gray-400 bg-white text-lg"
       >
         🔊
+      </span>
+    );
+  }
+
+  if (segment.kind === "video") {
+    // Same rationale as the audio fallback above — video is only meant to
+    // appear as its own {...} group (see isVideo), rendered as StoryVideo.
+    return (
+      <span
+        aria-hidden="true"
+        style={boxStyle}
+        className="flex shrink-0 items-center justify-center rounded-lg border-2 border-gray-400 bg-white text-lg"
+      >
+        🎬
       </span>
     );
   }
@@ -266,6 +293,66 @@ function StoryIllustration({ url, size }: { url: string; size: "sm" | "lg" }) {
   );
 }
 
+// A full video clip for the story (see isVideo above) — same plain-
+// rectangle, no-card-border treatment as StoryIllustration, just a looping
+// clip instead of a still picture. The "sm" inline card always plays muted
+// (browser autoplay policy requires it, and there's no `controls` at that
+// size to unmute from anyway — same "tap anywhere opens it bigger" behavior
+// as StoryIllustration, which native playback controls would otherwise
+// compete with for clicks). Once opened full-screen ("lg", via StoryCard's
+// onOpen — itself a click, i.e. a user gesture), it starts with sound
+// instead: the effect below explicitly (re)plays it unmuted, falling back
+// to muted only if the browser's autoplay-with-sound policy still blocks
+// it (same best-effort play().catch() pattern as StoryAudioButton).
+// `controls` are always present at "lg" so a child can pause/replay/mute
+// at their own pace regardless of which path the effect took.
+function StoryVideo({ url, size }: { url: string; size: "sm" | "lg" }) {
+  const [videoFailed, setVideoFailed] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    if (size !== "lg") return;
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = false;
+    video.play().catch(() => {
+      video.muted = true;
+      void video.play();
+    });
+  }, [size, url]);
+
+  if (videoFailed) {
+    return (
+      <span
+        aria-hidden="true"
+        className={`flex items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-gray-400 ${
+          size === "lg" ? "h-64 w-64" : "h-40 w-40"
+        }`}
+      >
+        ?
+      </span>
+    );
+  }
+
+  return (
+    <video
+      ref={videoRef}
+      src={url}
+      autoPlay
+      loop
+      muted={size !== "lg"}
+      playsInline
+      controls={size === "lg"}
+      onError={() => setVideoFailed(true)}
+      className={
+        size === "lg"
+          ? "max-h-[80vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+          : "max-h-64 w-auto rounded-lg object-contain shadow-md sm:max-h-80"
+      }
+    />
+  );
+}
+
 // A {...} group with exactly one audio segment and nothing else (see
 // isAudio above) — a small inline play/stop toggle for the clip from this
 // story's folder. Unlike StoryIllustration/WordCardRow there's nothing to
@@ -349,6 +436,15 @@ function StoryCard({
       // docs), which is what keeps the card row from ballooning in height.
       <button type="button" onClick={() => onOpen(segments)} className="not-prose mx-auto block cursor-pointer">
         <StoryIllustration url={storyAssetUrl(storySlug, segments[0].filename)} size="sm" />
+      </button>
+    );
+  }
+
+  if (isVideo(segments)) {
+    return (
+      // Same not-prose rationale as the illustration button above.
+      <button type="button" onClick={() => onOpen(segments)} className="not-prose mx-auto block cursor-pointer">
+        <StoryVideo url={storyAssetUrl(storySlug, segments[0].filename)} size="sm" />
       </button>
     );
   }
@@ -471,6 +567,7 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
   const [stars, setStars] = useState(0);
   const [starBump, setStarBump] = useState(0);
   const starBadgeRef = useRef<HTMLDivElement>(null);
+  const backgroundMusic = useStoryBackgroundMusic(storyAssetUrl(slug, "background.mp3"));
 
   // Only a logged-in student earns stars/Diamonds here — the public /games
   // route renders this same StoryPage with no session, so `user` stays null
@@ -492,9 +589,10 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
 
   const handleOpenCard = (segments: StoryWordSegment[]) => {
     setFullscreenSegments(segments);
-    // A plain illustration isn't a "word" (see DIAMOND_MILESTONE_STARS
-    // above) — only a syllable/letter breakdown earns a star.
-    if (user && !isIllustration(segments)) {
+    // A plain illustration or video isn't a "word" (see
+    // DIAMOND_MILESTONE_STARS above) — only a syllable/letter breakdown
+    // earns a star.
+    if (user && !isIllustration(segments) && !isVideo(segments)) {
       setStars((current) => current + 1);
       setStarBump((current) => current + 1);
     }
@@ -545,6 +643,21 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
         className="fixed left-20 top-20"
       />
 
+      {/* Only this story's own background.mp3 gets this button — most
+          stories have none, so it only appears once useStoryBackgroundMusic
+          confirms the file actually loaded (see that hook's `available`).
+          Same fixed-corner treatment, next in the row after 🏠/📚 above. */}
+      {backgroundMusic.available && (
+        <PreschoolButton
+          icon={backgroundMusic.enabled ? "🎵" : "🔇"}
+          label={backgroundMusic.enabled ? t("musicOnLabel") : t("musicOffLabel")}
+          onClick={backgroundMusic.toggle}
+          ringColorClassName="ring-sky-400"
+          position="static"
+          className="fixed left-36 top-20"
+        />
+      )}
+
       {user && (
         <div
           ref={starBadgeRef}
@@ -585,6 +698,8 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
         <FullscreenOverlay onClose={() => setFullscreenSegments(null)}>
           {isIllustration(fullscreenSegments) ? (
             <StoryIllustration url={storyAssetUrl(slug, fullscreenSegments[0].filename)} size="lg" />
+          ) : isVideo(fullscreenSegments) ? (
+            <StoryVideo url={storyAssetUrl(slug, fullscreenSegments[0].filename)} size="lg" />
           ) : (
             <WordCardRow
               segments={fullscreenSegments}

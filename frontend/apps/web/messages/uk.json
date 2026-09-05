@@ -198,7 +198,9 @@
     "backToListButton": "До вибору книжок",
     "closeImageLabel": "Закрити",
     "playAudioLabel": "Слухати",
-    "starsLabel": "Зірочок: {count} з {total}"
+    "starsLabel": "Зірочок: {count} з {total}",
+    "musicOnLabel": "Вимкнути музику",
+    "musicOffLabel": "Увімкнути музику"
   },
   "StudentDashboard": {
     "title": "Сьогоднішні уроки",
