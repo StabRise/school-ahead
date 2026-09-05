@@ -15,6 +15,7 @@ from .schemas import (
     AddDictionaryItemIn,
     DictionaryItemOut,
     UpdateDictionaryItemStatusIn,
+    UpdateDictionaryItemTranslationIn,
 )
 
 router = Router(tags=['dictionary'])
@@ -74,6 +75,26 @@ def update_dictionary_item_status(request: HttpRequest, item_id: int, payload: U
     item = _get_owned_item(request, item_id)
     item.status = payload.status
     item.save(update_fields=['status'])
+    return item
+
+
+@router.patch(
+    '/{item_id}/translation',
+    response=DictionaryItemOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='update_dictionary_item_translation',
+)
+def update_dictionary_item_translation(request: HttpRequest, item_id: int, payload: UpdateDictionaryItemTranslationIn):
+    """Lets the student correct/refine a saved item's translation — see the
+    Dictionary page's inline edit."""
+    require_csrf(request)
+    translation = payload.translation.strip()
+    if not translation:
+        raise HttpError(400, 'translation must not be empty')
+
+    item = _get_owned_item(request, item_id)
+    item.translation = translation
+    item.save(update_fields=['translation'])
     return item
 
 
