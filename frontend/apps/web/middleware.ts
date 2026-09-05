@@ -22,8 +22,24 @@ const intlMiddleware = createMiddleware(routing);
 // below rather than exact equality.
 const PUBLIC_PATHS = ["/login", "/games"];
 
+// The first segment is only a real locale when it's one next-intl actually
+// serves — a client-side `router.push`/`Link href` built from a plain,
+// locale-less absolute path (a mistake, but one that keeps recurring in the
+// @school-ahead/preschool-games package — see its use-locale-aware-router.ts)
+// arrives here with no locale segment at all, e.g. "/games/cards" rather
+// than "/uk/games/cards". Blindly stripping segments[1] in that case would
+// eat "games" itself, leaving `isPublicPath` checking the wrong, non-public
+// remainder and wrongly bouncing an anonymous visitor to a login page whose
+// path is `/games/login` (broken, and not even the real login route).
+function hasLocalePrefix(pathname: string): boolean {
+  const [, maybeLocale] = pathname.split("/");
+  return (routing.locales as readonly string[]).includes(maybeLocale ?? "");
+}
+
 function pathWithoutLocale(pathname: string): string {
-  return "/" + pathname.split("/").slice(2).join("/");
+  const segments = pathname.split("/");
+  const rest = hasLocalePrefix(pathname) ? segments.slice(2) : segments.slice(1);
+  return "/" + rest.join("/");
 }
 
 function isPublicPath(pathname: string): boolean {
@@ -34,7 +50,7 @@ function isPublicPath(pathname: string): boolean {
 
 export default function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  const locale = pathname.split("/")[1] || routing.defaultLocale;
+  const locale = (hasLocalePrefix(pathname) ? pathname.split("/")[1] : routing.defaultLocale) as string;
   const isAuthenticated = request.cookies.has("access_token");
 
   // An already-authenticated visitor hitting /login (stale bookmark, back

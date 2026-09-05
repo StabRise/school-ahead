@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useAuthStore } from "@school-ahead/api-client";
-import { useRouter } from "next/navigation";
+import { useLocaleAwareGamesRouter } from "./kit/use-locale-aware-router";
 
 // Shared "preschool student only" guard for every /games* route
 // (games-page.tsx, game-play-page.tsx) — a non-preschool student or a
@@ -12,12 +12,15 @@ import { useRouter } from "next/navigation";
 export function usePreschoolGamesGuard(): boolean {
   const role = useAuthStore((state) => state.user?.role);
   const isPreschool = useAuthStore((state) => state.user?.interfaceMode === "preschool");
-  const router = useRouter();
+  const router = useLocaleAwareGamesRouter();
   const blocked = Boolean(role) && (role !== "student" || !isPreschool);
 
   useEffect(() => {
     if (blocked) router.replace("/");
-  }, [blocked, router]);
+    // router is a fresh object every render (useLocaleAwareGamesRouter isn't
+    // memoized) — keying off `blocked` alone avoids re-firing the redirect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocked]);
 
   return !blocked;
 }

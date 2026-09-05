@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
-import { useRouter } from "next/navigation";
 import { useRewardStoriesGame } from "@school-ahead/api-client/browser/auth/auth";
 import { useAuthStore } from "@school-ahead/api-client";
 import { PreschoolButton } from "@school-ahead/preschool-ui";
@@ -13,6 +12,7 @@ import { remarkStoryCards, STORY_CARD_TAG } from "./lib/story-markdown";
 import { parseSyllableGroup } from "./lib/story-parser";
 import { StoryBook } from "./story-book";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
+import { useLocaleAwareGamesRouter } from "./kit/use-locale-aware-router";
 
 // Preschool "Казки" (Stories) reading minigame — see docs/preschool/games/
 // reading/Stories.md for the design brief. Two screens:
@@ -657,7 +657,7 @@ export function StoriesGame() {
 // bare picker) instead of touching local state, which is what makes a
 // reload (F5) keep the same story open.
 export function StoriesGamePage({ slug = null, basePath }: { slug?: string | null; basePath: string }) {
-  const router = useRouter();
+  const router = useLocaleAwareGamesRouter();
   const stories = useStories();
   const story = useStory(slug);
 
