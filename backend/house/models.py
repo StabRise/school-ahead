@@ -23,19 +23,6 @@ class FurnitureSurface(models.TextChoices):
     CEILING = 'ceiling', 'Ceiling'
 
 
-class FurnitureKind(models.TextChoices):
-    """WITH_HOLE items (windows, doors, ...) get an opening cut into
-    whichever surface they're stuck to, sized to match the object itself —
-    see house-3d's lib/hole-geometry.ts — instead of just sitting in front
-    of a solid wall/floor/ceiling. They're also auto-leveled (roll/pitch
-    forced to 0, only their facing/spin rotation stays free) so that
-    opening is a clean, axis-aligned rectangle — see lib/surface.ts's
-    `snapToSurface`."""
-
-    NORMAL = 'normal', 'Normal'
-    WITH_HOLE = 'with_hole', 'With hole'
-
-
 class FurnitureItem(models.Model):
     """A piece of furniture a student can buy with Diamonds and place in
     their (single, implicit — see PlacedFurnitureItem) 3D room, rendered by
@@ -76,7 +63,6 @@ class FurnitureItem(models.Model):
     thumbnail_image = models.FileField(upload_to=furniture_thumbnail_upload_to)
     price = models.PositiveIntegerField(default=0)
     surface = models.CharField(max_length=10, choices=FurnitureSurface.choices, default=FurnitureSurface.FLOOR)
-    kind = models.CharField(max_length=10, choices=FurnitureKind.choices, default=FurnitureKind.NORMAL)
     # Default transform applied the moment an item is bought (see
     # house.services.purchase_item) — the student can then drag/rotate it
     # anywhere in the 3D scene via a TransformControls gizmo, which persists
@@ -169,3 +155,25 @@ class PlacedFurnitureItem(models.Model):
 
     def __str__(self):
         return f'{self.student_profile} placed {self.item.key}'
+
+
+class RoomStyle(models.Model):
+    """A student's chosen wall/floor color for their implicit 3D room —
+    see house-3d's room-scene.tsx RoomShell, which renders exactly one
+    room per student (no Room catalog/model exists; see FurnitureItem's
+    docstring). Colors are plain `#rrggbb` hex strings, validated in
+    house.services.update_room_style and rendered straight into three.js
+    material colors with no further sanitization on the frontend.
+
+    Created lazily (house.services.get_room_style) the first time a
+    student's room is read or styled, rather than a signal/migration
+    backfilling one row per existing StudentProfile — so its defaults
+    below double as "this student never touched it", matching RoomShell's
+    original hardcoded colors."""
+
+    student_profile = models.OneToOneField(StudentProfile, on_delete=models.CASCADE, related_name='room_style')
+    wall_color = models.CharField(max_length=7, default='#f4efe4')
+    floor_color = models.CharField(max_length=7, default='#e7e0d3')
+
+    def __str__(self):
+        return f'{self.student_profile}: wall {self.wall_color}, floor {self.floor_color}'

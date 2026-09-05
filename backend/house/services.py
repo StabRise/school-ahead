@@ -1,9 +1,13 @@
+import re
+
 from django.db import transaction
 from django.db.models import F
 
 from accounts.models import StudentProfile
 
-from .models import FurnitureItem, FurniturePurchase, PlacedFurnitureItem
+from .models import FurnitureItem, FurniturePurchase, PlacedFurnitureItem, RoomStyle
+
+HEX_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{6}$')
 
 
 class ItemAlreadyOwned(Exception):
@@ -11,6 +15,10 @@ class ItemAlreadyOwned(Exception):
 
 
 class InsufficientDiamonds(Exception):
+    pass
+
+
+class InvalidColor(Exception):
     pass
 
 
@@ -99,3 +107,30 @@ def clear_placement(student: StudentProfile, item: FurnitureItem) -> None:
     without touching FurniturePurchase, so it stays owned and can be
     placed again later."""
     PlacedFurnitureItem.objects.filter(student_profile=student, item=item).delete()
+
+
+def get_room_style(student: StudentProfile) -> RoomStyle:
+    """This student's saved wall/floor room colors — see models.RoomStyle.
+    Creates the row with its default colors the first time anyone asks,
+    rather than requiring one to already exist."""
+    style, _created = RoomStyle.objects.get_or_create(student_profile=student)
+    return style
+
+
+def update_room_style(student: StudentProfile, wall_color: str | None, floor_color: str | None) -> RoomStyle:
+    """Saves a student's wall and/or floor color pick — either argument
+    left None leaves that color untouched. Raises InvalidColor unless a
+    given color is a plain `#rrggbb` hex string, since it's rendered
+    straight into a three.js material color with no further sanitization
+    on the frontend."""
+    style = get_room_style(student)
+    if wall_color is not None:
+        if not HEX_COLOR_RE.match(wall_color):
+            raise InvalidColor()
+        style.wall_color = wall_color
+    if floor_color is not None:
+        if not HEX_COLOR_RE.match(floor_color):
+            raise InvalidColor()
+        style.floor_color = floor_color
+    style.save()
+    return style

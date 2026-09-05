@@ -14,7 +14,7 @@ import {
   useUpdateTutorFurnitureItem,
 } from "@school-ahead/api-client/browser/tutor/tutor";
 import type { TutorFurnitureItemOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
-import { FurniturePreview, type FurnitureKind, type FurnitureSurface } from "@school-ahead/house-3d";
+import { FurniturePreview, type FurnitureSurface } from "@school-ahead/house-3d";
 import { PageContainer } from "@/components/page-container";
 import { AvatarEditorSlider } from "@/components/tutor/avatar-editor-slider";
 
@@ -28,7 +28,6 @@ const PRICE_RANGE = { min: 0, max: 500, step: 5 };
 // catalog default.
 const POSITION_RANGE = { min: -0.5, max: 0.5, step: 0.01 };
 const SURFACES: FurnitureSurface[] = ["floor", "wall", "ceiling"];
-const KINDS: FurnitureKind[] = ["normal", "with_hole"];
 // Common angles a tutor is likely to want exactly, not just "close to" —
 // the slider's 0.01 step can't reliably land on these. Kept within the
 // slider's own [-180°, 180°] range (equivalent angles beyond that, e.g.
@@ -46,7 +45,6 @@ function isCloseTo(a: number, b: number): boolean {
 interface ItemDraft {
   price: number;
   surface: FurnitureSurface;
-  kind: FurnitureKind;
   scale: number;
   positionX: number;
   positionY: number;
@@ -61,14 +59,12 @@ interface UploadDraft {
   name: string;
   price: number;
   surface: FurnitureSurface;
-  kind: FurnitureKind;
 }
 
 function draftFromItem(item: TutorFurnitureItemOut): ItemDraft {
   return {
     price: item.price,
     surface: item.surface as FurnitureSurface,
-    kind: item.kind as FurnitureKind,
     scale: item.default_scale,
     positionX: item.default_position[0] ?? 0,
     positionY: item.default_position[1] ?? 0,
@@ -132,7 +128,6 @@ export function TutorFurnitureEditorPage() {
   const [itemDraft, setItemDraft] = useState<ItemDraft>({
     price: 0,
     surface: "floor",
-    kind: "normal",
     scale: 1,
     positionX: 0,
     positionY: 0,
@@ -142,7 +137,7 @@ export function TutorFurnitureEditorPage() {
     rotationZ: 0,
   });
   const [uploadDraft, setUploadDraft] = useState<UploadDraft>({
-    key: "", name: "", price: 0, surface: "floor", kind: "normal",
+    key: "", name: "", price: 0, surface: "floor",
   });
   const [uploadError, setUploadError] = useState<string | null>(null);
   const modelFileRef = useRef<HTMLInputElement>(null);
@@ -174,7 +169,6 @@ export function TutorFurnitureEditorPage() {
         data: {
           price: itemDraft.price,
           surface: itemDraft.surface,
-          kind: itemDraft.kind,
           default_scale: itemDraft.scale,
           default_rotation: [itemDraft.rotationX, itemDraft.rotationY, itemDraft.rotationZ],
           default_position: [itemDraft.positionX, itemDraft.positionY, itemDraft.positionZ],
@@ -214,7 +208,6 @@ export function TutorFurnitureEditorPage() {
           name: uploadDraft.name,
           price: uploadDraft.price,
           surface: uploadDraft.surface,
-          kind: uploadDraft.kind,
           model_file: modelFile,
           thumbnail_image: thumbnailFile,
           texture_files: Array.from(textureFilesRef.current?.files ?? []),
@@ -223,7 +216,7 @@ export function TutorFurnitureEditorPage() {
       },
       {
         onSuccess: () => {
-          setUploadDraft({ key: "", name: "", price: 0, surface: "floor", kind: "normal" });
+          setUploadDraft({ key: "", name: "", price: 0, surface: "floor" });
           if (modelFileRef.current) modelFileRef.current.value = "";
           if (thumbnailFileRef.current) thumbnailFileRef.current.value = "";
           if (textureFilesRef.current) textureFilesRef.current.value = "";
@@ -332,21 +325,6 @@ export function TutorFurnitureEditorPage() {
                         </option>
                       ))}
                     </select>
-                  </label>
-                  <label className="flex flex-col gap-1 text-sm">
-                    <span className="text-gray-700">{t("kind")}</span>
-                    <select
-                      value={itemDraft.kind}
-                      onChange={(e) => setItemDraft((d) => ({ ...d, kind: e.target.value as FurnitureKind }))}
-                      className="rounded-md border border-gray-300 px-2 py-1"
-                    >
-                      {KINDS.map((kind) => (
-                        <option key={kind} value={kind}>
-                          {t(`kindOption.${kind}`)}
-                        </option>
-                      ))}
-                    </select>
-                    {itemDraft.kind === "with_hole" && <span className="text-xs text-gray-500">{t("kindHint")}</span>}
                   </label>
                   <AvatarEditorSlider
                     label={t("scale")}
@@ -511,20 +489,6 @@ export function TutorFurnitureEditorPage() {
                 {SURFACES.map((surface) => (
                   <option key={surface} value={surface}>
                     {t(`surfaceOption.${surface}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-gray-700">{t("kind")}</span>
-              <select
-                value={uploadDraft.kind}
-                onChange={(e) => setUploadDraft((d) => ({ ...d, kind: e.target.value as FurnitureKind }))}
-                className="rounded-md border border-gray-300 px-2 py-1"
-              >
-                {KINDS.map((kind) => (
-                  <option key={kind} value={kind}>
-                    {t(`kindOption.${kind}`)}
                   </option>
                 ))}
               </select>

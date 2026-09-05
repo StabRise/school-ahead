@@ -224,8 +224,6 @@ class TutorFurnitureItemOut(Schema):
     price: int
     # "floor" | "wall" | "ceiling" — see house.models.FurnitureSurface.
     surface: str
-    # "normal" | "with_hole" — see house.models.FurnitureKind.
-    kind: str
     default_scale: float
     default_rotation: list[float]
     # A small nudge off the literal surface plane — see
@@ -238,12 +236,11 @@ class TutorFurnitureItemOut(Schema):
 
 
 class UpdateTutorFurnitureItemIn(Schema):
-    """The furniture editor's scale/rotate/position/price/surface/kind
+    """The furniture editor's scale/rotate/position/price/surface
     controls — see tutoring.api.update_tutor_furniture_item."""
 
     price: int
     surface: str
-    kind: str
     default_scale: float
     default_rotation: list[float]
     default_position: list[float]

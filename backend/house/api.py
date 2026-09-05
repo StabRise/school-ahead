@@ -7,8 +7,15 @@ from common.csrf import require_csrf
 from common.permissions import get_own_student_profile
 
 from . import services
-from .models import FurnitureItem, PlacedFurnitureItem
-from .schemas import FurnitureItemOut, FurniturePlacementOut, FurnitureTextureOut, UpdateFurniturePlacementIn
+from .models import FurnitureItem, PlacedFurnitureItem, RoomStyle
+from .schemas import (
+    FurnitureItemOut,
+    FurniturePlacementOut,
+    FurnitureTextureOut,
+    RoomStyleOut,
+    UpdateFurniturePlacementIn,
+    UpdateRoomStyleIn,
+)
 
 router = Router(tags=['house'], auth=CookieOrBearerJWTAuth())
 
@@ -40,7 +47,6 @@ def _furniture_out(
         price=item.price,
         is_owned=item.price == 0 or item.id in owned_ids,
         surface=item.surface,
-        kind=item.kind,
         default_position=[item.default_position_x, item.default_position_y, item.default_position_z],
         default_rotation=[item.default_rotation_x, item.default_rotation_y, item.default_rotation_z],
         default_scale=item.default_scale,
@@ -134,3 +140,30 @@ def clear_furniture_placement(request: HttpRequest, item_id: int):
     item = _get_own_owned_item(student, item_id)
     services.clear_placement(student, item)
     return _furniture_out(item, request, {item.id}, None)
+
+
+def _room_style_out(style: RoomStyle) -> RoomStyleOut:
+    return RoomStyleOut(wall_color=style.wall_color, floor_color=style.floor_color)
+
+
+@router.get('/room-style', response=RoomStyleOut, operation_id='get_room_style')
+def get_room_style(request: HttpRequest):
+    """This student's saved wall/floor room colors — see
+    house.services.get_room_style. Defaults to RoomStyle's stock colors
+    (matching RoomShell's original hardcoded ones) until the student picks
+    their own."""
+    student = get_own_student_profile(request)
+    return _room_style_out(services.get_room_style(student))
+
+
+@router.patch('/room-style', response=RoomStyleOut, operation_id='update_room_style')
+def update_room_style(request: HttpRequest, payload: UpdateRoomStyleIn):
+    """A student picking a new wall and/or floor color for their room —
+    see house.services.update_room_style."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    try:
+        style = services.update_room_style(student, payload.wall_color, payload.floor_color)
+    except services.InvalidColor as exc:
+        raise HttpError(422, 'Color must be a hex value like #rrggbb') from exc
+    return _room_style_out(style)

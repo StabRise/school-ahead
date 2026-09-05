@@ -1,5 +1,6 @@
 export * from "./house-view";
 export * from "./room-scene";
+export * from "./room-style-picker";
 export * from "./furniture-mesh";
 export * from "./furniture-model";
 export * from "./furniture-preview";
@@ -9,4 +10,3 @@ export * from "./not-enough-diamonds-dialog";
 export * from "./stores/house-scene-store";
 export * from "./lib/surface";
 export * from "./lib/mtl-resource-map";
-export * from "./lib/hole-geometry";

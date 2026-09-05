@@ -1,8 +1,8 @@
 // GENERATED FILE — do not edit by hand.
 // Regenerate with: bun run piper-voices:generate
-// (frontend/scripts/generate-piper-voices.mjs, sourced from
+// (frontend/packages/api-client/scripts/generate-piper-voices.mjs, sourced from
 // https://huggingface.co/rhasspy/piper-voices/resolve/main/voices.json)
-// Generated: 2026-08-29
+// Generated: 2026-09-05
 
 // Every voice id published upstream at rhasspy/piper-voices as of the
 // generation date above.
@@ -167,6 +167,7 @@ export type PiperVoiceId =
   | "te_IN-maya-medium"
   | "te_IN-padmavathi-medium"
   | "te_IN-venkatesh-medium"
+  | "th_TH-tsync2-medium"
   | "tr_TR-dfki-medium"
   | "uk_UA-lada-x_low"
   | "uk_UA-mykyta-high"
@@ -346,6 +347,7 @@ export const PIPER_VOICE_PATHS: Record<PiperVoiceId, string> = {
   "te_IN-maya-medium": "te/te_IN/maya/medium/te_IN-maya-medium.onnx",
   "te_IN-padmavathi-medium": "te/te_IN/padmavathi/medium/te_IN-padmavathi-medium.onnx",
   "te_IN-venkatesh-medium": "te/te_IN/venkatesh/medium/te_IN-venkatesh-medium.onnx",
+  "th_TH-tsync2-medium": "th/th_TH/tsync2/medium/th_TH-tsync2-medium.onnx",
   "tr_TR-dfki-medium": "tr/tr_TR/dfki/medium/tr_TR-dfki-medium.onnx",
   "uk_UA-lada-x_low": "uk/uk_UA/lada/x_low/uk_UA-lada-x_low.onnx",
   "uk_UA-mykyta-high": "uk/uk_UA/mykyta/high/uk_UA-mykyta-high.onnx",

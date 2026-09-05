@@ -47,10 +47,6 @@ class FurnitureItemOut(Schema):
     # "floor" | "wall" | "ceiling" — see models.FurnitureSurface. Drives
     # house-3d's snap-to-surface placement (lib/surface.ts).
     surface: str
-    # "normal" | "with_hole" — see models.FurnitureKind. WITH_HOLE items
-    # (windows, doors, ...) get an opening cut into their surface, sized to
-    # match the object — see house-3d's lib/hole-geometry.ts.
-    kind: str
     default_position: list[float]
     default_rotation: list[float]
     default_scale: float
@@ -66,3 +62,21 @@ class UpdateFurniturePlacementIn(Schema):
     position: list[float]
     rotation: list[float] = [0.0, 0.0, 0.0]
     scale: float = 1.0
+
+
+class RoomStyleOut(Schema):
+    """A student's saved wall/floor room colors — see models.RoomStyle.
+    Plain `#rrggbb` hex strings, rendered straight into three.js material
+    colors on the frontend."""
+
+    wall_color: str
+    floor_color: str
+
+
+class UpdateRoomStyleIn(Schema):
+    """A student picking a new wall and/or floor color — see
+    house.api.update_room_style. Either field left unset leaves that
+    color untouched."""
+
+    wall_color: str | None = None
+    floor_color: str | None = None

@@ -6,8 +6,11 @@ export type GizmoMode = "translate" | "rotate";
 interface HouseSceneState {
   // Whether the room is interactive at all — outside Editor Mode, clicking
   // furniture does nothing (a clean view); the house-view.tsx "Editor Mode"
-  // / "Exit Editor Mode" button toggles this. Not persisted: every visit
-  // starts back in plain view mode.
+  // / "Exit Editor Mode" button toggles this. Only shown/meaningful when
+  // the student isn't in the app-wide preschool/kids mode (useAuthStore's
+  // user.interfaceMode) — kids mode always behaves as if this were on, no
+  // separate toggle. Not persisted: every visit starts back in plain view
+  // mode.
   isEditorMode: boolean;
   toggleEditorMode: () => void;
   selectedItemId: number | null;
@@ -34,7 +37,10 @@ interface HouseSceneState {
 // is open — same minimal shape as apps/web/stores/avatar-tryon-store.ts.
 // showGizmoArrows is the one exception, persisted to localStorage via
 // zustand's `persist` (partialize'd to just that field, so editor mode/
-// selection/shop-open state still resets every visit as before).
+// selection/shop-open state still resets every visit as before). The
+// app-wide kids/preschool mode itself lives on useAuthStore's
+// user.interfaceMode (see apps/web's PreschoolModeToggle) — house-view.tsx
+// reads that directly rather than duplicating it here.
 export const useHouseSceneStore = create<HouseSceneState>()(
   persist(
     (set) => ({

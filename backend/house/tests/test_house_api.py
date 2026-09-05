@@ -84,7 +84,6 @@ def test_free_item_is_always_owned(api_client, auth_header):
     assert response.status_code == 200
     assert response.data[0]['is_owned'] is True
     assert response.data[0]['surface'] == 'floor'
-    assert response.data[0]['kind'] == 'normal'
 
 
 def test_placement_round_trips(api_client, auth_header):
@@ -130,3 +129,41 @@ def test_clear_placement_keeps_ownership(api_client, auth_header):
     assert response.data['placement'] is None
     assert response.data['is_owned'] is True
     assert FurniturePurchase.objects.filter(student_profile=student, item=item).exists()
+
+
+def test_get_room_style_defaults(api_client, auth_header):
+    user, _student = _make_student()
+
+    response = api_client.get('/house/room-style', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data == {'wall_color': '#f4efe4', 'floor_color': '#e7e0d3'}
+
+
+def test_update_room_style_round_trips(api_client, auth_header):
+    user, _student = _make_student()
+
+    response = api_client.patch(
+        '/house/room-style', json={'wall_color': '#112233'}, headers=auth_header(user)
+    )
+
+    assert response.status_code == 200
+    assert response.data == {'wall_color': '#112233', 'floor_color': '#e7e0d3'}
+    listing = api_client.get('/house/room-style', headers=auth_header(user))
+    assert listing.data['wall_color'] == '#112233'
+
+    response = api_client.patch(
+        '/house/room-style', json={'floor_color': '#445566'}, headers=auth_header(user)
+    )
+    assert response.status_code == 200
+    assert response.data == {'wall_color': '#112233', 'floor_color': '#445566'}
+
+
+def test_update_room_style_rejects_invalid_color(api_client, auth_header):
+    user, _student = _make_student()
+
+    response = api_client.patch(
+        '/house/room-style', json={'wall_color': 'not-a-color'}, headers=auth_header(user)
+    )
+
+    assert response.status_code == 422

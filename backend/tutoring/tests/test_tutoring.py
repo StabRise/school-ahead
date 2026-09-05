@@ -1553,38 +1553,6 @@ class TestTutorFurnitureEditor:
 
         assert response.status_code == 400
 
-    def test_create_accepts_with_hole_kind(self, api_client, auth_header, tutor):
-        response = api_client.post(
-            '/tutor/furniture',
-            data={'key': 'window', 'name': 'Window', 'surface': 'wall', 'kind': 'with_hole'},
-            FILES={'model_file': self._obj_file(), 'thumbnail_image': self._image_file()},
-            headers=auth_header(tutor.user),
-        )
-
-        assert response.status_code == 200
-        assert response.data['kind'] == 'with_hole'
-
-    def test_create_defaults_to_normal_kind(self, api_client, auth_header, tutor):
-        response = api_client.post(
-            '/tutor/furniture',
-            data={'key': 'lamp', 'name': 'Lamp'},
-            FILES={'model_file': self._obj_file(), 'thumbnail_image': self._image_file()},
-            headers=auth_header(tutor.user),
-        )
-
-        assert response.status_code == 200
-        assert response.data['kind'] == 'normal'
-
-    def test_create_rejects_invalid_kind(self, api_client, auth_header, tutor):
-        response = api_client.post(
-            '/tutor/furniture',
-            data={'key': 'painting', 'name': 'Painting', 'kind': 'bogus'},
-            FILES={'model_file': self._obj_file(), 'thumbnail_image': self._image_file()},
-            headers=auth_header(tutor.user),
-        )
-
-        assert response.status_code == 400
-
     def test_create_rejects_wrong_model_extension(self, api_client, auth_header, tutor):
         response = api_client.post(
             '/tutor/furniture',
@@ -1607,7 +1575,7 @@ class TestTutorFurnitureEditor:
 
         assert response.status_code == 409
 
-    def test_update_sets_price_scale_rotation_position_and_kind(self, api_client, auth_header, tutor):
+    def test_update_sets_price_scale_rotation_and_position(self, api_client, auth_header, tutor):
         item = self._make_item()
 
         response = api_client.patch(
@@ -1615,7 +1583,6 @@ class TestTutorFurnitureEditor:
             json={
                 'price': 50,
                 'surface': 'wall',
-                'kind': 'with_hole',
                 'default_scale': 1.5,
                 'default_rotation': [0.0, 1.57, 0.0],
                 'default_position': [0.1, 0.2, 0.0],
@@ -1626,34 +1593,14 @@ class TestTutorFurnitureEditor:
         assert response.status_code == 200, response.data
         assert response.data['price'] == 50
         assert response.data['surface'] == 'wall'
-        assert response.data['kind'] == 'with_hole'
         assert response.data['default_scale'] == 1.5
         assert response.data['default_rotation'] == [0.0, 1.57, 0.0]
         assert response.data['default_position'] == [0.1, 0.2, 0.0]
         item.refresh_from_db()
         assert item.price == 50
         assert item.surface == 'wall'
-        assert item.kind == 'with_hole'
         assert item.default_rotation_y == 1.57
         assert item.default_position_y == 0.2
-
-    def test_update_rejects_invalid_kind(self, api_client, auth_header, tutor):
-        item = self._make_item()
-
-        response = api_client.patch(
-            f'/tutor/furniture/{item.id}',
-            json={
-                'price': 0,
-                'surface': 'floor',
-                'kind': 'bogus',
-                'default_scale': 1.0,
-                'default_rotation': [0.0, 0.0, 0.0],
-                'default_position': [0.0, 0.0, 0.0],
-            },
-            headers=auth_header(tutor.user),
-        )
-
-        assert response.status_code == 400
 
     def test_delete_removes_item(self, api_client, auth_header, tutor):
         item = self._make_item()
@@ -1673,7 +1620,6 @@ class TestTutorFurnitureEditor:
             json={
                 'price': 1,
                 'surface': 'floor',
-                'kind': 'normal',
                 'default_scale': 1.0,
                 'default_rotation': [0.0, 0.0, 0.0],
                 'default_position': [0.0, 0.0, 0.0],

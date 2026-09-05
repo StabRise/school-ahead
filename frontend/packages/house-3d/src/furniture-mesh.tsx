@@ -6,20 +6,11 @@ import { TransformControls } from "@react-three/drei";
 import * as THREE from "three";
 import { FurnitureModel } from "./furniture-model";
 import type { MtlTexture } from "./lib/mtl-resource-map";
-import type { FurnitureKind, FurnitureSurface } from "./lib/surface";
+import type { FurnitureSurface, HorizontalFootprint } from "./lib/surface";
 import { snapToSurface } from "./lib/surface";
 import type { GizmoMode } from "./stores/house-scene-store";
 
-export interface Vector3Like {
-  x: number;
-  y: number;
-  z: number;
-}
-
-export interface MeasuredBounds {
-  center: Vector3Like;
-  size: Vector3Like;
-}
+const POINT_FOOTPRINT: HorizontalFootprint = { minX: 0, maxX: 0, minZ: 0, maxZ: 0 };
 
 export interface FurnitureMeshProps {
   modelUrl: string;
@@ -27,7 +18,6 @@ export interface FurnitureMeshProps {
   materialUrl: string | null;
   textures: MtlTexture[];
   surface: FurnitureSurface;
-  kind: FurnitureKind;
   position: [number, number, number];
   rotation: [number, number, number];
   scale: number;
@@ -45,11 +35,6 @@ export interface FurnitureMeshProps {
   showGizmoArrows: boolean;
   onSelect: () => void;
   onTransformEnd: (position: [number, number, number], rotation: [number, number, number], scale: number) => void;
-  // Reports this item's rendered world-space bounding box — only measured
-  // for WITH_HOLE items, so room-scene.tsx can cut a same-size opening,
-  // centered on the object, into whichever surface it's stuck to (see
-  // lib/hole-geometry.ts).
-  onMeasured?: (bounds: MeasuredBounds) => void;
   // Room-scene.tsx disables OrbitControls for the duration of a direct
   // drag (see below) — both this item's own pointer-drag and
   // TransformControls' gizmo drag report through this, so the camera never
@@ -80,7 +65,6 @@ export function FurnitureMesh({
   materialUrl,
   textures,
   surface,
-  kind,
   position,
   rotation,
   scale,
@@ -90,7 +74,6 @@ export function FurnitureMesh({
   showGizmoArrows,
   onSelect,
   onTransformEnd,
-  onMeasured,
   onDraggingChange,
 }: FurnitureMeshProps) {
   // The outer group — TransformControls attaches here, and its own
@@ -122,28 +105,46 @@ export function FurnitureMesh({
   const isDragging = useRef(false);
   const dragMoved = useRef(false);
 
+  // The inner (tilt) group's own Object3D, so we can measure the item's
+  // actual mesh extent — see the footprint effect below. Unlike outerGroup,
+  // this never needs to be an attach target, so a plain ref is enough.
+  const contentGroup = useRef<THREE.Group>(null);
+
+  // How far this item's mesh reaches from its pivot on the horizontal
+  // plane at its current tilt + facing (see lib/surface.ts's
+  // HorizontalFootprint) — starts as a point (no margin) until the model
+  // has loaded and this gets measured for real, which reproduces the old
+  // pivot-only clamping in the brief window before that happens.
+  //
+  // Deliberately NOT recomputed straight out of commitTransform (right
+  // after a drag/rotate ends): this component briefly re-renders with the
+  // *pre-drag* position/rotation props whenever any state here changes —
+  // the parent hasn't re-rendered with the freshly PATCHed placement yet —
+  // and recomputing `snapped` from those stale props would snap the item
+  // straight back to where it started right after the student let go of
+  // it. Instead this only re-measures when `position`/`rotation` themselves
+  // change (mount, or the parent catching up post-PATCH with a value that
+  // already matches what's on screen), which is always safe to act on.
+  const [footprint, setFootprint] = useState<HorizontalFootprint>(POINT_FOOTPRINT);
+
+  useEffect(() => {
+    if (!outerGroup || !contentGroup.current) return;
+    outerGroup.updateWorldMatrix(true, true);
+    const box = new THREE.Box3().setFromObject(contentGroup.current);
+    if (box.isEmpty()) return;
+    const pivot = outerGroup.position;
+    setFootprint({
+      minX: box.min.x - pivot.x,
+      maxX: box.max.x - pivot.x,
+      minZ: box.min.z - pivot.z,
+      maxZ: box.max.z - pivot.z,
+    });
+  }, [outerGroup, modelUrl, scale, position, rotation]);
+
   // Recomputed on every render (not just after a drag) so a stored
   // placement — or a brand-new item still at its catalog default of
   // (0,0,0) — always renders stuck to its surface.
-  const snapped = snapToSurface(surface, position, rotation);
-
-  // WITH_HOLE items report their actual rendered footprint once their
-  // model has loaded (this component only mounts inside a Suspense
-  // boundary, so the outer group's children already have geometry by the
-  // time this runs) and whenever their transform changes, so the hole
-  // room-scene.tsx cuts stays the right size and in the right spot.
-  useEffect(() => {
-    if (!outerGroup || kind !== "with_hole" || !onMeasured) return;
-    outerGroup.updateWorldMatrix(true, true);
-    const box = new THREE.Box3().setFromObject(outerGroup);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    onMeasured({
-      size: { x: size.x, y: size.y, z: size.z },
-      center: { x: center.x, y: center.y, z: center.z },
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [outerGroup, kind, snapped.position, snapped.facingY, snapped.tiltX, snapped.tiltZ, scale]);
+  const snapped = snapToSurface(surface, position, rotation, footprint);
 
   // Reads whatever's currently on the live outer group (position, plus
   // rotation.y — the only axis anything ever touches there) and persists a
@@ -155,6 +156,7 @@ export function FurnitureMesh({
       surface,
       [outerGroup.position.x, outerGroup.position.y, outerGroup.position.z],
       [rotation[0], outerGroup.rotation.y, rotation[2]],
+      footprint,
     );
     // Applied back onto the live object immediately, so the mesh visibly
     // snaps into place the instant the student releases it, rather than
@@ -202,21 +204,17 @@ export function FurnitureMesh({
     onDraggingChange?.(true);
   };
 
-  const handlePointerMove = (event: ThreeEvent<PointerEvent>) => {
-    if (!isDragging.current || !outerGroup) return;
-    event.stopPropagation();
-    const hit = new THREE.Vector3();
-    if (!event.ray.intersectPlane(dragPlane.current, hit)) return;
-    const dragged = hit.add(dragOffset.current);
-    // Re-snapped on every move (not just on release) so the item's on-screen
-    // position always honors its surface constraints while being dragged,
-    // instead of visibly "popping" into place only after letting go.
-    const live = snapToSurface(surface, [dragged.x, dragged.y, dragged.z], [rotation[0], outerGroup.rotation.y, rotation[2]]);
-    outerGroup.position.set(...live.position);
-    dragMoved.current = true;
-  };
-
-  const handlePointerUp = (event: ThreeEvent<PointerEvent>) => {
+  // Shared by the normal release (onPointerUp) and the "something ended the
+  // drag without us ever getting a pointerup for it" case
+  // (onLostPointerCapture — the browser revokes capture without a matching
+  // pointerup e.g. when a context menu opens mid-drag, or the OS/browser
+  // otherwise steals the pointer). Without also handling that event, a drag
+  // whose capture was yanked away like this leaves isDragging stuck `true`
+  // forever, and every later bare mouse *hover* (no button held) over the
+  // canvas would keep calling handlePointerMove and dragging the item along
+  // with the cursor — which is exactly what "moves without pressing the
+  // mouse button" looks like.
+  const endDrag = (event: ThreeEvent<PointerEvent>) => {
     if (!isDragging.current) return;
     event.stopPropagation();
     const target = event.nativeEvent.target;
@@ -228,6 +226,33 @@ export function FurnitureMesh({
     if (dragMoved.current) commitTransform();
   };
 
+  const handlePointerMove = (event: ThreeEvent<PointerEvent>) => {
+    if (!isDragging.current || !outerGroup) return;
+    // Defensive: if the primary button somehow isn't held anymore (see
+    // endDrag above for how that can happen without us ever hearing about
+    // it), stop dragging instead of having the item keep following a bare
+    // mouse hover with no button pressed.
+    if (event.buttons === 0) {
+      endDrag(event);
+      return;
+    }
+    event.stopPropagation();
+    const hit = new THREE.Vector3();
+    if (!event.ray.intersectPlane(dragPlane.current, hit)) return;
+    const dragged = hit.add(dragOffset.current);
+    // Re-snapped on every move (not just on release) so the item's on-screen
+    // position always honors its surface constraints while being dragged,
+    // instead of visibly "popping" into place only after letting go.
+    const live = snapToSurface(
+      surface,
+      [dragged.x, dragged.y, dragged.z],
+      [rotation[0], outerGroup.rotation.y, rotation[2]],
+      footprint,
+    );
+    outerGroup.position.set(...live.position);
+    dragMoved.current = true;
+  };
+
   return (
     <>
       <group
@@ -237,9 +262,10 @@ export function FurnitureMesh({
         scale={scale}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
+        onPointerUp={endDrag}
+        onLostPointerCapture={endDrag}
       >
-        <group rotation={[snapped.tiltX, 0, snapped.tiltZ]}>
+        <group ref={contentGroup} rotation={[snapped.tiltX, 0, snapped.tiltZ]}>
           <FurnitureModel modelUrl={modelUrl} modelFormat={modelFormat} materialUrl={materialUrl} textures={textures} />
         </group>
       </group>

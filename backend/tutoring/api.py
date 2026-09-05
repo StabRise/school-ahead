@@ -28,7 +28,7 @@ from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
 from common.permissions import ensure_is_tutor
 from house import services as house_services
-from house.models import FurnitureItem, FurnitureKind, FurnitureSurface, FurnitureTexture
+from house.models import FurnitureItem, FurnitureSurface, FurnitureTexture
 from house.schemas import FurnitureTextureOut
 from lessons import services as lesson_services
 from lessons.models import (
@@ -1062,7 +1062,6 @@ def _tutor_furniture_item_out(item: FurnitureItem, request: HttpRequest) -> Tuto
         thumbnail_image=_absolute_file_url(item.thumbnail_image, request),
         price=item.price,
         surface=item.surface,
-        kind=item.kind,
         default_scale=item.default_scale,
         default_rotation=[item.default_rotation_x, item.default_rotation_y, item.default_rotation_z],
         default_position=[item.default_position_x, item.default_position_y, item.default_position_z],
@@ -1087,7 +1086,6 @@ def create_tutor_furniture_item(
     name: str = Form(...),
     price: int = Form(0),
     surface: str = Form(FurnitureSurface.FLOOR),
-    kind: str = Form(FurnitureKind.NORMAL),
     model_file: UploadedFile = File(...),
     thumbnail_image: UploadedFile = File(...),
     texture_files: list[UploadedFile] = File([]),
@@ -1101,9 +1099,7 @@ def create_tutor_furniture_item(
     texture_files may be attached — see models.FurnitureTexture; more can
     be added later via add_tutor_furniture_textures. Starts at the default
     transform (position 0, rotation 0, scale 1) — see
-    update_tutor_furniture_item for adjusting it afterwards. kind=with_hole
-    (a window, door, ...) gets an opening cut into its surface — see
-    house.models.FurnitureKind."""
+    update_tutor_furniture_item for adjusting it afterwards."""
     require_csrf(request)
     ensure_is_tutor(request)
 
@@ -1113,12 +1109,10 @@ def create_tutor_furniture_item(
         raise HttpError(400, 'material_file must be .mtl')
     if surface not in FurnitureSurface.values:
         raise HttpError(400, f'surface must be one of {FurnitureSurface.values}')
-    if kind not in FurnitureKind.values:
-        raise HttpError(400, f'kind must be one of {FurnitureKind.values}')
     if FurnitureItem.objects.filter(key=key).exists():
         raise HttpError(409, f'A furniture item with key "{key}" already exists')
 
-    item = FurnitureItem(key=key, name=name, price=price, surface=surface, kind=kind)
+    item = FurnitureItem(key=key, name=name, price=price, surface=surface)
     item.model_file.save(model_file.name, model_file, save=False)
     item.thumbnail_image.save(thumbnail_image.name, thumbnail_image, save=False)
     if material_file is not None:
@@ -1169,30 +1163,25 @@ def delete_tutor_furniture_texture(request: HttpRequest, item_id: int, texture_i
 @router.patch('/furniture/{item_id}', response=TutorFurnitureItemOut, operation_id='update_tutor_furniture_item')
 def update_tutor_furniture_item(request: HttpRequest, item_id: int, payload: UpdateTutorFurnitureItemIn):
     """Sets a furniture item's Diamond price, which surface it sticks to,
-    its kind (whether it gets a hole cut for it — see
-    house.models.FurnitureKind), and its catalog default scale/rotation/
-    position — the transform every purchase/Add starts from (see
-    house.services.purchase_item/place_item) — from the furniture editor's
-    controls. default_position is a small nudge off the surface (see
-    house-3d's lib/surface.ts, which clamps it to a modest range), for a
-    model whose own pivot isn't at its base and so looks sunk into the
-    floor (or floating off a wall/ceiling) at the catalog default."""
+    and its catalog default scale/rotation/position — the transform every
+    purchase/Add starts from (see house.services.purchase_item/place_item)
+    — from the furniture editor's controls. default_position is a small
+    nudge off the surface (see house-3d's lib/surface.ts, which clamps it
+    to a modest range), for a model whose own pivot isn't at its base and
+    so looks sunk into the floor (or floating off a wall/ceiling) at the
+    catalog default."""
     require_csrf(request)
     ensure_is_tutor(request)
     if payload.surface not in FurnitureSurface.values:
         raise HttpError(400, f'surface must be one of {FurnitureSurface.values}')
-    if payload.kind not in FurnitureKind.values:
-        raise HttpError(400, f'kind must be one of {FurnitureKind.values}')
     item = get_object_or_404(FurnitureItem, id=item_id)
     item.price = payload.price
     item.surface = payload.surface
-    item.kind = payload.kind
     item.default_scale = payload.default_scale
     item.default_rotation_x, item.default_rotation_y, item.default_rotation_z = payload.default_rotation
     item.default_position_x, item.default_position_y, item.default_position_z = payload.default_position
     item.save(
         update_fields=[
-            'kind',
             'price', 'surface', 'default_scale',
             'default_rotation_x', 'default_rotation_y', 'default_rotation_z',
             'default_position_x', 'default_position_y', 'default_position_z',

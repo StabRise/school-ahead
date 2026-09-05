@@ -22,6 +22,18 @@ describe("snapToSurface", () => {
     expect(snapToSurface("ceiling", [0, -5, 0], [0, 0, 0]).position[1]).toBe(3.5);
   });
 
+  it("floor: clamps x/z within the room bounds so it can't be dragged through a wall", () => {
+    expect(snapToSurface("floor", [50, 0, 0], [0, 0, 0]).position).toEqual([4, 0, 0]);
+    expect(snapToSurface("floor", [-50, 0, 0], [0, 0, 0]).position).toEqual([-4, 0, 0]);
+    expect(snapToSurface("floor", [0, 0, 50], [0, 0, 0]).position).toEqual([0, 0, 4]);
+    expect(snapToSurface("floor", [0, 0, -50], [0, 0, 0]).position).toEqual([0, 0, -4]);
+  });
+
+  it("ceiling: clamps x/z within the room bounds so it can't be dragged through a wall", () => {
+    expect(snapToSurface("ceiling", [50, 4, 0], [0, 0, 0]).position).toEqual([4, 4, 0]);
+    expect(snapToSurface("ceiling", [0, 4, -50], [0, 0, 0]).position).toEqual([0, 4, -4]);
+  });
+
   it("wall: snaps to the nearest wall, faces into the room, and keeps the tutor's x/z tilt separately", () => {
     // Nearest to the back wall (z = -4).
     expect(snapToSurface("wall", [0, 1, -3.5], [0.2, 0, 0.4])).toEqual({
@@ -70,5 +82,27 @@ describe("snapToSurface", () => {
     expect(result.facingY).toBe(Math.PI / 2);
     expect(result.tiltX).toBe(Math.PI / 2);
     expect(result.tiltZ).toBe(0);
+  });
+
+  it("floor: keeps a large item's edge, not just its pivot, inside the room", () => {
+    // A 2x2 footprint centered on the pivot — dragging the pivot to (3.5, 3.5)
+    // would otherwise leave the item half-outside the room's (4, 4) corner.
+    const footprint = { minX: -1, maxX: 1, minZ: -1, maxZ: 1 };
+    expect(snapToSurface("floor", [3.5, 0, 3.5], [0, 0, 0], footprint).position).toEqual([3, 0, 3]);
+    expect(snapToSurface("floor", [-3.5, 0, -3.5], [0, 0, 0], footprint).position).toEqual([-3, 0, -3]);
+  });
+
+  it("floor: honors an off-center pivot's asymmetric reach on each side", () => {
+    // A pivot near one edge of its mesh (e.g. an off-center model origin)
+    // reaches 0.2 behind it but 1.8 ahead — the far side should hit the
+    // room bound sooner than a symmetric footprint of the same total size.
+    const footprint = { minX: -0.2, maxX: 1.8, minZ: -0.2, maxZ: 1.8 };
+    expect(snapToSurface("floor", [10, 0, 0], [0, 0, 0], footprint).position[0]).toBeCloseTo(2.2);
+    expect(snapToSurface("floor", [-10, 0, 0], [0, 0, 0], footprint).position[0]).toBeCloseTo(-3.8);
+  });
+
+  it("wall: keeps a wide item's edge within the wall's width", () => {
+    const footprint = { minX: -1, maxX: 1, minZ: -1, maxZ: 1 };
+    expect(snapToSurface("wall", [3.9, 1, -3.9], [0, 0, 0], footprint).position[0]).toBe(3);
   });
 });
