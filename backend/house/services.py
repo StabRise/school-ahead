@@ -1,9 +1,13 @@
+import re
+
 from django.db import transaction
 from django.db.models import F
 
 from accounts.models import StudentProfile
 
-from .models import FurnitureItem, FurniturePurchase, PlacedFurnitureItem
+from .models import FurnitureItem, FurniturePurchase, PlacedFurnitureItem, RoomStyle
+
+HEX_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{6}$')
 
 
 class ItemAlreadyOwned(Exception):
@@ -12,6 +16,18 @@ class ItemAlreadyOwned(Exception):
 
 class InsufficientDiamonds(Exception):
     pass
+
+
+class InvalidColor(Exception):
+    pass
+
+
+def model_format(item: FurnitureItem) -> str:
+    """"obj" | "stl" — the frontend loader picks a THREE.js loader off this,
+    since model_file itself doesn't carry a content-type. Shared by
+    house.api (student-facing) and tutoring.api's furniture editor
+    (tutor-facing)."""
+    return 'stl' if item.model_file.name.lower().endswith('.stl') else 'obj'
 
 
 def is_item_owned(student: StudentProfile, item: FurnitureItem) -> bool:
@@ -23,11 +39,12 @@ def is_item_owned(student: StudentProfile, item: FurnitureItem) -> bool:
 
 @transaction.atomic
 def purchase_item(student: StudentProfile, item: FurnitureItem) -> None:
-    """Buys `item` for `student` and immediately places it in their room at
-    the catalog's default transform — see FurnitureItem/
-    PlacedFurnitureItem. There's no separate "equip" step for furniture
-    (unlike accounts.AvatarItem): buying a piece puts it straight into the
-    room, and the student can then move it or put it away.
+    """Buys `item` for `student` — see FurnitureItem/FurniturePurchase.
+    Ownership only: it does not place the item in the room. There's no
+    separate "equip" step for furniture (unlike accounts.AvatarItem), but
+    unlike a straight equip, the student explicitly adds it to the room
+    afterwards via `place_item` (Add button in the shop) rather than it
+    appearing there automatically.
 
     Same atomic conditional-UPDATE balance check as
     accounts.services.purchase_avatar_item: the balance check and
@@ -44,6 +61,13 @@ def purchase_item(student: StudentProfile, item: FurnitureItem) -> None:
         raise InsufficientDiamonds()
 
     FurniturePurchase.objects.create(student_profile=student, item=item)
+    student.refresh_from_db(fields=['diamond_balance_cache'])
+
+
+def place_item(student: StudentProfile, item: FurnitureItem) -> None:
+    """Puts an already-owned item into the room at the catalog's default
+    transform — the "Add" button counterpart to `clear_placement`'s
+    "Remove". See house.api.place_furniture_item."""
     PlacedFurnitureItem.objects.update_or_create(
         student_profile=student,
         item=item,
@@ -57,7 +81,6 @@ def purchase_item(student: StudentProfile, item: FurnitureItem) -> None:
             'scale': item.default_scale,
         },
     )
-    student.refresh_from_db(fields=['diamond_balance_cache'])
 
 
 def save_placement(
@@ -84,3 +107,30 @@ def clear_placement(student: StudentProfile, item: FurnitureItem) -> None:
     without touching FurniturePurchase, so it stays owned and can be
     placed again later."""
     PlacedFurnitureItem.objects.filter(student_profile=student, item=item).delete()
+
+
+def get_room_style(student: StudentProfile) -> RoomStyle:
+    """This student's saved wall/floor room colors — see models.RoomStyle.
+    Creates the row with its default colors the first time anyone asks,
+    rather than requiring one to already exist."""
+    style, _created = RoomStyle.objects.get_or_create(student_profile=student)
+    return style
+
+
+def update_room_style(student: StudentProfile, wall_color: str | None, floor_color: str | None) -> RoomStyle:
+    """Saves a student's wall and/or floor color pick — either argument
+    left None leaves that color untouched. Raises InvalidColor unless a
+    given color is a plain `#rrggbb` hex string, since it's rendered
+    straight into a three.js material color with no further sanitization
+    on the frontend."""
+    style = get_room_style(student)
+    if wall_color is not None:
+        if not HEX_COLOR_RE.match(wall_color):
+            raise InvalidColor()
+        style.wall_color = wall_color
+    if floor_color is not None:
+        if not HEX_COLOR_RE.match(floor_color):
+            raise InvalidColor()
+        style.floor_color = floor_color
+    style.save()
+    return style

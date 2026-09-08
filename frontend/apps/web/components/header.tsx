@@ -134,8 +134,11 @@ export function Header() {
       {user ? (
         <div className="flex items-center gap-3">
           {user.role === "student" && (
+            // Preschool students get the full minigame hub; everyone else
+            // (docs/preschool/games/cards.md's older-student audience) goes
+            // straight to the study flashcards game instead.
             <Link
-              href="/games"
+              href={user.interfaceMode === "preschool" ? "/games" : "/games/cards"}
               className="text-sm font-medium text-gray-500 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
             >
               {t("games")}

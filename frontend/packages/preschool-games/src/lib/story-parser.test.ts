@@ -5,6 +5,7 @@ const text = (value: string): StoryWordSegment => ({ kind: "text", text: value }
 const img = (filename: string): StoryWordSegment => ({ kind: "image", filename });
 const audio = (filename: string): StoryWordSegment => ({ kind: "audio", filename });
 const video = (filename: string): StoryWordSegment => ({ kind: "video", filename });
+const youtube = (videoId: string): StoryWordSegment => ({ kind: "youtube", videoId });
 
 describe("parseSyllableGroup", () => {
   it("splits a syllable breakdown by '-', trimming each segment", () => {
@@ -49,6 +50,32 @@ describe("parseSyllableGroup", () => {
 
   it("treats a word-breakdown segment written as a video filename as its own card, not text", () => {
     expect(parseSyllableGroup("К - 1.avi - Т - КА")).toEqual([text("К"), video("1.avi"), text("Т"), text("КА")]);
+  });
+
+  it("treats the whole group as one YouTube card when its content is a youtube.com watch URL", () => {
+    expect(parseSyllableGroup(" https://www.youtube.com/watch?v=ceLRfRzMRUM ")).toEqual([
+      youtube("ceLRfRzMRUM"),
+    ]);
+  });
+
+  it("recognizes a youtu.be short link and a bare (schemeless) URL", () => {
+    expect(parseSyllableGroup("https://youtu.be/ceLRfRzMRUM")).toEqual([youtube("ceLRfRzMRUM")]);
+    expect(parseSyllableGroup("youtube.com/watch?v=ceLRfRzMRUM")).toEqual([youtube("ceLRfRzMRUM")]);
+  });
+
+  it("recognizes a YouTube URL with extra query params after the video id", () => {
+    expect(parseSyllableGroup("https://www.youtube.com/watch?v=ceLRfRzMRUM&t=30s")).toEqual([
+      youtube("ceLRfRzMRUM"),
+    ]);
+  });
+
+  it("treats a word-breakdown segment written as a YouTube URL as its own card, not text", () => {
+    expect(parseSyllableGroup("К - https://youtu.be/ceLRfRzMRUM - Т - КА")).toEqual([
+      text("К"),
+      youtube("ceLRfRzMRUM"),
+      text("Т"),
+      text("КА"),
+    ]);
   });
 });
 

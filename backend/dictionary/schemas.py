@@ -24,3 +24,7 @@ class AddDictionaryItemIn(Schema):
 
 class UpdateDictionaryItemStatusIn(Schema):
     status: str
+
+
+class UpdateDictionaryItemTranslationIn(Schema):
+    translation: str

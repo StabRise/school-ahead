@@ -11,7 +11,7 @@ import { GamePageContainer } from "./kit/game-page-container";
 import { HomeButton } from "./kit/home-button";
 
 // Full-screen player for one preschool minigame at its own URL
-// (/games/balloons, /games/trains, /games/reading, /games/cards,
+// (/games/balloons, /games/trains, /games/reading, /games/reading-cards,
 // /games/stories[/<storySlug>] — see games-page.tsx for the picker that
 // links here). Trains fills the screen edge-to-edge; the others are capped
 // and centered on wide screens (xl:max-w-*, same "don't cap below xl"

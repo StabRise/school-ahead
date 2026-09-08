@@ -1,5 +1,5 @@
-import { GamePlayPage } from "@school-ahead/preschool-games";
+import { FlashcardsGroupsPage } from "@/components/flashcards/flashcards-groups-page";
 
-export default function CardsGamePage() {
-  return <GamePlayPage game="cards" />;
+export default function CardsGroupsRoutePage() {
+  return <FlashcardsGroupsPage />;
 }

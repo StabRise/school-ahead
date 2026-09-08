@@ -7,14 +7,17 @@ from common.csrf import require_csrf
 from common.permissions import get_own_student_profile
 
 from . import services
-from .models import FurnitureItem, PlacedFurnitureItem
-from .schemas import FurnitureItemOut, FurniturePlacementOut, UpdateFurniturePlacementIn
+from .models import FurnitureItem, PlacedFurnitureItem, RoomStyle
+from .schemas import (
+    FurnitureItemOut,
+    FurniturePlacementOut,
+    FurnitureTextureOut,
+    RoomStyleOut,
+    UpdateFurniturePlacementIn,
+    UpdateRoomStyleIn,
+)
 
 router = Router(tags=['house'], auth=CookieOrBearerJWTAuth())
-
-
-def _model_format(item: FurnitureItem) -> str:
-    return 'stl' if item.model_file.name.lower().endswith('.stl') else 'obj'
 
 
 def _absolute_file_url(file_field, request: HttpRequest) -> str | None:
@@ -34,11 +37,16 @@ def _furniture_out(
         key=item.key,
         name=item.name,
         model_file=_absolute_file_url(item.model_file, request),
-        model_format=_model_format(item),
-        texture_file=_absolute_file_url(item.texture_file, request),
+        model_format=services.model_format(item),
+        material_file=_absolute_file_url(item.material_file, request),
+        textures=[
+            FurnitureTextureOut(id=t.id, url=_absolute_file_url(t.file, request), filename=t.original_filename)
+            for t in item.textures.all()
+        ],
         thumbnail_image=_absolute_file_url(item.thumbnail_image, request),
         price=item.price,
         is_owned=item.price == 0 or item.id in owned_ids,
+        surface=item.surface,
         default_position=[item.default_position_x, item.default_position_y, item.default_position_z],
         default_rotation=[item.default_rotation_x, item.default_rotation_y, item.default_rotation_z],
         default_scale=item.default_scale,
@@ -59,16 +67,17 @@ def list_furniture_catalog(request: HttpRequest):
         FurnitureItem.objects.filter(purchases__student_profile=student).values_list('id', flat=True)
     )
     placements = {p.item_id: p for p in PlacedFurnitureItem.objects.filter(student_profile=student)}
-    items = FurnitureItem.objects.filter(is_active=True)
+    items = FurnitureItem.objects.filter(is_active=True).prefetch_related('textures')
     return [_furniture_out(item, request, owned_ids, placements.get(item.id)) for item in items]
 
 
 @router.post('/furniture/{item_id}/purchase', response=FurnitureItemOut, operation_id='purchase_furniture_item')
 def purchase_furniture_item(request: HttpRequest, item_id: int):
-    """Buys a furniture item with Diamonds and immediately places it at
-    its catalog default transform — see house.services.purchase_item. 409
-    if already owned, 402 if the student's diamond_balance_cache can't
-    cover the price."""
+    """Buys a furniture item with Diamonds — ownership only, it does not
+    place the item in the room (see house.services.purchase_item; the
+    student places it afterwards via the Add button/
+    place_furniture_item). 409 if already owned, 402 if the student's
+    diamond_balance_cache can't cover the price."""
     require_csrf(request)
     student = get_own_student_profile(request)
     item = FurnitureItem.objects.filter(id=item_id, is_active=True).first()
@@ -80,8 +89,7 @@ def purchase_furniture_item(request: HttpRequest, item_id: int):
         raise HttpError(409, 'Item already owned') from exc
     except services.InsufficientDiamonds as exc:
         raise HttpError(402, 'Not enough Diamonds') from exc
-    placement = PlacedFurnitureItem.objects.get(student_profile=student, item=item)
-    return _furniture_out(item, request, {item.id}, placement)
+    return _furniture_out(item, request, {item.id}, None)
 
 
 def _get_own_owned_item(student, item_id: int) -> FurnitureItem:
@@ -94,6 +102,19 @@ def _get_own_owned_item(student, item_id: int) -> FurnitureItem:
     if not services.is_item_owned(student, item):
         raise HttpError(403, 'Item is not owned — purchase it first')
     return item
+
+
+@router.post('/furniture/{item_id}/place', response=FurnitureItemOut, operation_id='place_furniture_item')
+def place_furniture_item(request: HttpRequest, item_id: int):
+    """Adds an already-owned, currently put-away item back into the room at
+    its catalog default transform — the "Add" button counterpart to
+    clear_furniture_placement's "Remove". See house.services.place_item."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    item = _get_own_owned_item(student, item_id)
+    services.place_item(student, item)
+    placement = PlacedFurnitureItem.objects.get(student_profile=student, item=item)
+    return _furniture_out(item, request, {item.id}, placement)
 
 
 @router.patch('/furniture/{item_id}/placement', response=FurnitureItemOut, operation_id='update_furniture_placement')
@@ -119,3 +140,30 @@ def clear_furniture_placement(request: HttpRequest, item_id: int):
     item = _get_own_owned_item(student, item_id)
     services.clear_placement(student, item)
     return _furniture_out(item, request, {item.id}, None)
+
+
+def _room_style_out(style: RoomStyle) -> RoomStyleOut:
+    return RoomStyleOut(wall_color=style.wall_color, floor_color=style.floor_color)
+
+
+@router.get('/room-style', response=RoomStyleOut, operation_id='get_room_style')
+def get_room_style(request: HttpRequest):
+    """This student's saved wall/floor room colors — see
+    house.services.get_room_style. Defaults to RoomStyle's stock colors
+    (matching RoomShell's original hardcoded ones) until the student picks
+    their own."""
+    student = get_own_student_profile(request)
+    return _room_style_out(services.get_room_style(student))
+
+
+@router.patch('/room-style', response=RoomStyleOut, operation_id='update_room_style')
+def update_room_style(request: HttpRequest, payload: UpdateRoomStyleIn):
+    """A student picking a new wall and/or floor color for their room —
+    see house.services.update_room_style."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    try:
+        style = services.update_room_style(student, payload.wall_color, payload.floor_color)
+    except services.InvalidColor as exc:
+        raise HttpError(422, 'Color must be a hex value like #rrggbb') from exc
+    return _room_style_out(style)

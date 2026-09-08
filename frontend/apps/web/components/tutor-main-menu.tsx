@@ -8,6 +8,7 @@ const MENU_ITEMS = [
   { href: "/tutor/subjects", labelKey: "mySubjects" },
   { href: "/tutor/classes", labelKey: "myClasses" },
   { href: "/tutor/avatars", labelKey: "avatarEditor" },
+  { href: "/tutor/furniture", labelKey: "furnitureEditor" },
 ] as const;
 
 export function TutorMainMenu() {

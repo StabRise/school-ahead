@@ -138,6 +138,53 @@ def test_update_dictionary_item_status_forbidden_for_other_student(api_client, a
     assert response.status_code == 403
 
 
+def test_update_dictionary_item_translation_persists(api_client, auth_header, student):
+    item = DictionaryItem.objects.create(
+        student=student, text='word', lang='en', translation='слово', sample='s', sample_translation='р',
+    )
+
+    response = api_client.patch(
+        f'/dictionary/{item.id}/translation',
+        json={'translation': 'краще слово'},
+        headers=auth_header(student.user),
+    )
+
+    assert response.status_code == 200
+    assert response.data['translation'] == 'краще слово'
+    item.refresh_from_db()
+    assert item.translation == 'краще слово'
+
+
+def test_update_dictionary_item_translation_rejects_empty(api_client, auth_header, student):
+    item = DictionaryItem.objects.create(
+        student=student, text='word', lang='en', translation='слово', sample='s', sample_translation='р',
+    )
+
+    response = api_client.patch(
+        f'/dictionary/{item.id}/translation',
+        json={'translation': '   '},
+        headers=auth_header(student.user),
+    )
+
+    assert response.status_code == 400
+    item.refresh_from_db()
+    assert item.translation == 'слово'
+
+
+def test_update_dictionary_item_translation_forbidden_for_other_student(api_client, auth_header, student, other_student):
+    item = DictionaryItem.objects.create(
+        student=student, text='word', lang='en', translation='слово', sample='s', sample_translation='р',
+    )
+
+    response = api_client.patch(
+        f'/dictionary/{item.id}/translation',
+        json={'translation': 'нове'},
+        headers=auth_header(other_student.user),
+    )
+
+    assert response.status_code == 403
+
+
 def test_delete_dictionary_item_removes_it(api_client, auth_header, student):
     item = DictionaryItem.objects.create(
         student=student, text='word', lang='en', translation='слово', sample='s', sample_translation='р',
