@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'achievements',
     'house',
     'lessons',
+    'tasks',
     'tutoring',
     'scheduling',
     'tts',
@@ -71,6 +72,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Django doesn't parse multipart bodies on PATCH requests by default —
+    # needed for tasks.api.update_task's multipart PATCH endpoint.
+    'ninja.compatibility.files.fix_request_files_middleware',
 ]
 
 ROOT_URLCONF = 'core.urls'

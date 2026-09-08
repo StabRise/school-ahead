@@ -17,6 +17,7 @@ from dictionary.api import router as dictionary_router
 from house.api import router as house_router
 from lessons.api import router as lessons_router
 from scheduling.api import router as scheduling_router
+from tasks.api import router as tasks_router
 from tts.api import router as tts_router
 from tutoring.api import router as tutoring_router
 
@@ -24,6 +25,7 @@ api = NinjaAPI(title='school-ahead API')
 api.add_router('/auth', accounts_router)
 api.add_router('/academics', academics_router)
 api.add_router('/student-lessons', lessons_router)
+api.add_router('/tasks', tasks_router)
 api.add_router('/tutor', tutoring_router)
 api.add_router('/schedule', scheduling_router)
 api.add_router('/achievements', achievements_router)

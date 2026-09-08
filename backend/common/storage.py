@@ -59,6 +59,14 @@ def quiz_choice_image_upload_to(instance, filename: str) -> str:
     return _unique_path('quiz_choice_images', filename)
 
 
+def task_image_upload_to(instance, filename: str) -> str:
+    return _unique_path('task_images', filename)
+
+
+def task_submission_upload_to(instance, filename: str) -> str:
+    return _unique_path('task_submissions', filename)
+
+
 def lessons_json_upload_to(instance, filename: str) -> str:
     return _unique_path('lessons_json', filename)
 
