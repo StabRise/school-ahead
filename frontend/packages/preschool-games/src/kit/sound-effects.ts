@@ -105,3 +105,16 @@ export function playPopSound() {
 export function playCelebrationChime() {
   playChime([523.25, 659.25, 783.99, 1046.5], { noteGap: 0.09, noteDuration: 0.4, gain: 0.3 }); // C5, E5, G5, C6
 }
+
+// A short rising two-note "thunk" for a Minecraft-style block placing into
+// the bridge — the multiplication game's correct-answer sound.
+export function playBuildSound() {
+  playChime([196, 261.63], { type: "square", noteGap: 0.08, noteDuration: 0.16, gain: 0.25 }); // G3, C4
+}
+
+// A short descending glide for the multiplication game's runner falling
+// into the pit — a bit lower and longer than playMissSound so it reads as a
+// "fall", not just "wrong".
+export function playFallSound() {
+  playTone(200, { type: "sawtooth", duration: 0.35, gain: 0.12, glideTo: 60 });
+}

@@ -8,6 +8,7 @@ import { TrainsGame } from "./trains-game";
 import { ReadingGame } from "./reading-game";
 import { CardsGame } from "./cards-game";
 import { StoriesGame } from "./stories-game";
+import { MultiplicationGame } from "./multiplication-game";
 import { HomeButton } from "./kit/home-button";
 
 // Celebration screen shown once every one of today's lessons (tails
@@ -20,7 +21,7 @@ import { HomeButton } from "./kit/home-button";
 // own — contrast the standalone /games entry point (games-page.tsx,
 // game-play-page.tsx), which reuses this file's GamePicker/GameCard but
 // navigates to /games/{game} instead so each game has its own URL.
-export type PreschoolGameId = "balloons" | "trains" | "reading" | "cards" | "stories";
+export type PreschoolGameId = "balloons" | "trains" | "reading" | "cards" | "stories" | "multiplication";
 
 function BalloonIcon() {
   return (
@@ -90,6 +91,22 @@ function StoriesIcon() {
   );
 }
 
+function MultiplicationIcon() {
+  return (
+    <svg viewBox="0 0 56 56" className="h-16 w-16 drop-shadow" aria-hidden="true">
+      <rect x="4" y="24" width="14" height="10" rx="2" fill="#22c55e" />
+      <rect x="21" y="24" width="14" height="10" rx="2" fill="#a3e635" />
+      <rect x="38" y="24" width="14" height="10" rx="2" fill="#22c55e" />
+      <rect x="18" y="4" width="20" height="18" rx="3" fill="#c68a5c" />
+      <rect x="22" y="9" width="3" height="3" fill="#2b1a0e" />
+      <rect x="31" y="9" width="3" height="3" fill="#2b1a0e" />
+      <text x="28" y="48" textAnchor="middle" fontSize="18" fontWeight="bold" fill="#0369a1">
+        ×
+      </text>
+    </svg>
+  );
+}
+
 // Each game's own accent color — the thick colored ring around its card
 // (see GameCard) and the "Play" pill's background, so the five cards read
 // as distinct at a glance instead of all being the same gray box.
@@ -99,6 +116,7 @@ const GAME_ACCENTS: Record<PreschoolGameId, { ring: string; play: string }> = {
   reading: { ring: "ring-orange-300", play: "bg-orange-500" },
   cards: { ring: "ring-amber-300", play: "bg-amber-500" },
   stories: { ring: "ring-violet-300", play: "bg-violet-500" },
+  multiplication: { ring: "ring-lime-300", play: "bg-lime-600" },
 };
 
 function GameCard({
@@ -200,6 +218,13 @@ export function GamePicker({
           icon={<StoriesIcon />}
           onSelect={() => onSelect("stories")}
         />
+        <GameCard
+          game="multiplication"
+          title={t("multiplicationTitle")}
+          subtitle={t("multiplicationSubtitle")}
+          icon={<MultiplicationIcon />}
+          onSelect={() => onSelect("multiplication")}
+        />
       </div>
     </div>
   );
@@ -242,6 +267,10 @@ export function PreschoolCelebration({
       ) : selectedGame === "stories" ? (
         <div className="flex flex-1 flex-col p-2 sm:p-4">
           <StoriesGame />
+        </div>
+      ) : selectedGame === "multiplication" ? (
+        <div className="flex flex-1 flex-col p-2 sm:p-4">
+          <MultiplicationGame />
         </div>
       ) : (
         <TrainsGame />

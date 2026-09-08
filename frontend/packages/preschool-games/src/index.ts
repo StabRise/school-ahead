@@ -3,6 +3,7 @@ export * from "./trains-game";
 export * from "./reading-game";
 export * from "./cards-game";
 export * from "./stories-game";
+export * from "./multiplication-game";
 export * from "./game-choice";
 export * from "./games-page";
 export * from "./game-play-page";
