@@ -247,6 +247,23 @@ def award_cards_game_diamond(student: StudentProfile) -> None:
     student.refresh_from_db(fields=['diamond_balance_cache'])
 
 
+# Diamond reward for the multiplication-table minigame (see
+# frontend/packages/preschool-games/src/multiplication-game.tsx) — awarded
+# once for successfully finishing all 20 questions of a session with at
+# least one life remaining. Same trust model as BALLOON_POP_MILESTONE_DIAMONDS
+# above: no server-side tracking of the run, the frontend calls this once
+# per completed session.
+MULTIPLICATION_GAME_MILESTONE_DIAMONDS = 1
+
+
+def award_multiplication_game_diamond(student: StudentProfile) -> None:
+    """Same atomic F() update as award_balloon_pop_diamond."""
+    StudentProfile.objects.filter(pk=student.pk).update(
+        diamond_balance_cache=F('diamond_balance_cache') + MULTIPLICATION_GAME_MILESTONE_DIAMONDS
+    )
+    student.refresh_from_db(fields=['diamond_balance_cache'])
+
+
 def is_item_unlocked(student: StudentProfile, item: AvatarItem) -> bool:
     """Free items are unlocked for everyone; priced ones need a purchase
     record. See docs/core/avatar.md section 2.2."""

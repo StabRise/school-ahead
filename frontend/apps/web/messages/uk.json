@@ -164,6 +164,8 @@
     "cardsSubtitle": "Слухай склади та картинки",
     "storiesTitle": "Казки",
     "storiesSubtitle": "Читай казку по складах",
+    "multiplicationTitle": "Множення",
+    "multiplicationSubtitle": "Розв'язуй приклади, встигай збудувати місток",
     "switchGame": "Обрати іншу гру"
   },
   "ReadingGame": {
@@ -202,6 +204,15 @@
     "starsLabel": "Зірочок: {count} з {total}",
     "musicOnLabel": "Вимкнути музику",
     "musicOffLabel": "Увімкнути музику"
+  },
+  "MultiplicationGame": {
+    "progress": "Питання {current}/{total}",
+    "settingsButton": "Налаштування",
+    "speedLabel": "Швидкість бігу",
+    "gameOverTitle": "Ой, провалився у прірву!",
+    "victoryTitle": "Місток збудовано! Перемога!",
+    "solvedCount": "Розв'язано прикладів: {count} з {total}",
+    "retryButton": "Спробувати знову"
   },
   "FlashcardsGame": {
     "groupsTitle": "Картки для навчання",

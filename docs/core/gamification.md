@@ -22,6 +22,7 @@ topic/semester earning and now links back here).
 | Pressing the matching key in the trains minigame | 1 letter; every 10 letters → +1 | `frontend/packages/preschool-games/src/trains-game.tsx`, `POST /auth/me/trains-game-reward` |
 | Opening a syllable/word card inside a story in the "Казки" minigame | 1 star; every 5 stars → +1 | `frontend/packages/preschool-games/src/stories-game.tsx`, `POST /auth/me/stories-game-reward` — logged-in students only |
 | Tapping the falling card matching the target syllable in the "Картки" minigame | 1 star; every 10 stars → +1 | `frontend/packages/preschool-games/src/cards-game.tsx`, `POST /auth/me/cards-game-reward` |
+| Completing all 20 questions of the multiplication-table minigame with at least 1 heart left | +1 | `frontend/packages/preschool-games/src/multiplication-game.tsx`, `POST /auth/me/multiplication-game-reward` |
 
 The four lesson-level rows all route through the single
 `lessons.services.mark_completed` — auto-graded quiz pass, theory
@@ -38,10 +39,11 @@ game's three rows are documented in full in `docs/preschool/games/balloon
 game/README.md`; every other minigame reward shares one implementation,
 `useDiamondMilestoneReward`
 (`frontend/packages/preschool-games/src/kit/use-diamond-milestone-reward.ts`),
-covering both this "count" shape (N items → 1 Diamond) and Reading's
-"level" shape (clear a level → 1 Diamond). All five minigames are public
-at `/games` (see `middleware.ts`'s `PUBLIC_PATHS`) — an anonymous visitor
-can play every one, they just never trigger the reward mutation, since
+covering both this "count" shape (N items → 1 Diamond) and Reading's/
+the multiplication game's "level" shape (clear a level, or finish a session
+→ 1 Diamond). All six minigames are public at `/games` (see `middleware.ts`'s
+`PUBLIC_PATHS`) — an anonymous visitor can play every one, they just never
+trigger the reward mutation, since
 `useDiamondMilestoneReward` reads the signed-in student off `useAuthStore`
 and no-ops the server call (and the Diamond flight animation) when there
 isn't one.

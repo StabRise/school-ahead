@@ -5,6 +5,7 @@ import { TrainsGame } from "./trains-game";
 import { ReadingGame } from "./reading-game";
 import { CardsGame } from "./cards-game";
 import { StoriesGamePage } from "./stories-game";
+import { MultiplicationGame } from "./multiplication-game";
 import type { PreschoolGameId } from "./game-choice";
 import { usePreschoolGamesGuard } from "./game-shell";
 import { GamePageContainer } from "./kit/game-page-container";
@@ -47,6 +48,8 @@ export function GamePlayPage({ game, storySlug }: { game: PreschoolGameId; story
         <div className="mx-auto flex w-full flex-1 flex-col p-2 xl:max-w-5xl sm:p-4">
           <StoriesGamePage slug={storySlug ?? null} basePath="/games/stories" />
         </div>
+      ) : game === "multiplication" ? (
+        <MultiplicationGame />
       ) : (
         <TrainsGame />
       )}

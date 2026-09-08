@@ -316,6 +316,24 @@ body {
   animation: cute-button-bounce 0.5s ease-in-out;
 }
 
+/* Multiplication minigame (packages/preschool-games/src/multiplication-game.tsx)
+   — the avatar's run/cross/fall movement is driven by plain CSS
+   *transitions* on `left`/`transform` (retargeted from React state), not
+   @keyframes, so this is the only keyframe the game still needs:
+   multiplication-bridge-build grows the bridge plank in from its left edge
+   the instant a correct answer arrives, which may be before the avatar
+   reaches the pit. */
+@keyframes multiplication-bridge-build {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
 .preschool-button:active {
   transform: scale(0.92);
 }

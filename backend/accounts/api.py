@@ -417,3 +417,19 @@ def reward_cards_game(request: HttpRequest):
     student = get_own_student_profile(request)
     services.award_cards_game_diamond(student)
     return MeOut(user=_user_out(request, request.auth))
+
+
+@router.post(
+    '/me/multiplication-game-reward',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='reward_multiplication_game',
+)
+def reward_multiplication_game(request: HttpRequest):
+    """Awards a Diamond for completing all 20 questions of the multiplication-table
+    minigame (frontend/packages/preschool-games/src/multiplication-game.tsx).
+    See accounts.services.award_multiplication_game_diamond for the trust model."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    services.award_multiplication_game_diamond(student)
+    return MeOut(user=_user_out(request, request.auth))
