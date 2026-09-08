@@ -10,15 +10,85 @@ import {
   useGetSubjectProgress,
   useListStudentSubjectLessons,
 } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
+import { useGetSubjectTaskProgress, useListSubjectTasks } from "@school-ahead/api-client/browser/tasks/tasks";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { ProgressBar } from "@/components/progress-bar";
 import { Tabs } from "@/components/tabs";
 import { SemesterPlan } from "@/components/subjects/semester-plan";
+import { groupTasksByTopicId, TaskListSection } from "@/components/subjects/task-list";
 import { LESSON_TYPE_ICON, LESSON_TYPE_ICON_COLOR } from "@/components/simple/lesson-type-icon";
 import { formatGradeLabel, formatShortDate, resolveStatusLabel } from "@/components/simple/format";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { StatusBadge } from "@/components/status-badge";
 import type { SubjectLessonOut, TopicOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+
+// The Tasks tab's content — topic-grouped optional practice work a tutor
+// attached to the subject, available to every student immediately (no
+// per-student assignment, unlike Lessons). One overall progress bar (done
+// task count / total), same idiom as the header's lesson progress bar.
+function TasksTabContent({
+  subjectId,
+  topics,
+  colorful,
+}: {
+  subjectId: number;
+  topics: TopicOut[];
+  colorful?: boolean;
+}) {
+  const t = useTranslations("SubjectDetail");
+  const tasksQuery = useListSubjectTasks(subjectId);
+  const progressQuery = useGetSubjectTaskProgress(subjectId);
+
+  const tasks = useMemo(() => tasksQuery.data ?? [], [tasksQuery.data]);
+  const tasksByTopicId = useMemo(() => groupTasksByTopicId(tasks), [tasks]);
+  const percent = Math.round(Math.min(100, Math.max(0, progressQuery.data?.completed_percent ?? 0)));
+
+  if (tasksQuery.isLoading) {
+    return <p className="text-sm text-gray-500">{t("loading")}</p>;
+  }
+  if (tasksQuery.isError) {
+    return <p className="text-sm text-red-600">{t("error")}</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      {tasks.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-gray-500">
+            {t("tasksProgress", {
+              completed: progressQuery.data?.completed_count ?? 0,
+              total: progressQuery.data?.total_count ?? 0,
+            })}
+          </span>
+          <ProgressBar percent={percent} compact colorful={colorful} />
+        </div>
+      )}
+
+      {topics.length === 0 ? (
+        <p className="text-sm text-gray-500">{t("noTopics")}</p>
+      ) : tasks.length === 0 ? (
+        <p className="text-sm text-gray-500">{t("noTasks")}</p>
+      ) : (
+        <div className="flex flex-col gap-5">
+          {topics.map((topic) => (
+            <TaskListSection
+              key={topic.id}
+              topic={topic}
+              tasks={tasksByTopicId.get(topic.id) ?? []}
+              emptyLabel={t("noTasksInTopic")}
+              getHref={(task) => `/tasks/${task.id}`}
+              doneToggle={{
+                subjectId,
+                markDoneLabel: t("markDoneButton"),
+                markNotDoneLabel: t("markNotDoneButton"),
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // One lesson row inside a topic section — monochrome, tiny grey icon, plain
 // text meta (date/status/grade) instead of TopicAccordionItem's colored
@@ -217,6 +287,11 @@ export function SimpleSubjectDetailPage({ subjectId, colorful }: { subjectId: nu
                   </div>
                 </div>
               ),
+            },
+            {
+              value: "tasks",
+              label: t("tasksTab"),
+              content: <TasksTabContent subjectId={subjectId} topics={topics} colorful={colorful} />,
             },
             {
               value: "plan",

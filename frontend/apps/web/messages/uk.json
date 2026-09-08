@@ -463,7 +463,16 @@
     "selectStudentLabel": "Учень",
     "selectStudentPlaceholder": "Оберіть учня",
     "submitButton": "Показати",
-    "viewStudentSubjectButton": "Сторінка учня по предмету"
+    "viewStudentSubjectButton": "Сторінка учня по предмету",
+    "tasksTab": "Завдання",
+    "noTasks": "Завдань ще немає.",
+    "noTasksInTopic": "У цій темі ще немає завдань.",
+    "addTaskButton": "Додати завдання",
+    "editTaskButton": "Редагувати завдання",
+    "deleteTaskButton": "Видалити завдання",
+    "deleteTaskConfirm": "Видалити завдання «{title}»? Цю дію не можна скасувати.",
+    "deleteTaskError": "Не вдалося видалити завдання. Спробуйте ще раз.",
+    "tasksCount": "Завдань: {count}"
   },
   "TutorLessonDetail": {
     "loading": "Завантаження...",
@@ -822,7 +831,13 @@
     "noTopics": "Тем ще немає.",
     "noLessonsInTopic": "У цій темі ще немає уроків.",
     "workloadLabel": "Навантаження: {value} уроків/тиждень",
-    "lessonsProgress": "{completed}/{total} уроків пройдено"
+    "lessonsProgress": "{completed}/{total} уроків пройдено",
+    "tasksTab": "Завдання",
+    "noTasks": "Завдань ще немає.",
+    "noTasksInTopic": "У цій темі ще немає завдань.",
+    "tasksProgress": "{completed}/{total} завдань виконано",
+    "markDoneButton": "Позначити виконаним",
+    "markNotDoneButton": "Позначити невиконаним"
   },
   "SubjectPlan": {
     "loading": "Завантаження...",
@@ -964,5 +979,51 @@
     "uploadDuplicateKey": "Предмет з таким ключем вже існує.",
     "uploadInvalidFile": "Невірний формат файлу.",
     "uploadFailed": "Не вдалося завантажити предмет. Спробуйте ще раз."
+  },
+  "TaskDetail": {
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити завдання. Спробуйте ще раз.",
+    "breadcrumbMySubjects": "Мої предмети",
+    "markDoneButton": "Позначити виконаним",
+    "markNotDoneButton": "Позначити невиконаним",
+    "statusDone": "Виконано",
+    "statusNotDone": "Ще не виконано",
+    "answerHeading": "Ваша відповідь",
+    "textLabel": "Текст відповіді",
+    "fileLabel": "Прикріпити файл",
+    "dropzoneHint": "Натисніть або перетягніть файл сюди",
+    "viewSubmittedFile": "Переглянути надісланий файл",
+    "submitError": "Не вдалося надіслати відповідь. Спробуйте ще раз.",
+    "submitting": "Надсилання...",
+    "submitButton": "Надіслати відповідь"
+  },
+  "TaskEditor": {
+    "createTitle": "Нове завдання",
+    "editTitle": "Редагувати завдання",
+    "topicLabel": "Тема",
+    "titleLabel": "Назва",
+    "kindMarkdown": "Текст",
+    "kindImage": "Зображення",
+    "dropzoneHint": "Натисніть або перетягніть зображення сюди",
+    "keepExistingImage": "Поточне зображення залишиться, якщо не завантажити нове.",
+    "saveError": "Не вдалося зберегти. Спробуйте ще раз.",
+    "cancelButton": "Скасувати",
+    "saveButton": "Зберегти"
+  },
+  "LoadTasksMarkdown": {
+    "triggerButton": "Завантажити з Markdown",
+    "title": "Завантажити завдання з Markdown",
+    "description": "Текстовий файл: заголовок «## Назва теми», далі кожен рядок — окреме завдання.",
+    "fileLabel": "Файл (.md, .txt)",
+    "fileHint": "Тему буде використано повторно, якщо вона вже існує; однакові рядки в межах теми не дублюються.",
+    "uploadButton": "Завантажити",
+    "uploading": "Завантаження...",
+    "uploadError": "Не вдалося завантажити файл. Перевірте формат.",
+    "cancelButton": "Скасувати",
+    "closeButton": "Готово",
+    "topicsCreated": "Створено тем: {count}",
+    "topicsReused": "Використано наявних тем: {count}",
+    "tasksCreated": "Створено завдань: {count}",
+    "tasksSkipped": "Пропущено (вже існують): {count}"
   }
 }

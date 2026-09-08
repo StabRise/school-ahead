@@ -3,7 +3,7 @@
 import { forwardRef, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Monitor, Pencil, type LucideIcon, Trash2, UserPlus } from "lucide-react";
+import { BookOpen, Monitor, Pencil, Plus, type LucideIcon, Trash2, UserPlus } from "lucide-react";
 import { getGetSubjectQueryKey, getListSubjectTopicsQueryKey, useGetSubject, useListSubjectTopics } from "@school-ahead/api-client/browser/academics/academics";
 import {
   getListTutorSubjectLessonsQueryKey,
@@ -17,11 +17,17 @@ import {
   useSetSubjectFilled,
   useSetTopicBlock,
 } from "@school-ahead/api-client/browser/tutor/tutor";
+import {
+  getListSubjectTasksQueryKey,
+  useDeleteTask,
+  useListSubjectTasks,
+} from "@school-ahead/api-client/browser/tasks/tasks";
 import type {
   LessonOut,
   SubjectBlockOut,
   SubjectLessonStudentOut,
   SubjectOut,
+  TaskOut,
   TopicOut,
 } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { Link } from "@/i18n/navigation";
@@ -30,6 +36,7 @@ import { SimplePageContainer } from "@/components/simple/page-container";
 import { Tabs } from "@/components/tabs";
 import { groupTopicsByBlock } from "@/components/subjects/group-topics-by-block";
 import { SemesterPlan } from "@/components/subjects/semester-plan";
+import { groupTasksByTopicId, TaskListSection } from "@/components/subjects/task-list";
 import { LESSON_TYPE_ICON, LESSON_TYPE_ICON_COLOR } from "@/components/simple/lesson-type-icon";
 import { formatGradeLabel, formatShortDate } from "@/components/simple/format";
 import { StatusBadge } from "@/components/status-badge";
@@ -37,6 +44,8 @@ import { AssignStudentDialog } from "./assign-student-dialog";
 import { LoadLessonsJsonDialog } from "./load-lessons-json-dialog";
 import { PlanSubjectLessonsDialog } from "./plan-subject-lessons-dialog";
 import { RescheduleAssignmentDialog } from "./reschedule-assignment-dialog";
+import { TaskEditorDialog } from "./task-editor-dialog";
+import { LoadTasksMarkdownDialog } from "./load-tasks-markdown-dialog";
 
 // Rendered as a Dialog's `trigger` (AssignStudentDialog, RescheduleAssignmentDialog),
 // which Dialog.Trigger asChild clones its own onClick/ref/aria-* props onto —
@@ -140,6 +149,108 @@ function DeleteLessonButton({
     >
       <Trash2 className="h-3.5 w-3.5" />
     </button>
+  );
+}
+
+// Same direct-action shape as DeleteLessonButton — a Task has no
+// assignment to block deletion on, so this is unconditional.
+function DeleteTaskButton({ taskId, title, onDeleted }: { taskId: number; title: string; onDeleted: () => void }) {
+  const t = useTranslations("TutorSubjectDetail");
+  const deleteTask = useDeleteTask();
+
+  const handleClick = () => {
+    if (!window.confirm(t("deleteTaskConfirm", { title }))) return;
+    deleteTask.mutate({ taskId }, { onSuccess: onDeleted, onError: () => window.alert(t("deleteTaskError")) });
+  };
+
+  return (
+    <button
+      type="button"
+      title={t("deleteTaskButton")}
+      aria-label={t("deleteTaskButton")}
+      onClick={handleClick}
+      disabled={deleteTask.isPending}
+      className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+    >
+      <Trash2 className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
+// The tutor's Tasks tab content: an "Add Task" button, a task count (no
+// progress bar — completion is per-student, and a tutor has no single
+// student's state to show), then the shared topic-grouped TaskListSection
+// with edit/delete row actions — no completion checkbox here, tutors don't
+// complete tasks. useListSubjectTasks is shared with the student page (see
+// tasks.api.list_subject_tasks), which is why it accepts a tutor of the
+// subject too, not just an enrolled student.
+function TasksTabContent({ subjectId, topics }: { subjectId: number; topics: TopicOut[] }) {
+  const t = useTranslations("TutorSubjectDetail");
+  const queryClient = useQueryClient();
+  const tasksQuery = useListSubjectTasks(subjectId);
+
+  const tasks = useMemo(() => tasksQuery.data ?? [], [tasksQuery.data]);
+  const tasksByTopicId = useMemo(() => groupTasksByTopicId(tasks), [tasks]);
+
+  const handleTaskChanged = () => {
+    queryClient.invalidateQueries({ queryKey: getListSubjectTasksQueryKey(subjectId) });
+  };
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-center justify-end gap-1">
+        <LoadTasksMarkdownDialog subjectId={subjectId} />
+        <TaskEditorDialog
+          subjectId={subjectId}
+          topics={topics}
+          trigger={
+            <button
+              type="button"
+              title={t("addTaskButton")}
+              aria-label={t("addTaskButton")}
+              className="flex shrink-0 items-center gap-1 rounded-md border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t("addTaskButton")}
+            </button>
+          }
+        />
+      </div>
+
+      {tasks.length > 0 && <p className="text-xs text-gray-500">{t("tasksCount", { count: tasks.length })}</p>}
+
+      {tasksQuery.isLoading ? (
+        <p className="text-sm text-gray-500">{t("loading")}</p>
+      ) : tasksQuery.isError ? (
+        <p className="text-sm text-red-600">{t("error")}</p>
+      ) : topics.length === 0 ? (
+        <p className="text-sm text-gray-500">{t("noTopics")}</p>
+      ) : tasks.length === 0 ? (
+        <p className="text-sm text-gray-500">{t("noTasks")}</p>
+      ) : (
+        <div className="flex flex-col gap-5">
+          {topics.map((topic) => (
+            <TaskListSection
+              key={topic.id}
+              topic={topic}
+              tasks={tasksByTopicId.get(topic.id) ?? []}
+              emptyLabel={t("noTasksInTopic")}
+              renderRowActions={(task: TaskOut) => (
+                <>
+                  <TaskEditorDialog
+                    subjectId={subjectId}
+                    topics={topics}
+                    task={task}
+                    trigger={<DialogTriggerIconButton icon={Pencil} label={t("editTaskButton")} />}
+                  />
+                  <DeleteTaskButton taskId={task.id} title={task.title} onDeleted={handleTaskChanged} />
+                </>
+              )}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -595,6 +706,11 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                   )}
                 </div>
               ),
+            },
+            {
+              value: "tasks",
+              label: t("tasksTab"),
+              content: <TasksTabContent subjectId={subjectId} topics={topics} />,
             },
             {
               value: "plan",
