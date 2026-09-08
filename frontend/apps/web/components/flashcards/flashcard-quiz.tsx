@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { FlashcardItem } from "@/lib/flashcards";
+import type { FlashcardStatus } from "@/stores/flashcard-progress-store";
 import { CARD_FIELDS, type CardFaceConfig } from "./card-face-config";
 import { CardFaceContent } from "./card-face-content";
+import { StatusBadge } from "./status-badge";
 
 // "Тест" (Quiz) mode, docs/preschool/games/cards.md — the front face is
 // shown as the question and the student picks the matching card from up to
@@ -114,12 +116,14 @@ function QuizQuestionCard({
   resolveImage,
   frontConfig,
   backConfig,
+  getStatus,
   onAnswered,
 }: {
   question: QuizQuestion;
   resolveImage: (item: FlashcardItem) => string | null;
   frontConfig: CardFaceConfig;
   backConfig: CardFaceConfig;
+  getStatus?: (itemId: number) => FlashcardStatus | undefined;
   onAnswered: (correct: boolean) => void;
 }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -132,7 +136,8 @@ function QuizQuestionCard({
 
   return (
     <div className="flex w-full flex-col items-center gap-6">
-      <div className="flex w-full flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div className="relative flex w-full flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <StatusBadge status={getStatus?.(question.item.id)} className="absolute right-3 top-3 z-10 h-7 w-7" />
         <CardFaceContent item={question.item} imageUrl={resolveImage(question.item)} config={frontConfig} size="lg" />
       </div>
 
@@ -147,7 +152,7 @@ function QuizQuestionCard({
               type="button"
               onClick={() => handleSelect(optionItem)}
               disabled={revealed}
-              className={`rounded-xl border px-4 py-3 transition-colors ${
+              className={`relative rounded-xl border px-4 py-3 transition-colors ${
                 revealed && isCorrectOption
                   ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950"
                   : revealed && isSelected
@@ -155,6 +160,7 @@ function QuizQuestionCard({
                     : "border-slate-200 bg-white hover:bg-slate-50 disabled:cursor-default dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
               }`}
             >
+              <StatusBadge status={getStatus?.(optionItem.id)} className="absolute right-2 top-2 z-10 h-6 w-6" />
               <CardFaceContent item={optionItem} imageUrl={resolveImage(optionItem)} config={backConfig} size="sm" />
             </button>
           );
@@ -169,12 +175,14 @@ export function FlashcardQuiz({
   resolveImage,
   frontConfig,
   backConfig,
+  getStatus,
   onComplete,
 }: {
   items: CategorizedFlashcardItem[];
   resolveImage: (item: FlashcardItem) => string | null;
   frontConfig: CardFaceConfig;
   backConfig: CardFaceConfig;
+  getStatus?: (itemId: number) => FlashcardStatus | undefined;
   onComplete?: (score: number, total: number) => void;
 }) {
   const t = useTranslations("FlashcardsGame");
@@ -259,6 +267,7 @@ export function FlashcardQuiz({
         resolveImage={resolveImage}
         frontConfig={frontConfig}
         backConfig={backConfig}
+        getStatus={getStatus}
         onAnswered={(correct) => {
           setAnswered(true);
           if (correct) setScore((current) => current + 1);

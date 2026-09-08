@@ -63,6 +63,11 @@ export function GameSettingsPanel({
   topic,
   topics,
   onTopicChange,
+  showLearnFilters,
+  onlyDifficult,
+  onOnlyDifficultChange,
+  skipKnown,
+  onSkipKnownChange,
   frontConfig,
   onFrontConfigChange,
   backConfig,
@@ -71,6 +76,13 @@ export function GameSettingsPanel({
   topic: string;
   topics: { value: string; label: string }[];
   onTopicChange: (topic: string) => void;
+  // Навчання-only ("review only difficult" / "skip cards I know") — hidden
+  // in Тест, which always quizzes the full topic-filtered pool.
+  showLearnFilters: boolean;
+  onlyDifficult: boolean;
+  onOnlyDifficultChange: (value: boolean) => void;
+  skipKnown: boolean;
+  onSkipKnownChange: (value: boolean) => void;
   frontConfig: CardFaceConfig;
   onFrontConfigChange: (config: CardFaceConfig) => void;
   backConfig: CardFaceConfig;
@@ -127,6 +139,34 @@ export function GameSettingsPanel({
               ))}
             </select>
           </div>
+
+          {showLearnFilters && (
+            <div>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {t("modeLearn")}
+              </p>
+              <div className="flex flex-col gap-1.5">
+                <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={onlyDifficult}
+                    onChange={(e) => onOnlyDifficultChange(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 dark:border-slate-600"
+                  />
+                  {t("onlyDifficultLabel")}
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={skipKnown}
+                    onChange={(e) => onSkipKnownChange(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 dark:border-slate-600"
+                  />
+                  {t("skipKnownLabel")}
+                </label>
+              </div>
+            </div>
+          )}
 
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">

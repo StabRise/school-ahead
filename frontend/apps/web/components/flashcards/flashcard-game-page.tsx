@@ -12,8 +12,8 @@ import { GameSettingsPanel } from "./game-settings-panel";
 import { QuizResultsPanel } from "./quiz-results-panel";
 import { useFlashcardsStore } from "@/stores/flashcards-store";
 import { useFlashcardQuizResultsStore } from "@/stores/flashcard-quiz-results-store";
+import { flashcardProgressKey, useFlashcardProgressStore, type FlashcardStatus } from "@/stores/flashcard-progress-store";
 
-type GameMode = "learn" | "quiz";
 const ALL_TOPICS = "all";
 
 // The direct link a lesson embeds (docs/preschool/games/cards.md,
@@ -29,14 +29,30 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
   const t = useTranslations("FlashcardsGame");
   const { groupTitle, set: flashcardSet, isLoading } = useFlashcardSet(group, set);
   const [topic, setTopic] = useState<string>(ALL_TOPICS);
-  const [mode, setMode] = useState<GameMode>("quiz");
   // Persisted (localStorage) and shared across every card set the student
   // opens — see stores/flashcards-store.ts.
+  const mode = useFlashcardsStore((s) => s.mode);
+  const setMode = useFlashcardsStore((s) => s.setMode);
   const frontConfig = useFlashcardsStore((s) => s.frontConfig);
   const setFrontConfig = useFlashcardsStore((s) => s.setFrontConfig);
   const backConfig = useFlashcardsStore((s) => s.backConfig);
   const setBackConfig = useFlashcardsStore((s) => s.setBackConfig);
   const addQuizAttempt = useFlashcardQuizResultsStore((s) => s.addAttempt);
+
+  // "Знаю"/"Складно" marks, persisted per group+set+card — see
+  // stores/flashcard-progress-store.ts and FlashcardLearnDeck.
+  const statusByCard = useFlashcardProgressStore((s) => s.statusByCard);
+  const setCardStatus = useFlashcardProgressStore((s) => s.setCardStatus);
+  const getItemStatus = useCallback(
+    (itemId: number): FlashcardStatus | undefined => statusByCard[flashcardProgressKey(group, set, itemId)],
+    [statusByCard, group, set],
+  );
+  const setItemStatus = useCallback(
+    (itemId: number, status: FlashcardStatus | null) => setCardStatus(flashcardProgressKey(group, set, itemId), status),
+    [setCardStatus, group, set],
+  );
+  const [onlyDifficult, setOnlyDifficult] = useState(false);
+  const [skipKnown, setSkipKnown] = useState(false);
 
   const filteredCategories = useMemo(() => {
     if (!flashcardSet) return [];
@@ -46,6 +62,19 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
   const filteredItems = useMemo(
     (): FlashcardItem[] => filteredCategories.flatMap((category) => category.items),
     [filteredCategories],
+  );
+
+  // Навчання-only filters on top of the topic filter above — Тест always
+  // quizzes the whole topic-filtered pool.
+  const learnItems = useMemo(
+    (): FlashcardItem[] =>
+      filteredItems.filter((item) => {
+        const status = getItemStatus(item.id);
+        if (onlyDifficult && status !== "difficult") return false;
+        if (skipKnown && status === "known") return false;
+        return true;
+      }),
+    [filteredItems, getItemStatus, onlyDifficult, skipKnown],
   );
 
   // Quiz distractors need to know each card's own category (see
@@ -106,6 +135,11 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
             topic={topic}
             topics={topicOptions}
             onTopicChange={setTopic}
+            showLearnFilters={mode === "learn"}
+            onlyDifficult={onlyDifficult}
+            onOnlyDifficultChange={setOnlyDifficult}
+            skipKnown={skipKnown}
+            onSkipKnownChange={setSkipKnown}
             frontConfig={frontConfig}
             onFrontConfigChange={setFrontConfig}
             backConfig={backConfig}
@@ -147,11 +181,13 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
       <div className="flex justify-center">
         {mode === "learn" ? (
           <FlashcardLearnDeck
-            key={`learn:${topic}`}
-            items={filteredItems}
+            key={`learn:${topic}:${onlyDifficult}:${skipKnown}`}
+            items={learnItems}
             resolveImage={resolveImage}
             frontConfig={frontConfig}
             backConfig={backConfig}
+            getStatus={getItemStatus}
+            onStatusChange={setItemStatus}
           />
         ) : (
           <FlashcardQuiz
@@ -160,6 +196,7 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
             resolveImage={resolveImage}
             frontConfig={frontConfig}
             backConfig={backConfig}
+            getStatus={getItemStatus}
             onComplete={handleQuizComplete}
           />
         )}
