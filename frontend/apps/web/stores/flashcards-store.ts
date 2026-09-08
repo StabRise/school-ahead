@@ -6,7 +6,7 @@ import {
   type CardFaceConfig,
 } from "@/components/flashcards/card-face-config";
 
-export type FlashcardGameMode = "learn" | "quiz";
+export type FlashcardGameMode = "learn" | "quiz" | "list";
 
 // A student's own study preferences for the "Cards" game (docs/preschool/
 // games/cards.md) — none of this is tied to any one set, so it's persisted

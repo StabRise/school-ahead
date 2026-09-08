@@ -2,12 +2,13 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, Layers, ListChecks } from "lucide-react";
+import { ArrowLeft, Layers, List, ListChecks } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { flashcardImageUrl, useFlashcardSet, type FlashcardItem } from "@/lib/flashcards";
 import { FlashcardLearnDeck } from "./flashcard-learn-deck";
 import { FlashcardQuiz, type CategorizedFlashcardItem } from "./flashcard-quiz";
+import { FlashcardTermsList } from "./flashcard-terms-list";
 import { GameSettingsPanel } from "./game-settings-panel";
 import { QuizResultsPanel } from "./quiz-results-panel";
 import { useFlashcardsStore } from "@/stores/flashcards-store";
@@ -175,11 +176,24 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
           >
             <ListChecks className="size-4" />
           </button>
+          <button
+            type="button"
+            onClick={() => setMode("list")}
+            aria-label={t("modeList")}
+            title={t("modeList")}
+            className={`flex h-9 w-9 items-center justify-center border-l border-slate-300 transition-colors dark:border-slate-600 ${
+              mode === "list"
+                ? "bg-slate-900 text-white dark:bg-slate-50 dark:text-slate-900"
+                : "bg-white text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            }`}
+          >
+            <List className="size-4" />
+          </button>
         </div>
       </div>
 
       <div className="flex justify-center">
-        {mode === "learn" ? (
+        {mode === "learn" && (
           <FlashcardLearnDeck
             key={`learn:${topic}:${onlyDifficult}:${skipKnown}`}
             items={learnItems}
@@ -189,7 +203,8 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
             getStatus={getItemStatus}
             onStatusChange={setItemStatus}
           />
-        ) : (
+        )}
+        {mode === "quiz" && (
           <FlashcardQuiz
             key={`quiz:${topic}:${JSON.stringify(backConfig)}`}
             items={categorizedItems}
@@ -198,6 +213,14 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
             backConfig={backConfig}
             getStatus={getItemStatus}
             onComplete={handleQuizComplete}
+          />
+        )}
+        {mode === "list" && (
+          <FlashcardTermsList
+            categories={filteredCategories}
+            resolveImage={resolveImage}
+            getStatus={getItemStatus}
+            onStatusChange={setItemStatus}
           />
         )}
       </div>

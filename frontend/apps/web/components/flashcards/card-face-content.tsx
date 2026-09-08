@@ -18,7 +18,9 @@ const definitionMarkdownComponents: Components = {
   ol: ({ children }) => <ol className="m-0 list-decimal pl-4 text-left">{children}</ol>,
 };
 
-function DefinitionMarkdown({ content }: { content: string }) {
+// Exported for reuse in FlashcardTermsList's rows (Список mode), which
+// render a definition in a plain list-row layout rather than a card face.
+export function DefinitionMarkdown({ content }: { content: string }) {
   return (
     <ReactMarkdown remarkPlugins={[remarkGfm]} components={definitionMarkdownComponents}>
       {content}

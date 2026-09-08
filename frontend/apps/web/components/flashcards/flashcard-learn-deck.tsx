@@ -13,6 +13,7 @@ const DIFFICULT_KEYS = new Set(["w", "ц"]);
 import type { FlashcardItem } from "@/lib/flashcards";
 import type { FlashcardStatus } from "@/stores/flashcard-progress-store";
 import { playDifficultSound, playKnowSound } from "@/lib/flashcard-sounds";
+import { ProgressBar } from "@/components/progress-bar";
 import type { CardFaceConfig } from "./card-face-config";
 import { FlipCard } from "./flip-card";
 
@@ -131,9 +132,13 @@ export function FlashcardLearnDeck({
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <p className="text-xs text-slate-500 dark:text-slate-400">
-        {t("learnProgressLabel", { current: index + 1, total })}
-      </p>
+      <div className="w-full max-w-md">
+        <ProgressBar
+          percent={((index + 1) / total) * 100}
+          label={t("learnProgressLabel", { current: index + 1, total })}
+          colorful
+        />
+      </div>
 
       <FlipCard
         item={current}

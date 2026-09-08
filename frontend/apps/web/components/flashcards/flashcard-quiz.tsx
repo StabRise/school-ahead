@@ -152,7 +152,7 @@ function QuizQuestionCard({
               type="button"
               onClick={() => handleSelect(optionItem)}
               disabled={revealed}
-              className={`relative rounded-xl border px-4 py-3 transition-colors ${
+              className={`rounded-xl border px-4 py-3 transition-colors ${
                 revealed && isCorrectOption
                   ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950"
                   : revealed && isSelected
@@ -160,7 +160,9 @@ function QuizQuestionCard({
                     : "border-slate-200 bg-white hover:bg-slate-50 disabled:cursor-default dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
               }`}
             >
-              <StatusBadge status={getStatus?.(optionItem.id)} className="absolute right-2 top-2 z-10 h-6 w-6" />
+              {/* Знаю/Складно only marks the question's own card — showing
+                  it on distractor options too would leak which card is the
+                  correct answer before the student picks one. */}
               <CardFaceContent item={optionItem} imageUrl={resolveImage(optionItem)} config={backConfig} size="sm" />
             </button>
           );
