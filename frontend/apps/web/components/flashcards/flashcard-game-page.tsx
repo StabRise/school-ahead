@@ -7,8 +7,8 @@ import { PageContainer } from "@/components/page-container";
 import { flashcardImageUrl, useFlashcardSet, type FlashcardItem } from "@/lib/flashcards";
 import { FlashcardLearnDeck } from "./flashcard-learn-deck";
 import { FlashcardQuiz, type CategorizedFlashcardItem } from "./flashcard-quiz";
-import { DEFAULT_BACK_CONFIG, DEFAULT_FRONT_CONFIG, type CardFaceConfig } from "./card-face-config";
 import { CardFaceSettingsPanel } from "./card-face-settings-panel";
+import { useFlashcardsStore } from "@/stores/flashcards-store";
 
 type GameMode = "learn" | "quiz";
 const ALL_TOPICS = "all";
@@ -25,8 +25,12 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
   const { groupTitle, set: flashcardSet, isLoading } = useFlashcardSet(group, set);
   const [topic, setTopic] = useState<string>(ALL_TOPICS);
   const [mode, setMode] = useState<GameMode>("quiz");
-  const [frontConfig, setFrontConfig] = useState<CardFaceConfig>(DEFAULT_FRONT_CONFIG);
-  const [backConfig, setBackConfig] = useState<CardFaceConfig>(DEFAULT_BACK_CONFIG);
+  // Persisted (localStorage) and shared across every card set the student
+  // opens — see stores/flashcards-store.ts.
+  const frontConfig = useFlashcardsStore((s) => s.frontConfig);
+  const setFrontConfig = useFlashcardsStore((s) => s.setFrontConfig);
+  const backConfig = useFlashcardsStore((s) => s.backConfig);
+  const setBackConfig = useFlashcardsStore((s) => s.setBackConfig);
 
   const filteredCategories = useMemo(() => {
     if (!flashcardSet) return [];
