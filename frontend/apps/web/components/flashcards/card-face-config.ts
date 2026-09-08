@@ -1,3 +1,5 @@
+import type { FlashcardItem } from "@/lib/flashcard-types";
+
 // Which fields (docs/preschool/games/cards.md's term/translation/image/
 // definition) a flashcard's front and back show — independently
 // configurable per side via GameSettingsPanel, shared by both game
@@ -14,3 +16,24 @@ export type CardFaceConfig = Record<CardField, boolean>;
 // game shipped with before this became configurable.
 export const DEFAULT_FRONT_CONFIG: CardFaceConfig = { term: true, translation: false, image: true, definition: false };
 export const DEFAULT_BACK_CONFIG: CardFaceConfig = { term: false, translation: true, image: false, definition: true };
+
+function isCardFieldAvailable(item: FlashcardItem, hasImage: boolean, field: CardField): boolean {
+  if (field === "term") return true;
+  if (field === "translation") return Boolean(item.translation);
+  if (field === "definition") return Boolean(item.definition);
+  return hasImage;
+}
+
+// Which fields a face actually shows for one card: the configured fields
+// this card has data for, or — if the student's configured face has
+// nothing this card can show (e.g. "translation" checked but this card has
+// none) — every field it does have, same graceful-degradation rule the
+// game applies to a missing image. Shared by CardFaceContent (the
+// interactive game) and FlashcardPrintSheet (the printable PDF), so the
+// two stay in sync about what a face renders.
+export function resolveVisibleCardFields(item: FlashcardItem, hasImage: boolean, config: CardFaceConfig): CardField[] {
+  const wanted = CARD_FIELDS.filter((field) => config[field]);
+  const available = wanted.filter((field) => isCardFieldAvailable(item, hasImage, field));
+  if (available.length > 0) return available;
+  return CARD_FIELDS.filter((field) => isCardFieldAvailable(item, hasImage, field));
+}
