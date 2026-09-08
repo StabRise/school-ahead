@@ -14,6 +14,19 @@ import { useLocaleAwareGamesRouter } from "./kit/use-locale-aware-router";
 // Open to every student regardless of interfaceMode (not preschool-only) —
 // only a tutor bookmarking /games gets bounced home, see
 // usePreschoolGamesGuard.
+
+// The "cards" game id (CardsGame, useCardsGameStore, /api/cards-game-mode*,
+// etc.) predates this URL and stays as-is internally — only its route
+// segment was renamed to /games/reading-cards, so it needs a lookup instead
+// of the id doubling as the URL segment like every other game.
+const GAME_PATH_SEGMENT: Record<PreschoolGameId, string> = {
+  balloons: "balloons",
+  trains: "trains",
+  reading: "reading",
+  cards: "reading-cards",
+  stories: "stories",
+};
+
 export function PreschoolGamesPage() {
   const t = useTranslations("GamesPage");
   const allowed = usePreschoolGamesGuard();
@@ -28,7 +41,7 @@ export function PreschoolGamesPage() {
       <GamePicker
         title={t("title")}
         subtitle={t("subtitle")}
-        onSelect={(game: PreschoolGameId) => router.push(`/games/${game}`)}
+        onSelect={(game: PreschoolGameId) => router.push(`/games/${GAME_PATH_SEGMENT[game]}`)}
       />
     </GamePageContainer>
   );
