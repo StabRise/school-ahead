@@ -237,6 +237,7 @@
     "quizProgressLabel": "Питання {current} з {total}",
     "quizScoreLabel": "Правильних: {score}",
     "quizCompleteTitle": "Тест завершено!",
+    "quizResultLabel": "Результат",
     "quizCompleteScore": "Правильних відповідей: {score} з {total}",
     "quizNextButton": "Далі",
     "quizFinishButton": "Завершити"

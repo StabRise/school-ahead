@@ -13,8 +13,12 @@ import { CardFaceContent } from "./card-face-content";
 // e.g. picking front=translation/back=term quizzes in the reverse
 // direction just as validly as the term-first default). Matching is by
 // card identity (id), not by comparing rendered text, so it stays correct
-// no matter which fields are configured.
+// no matter which fields are configured. Capped at QUESTIONS_PER_QUIZ
+// random cards from the (already topic-filtered) pool per round, not one
+// question per card — a big set would otherwise turn "Тест" into a slog,
+// and a fixed round length is what makes a percentage score meaningful.
 const OPTIONS_PER_QUESTION = 4;
+const QUESTIONS_PER_QUIZ = 10;
 
 export interface CategorizedFlashcardItem {
   item: FlashcardItem;
@@ -78,7 +82,8 @@ function pickDistractors(
 // options — so distractors stay contextually plausible instead of jumping
 // between unrelated topics.
 function buildQuestions(entries: CategorizedFlashcardItem[], backConfig: CardFaceConfig): QuizQuestion[] {
-  return shuffle(entries).map(({ item, categoryTitle }) => {
+  const selected = shuffle(entries).slice(0, QUESTIONS_PER_QUIZ);
+  return selected.map(({ item, categoryTitle }) => {
     const sameCategory = entries.filter((e) => e.categoryTitle === categoryTitle && e.item.id !== item.id);
     const otherCategories = entries.filter((e) => e.categoryTitle !== categoryTitle && e.item.id !== item.id);
 
@@ -181,9 +186,24 @@ export function FlashcardQuiz({
   }
 
   if (index >= questions.length) {
+    const percent = Math.round((score / questions.length) * 100);
     return (
-      <div className="flex flex-col items-center gap-4 text-center">
+      <div className="flex w-full max-w-md flex-col items-center gap-4 text-center">
         <p className="text-xl font-semibold text-slate-900 dark:text-slate-50">{t("quizCompleteTitle")}</p>
+
+        <div className="w-full">
+          <div className="mb-1.5 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+            <span>{t("quizResultLabel")}</span>
+            <span>{percent}%</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+            <div
+              className="h-full rounded-full bg-slate-900 transition-all dark:bg-slate-50"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+        </div>
+
         <p className="text-sm text-slate-500 dark:text-slate-400">
           {t("quizCompleteScore", { score, total: questions.length })}
         </p>

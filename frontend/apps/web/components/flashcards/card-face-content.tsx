@@ -1,8 +1,30 @@
 "use client";
 
 import { useState } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { FlashcardItem } from "@/lib/flashcards";
 import { CARD_FIELDS, type CardField, type CardFaceConfig } from "./card-face-config";
+
+// A card's `definition` (docs/preschool/games/cards.md) may be Markdown
+// (bold/italics/lists) — rendered without the shared Markdown component's
+// (components/markdown.tsx) `.prose` wrapper, which imposes its own text
+// color/size and isn't dark-mode aware; block elements instead get `m-0`
+// so they inherit whatever color/size the caller already put on the
+// wrapping element below, rather than fighting it.
+const definitionMarkdownComponents: Components = {
+  p: ({ children }) => <p className="m-0">{children}</p>,
+  ul: ({ children }) => <ul className="m-0 list-disc pl-4 text-left">{children}</ul>,
+  ol: ({ children }) => <ol className="m-0 list-decimal pl-4 text-left">{children}</ol>,
+};
+
+function DefinitionMarkdown({ content }: { content: string }) {
+  return (
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={definitionMarkdownComponents}>
+      {content}
+    </ReactMarkdown>
+  );
+}
 
 // Renders one face's worth of a card (docs/preschool/games/cards.md) —
 // shared by FlipCard's front/back and, in Тест mode, both the question card
@@ -81,16 +103,16 @@ export function CardFaceContent({
           {item.translation}
         </p>
       )}
-      {shown.has("definition") && (
-        <p
+      {shown.has("definition") && item.definition && (
+        <div
           className={
             size === "lg"
               ? "text-sm leading-relaxed text-slate-600 dark:text-slate-300"
               : "text-xs leading-snug text-slate-600 dark:text-slate-300"
           }
         >
-          {item.definition}
-        </p>
+          <DefinitionMarkdown content={item.definition} />
+        </div>
       )}
     </div>
   );
