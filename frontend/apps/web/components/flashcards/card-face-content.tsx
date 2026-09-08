@@ -4,7 +4,7 @@ import { useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { FlashcardItem } from "@/lib/flashcards";
-import { CARD_FIELDS, type CardField, type CardFaceConfig } from "./card-face-config";
+import { resolveVisibleCardFields, type CardFaceConfig } from "./card-face-config";
 
 // A card's `definition` (docs/preschool/games/cards.md) may be Markdown
 // (bold/italics/lists) — rendered without the shared Markdown component's
@@ -33,20 +33,6 @@ export function DefinitionMarkdown({ content }: { content: string }) {
 // and every answer option (flashcard-quiz.tsx), so "which fields show
 // where" only has one implementation to keep in sync with
 // GameSettingsPanel's checkboxes.
-//
-// A field the student configured for this face but that this particular
-// card doesn't have (e.g. "translation" checked, but this card has none)
-// falls back to whichever fields the card *does* have, same
-// graceful-degradation rule the doc applies to a missing image — a
-// configured-but-empty face never renders blank as long as the card has
-// anything at all to show.
-function isFieldAvailable(item: FlashcardItem, imageUrl: string | null, imageFailed: boolean, field: CardField): boolean {
-  if (field === "term") return true;
-  if (field === "translation") return Boolean(item.translation);
-  if (field === "definition") return Boolean(item.definition);
-  return Boolean(imageUrl) && !imageFailed;
-}
-
 export function CardFaceContent({
   item,
   imageUrl,
@@ -60,12 +46,7 @@ export function CardFaceContent({
 }) {
   const [imageFailed, setImageFailed] = useState(false);
 
-  const wanted = CARD_FIELDS.filter((field) => config[field]);
-  let toShow = wanted.filter((field) => isFieldAvailable(item, imageUrl, imageFailed, field));
-  if (toShow.length === 0) {
-    toShow = CARD_FIELDS.filter((field) => isFieldAvailable(item, imageUrl, imageFailed, field));
-  }
-  const shown = new Set(toShow);
+  const shown = new Set(resolveVisibleCardFields(item, Boolean(imageUrl) && !imageFailed, config));
 
   return (
     <div className={`flex flex-col items-center text-center ${size === "lg" ? "gap-3" : "gap-1"}`}>

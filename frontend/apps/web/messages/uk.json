@@ -266,7 +266,14 @@
     "quizResultLabel": "Результат",
     "quizCompleteScore": "Правильних відповідей: {score} з {total}",
     "quizNextButton": "Далі",
-    "quizFinishButton": "Завершити"
+    "quizFinishButton": "Завершити",
+    "printButton": "Друк карток",
+    "printPreparing": "Готуємо зображення...",
+    "printPagesInfo": "{count} карток · {pages} сторінок для друку",
+    "printFormatLabel": "Формат сітки",
+    "printFormatOption": "{rows} × {cols} ({count}/аркуш)",
+    "printNoItems": "У цій темі немає карток для друку",
+    "printDuplexHint": "Порада: обери в діалозі друку двосторонній друк із перевертанням по довгому краю (Flip on Long Edge) — тоді лицева й зворотна сторони кожної картки збіжаться. Якщо ні — надрукуй аркуші з лицевими та зворотними сторонами окремо (непарні/парні) і склади вручну."
   },
   "StudentDashboard": {
     "title": "Сьогоднішні уроки",

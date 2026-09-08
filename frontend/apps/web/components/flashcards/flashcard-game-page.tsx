@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, Layers, List, ListChecks } from "lucide-react";
+import { ArrowLeft, Layers, List, ListChecks, Printer } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { flashcardImageUrl, useFlashcardSet, type FlashcardItem } from "@/lib/flashcards";
@@ -168,6 +168,14 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
             onBackConfigChange={setBackConfig}
           />
           <QuizResultsPanel group={group} set={set} />
+          <Link
+            href={`/games/cards/${encodeURIComponent(group)}/${encodeURIComponent(set)}/print`}
+            aria-label={t("printButton")}
+            title={t("printButton")}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            <Printer className="size-4" />
+          </Link>
         </div>
 
         <div className="inline-flex overflow-hidden rounded-lg border border-slate-300 dark:border-slate-600">

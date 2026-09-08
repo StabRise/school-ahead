@@ -36,6 +36,30 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Printable flashcards (components/flashcards/flashcard-print-page.tsx) —
+   each .print-sheet is one physical A4 page; forcing a page break before
+   every one but the first keeps every front/back sheet one-per-page
+   without an extra blank page at the end. break-before has no effect
+   outside a paginated (print) context, so this is safe unconditionally. */
+.print-sheet + .print-sheet {
+  break-before: page;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  header {
+    display: none !important;
+  }
+
+  .print-no-export {
+    display: none !important;
+  }
+}
+
 /* Balloon Pop celebration minigame — docs/interfaces/preschool.md section 2.4. */
 @keyframes balloon-fall {
   from {
