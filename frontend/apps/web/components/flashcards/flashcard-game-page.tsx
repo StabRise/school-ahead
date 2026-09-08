@@ -2,13 +2,16 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { ArrowLeft, Layers, ListChecks } from "lucide-react";
 import { Link } from "@/i18n/navigation";
-import { PageContainer } from "@/components/page-container";
+import { SimplePageContainer } from "@/components/simple/page-container";
 import { flashcardImageUrl, useFlashcardSet, type FlashcardItem } from "@/lib/flashcards";
 import { FlashcardLearnDeck } from "./flashcard-learn-deck";
 import { FlashcardQuiz, type CategorizedFlashcardItem } from "./flashcard-quiz";
-import { CardFaceSettingsPanel } from "./card-face-settings-panel";
+import { GameSettingsPanel } from "./game-settings-panel";
+import { QuizResultsPanel } from "./quiz-results-panel";
 import { useFlashcardsStore } from "@/stores/flashcards-store";
+import { useFlashcardQuizResultsStore } from "@/stores/flashcard-quiz-results-store";
 
 type GameMode = "learn" | "quiz";
 const ALL_TOPICS = "all";
@@ -17,9 +20,11 @@ const ALL_TOPICS = "all";
 // /games/cards/<group>/<set>) — one set's whole play experience: pick which
 // topic(s) to study (every category flattened, or just one), which mode
 // (Навчання/flip cards vs Тест/quiz — see FlashcardLearnDeck/FlashcardQuiz),
-// and what each card's front/back actually shows (CardFaceSettingsPanel;
-// both modes render through the same CardFaceContent, so the same
-// front/back choice applies to either).
+// and what each card's front/back actually shows, all from one ⚙ popup
+// (GameSettingsPanel; both modes render through the same CardFaceContent,
+// so the same front/back choice applies to either). Every completed Тест
+// round is recorded (useFlashcardQuizResultsStore) and browsable from the
+// 📊 popup (QuizResultsPanel).
 export function FlashcardGamePage({ group, set }: { group: string; set: string }) {
   const t = useTranslations("FlashcardsGame");
   const { groupTitle, set: flashcardSet, isLoading } = useFlashcardSet(group, set);
@@ -31,6 +36,7 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
   const setFrontConfig = useFlashcardsStore((s) => s.setFrontConfig);
   const backConfig = useFlashcardsStore((s) => s.backConfig);
   const setBackConfig = useFlashcardsStore((s) => s.setBackConfig);
+  const addQuizAttempt = useFlashcardQuizResultsStore((s) => s.addAttempt);
 
   const filteredCategories = useMemo(() => {
     if (!flashcardSet) return [];
@@ -58,76 +64,83 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
     [group, set],
   );
 
+  const handleQuizComplete = useCallback(
+    (score: number, total: number) => {
+      addQuizAttempt({ group, set, topic, score, total });
+    },
+    [addQuizAttempt, group, set, topic],
+  );
+
   if (!flashcardSet) {
     return (
-      <PageContainer title={isLoading ? t("loading") : t("notFound")}>
+      <SimplePageContainer title={isLoading ? t("loading") : t("notFound")}>
         <Link href={`/games/cards/${encodeURIComponent(group)}`} className="text-sm text-slate-500 hover:underline dark:text-slate-400">
           ← {t("backToSetsButton")}
         </Link>
-      </PageContainer>
+      </SimplePageContainer>
     );
   }
 
+  const topicOptions = [
+    { value: ALL_TOPICS, label: t("allTopicsOption") },
+    ...flashcardSet.categories.map((category) => ({ value: category.title, label: category.title })),
+  ];
+
   return (
-    <PageContainer title={flashcardSet.title} maxWidthClassName="xl:max-w-4xl">
-      <div className="mb-6 flex flex-col gap-1">
+    <SimplePageContainer>
+      <div className="mb-4 flex items-center gap-3">
         <Link
           href={`/games/cards/${encodeURIComponent(group)}`}
-          className="text-sm text-slate-500 hover:underline dark:text-slate-400"
+          aria-label={groupTitle ?? t("backToSetsButton")}
+          title={groupTitle ?? t("backToSetsButton")}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
         >
-          ← {groupTitle ?? t("backToSetsButton")}
+          <ArrowLeft className="size-4" />
         </Link>
+        <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-50">{flashcardSet.title}</h2>
       </div>
 
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <label className="flex items-center gap-2 text-sm">
-          <span className="font-medium text-slate-700 dark:text-slate-300">{t("topicLabel")}</span>
-          <select
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-slate-800 outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-          >
-            <option value={ALL_TOPICS}>{t("allTopicsOption")}</option>
-            {flashcardSet.categories.map((category) => (
-              <option key={category.title} value={category.title}>
-                {category.title}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className="flex items-center gap-3">
-          <CardFaceSettingsPanel
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <GameSettingsPanel
+            topic={topic}
+            topics={topicOptions}
+            onTopicChange={setTopic}
             frontConfig={frontConfig}
             onFrontConfigChange={setFrontConfig}
             backConfig={backConfig}
             onBackConfigChange={setBackConfig}
           />
+          <QuizResultsPanel group={group} set={set} />
+        </div>
 
-          <div className="inline-flex overflow-hidden rounded-full border border-slate-300 text-sm font-medium dark:border-slate-600">
-            <button
-              type="button"
-              onClick={() => setMode("learn")}
-              className={`px-4 py-1.5 transition-colors ${
-                mode === "learn"
-                  ? "bg-slate-900 text-white dark:bg-slate-50 dark:text-slate-900"
-                  : "bg-white text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-              }`}
-            >
-              {t("modeLearn")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("quiz")}
-              className={`px-4 py-1.5 transition-colors ${
-                mode === "quiz"
-                  ? "bg-slate-900 text-white dark:bg-slate-50 dark:text-slate-900"
-                  : "bg-white text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-              }`}
-            >
-              {t("modeQuiz")}
-            </button>
-          </div>
+        <div className="inline-flex overflow-hidden rounded-lg border border-slate-300 dark:border-slate-600">
+          <button
+            type="button"
+            onClick={() => setMode("learn")}
+            aria-label={t("modeLearn")}
+            title={t("modeLearn")}
+            className={`flex h-9 w-9 items-center justify-center transition-colors ${
+              mode === "learn"
+                ? "bg-slate-900 text-white dark:bg-slate-50 dark:text-slate-900"
+                : "bg-white text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            }`}
+          >
+            <Layers className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("quiz")}
+            aria-label={t("modeQuiz")}
+            title={t("modeQuiz")}
+            className={`flex h-9 w-9 items-center justify-center border-l border-slate-300 transition-colors dark:border-slate-600 ${
+              mode === "quiz"
+                ? "bg-slate-900 text-white dark:bg-slate-50 dark:text-slate-900"
+                : "bg-white text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            }`}
+          >
+            <ListChecks className="size-4" />
+          </button>
         </div>
       </div>
 
@@ -147,9 +160,10 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
             resolveImage={resolveImage}
             frontConfig={frontConfig}
             backConfig={backConfig}
+            onComplete={handleQuizComplete}
           />
         )}
       </div>
-    </PageContainer>
+    </SimplePageContainer>
   );
 }

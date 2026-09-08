@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { PageContainer } from "@/components/page-container";
+import { SimplePageContainer } from "@/components/simple/page-container";
 import { useFlashcardGroups } from "@/lib/flashcards";
 
 // "Cards" study flashcards game's subject picker (docs/preschool/games/
@@ -14,7 +14,7 @@ export function FlashcardsGroupsPage() {
   const groups = useFlashcardGroups();
 
   return (
-    <PageContainer title={t("groupsTitle")}>
+    <SimplePageContainer title={t("groupsTitle")}>
       <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">{t("groupsSubtitle")}</p>
 
       {groups.length === 0 ? (
@@ -33,6 +33,6 @@ export function FlashcardsGroupsPage() {
           ))}
         </ul>
       )}
-    </PageContainer>
+    </SimplePageContainer>
   );
 }

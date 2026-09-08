@@ -8,7 +8,7 @@ import { FlipCard } from "./flip-card";
 
 // "Навчання" (Flip Cards) mode, docs/preschool/games/cards.md — one card at
 // a time; flipping it reveals the back face (what each face shows is
-// configurable, see CardFaceSettingsPanel), then «Знаю» / «Повторити»
+// configurable, see GameSettingsPanel), then «Знаю» / «Повторити»
 // sorts it: known cards drop out of the queue, "repeat" ones go to the back
 // of it, so the deck is done exactly when every card has been marked known
 // at least once. `items` is a snapshot taken once at mount — the caller

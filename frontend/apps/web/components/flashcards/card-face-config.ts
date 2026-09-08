@@ -1,6 +1,6 @@
 // Which fields (docs/preschool/games/cards.md's term/translation/image/
 // definition) a flashcard's front and back show — independently
-// configurable per side via CardFaceSettingsPanel, shared by both game
+// configurable per side via GameSettingsPanel, shared by both game
 // modes (FlipCard's two faces in "Навчання", the question/option cards in
 // "Тест").
 export type CardField = "term" | "translation" | "image" | "definition";

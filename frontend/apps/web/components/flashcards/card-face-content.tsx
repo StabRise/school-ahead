@@ -30,7 +30,7 @@ function DefinitionMarkdown({ content }: { content: string }) {
 // shared by FlipCard's front/back and, in Тест mode, both the question card
 // and every answer option (flashcard-quiz.tsx), so "which fields show
 // where" only has one implementation to keep in sync with
-// CardFaceSettingsPanel's checkboxes.
+// GameSettingsPanel's checkboxes.
 //
 // A field the student configured for this face but that this particular
 // card doesn't have (e.g. "translation" checked, but this card has none)

@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { PageContainer } from "@/components/page-container";
+import { SimplePageContainer } from "@/components/simple/page-container";
 import { useFlashcardSets } from "@/lib/flashcards";
 
 // One subject's set picker (docs/preschool/games/cards.md,
@@ -14,7 +14,7 @@ export function FlashcardsSetsPage({ group }: { group: string }) {
   const { groupTitle, sets } = useFlashcardSets(group);
 
   return (
-    <PageContainer title={groupTitle ?? t("groupsTitle")}>
+    <SimplePageContainer title={groupTitle ?? t("groupsTitle")}>
       <Link href="/games/cards" className="mb-4 inline-block text-sm text-slate-500 hover:underline dark:text-slate-400">
         ← {t("backToGroupsButton")}
       </Link>
@@ -38,6 +38,6 @@ export function FlashcardsSetsPage({ group }: { group: string }) {
           ))}
         </ul>
       )}
-    </PageContainer>
+    </SimplePageContainer>
   );
 }

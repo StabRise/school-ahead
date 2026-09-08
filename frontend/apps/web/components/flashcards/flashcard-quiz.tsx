@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { FlashcardItem } from "@/lib/flashcards";
 import { CARD_FIELDS, type CardFaceConfig } from "./card-face-config";
@@ -9,7 +9,7 @@ import { CardFaceContent } from "./card-face-content";
 // "Тест" (Quiz) mode, docs/preschool/games/cards.md — the front face is
 // shown as the question and the student picks the matching card from up to
 // four back-face options (both faces rendered via the same
-// CardFaceContent/CardFaceSettingsPanel configuration Навчання uses, so
+// CardFaceContent/GameSettingsPanel configuration Навчання uses, so
 // e.g. picking front=translation/back=term quizzes in the reverse
 // direction just as validly as the term-first default). Matching is by
 // card identity (id), not by comparing rendered text, so it stays correct
@@ -169,17 +169,38 @@ export function FlashcardQuiz({
   resolveImage,
   frontConfig,
   backConfig,
+  onComplete,
 }: {
   items: CategorizedFlashcardItem[];
   resolveImage: (item: FlashcardItem) => string | null;
   frontConfig: CardFaceConfig;
   backConfig: CardFaceConfig;
+  onComplete?: (score: number, total: number) => void;
 }) {
   const t = useTranslations("FlashcardsGame");
   const questions = useMemo(() => buildQuestions(items, backConfig), [items, backConfig]);
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [answered, setAnswered] = useState(false);
+  // Fires onComplete exactly once per finished round — reset as soon as a
+  // new round starts (including an in-place "Почати заново", which doesn't
+  // remount this component) so completing again reports again.
+  const reportedRef = useRef(false);
+
+  useEffect(() => {
+    if (questions.length === 0) return;
+    if (index < questions.length) {
+      reportedRef.current = false;
+      return;
+    }
+    if (reportedRef.current) return;
+    reportedRef.current = true;
+    onComplete?.(score, questions.length);
+    // onComplete is expected to be a stable callback (the caller's own
+    // store action); only `index`/`questions.length` actually gate when
+    // this should fire.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, questions.length]);
 
   if (questions.length === 0) {
     return <p className="text-sm text-slate-500 dark:text-slate-400">{t("quizNoItems")}</p>;

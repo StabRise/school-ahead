@@ -7,7 +7,7 @@ import {
 } from "@/components/flashcards/card-face-config";
 
 // What each side of a study flashcard shows (docs/preschool/games/cards.md,
-// CardFaceSettingsPanel) — a student's own study preference, not something
+// GameSettingsPanel) — a student's own study preference, not something
 // tied to any one set, so it's persisted to localStorage and shared across
 // every /games/cards/<group>/<set> the student opens, same as every other
 // game's own <game>-game-store.ts.

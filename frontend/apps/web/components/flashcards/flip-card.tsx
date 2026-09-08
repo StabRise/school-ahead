@@ -9,7 +9,7 @@ import { CardFaceContent } from "./card-face-content";
 // sharing the same box, [backface-visibility:hidden] hiding whichever one
 // is turned away from the viewer) rather than a fade or a layout swap.
 // What each face actually shows is fully configurable (CardFaceContent +
-// CardFaceSettingsPanel) rather than hardcoded to term/image front,
+// GameSettingsPanel) rather than hardcoded to term/image front,
 // translation/definition back. Deliberately adult/minimalist (slate
 // palette, no gradients, no mascots, no bounce easing) per the doc's
 // "Дорослий дизайн" requirement — unlike every @school-ahead/preschool-games

@@ -34,9 +34,7 @@ function FaceCheckboxGroup({
   const t = useTranslations("FlashcardsGame");
   return (
     <div>
-      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        {title}
-      </p>
+      <p className="mb-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">{title}</p>
       <div className="flex flex-col gap-1.5">
         {CARD_FIELDS.map((field) => (
           <label key={field} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
@@ -54,18 +52,25 @@ function FaceCheckboxGroup({
   );
 }
 
-// What each side of a card shows (docs/preschool/games/cards.md) — term,
-// translation, image, definition, any combination, independently for the
-// front and the back. Drives both game modes: FlipCard's two faces in
-// Навчання, and the question/option cards in Тест. Same
+// The single "⚙" popup covering both of a game session's settings (docs/
+// preschool/games/cards.md): which топіки to study (Тема — same effect as
+// before, just moved off the toolbar and into this panel) and what each
+// card's front/back shows (Картка — CardFaceContent's config, persisted
+// across every set via useFlashcardsStore). Same
 // gear-button-toggles-a-panel-that-closes-on-outside-click pattern as
 // @school-ahead/preschool-games' CardsGame settings panel.
-export function CardFaceSettingsPanel({
+export function GameSettingsPanel({
+  topic,
+  topics,
+  onTopicChange,
   frontConfig,
   onFrontConfigChange,
   backConfig,
   onBackConfigChange,
 }: {
+  topic: string;
+  topics: { value: string; label: string }[];
+  onTopicChange: (topic: string) => void;
   frontConfig: CardFaceConfig;
   onFrontConfigChange: (config: CardFaceConfig) => void;
   backConfig: CardFaceConfig;
@@ -94,20 +99,44 @@ export function CardFaceSettingsPanel({
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((value) => !value)}
-        aria-label={t("cardSettingsButton")}
-        className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+        aria-label={t("settingsButton")}
+        title={t("settingsButton")}
+        className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
       >
         <Settings className="size-4" />
-        {t("cardSettingsButton")}
       </button>
 
       {open && (
         <div
           ref={panelRef}
-          className="absolute right-0 top-full z-10 mt-2 flex w-64 flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+          className="absolute left-0 top-full z-10 mt-2 flex w-72 flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-slate-700 dark:bg-slate-900"
         >
-          <FaceCheckboxGroup title={t("frontSideLabel")} config={frontConfig} onChange={onFrontConfigChange} />
-          <FaceCheckboxGroup title={t("backSideLabel")} config={backConfig} onChange={onBackConfigChange} />
+          <div>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              {t("topicLabel")}
+            </p>
+            <select
+              value={topic}
+              onChange={(e) => onTopicChange(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+            >
+              {topics.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              {t("cardSettingsLabel")}
+            </p>
+            <div className="flex flex-col gap-3">
+              <FaceCheckboxGroup title={t("frontSideLabel")} config={frontConfig} onChange={onFrontConfigChange} />
+              <FaceCheckboxGroup title={t("backSideLabel")} config={backConfig} onChange={onBackConfigChange} />
+            </div>
+          </div>
         </div>
       )}
     </div>
