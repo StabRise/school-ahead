@@ -27,12 +27,17 @@ export interface StorySummary {
 // mixed into a syllable breakdown. A segment written as a video filename
 // (e.g. "1.avi", resolved the same way) is a short looping clip instead of
 // a still illustration — same "only meaningful as a lone {...} group" rule
-// as audio (see stories-game.tsx's isVideo).
+// as audio (see stories-game.tsx's isVideo). A segment written as a YouTube
+// URL (e.g. "https://www.youtube.com/watch?v=..."), rather than a filename
+// living next to story.md, is an embedded YouTube clip — same "only
+// meaningful as a lone {...} group" rule again (see stories-game.tsx's
+// isYouTube).
 export type StoryWordSegment =
   | { kind: "text"; text: string }
   | { kind: "image"; filename: string }
   | { kind: "audio"; filename: string }
-  | { kind: "video"; filename: string };
+  | { kind: "video"; filename: string }
+  | { kind: "youtube"; videoId: string };
 
 export interface Story {
   title: string;
@@ -68,19 +73,28 @@ const AUDIO_FILENAME_RE = /^[^\s{}]+\.(mp3|wav|ogg|m4a)$/i;
 // (StoryVideo in stories-game.tsx) instead of a still picture.
 const VIDEO_FILENAME_RE = /^[^\s{}]+\.(mp4|webm|mov|avi)$/i;
 
+// A {...} group naming a YouTube URL instead of a local filename — any of
+// the watch/shorts/embed/short-link forms, with or without a scheme or
+// "www.", and tolerant of extra query params (e.g. "&t=30s") after the id.
+// The id itself is always 11 characters (YouTube's own format).
+const YOUTUBE_URL_RE =
+  /^(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})(?:[?&]\S*)?$/i;
+
 function parseWordSegment(raw: string): StoryWordSegment {
   if (IMAGE_FILENAME_RE.test(raw)) return { kind: "image", filename: raw };
   if (AUDIO_FILENAME_RE.test(raw)) return { kind: "audio", filename: raw };
   if (VIDEO_FILENAME_RE.test(raw)) return { kind: "video", filename: raw };
+  const youtubeMatch = raw.match(YOUTUBE_URL_RE);
+  if (youtubeMatch) return { kind: "youtube", videoId: youtubeMatch[1] };
   return { kind: "text", text: raw };
 }
 
-// A {...} group's content is either one bare image/audio/video filename
-// (checked against the *whole*, untrimmed-of-dashes content first, so a
-// filename itself may safely contain "-", e.g. "{ img-1.jpeg }") or,
-// otherwise, the usual "-"-separated syllable/letter segments (any of which
-// may itself be an image/audio/video filename instead, e.g.
-// "{К - img1.jpeg - Т - КА}"). Called by lib/story-markdown.ts's remark
+// A {...} group's content is either one bare image/audio/video filename or
+// YouTube URL (checked against the *whole*, untrimmed-of-dashes content
+// first, so a filename itself may safely contain "-", e.g. "{ img-1.jpeg }")
+// or, otherwise, the usual "-"-separated syllable/letter segments (any of
+// which may itself be an image/audio/video filename or YouTube URL instead,
+// e.g. "{К - img1.jpeg - Т - КА}"). Called by lib/story-markdown.ts's remark
 // plugin once per "{...}" it finds anywhere in the story's Markdown body —
 // a word breakdown is a Markdown *extension* on top of real Markdown, not
 // something parseStory itself looks for.
@@ -89,6 +103,8 @@ export function parseSyllableGroup(raw: string): StoryWordSegment[] {
   if (IMAGE_FILENAME_RE.test(trimmed)) return [{ kind: "image", filename: trimmed }];
   if (AUDIO_FILENAME_RE.test(trimmed)) return [{ kind: "audio", filename: trimmed }];
   if (VIDEO_FILENAME_RE.test(trimmed)) return [{ kind: "video", filename: trimmed }];
+  const youtubeMatch = trimmed.match(YOUTUBE_URL_RE);
+  if (youtubeMatch) return [{ kind: "youtube", videoId: youtubeMatch[1] }];
   return trimmed
     .split("-")
     .map((segment) => segment.trim())

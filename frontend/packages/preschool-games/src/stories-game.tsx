@@ -32,6 +32,10 @@ import { useLocaleAwareGamesRouter } from "./kit/use-locale-aware-router";
 //       full story clip (StoryVideo below): same plain-rectangle treatment
 //       as an illustration, just a looping muted video instead of a still
 //       picture;
+//     - a lone YouTube URL with nothing else, e.g.
+//       "{ https://www.youtube.com/watch?v=... }", is an embedded YouTube
+//       clip (StoryYoutube below): a thumbnail with a play badge inline,
+//       swapping for the live embed once opened full-screen;
 //     - a lone audio segment with nothing else, e.g. "{ koza.mp3 }", is a
 //       small inline speaker button (StoryAudioButton below) that plays
 //       that clip on tap — no fullscreen, no read-aloud otherwise;
@@ -90,6 +94,21 @@ function isAudio(segments: StoryWordSegment[]): segments is [{ kind: "audio"; fi
 // bordered letter-card.
 function isVideo(segments: StoryWordSegment[]): segments is [{ kind: "video"; filename: string }] {
   return segments.length === 1 && segments[0].kind === "video";
+}
+
+// A {...} group with exactly one YouTube segment and nothing else (e.g.
+// "{ https://www.youtube.com/watch?v=... }") — same standing as isVideo's
+// local clip, rendered as StoryYoutube instead of a bordered letter-card.
+function isYouTube(segments: StoryWordSegment[]): segments is [{ kind: "youtube"; videoId: string }] {
+  return segments.length === 1 && segments[0].kind === "youtube";
+}
+
+function youtubeThumbnailUrl(videoId: string): string {
+  return `https://img.youtube.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`;
+}
+
+function youtubeEmbedUrl(videoId: string): string {
+  return `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&rel=0`;
 }
 
 // One card inside a {...} word breakdown, at either its small inline size
@@ -189,6 +208,21 @@ function WordSegmentCard({
         className="flex shrink-0 items-center justify-center rounded-lg border-2 border-gray-400 bg-white text-lg"
       >
         🎬
+      </span>
+    );
+  }
+
+  if (segment.kind === "youtube") {
+    // Same rationale as the audio/video fallbacks above — a YouTube link is
+    // only meant to appear as its own {...} group (see isYouTube), rendered
+    // as StoryYoutube.
+    return (
+      <span
+        aria-hidden="true"
+        style={boxStyle}
+        className="flex shrink-0 items-center justify-center rounded-lg border-2 border-gray-400 bg-white text-lg"
+      >
+        📺
       </span>
     );
   }
@@ -353,6 +387,43 @@ function StoryVideo({ url, size }: { url: string; size: "sm" | "lg" }) {
   );
 }
 
+// A full embedded YouTube clip for the story (see isYouTube above) — same
+// plain-rectangle, no-card-border treatment as StoryIllustration/StoryVideo.
+// Unlike a local video file there's no direct <video> src to autoplay
+// inline, and YouTube's own embed requires a user gesture for sound anyway,
+// so "sm" just shows the clip's public thumbnail (YouTube serves this with
+// no API key or CORS issues) with a ▶ play badge — tapping it goes through
+// the same onOpen path as every other card (see StoryCard below) to open
+// "lg", which is the only size that actually mounts the live <iframe>
+// (autoplay=1 in youtubeEmbedUrl then works because opening it is itself a
+// user gesture).
+function StoryYoutube({ videoId, size }: { videoId: string; size: "sm" | "lg" }) {
+  if (size === "lg") {
+    return (
+      <iframe
+        src={youtubeEmbedUrl(videoId)}
+        title="YouTube"
+        allow="autoplay; encrypted-media; picture-in-picture"
+        allowFullScreen
+        className="aspect-video max-h-[80vh] w-[90vw] max-w-3xl rounded-lg shadow-2xl"
+      />
+    );
+  }
+
+  return (
+    <span className="relative block max-h-64 w-auto overflow-hidden rounded-lg shadow-md sm:max-h-80">
+      {/* eslint-disable-next-line @next/next/no-img-element -- external, YouTube-hosted thumbnail */}
+      <img src={youtubeThumbnailUrl(videoId)} alt="" draggable={false} className="max-h-64 w-auto object-contain sm:max-h-80" />
+      <span
+        aria-hidden="true"
+        className="absolute inset-0 flex items-center justify-center bg-black/20 text-4xl text-white"
+      >
+        ▶️
+      </span>
+    </span>
+  );
+}
+
 // A {...} group with exactly one audio segment and nothing else (see
 // isAudio above) — a small inline play/stop toggle for the clip from this
 // story's folder. Unlike StoryIllustration/WordCardRow there's nothing to
@@ -482,6 +553,15 @@ function StoryCard({
       // Same not-prose rationale as the illustration button above.
       <button type="button" onClick={() => onOpen(segments)} className="not-prose mx-auto block cursor-pointer">
         <StoryVideo url={storyAssetUrl(storySlug, segments[0].filename)} size="sm" />
+      </button>
+    );
+  }
+
+  if (isYouTube(segments)) {
+    return (
+      // Same not-prose rationale as the illustration button above.
+      <button type="button" onClick={() => onOpen(segments)} className="not-prose mx-auto block cursor-pointer">
+        <StoryYoutube videoId={segments[0].videoId} size="sm" />
       </button>
     );
   }
@@ -624,11 +704,12 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
     originRef: starBadgeRef,
   });
 
-  // A fullscreen video (unlike a fullscreen illustration or card row) has
-  // its own sound (see StoryVideo's "lg" size) — duck the background track
-  // for as long as it's open, same reason StoryAudioButton does.
+  // A fullscreen video or YouTube embed (unlike a fullscreen illustration or
+  // card row) has its own sound (see StoryVideo/StoryYoutube's "lg" size) —
+  // duck the background track for as long as it's open, same reason
+  // StoryAudioButton does.
   useEffect(() => {
-    if (!fullscreenSegments || !isVideo(fullscreenSegments)) return;
+    if (!fullscreenSegments || (!isVideo(fullscreenSegments) && !isYouTube(fullscreenSegments))) return;
     backgroundMusic.duck();
     return () => backgroundMusic.unduck();
     // backgroundMusic.duck/unduck are useStoryBackgroundMusic's own
@@ -639,10 +720,10 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
 
   const handleOpenCard = (segments: StoryWordSegment[]) => {
     setFullscreenSegments(segments);
-    // A plain illustration or video isn't a "word" (see
+    // A plain illustration, video, or YouTube embed isn't a "word" (see
     // DIAMOND_MILESTONE_STARS above) — only a syllable/letter breakdown
     // earns a star.
-    if (user && !isIllustration(segments) && !isVideo(segments)) {
+    if (user && !isIllustration(segments) && !isVideo(segments) && !isYouTube(segments)) {
       setStars((current) => current + 1);
       setStarBump((current) => current + 1);
     }
@@ -765,6 +846,8 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
             <StoryIllustration url={storyAssetUrl(slug, fullscreenSegments[0].filename)} size="lg" />
           ) : isVideo(fullscreenSegments) ? (
             <StoryVideo url={storyAssetUrl(slug, fullscreenSegments[0].filename)} size="lg" />
+          ) : isYouTube(fullscreenSegments) ? (
+            <StoryYoutube videoId={fullscreenSegments[0].videoId} size="lg" />
           ) : (
             <WordCardRow
               segments={fullscreenSegments}
