@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { FlashcardItem } from "@/lib/flashcards";
 import type { FlashcardStatus } from "@/stores/flashcard-progress-store";
+import { ProgressBar } from "@/components/progress-bar";
 import { CARD_FIELDS, type CardFaceConfig } from "./card-face-config";
 import { CardFaceContent } from "./card-face-content";
 import { StatusBadge } from "./status-badge";
@@ -258,9 +259,13 @@ export function FlashcardQuiz({
 
   return (
     <div className="flex w-full max-w-md flex-col items-center gap-6">
-      <div className="flex w-full items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-        <span>{t("quizProgressLabel", { current: index + 1, total: questions.length })}</span>
-        <span>{t("quizScoreLabel", { score })}</span>
+      <div className="w-full">
+        <ProgressBar
+          percent={((index + 1) / questions.length) * 100}
+          label={t("quizProgressLabel", { current: index + 1, total: questions.length })}
+          colorful
+        />
+        <p className="mt-1 text-right text-xs text-slate-500 dark:text-slate-400">{t("quizScoreLabel", { score })}</p>
       </div>
 
       <QuizQuestionCard

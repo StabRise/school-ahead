@@ -140,7 +140,14 @@ export function FlashcardLearnDeck({
         />
       </div>
 
+      {/* Keyed by card id so switching cards fully remounts FlipCard (and
+          the CardFaceContent instances inside it) instead of reusing the
+          same one — otherwise CardFaceContent's own `imageFailed` state
+          (set once a broken/missing image 404s) stuck around across cards,
+          hiding a perfectly valid image on a card reached after one whose
+          image failed to load. */}
       <FlipCard
+        key={current.id}
         item={current}
         imageUrl={resolveImage(current)}
         flipped={flipped}

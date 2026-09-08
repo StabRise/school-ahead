@@ -71,13 +71,18 @@ export function QuizResultsPanel({ group, set }: { group: string; set: string })
                 return (
                   <li
                     key={`${attempt.completedAt}:${index}`}
-                    className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800"
+                    className="flex flex-col gap-0.5 rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800"
                   >
-                    <span className="text-slate-500 dark:text-slate-400">
-                      {DATE_FORMAT.format(new Date(attempt.completedAt))}
-                    </span>
-                    <span className="font-medium text-slate-800 dark:text-slate-100">
-                      {attempt.score}/{attempt.total} · {percent}%
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-slate-500 dark:text-slate-400">
+                        {DATE_FORMAT.format(new Date(attempt.completedAt))}
+                      </span>
+                      <span className="font-medium text-slate-800 dark:text-slate-100">
+                        {attempt.score}/{attempt.total} · {percent}%
+                      </span>
+                    </div>
+                    <span className="text-xs text-slate-400 dark:text-slate-500">
+                      {attempt.topic === "all" ? t("allTopicsOption") : attempt.topic}
                     </span>
                   </li>
                 );

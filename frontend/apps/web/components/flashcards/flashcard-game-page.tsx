@@ -14,6 +14,7 @@ import { QuizResultsPanel } from "./quiz-results-panel";
 import { useFlashcardsStore } from "@/stores/flashcards-store";
 import { useFlashcardQuizResultsStore } from "@/stores/flashcard-quiz-results-store";
 import { flashcardProgressKey, useFlashcardProgressStore, type FlashcardStatus } from "@/stores/flashcard-progress-store";
+import { flashcardTopicKey, useFlashcardTopicStore } from "@/stores/flashcard-topic-store";
 
 const ALL_TOPICS = "all";
 
@@ -29,7 +30,27 @@ const ALL_TOPICS = "all";
 export function FlashcardGamePage({ group, set }: { group: string; set: string }) {
   const t = useTranslations("FlashcardsGame");
   const { groupTitle, set: flashcardSet, isLoading } = useFlashcardSet(group, set);
-  const [topic, setTopic] = useState<string>(ALL_TOPICS);
+
+  // Persisted (localStorage) but specific to this group+set — unlike
+  // mode/frontConfig/backConfig below, narrowing "math/7 klasa" to one
+  // topic shouldn't also narrow an unrelated set — see
+  // stores/flashcard-topic-store.ts.
+  const topicByCardSet = useFlashcardTopicStore((s) => s.topicByCardSet);
+  const setTopicForCardSet = useFlashcardTopicStore((s) => s.setTopic);
+  const persistedTopic = topicByCardSet[flashcardTopicKey(group, set)] ?? ALL_TOPICS;
+  // A topic persisted from an earlier version of this set might not exist
+  // anymore (e.g. a renamed/removed category) — fall back to "all" rather
+  // than silently filtering everything out, same self-heal other games'
+  // persisted settings use.
+  const topic =
+    persistedTopic === ALL_TOPICS || !flashcardSet || flashcardSet.categories.some((c) => c.title === persistedTopic)
+      ? persistedTopic
+      : ALL_TOPICS;
+  const setTopic = useCallback(
+    (value: string) => setTopicForCardSet(group, set, value),
+    [setTopicForCardSet, group, set],
+  );
+
   // Persisted (localStorage) and shared across every card set the student
   // opens — see stores/flashcards-store.ts.
   const mode = useFlashcardsStore((s) => s.mode);

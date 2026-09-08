@@ -69,6 +69,17 @@ export function CardFaceContent({
 
   return (
     <div className={`flex flex-col items-center text-center ${size === "lg" ? "gap-3" : "gap-1"}`}>
+      {shown.has("term") && (
+        <p
+          className={
+            size === "lg"
+              ? "text-2xl font-semibold text-slate-900 dark:text-slate-50"
+              : "text-base font-semibold text-slate-900 dark:text-slate-50"
+          }
+        >
+          {item.term}
+        </p>
+      )}
       {shown.has("image") && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -82,17 +93,6 @@ export function CardFaceContent({
               : "max-h-16 max-w-full rounded-md object-contain"
           }
         />
-      )}
-      {shown.has("term") && (
-        <p
-          className={
-            size === "lg"
-              ? "text-2xl font-semibold text-slate-900 dark:text-slate-50"
-              : "text-base font-semibold text-slate-900 dark:text-slate-50"
-          }
-        >
-          {item.term}
-        </p>
       )}
       {shown.has("translation") && (
         <p

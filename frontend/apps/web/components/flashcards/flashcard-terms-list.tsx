@@ -84,20 +84,24 @@ function FlashcardTermRow({
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-1">
+      {/* Deliberately tiny and neutral when unmarked (no border, muted
+          gray icon) — these sit on every row of a long list, so they
+          shouldn't compete with the term/translation/definition for
+          attention. Color only appears once a card is actually marked. */}
+      <div className="flex shrink-0 items-center gap-0.5">
         <button
           type="button"
           onClick={onToggleKnow}
           aria-pressed={status === "known"}
           aria-label={t("knowButton")}
           title={t("knowButton")}
-          className={`flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
+          className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${
             status === "known"
-              ? "border-emerald-600 bg-emerald-600 text-white"
-              : "border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950"
+              ? "bg-emerald-600 text-white"
+              : "text-slate-300 hover:bg-slate-100 hover:text-emerald-600 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-emerald-400"
           }`}
         >
-          <Check className="size-3.5" />
+          <Check className="size-3" />
         </button>
         <button
           type="button"
@@ -105,13 +109,13 @@ function FlashcardTermRow({
           aria-pressed={status === "difficult"}
           aria-label={t("difficultButton")}
           title={t("difficultButton")}
-          className={`flex h-7 w-7 items-center justify-center rounded-full border transition-colors ${
+          className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${
             status === "difficult"
-              ? "border-amber-600 bg-amber-600 text-white"
-              : "border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
+              ? "bg-amber-600 text-white"
+              : "text-slate-300 hover:bg-slate-100 hover:text-amber-600 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-amber-400"
           }`}
         >
-          <Flag className="size-3.5" />
+          <Flag className="size-3" />
         </button>
       </div>
     </li>
