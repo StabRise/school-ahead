@@ -94,11 +94,12 @@ function PrintCardCell({
   useLayoutEffect(() => {
     const cell = cellRef.current;
     if (!cell) return;
-    const textEls = [
+    const candidates: ({ el: HTMLElement; base: number } | null)[] = [
       termRef.current && { el: termRef.current, base: TERM_BASE_PT[rows] },
       translationRef.current && { el: translationRef.current, base: TERM_BASE_PT[rows] },
       definitionRef.current && { el: definitionRef.current, base: DEFINITION_BASE_PT[rows] },
-    ].filter((entry): entry is { el: HTMLElement; base: number } => Boolean(entry));
+    ];
+    const textEls = candidates.filter((entry): entry is { el: HTMLElement; base: number } => entry !== null);
 
     textEls.forEach(({ el, base }) => {
       el.style.fontSize = `${base}pt`;
