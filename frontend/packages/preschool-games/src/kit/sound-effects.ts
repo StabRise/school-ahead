@@ -116,5 +116,5 @@ export function playBuildSound() {
 // into the pit — a bit lower and longer than playMissSound so it reads as a
 // "fall", not just "wrong".
 export function playFallSound() {
-  playTone(200, { type: "sawtooth", duration: 0.35, gain: 0.2, glideTo: 60 });
+  playTone(200, { type: "sawtooth", duration: 0.35, gain: 0.12, glideTo: 60 });
 }

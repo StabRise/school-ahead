@@ -426,7 +426,7 @@ def reward_cards_game(request: HttpRequest):
     operation_id='reward_multiplication_game',
 )
 def reward_multiplication_game(request: HttpRequest):
-    """Awards a Diamond for completing all 20 questions of the multiplication-table
+    """Awards a Diamond for completing every question of the multiplication-table
     minigame (frontend/packages/preschool-games/src/multiplication-game.tsx).
     See accounts.services.award_multiplication_game_diamond for the trust model."""
     require_csrf(request)

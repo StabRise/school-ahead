@@ -209,6 +209,7 @@
     "progress": "Питання {current}/{total}",
     "settingsButton": "Налаштування",
     "speedLabel": "Швидкість бігу",
+    "choiceCountLabel": "Кількість варіантів",
     "gameOverTitle": "Ой, провалився у прірву!",
     "victoryTitle": "Місток збудовано! Перемога!",
     "solvedCount": "Розв'язано прикладів: {count} з {total}",

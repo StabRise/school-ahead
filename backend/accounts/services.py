@@ -249,7 +249,7 @@ def award_cards_game_diamond(student: StudentProfile) -> None:
 
 # Diamond reward for the multiplication-table minigame (see
 # frontend/packages/preschool-games/src/multiplication-game.tsx) — awarded
-# once for successfully finishing all 20 questions of a session with at
+# once for successfully finishing every question of a session with at
 # least one life remaining. Same trust model as BALLOON_POP_MILESTONE_DIAMONDS
 # above: no server-side tracking of the run, the frontend calls this once
 # per completed session.

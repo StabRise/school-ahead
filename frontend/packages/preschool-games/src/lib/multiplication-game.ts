@@ -6,8 +6,15 @@
 
 export const MULTIPLICATION_MIN = 2;
 export const MULTIPLICATION_MAX = 10;
-export const QUESTION_COUNT = 20;
-export const CHOICE_COUNT = 8;
+export const QUESTION_COUNT = 15;
+
+// The hotbar's size is a player-configurable setting (see
+// stores/multiplication-game-store.ts's choiceCount, chosen in
+// multiplication-game.tsx's settings panel) rather than a fixed constant —
+// this is just its allowed range and default.
+export const MIN_CHOICE_COUNT = 6;
+export const MAX_CHOICE_COUNT = 10;
+export const DEFAULT_CHOICE_COUNT = 8;
 
 export interface MultiplicationQuestion {
   a: number;
@@ -69,7 +76,8 @@ function candidateDistractors(a: number, b: number, correct: number): number[] {
 }
 
 // Fills out to `count` distinct, non-correct numbers in range when the
-// "logical" pool above came up short — keeps the hotbar always at 8 slots.
+// "logical" pool above came up short — keeps the hotbar at the requested
+// choiceCount regardless.
 function padDistractors(existing: number[], correct: number, count: number): number[] {
   const used = new Set([correct, ...existing]);
   const pool: number[] = [];
@@ -81,22 +89,27 @@ function padDistractors(existing: number[], correct: number, count: number): num
 
 // Choices are sorted ascending (not shuffled) so the hotbar reads like a
 // number line — no numbered shortcut labels needed, the slots' own order is
-// the hint.
-export function generateChoices(a: number, b: number): { choices: number[]; correctIndex: number } {
+// the hint. `choiceCount` is a player-configurable setting, MIN_CHOICE_COUNT
+// to MAX_CHOICE_COUNT — see multiplication-game.tsx's settings panel.
+export function generateChoices(
+  a: number,
+  b: number,
+  choiceCount: number = DEFAULT_CHOICE_COUNT,
+): { choices: number[]; correctIndex: number } {
   const correct = a * b;
-  const distractorCount = CHOICE_COUNT - 1;
+  const distractorCount = choiceCount - 1;
   const logical = shuffle(candidateDistractors(a, b, correct)).slice(0, distractorCount);
   const distractors = logical.length < distractorCount ? padDistractors(logical, correct, distractorCount) : logical;
   const choices = [correct, ...distractors].sort((x, y) => x - y);
   return { choices, correctIndex: choices.indexOf(correct) };
 }
 
-export function generateQuestion(): MultiplicationQuestion {
+export function generateQuestion(choiceCount: number = DEFAULT_CHOICE_COUNT): MultiplicationQuestion {
   const { a, b } = generateQuestionFactors();
-  const { choices, correctIndex } = generateChoices(a, b);
+  const { choices, correctIndex } = generateChoices(a, b, choiceCount);
   return { a, b, choices, correctIndex };
 }
 
-export function buildSession(): MultiplicationQuestion[] {
-  return Array.from({ length: QUESTION_COUNT }, generateQuestion);
+export function buildSession(choiceCount: number = DEFAULT_CHOICE_COUNT): MultiplicationQuestion[] {
+  return Array.from({ length: QUESTION_COUNT }, () => generateQuestion(choiceCount));
 }

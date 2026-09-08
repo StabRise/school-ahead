@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSession,
-  CHOICE_COUNT,
+  DEFAULT_CHOICE_COUNT,
   generateChoices,
   generateQuestion,
   generateQuestionFactors,
+  MAX_CHOICE_COUNT,
+  MIN_CHOICE_COUNT,
   MULTIPLICATION_MAX,
   MULTIPLICATION_MIN,
   QUESTION_COUNT,
@@ -28,13 +30,26 @@ describe("generateQuestionFactors", () => {
 });
 
 describe("generateChoices", () => {
-  it("returns exactly CHOICE_COUNT distinct choices including the correct product", () => {
+  it("returns exactly DEFAULT_CHOICE_COUNT distinct choices including the correct product, by default", () => {
     for (let a = 2; a <= 10; a++) {
       for (let b = 2; b <= 10; b++) {
         const { choices, correctIndex } = generateChoices(a, b);
-        expect(choices).toHaveLength(CHOICE_COUNT);
-        expect(new Set(choices).size).toBe(CHOICE_COUNT); // no duplicate choices
+        expect(choices).toHaveLength(DEFAULT_CHOICE_COUNT);
+        expect(new Set(choices).size).toBe(DEFAULT_CHOICE_COUNT); // no duplicate choices
         expect(choices[correctIndex]).toBe(a * b);
+      }
+    }
+  });
+
+  it("honors any choiceCount in the configurable MIN_CHOICE_COUNT-MAX_CHOICE_COUNT range", () => {
+    for (let choiceCount = MIN_CHOICE_COUNT; choiceCount <= MAX_CHOICE_COUNT; choiceCount++) {
+      for (let a = 2; a <= 10; a++) {
+        for (let b = 2; b <= 10; b++) {
+          const { choices, correctIndex } = generateChoices(a, b, choiceCount);
+          expect(choices).toHaveLength(choiceCount);
+          expect(new Set(choices).size).toBe(choiceCount);
+          expect(choices[correctIndex]).toBe(a * b);
+        }
       }
     }
   });
@@ -64,6 +79,11 @@ describe("generateQuestion", () => {
     const question = generateQuestion();
     expect(question.choices[question.correctIndex]).toBe(question.a * question.b);
   });
+
+  it("honors an explicit choiceCount", () => {
+    const question = generateQuestion(MIN_CHOICE_COUNT);
+    expect(question.choices).toHaveLength(MIN_CHOICE_COUNT);
+  });
 });
 
 describe("buildSession", () => {
@@ -71,8 +91,15 @@ describe("buildSession", () => {
     const session = buildSession();
     expect(session).toHaveLength(QUESTION_COUNT);
     for (const question of session) {
-      expect(question.choices).toHaveLength(CHOICE_COUNT);
+      expect(question.choices).toHaveLength(DEFAULT_CHOICE_COUNT);
       expect(question.choices[question.correctIndex]).toBe(question.a * question.b);
+    }
+  });
+
+  it("honors an explicit choiceCount for every question in the session", () => {
+    const session = buildSession(MAX_CHOICE_COUNT);
+    for (const question of session) {
+      expect(question.choices).toHaveLength(MAX_CHOICE_COUNT);
     }
   });
 });
