@@ -11,6 +11,13 @@ export const CARD_FIELDS: CardField[] = ["term", "translation", "image", "defini
 
 export type CardFaceConfig = Record<CardField, boolean>;
 
+// Which axis FlipCard's 3D flip rotates around, in "Навчання" (docs/
+// preschool/games/cards.md) — "vertical" (the original) spins around a
+// vertical line through the card's middle, like a page turning
+// left/right; "horizontal" spins around a horizontal line, top/bottom.
+// Persisted (stores/flashcards-store.ts), same as frontConfig/backConfig.
+export type CardFlipOrientation = "vertical" | "horizontal";
+
 // Front: what you're quizzed on (term + its picture, no answer visible).
 // Back: the answer (translation + definition) — same "both" default the
 // game shipped with before this became configurable.
