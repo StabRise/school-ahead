@@ -88,6 +88,17 @@ describe("generateQuestion", () => {
     expect(question.b).toBe(0);
   });
 
+  it("add level 1 caps the largest number in the example at 3 (a notch easier than subtract's 4)", () => {
+    for (let i = 0; i < 50; i++) {
+      const question = generateQuestion("add", 1);
+      expect(Math.max(question.a, question.b, question.answer)).toBeLessThanOrEqual(3);
+    }
+    for (let i = 0; i < 50; i++) {
+      const question = generateQuestion("subtract", 1);
+      expect(Math.max(question.a, question.b, question.answer)).toBeLessThanOrEqual(4);
+    }
+  });
+
   it("subtract questions never go negative (larger minus smaller)", () => {
     for (let i = 0; i < 50; i++) {
       const question = generateQuestion("subtract", 5);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type TransitionEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject, type TransitionEvent } from "react";
 import { useTranslations } from "next-intl";
 import { useRewardMultiplicationGame } from "@school-ahead/api-client/browser/auth/auth";
 import { Raccoon, EquippedAvatarLayers, useEquippedAvatarLayers, type RaccoonMood } from "@school-ahead/preschool-ui";
@@ -58,8 +58,62 @@ import { useMathGameStore } from "./stores/math-game-store";
 // "crossing" and the natural (non-rushed) "falling" don't need a fresh key
 // since they continue smoothly from exactly where the prior leg ended.
 
+// Measures the vertical space actually left below wherever this element
+// sits (accounting for the sticky site Header above it, which the global
+// layout doesn't reserve a fixed height for) and reports it as a pixel
+// height — set on the game's root element, with overflow-hidden, so the
+// whole game always fits in one screen with no page-level vertical
+// scrollbar instead of growing past the viewport on shorter screens.
+// Re-measures on resize (rotating a tablet, browser chrome showing/hiding).
+function useViewportFillHeight<T extends HTMLElement>(): [RefObject<T | null>, number | undefined] {
+  const ref = useRef<T | null>(null);
+  const [height, setHeight] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => {
+      const top = el.getBoundingClientRect().top;
+      setHeight(Math.max(320, window.innerHeight - top));
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  return [ref, height];
+}
+
+// Measures an element's own rendered width live (ResizeObserver, not just
+// on mount) — used to size the hotbar's answer squares' font to however big
+// those squares actually rendered (see HotbarSlot's fontSize prop), which
+// changes with both the viewport and the current question's choiceCount.
+function useElementWidth<T extends HTMLElement>(): [RefObject<T | null>, number] {
+  const ref = useRef<T | null>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const measured = entries[0]?.contentRect.width;
+      if (measured) setWidth(measured);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, width];
+}
+
+// The answer square's font should read as big as the square comfortably
+// allows, but shrink for longer numbers (e.g. add/subtract level 5's up to
+// 3-digit answers) so they still fit on one line — see HotbarSlot.
+// Bounded to a sane [16px, 64px] range regardless of how big/small the
+// measured square turns out to be.
+function hotbarFontSizePx(slotWidthPx: number, maxDigits: number): number {
+  const ratio = maxDigits <= 1 ? 0.5 : maxDigits === 2 ? 0.42 : maxDigits === 3 ? 0.34 : 0.28;
+  return Math.min(64, Math.max(16, slotWidthPx * ratio));
+}
+
 const LIVES = 3;
-const MIN_SPEED = 0.5;
+const MIN_SPEED = 0.25;
 const MAX_SPEED = 3;
 const RUN_DURATION_S = 6;
 const RUSH_DURATION_S = 0.5; // Fixed, not speed-scaled — a quick, decisive dash to the pit once any answer is locked in.
@@ -137,8 +191,8 @@ function HeartIcon({ filled }: { filled: boolean }) {
 // them, the runner track underneath, the hotbar at the bottom.
 function QuestionCloud({ children }: { children: ReactNode }) {
   return (
-    <div className="relative flex items-center justify-center">
-      <svg viewBox="0 0 200 110" className="h-32 w-64 drop-shadow sm:h-40 sm:w-80" aria-hidden="true">
+    <div className="relative flex shrink-0 items-center justify-center">
+      <svg viewBox="0 0 200 110" className="h-24 w-48 drop-shadow sm:h-36 sm:w-72" aria-hidden="true">
         <path
           d="M50 82 Q18 82 18 56 Q18 34 40 31 Q43 14 63 14 Q79 14 85 27 Q99 16 115 25 Q133 18 144 34 Q167 34 169 56 Q171 80 145 82 Z"
           fill="white"
@@ -229,11 +283,16 @@ function HotbarSlot({
   value,
   status,
   disabled,
+  fontSize,
   onClick,
 }: {
   value: number;
   status: SlotStatus;
   disabled: boolean;
+  // Measured from the square's own rendered width (see useElementWidth +
+  // hotbarFontSizePx) — undefined only for the very first paint before that
+  // measurement lands, when the text-xl/sm:text-3xl fallback classes apply.
+  fontSize: number | undefined;
   onClick: () => void;
 }) {
   const statusClass =
@@ -249,7 +308,8 @@ function HotbarSlot({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex aspect-square flex-col items-center justify-center rounded-md border-4 text-xl font-extrabold text-gray-800 shadow-inner transition sm:text-3xl ${statusClass}`}
+      style={fontSize ? { fontSize } : undefined}
+      className={`flex aspect-square flex-col items-center justify-center rounded-md border-4 font-extrabold text-gray-800 shadow-inner transition ${fontSize ? "" : "text-xl sm:text-3xl"} ${statusClass}`}
     >
       {value}
     </button>
@@ -393,11 +453,18 @@ function MathRun({
 
   const avatarMood: RaccoonMood = phase === "crossing" ? "happy" : phase === "falling" ? "sad" : "idle";
 
+  const columns = question.choices.length;
+  const [hotbarRef, hotbarWidth] = useElementWidth<HTMLDivElement>();
+  const maxDigits = Math.max(1, ...question.choices.map((choice) => String(choice).length));
+  const HOTBAR_GAP_PX = 8; // gap-2
+  const slotWidth = hotbarWidth > 0 ? (hotbarWidth - HOTBAR_GAP_PX * (columns - 1)) / columns : 0;
+  const hotbarFontSize = slotWidth > 0 ? hotbarFontSizePx(slotWidth, maxDigits) : undefined;
+
   return (
-    <div className="relative flex w-full flex-1 flex-col items-center gap-3">
+    <div className="relative flex h-full w-full flex-1 flex-col items-center gap-2 overflow-hidden">
       {stage === "playing" && question && (
         <>
-          <div className="grid w-full grid-cols-3 items-center gap-4 px-3 pt-14">
+          <div className="grid w-full shrink-0 grid-cols-3 items-center gap-4 px-3 pt-14">
             <div aria-hidden="true" />
             <div className="flex flex-col items-center gap-1">
               <p className="text-xs font-bold text-gray-600 sm:text-sm">
@@ -421,14 +488,10 @@ function MathRun({
             {question.operation === "count" ? (
               <div className="flex flex-col items-center gap-1">
                 <p className="text-xs font-bold text-gray-500 sm:text-sm">{t("countPrompt")}</p>
-                {question.a === 0 ? (
-                  <span className="text-4xl opacity-20 grayscale sm:text-5xl" aria-hidden="true">
-                    {question.emoji}
-                  </span>
-                ) : (
-                  <div className="flex max-w-[210px] flex-wrap items-center justify-center gap-1 sm:max-w-[260px]">
+                {question.a > 0 && (
+                  <div className="flex max-w-[220px] flex-wrap items-center justify-center gap-1 sm:max-w-[280px]">
                     {Array.from({ length: question.a }, (_, i) => (
-                      <span key={i} className="text-2xl sm:text-3xl" aria-hidden="true">
+                      <span key={i} className="text-5xl sm:text-6xl" aria-hidden="true">
                         {question.emoji}
                       </span>
                     ))}
@@ -442,7 +505,7 @@ function MathRun({
             )}
           </QuestionCloud>
 
-          <div className="relative h-64 w-full overflow-hidden bg-gradient-to-b from-sky-100 to-transparent">
+          <div className="relative min-h-[6rem] w-full flex-1 overflow-hidden bg-gradient-to-b from-sky-100 to-transparent">
             <div className="absolute inset-x-0 bottom-0 h-16 bg-[#8a5a34]" aria-hidden="true" />
             <div className="absolute inset-x-0 bottom-16 h-2 bg-[#5b8c3a]" aria-hidden="true" />
             <div
@@ -472,11 +535,27 @@ function MathRun({
             />
           </div>
 
-          <div className={`mt-auto grid w-full px-4 pb-4 gap-2 ${HOTBAR_GRID_COLS[question.choices.length] ?? "grid-cols-8"}`}>
+          <div
+            ref={hotbarRef}
+            // Capped per-column width (not just w-full) so a low
+            // choiceCount (see lib/math-game.ts's buildChoiceSet) doesn't
+            // stretch each square into an oversized tile that could push
+            // the page taller than the viewport — mx-auto centers the
+            // capped row instead of hugging the left edge.
+            style={{ maxWidth: `${columns * 7}rem` }}
+            className={`mx-auto grid w-full shrink-0 gap-2 px-4 pb-4 ${HOTBAR_GRID_COLS[columns] ?? "grid-cols-8"}`}
+          >
             {question.choices.map((choice, i) => {
               const status: SlotStatus = locked && i === question.correctIndex ? "correct" : locked ? "dimmed" : "default";
               return (
-                <HotbarSlot key={`${choice}-${i}`} value={choice} status={status} disabled={locked} onClick={() => handleSelect(i)} />
+                <HotbarSlot
+                  key={`${choice}-${i}`}
+                  value={choice}
+                  status={status}
+                  disabled={locked}
+                  fontSize={hotbarFontSize}
+                  onClick={() => handleSelect(i)}
+                />
               );
             })}
           </div>
@@ -538,9 +617,14 @@ export function MathGame() {
   // — same "key={...}" trick as cards-game.tsx's CardsLevel, so a fresh
   // playthrough that reaches Victory again earns another Diamond.
   const [playToken, setPlayToken] = useState(0);
+  const [rootRef, fillHeight] = useViewportFillHeight<HTMLDivElement>();
 
   return (
-    <div className="relative flex flex-1 flex-col items-center">
+    <div
+      ref={rootRef}
+      style={{ height: fillHeight }}
+      className="relative flex flex-1 flex-col items-center overflow-hidden"
+    >
       <button
         type="button"
         aria-label={t("settingsButton")}
