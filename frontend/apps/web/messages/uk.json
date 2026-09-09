@@ -165,8 +165,8 @@
     "cardsSubtitle": "Слухай склади та картинки",
     "storiesTitle": "Казки",
     "storiesSubtitle": "Читай казку по складах",
-    "multiplicationTitle": "Множення",
-    "multiplicationSubtitle": "Розв'язуй приклади, встигай збудувати місток",
+    "mathTitle": "Математика",
+    "mathSubtitle": "Розв'язуй приклади, встигай збудувати місток",
     "switchGame": "Обрати іншу гру"
   },
   "ReadingGame": {
@@ -206,9 +206,19 @@
     "musicOnLabel": "Вимкнути музику",
     "musicOffLabel": "Увімкнути музику"
   },
-  "MultiplicationGame": {
+  "MathGame": {
     "progress": "Питання {current}/{total}",
     "settingsButton": "Налаштування",
+    "operationLabel": "Дія",
+    "operation": {
+      "count": "Рахувати",
+      "add": "Додавання",
+      "subtract": "Віднімання",
+      "multiply": "Множення",
+      "divide": "Ділення"
+    },
+    "levelLabel": "Рівень {level} з {max}",
+    "countPrompt": "Скільки?",
     "speedLabel": "Швидкість бігу",
     "choiceCountLabel": "Кількість варіантів",
     "gameOverTitle": "Ой, провалився у прірву!",

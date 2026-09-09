@@ -107,12 +107,12 @@ export function playCelebrationChime() {
 }
 
 // A short rising two-note "thunk" for a Minecraft-style block placing into
-// the bridge — the multiplication game's correct-answer sound.
+// the bridge — the math game's correct-answer sound.
 export function playBuildSound() {
   playChime([196, 261.63], { type: "square", noteGap: 0.08, noteDuration: 0.16, gain: 0.25 }); // G3, C4
 }
 
-// A short descending glide for the multiplication game's runner falling
+// A short descending glide for the math game's runner falling
 // into the pit — a bit lower and longer than playMissSound so it reads as a
 // "fall", not just "wrong".
 export function playFallSound() {

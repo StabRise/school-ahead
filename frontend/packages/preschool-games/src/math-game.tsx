@@ -7,21 +7,27 @@ import { Raccoon, EquippedAvatarLayers, useEquippedAvatarLayers, type RaccoonMoo
 import {
   generateQuestion,
   MAX_CHOICE_COUNT,
+  MAX_LEVEL_BY_OPERATION,
   MIN_CHOICE_COUNT,
+  MIN_LEVEL,
+  OPERATIONS,
   QUESTION_COUNT,
-  type MultiplicationQuestion,
-} from "./lib/multiplication-game";
+  type GameQuestion,
+  type Operation,
+} from "./lib/math-game";
 import { useBackgroundMusic } from "./lib/use-background-music";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { playBuildSound, playCelebrationChime, playFallSound, playMissSound } from "./kit/sound-effects";
 import { MusicToggleButton } from "./kit/music-toggle-button";
-import { useMultiplicationGameStore } from "./stores/multiplication-game-store";
+import { useMathGameStore } from "./stores/math-game-store";
 
-// Multiplication-table minigame — see docs/preschool/games/multiplication.md
-// for the original design brief (that doc's Minecraft "Steve" theming was
-// superseded per user feedback: the runner is the student's own equipped
-// avatar, not a fixed character, running continuously along a full-width
-// track like trains-game.tsx's train).
+// Math-runner minigame (multiplication, division, addition, subtraction,
+// and simple counting — see lib/math-game.ts's OPERATIONS) — see
+// docs/preschool/games/multiplication.md for the original design brief
+// (that doc's Minecraft "Steve" theming was superseded per user feedback:
+// the runner is the student's own equipped avatar, not a fixed character,
+// running continuously along a full-width track like trains-game.tsx's
+// train; the operation/level system was added afterward, see lib/math-game.ts).
 //
 // Each round: the avatar auto-runs from the left edge toward a pit at
 // PIT_START%. Only one hotbar answer is accepted per round, and answering
@@ -69,12 +75,42 @@ const PIT_END = 68;
 // a template-interpolated `grid-cols-${n}` wouldn't be, hence this lookup
 // spelling out every choiceCount the hotbar's settings slider allows
 // (MIN_CHOICE_COUNT..MAX_CHOICE_COUNT).
+// Low levels can shrink a question's actual choice count below the
+// player-configured slider value (see lib/math-game.ts's buildChoiceSet
+// doc comment) — down to 2 in the extreme (e.g. divide at
+// level 1 only has two possible quotients) — hence entries all the way down
+// from MAX_CHOICE_COUNT.
 const HOTBAR_GRID_COLS: Record<number, string> = {
+  2: "grid-cols-2",
+  3: "grid-cols-3",
+  4: "grid-cols-4",
+  5: "grid-cols-5",
   6: "grid-cols-6",
   7: "grid-cols-7",
   8: "grid-cols-8",
   9: "grid-cols-9",
   10: "grid-cols-10",
+};
+
+// Symbol shown between the two operands — "count" has no second operand and
+// is rendered separately (an emoji cluster, not "a op b = ?"), see
+// QuestionCloud usage below.
+const OPERATOR_SYMBOL: Partial<Record<Operation, string>> = {
+  add: "+",
+  subtract: "−",
+  multiply: "×",
+  divide: "÷",
+};
+
+// Emoji for the settings panel's operation picker — purely decorative, the
+// accessible label comes from next-intl (see the t(`operation.${op}`) calls
+// below).
+const OPERATION_EMOJI: Record<Operation, string> = {
+  count: "🔢",
+  add: "➕",
+  subtract: "➖",
+  multiply: "✖️",
+  divide: "➗",
 };
 
 type Stage = "playing" | "gameOver" | "victory";
@@ -185,7 +221,7 @@ function AvatarRunner({
 }
 
 // No numbered corner label — the choices are sorted ascending (see
-// lib/multiplication-game.ts's generateChoices), so their left-to-right
+// lib/math-game.ts's buildChoiceSet), so their left-to-right
 // order is already the hint, and a shortcut digit would just be visual
 // noise. Pressing 1-8 still selects by position (see the keydown handler
 // below) as an unlabeled bonus, same as before.
@@ -220,22 +256,26 @@ function HotbarSlot({
   );
 }
 
-function MultiplicationRun({
+function MathRun({
   speed,
+  operation,
+  level,
   choiceCount,
   onRetry,
 }: {
   speed: number;
+  operation: Operation;
+  level: number;
   choiceCount: number;
   onRetry: () => void;
 }) {
-  const t = useTranslations("MultiplicationGame");
+  const t = useTranslations("MathGame");
   // Each question is generated on demand (not a whole session pre-built
-  // upfront) so a mid-game choiceCount change (the settings slider) takes
-  // effect starting with the very next question, instead of only after a
-  // full retry — `startNextRound` below re-reads `choiceCount` fresh every
-  // time it generates one.
-  const [question, setQuestion] = useState<MultiplicationQuestion>(() => generateQuestion(choiceCount));
+  // upfront) so a mid-game choiceCount/operation/level change (the settings
+  // panel) takes effect starting with the very next question, instead of
+  // only after a full retry — `startNextRound` below re-reads these props
+  // fresh every time it generates one.
+  const [question, setQuestion] = useState<GameQuestion>(() => generateQuestion(operation, level, choiceCount));
   const [index, setIndex] = useState(0);
   const [lives, setLives] = useState(LIVES);
   const [solvedCount, setSolvedCount] = useState(0);
@@ -280,7 +320,7 @@ function MultiplicationRun({
       return;
     }
     setIndex(nextIndex);
-    setQuestion(generateQuestion(choiceCount));
+    setQuestion(generateQuestion(operation, level, choiceCount));
     setPhase("running");
     setLocked(false);
     setHasCorrectAnswer(false);
@@ -378,9 +418,28 @@ function MultiplicationRun({
           </div>
 
           <QuestionCloud>
-            <p className="text-3xl font-extrabold text-gray-800 sm:text-5xl">
-              {question.a} × {question.b} = ?
-            </p>
+            {question.operation === "count" ? (
+              <div className="flex flex-col items-center gap-1">
+                <p className="text-xs font-bold text-gray-500 sm:text-sm">{t("countPrompt")}</p>
+                {question.a === 0 ? (
+                  <span className="text-4xl opacity-20 grayscale sm:text-5xl" aria-hidden="true">
+                    {question.emoji}
+                  </span>
+                ) : (
+                  <div className="flex max-w-[210px] flex-wrap items-center justify-center gap-1 sm:max-w-[260px]">
+                    {Array.from({ length: question.a }, (_, i) => (
+                      <span key={i} className="text-2xl sm:text-3xl" aria-hidden="true">
+                        {question.emoji}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-3xl font-extrabold text-gray-800 sm:text-5xl">
+                {question.a} {OPERATOR_SYMBOL[question.operation]} {question.b} = ?
+              </p>
+            )}
           </QuestionCloud>
 
           <div className="relative h-64 w-full overflow-hidden bg-gradient-to-b from-sky-100 to-transparent">
@@ -398,7 +457,7 @@ function MultiplicationRun({
                   left: `${PIT_START}%`,
                   width: `${PIT_END - PIT_START}%`,
                   transformOrigin: "left",
-                  animation: "multiplication-bridge-build 0.4s ease-out forwards",
+                  animation: "math-bridge-build 0.4s ease-out forwards",
                 }}
                 aria-hidden="true"
               />
@@ -461,15 +520,20 @@ function MultiplicationRun({
   );
 }
 
-export function MultiplicationGame() {
+export function MathGame() {
   useBackgroundMusic();
-  const t = useTranslations("MultiplicationGame");
-  const speed = useMultiplicationGameStore((s) => s.speed);
-  const setSpeed = useMultiplicationGameStore((s) => s.setSpeed);
-  const choiceCount = useMultiplicationGameStore((s) => s.choiceCount);
-  const setChoiceCount = useMultiplicationGameStore((s) => s.setChoiceCount);
+  const t = useTranslations("MathGame");
+  const speed = useMathGameStore((s) => s.speed);
+  const setSpeed = useMathGameStore((s) => s.setSpeed);
+  const choiceCount = useMathGameStore((s) => s.choiceCount);
+  const setChoiceCount = useMathGameStore((s) => s.setChoiceCount);
+  const operation = useMathGameStore((s) => s.operation);
+  const setOperation = useMathGameStore((s) => s.setOperation);
+  const level = useMathGameStore((s) => s.level);
+  const setLevel = useMathGameStore((s) => s.setLevel);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  // Remounting MultiplicationRun on retry (rather than resetting its state
+  const maxLevel = MAX_LEVEL_BY_OPERATION[operation];
+  // Remounting MathRun on retry (rather than resetting its state
   // in place) resets useDiamondMilestoneReward's once-per-mount dedupe too
   // — same "key={...}" trick as cards-game.tsx's CardsLevel, so a fresh
   // playthrough that reaches Victory again earns another Diamond.
@@ -488,7 +552,37 @@ export function MultiplicationGame() {
       <MusicToggleButton className="absolute left-32 top-4 z-10" />
 
       {settingsOpen && (
-        <div className="absolute left-20 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200">
+        <div className="absolute left-20 top-16 z-10 flex w-64 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200">
+          <div className="flex flex-col gap-1">
+            <span className="font-medium text-gray-700">{t("operationLabel")}</span>
+            <div className="flex justify-between gap-1">
+              {OPERATIONS.map((op) => (
+                <button
+                  key={op}
+                  type="button"
+                  aria-label={t(`operation.${op}`)}
+                  aria-pressed={operation === op}
+                  onClick={() => setOperation(op)}
+                  className={`flex h-9 w-9 items-center justify-center rounded-full text-lg transition ${
+                    operation === op ? "bg-emerald-400 ring-2 ring-emerald-500" : "bg-gray-100 hover:bg-gray-200"
+                  }`}
+                >
+                  {OPERATION_EMOJI[op]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <label className="flex flex-col gap-1">
+            <span className="font-medium text-gray-700">{t("levelLabel", { level, max: maxLevel })}</span>
+            <input
+              type="range"
+              min={MIN_LEVEL}
+              max={maxLevel}
+              step={1}
+              value={level}
+              onChange={(e) => setLevel(Number(e.target.value))}
+            />
+          </label>
           <label className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("speedLabel")}</span>
             <input
@@ -514,7 +608,14 @@ export function MultiplicationGame() {
         </div>
       )}
 
-      <MultiplicationRun key={playToken} speed={speed} choiceCount={choiceCount} onRetry={() => setPlayToken((token) => token + 1)} />
+      <MathRun
+        key={playToken}
+        speed={speed}
+        operation={operation}
+        level={level}
+        choiceCount={choiceCount}
+        onRetry={() => setPlayToken((token) => token + 1)}
+      />
     </div>
   );
 }
