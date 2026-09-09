@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
+import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import "katex/dist/katex.min.css";
 import type { FlashcardItem } from "@/lib/flashcards";
 import { resolveVisibleCardFields, type CardFaceConfig } from "./card-face-config";
 
@@ -12,6 +15,8 @@ import { resolveVisibleCardFields, type CardFaceConfig } from "./card-face-confi
 // color/size and isn't dark-mode aware; block elements instead get `m-0`
 // so they inherit whatever color/size the caller already put on the
 // wrapping element below, rather than fighting it.
+// remark-math + rehype-katex render inline ($...$) and block ($$...$$) math
+// formulas (e.g. `$R = \frac{1}{2}d$`), used by subjects like math sets.
 const definitionMarkdownComponents: Components = {
   p: ({ children }) => <p className="m-0">{children}</p>,
   ul: ({ children }) => <ul className="m-0 list-disc pl-4 text-left">{children}</ul>,
@@ -22,9 +27,20 @@ const definitionMarkdownComponents: Components = {
 // render a definition in a plain list-row layout rather than a card face.
 export function DefinitionMarkdown({ content }: { content: string }) {
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={definitionMarkdownComponents}>
-      {content}
-    </ReactMarkdown>
+    // KaTeX renders every formula (inline `$...$` or block `$$...$$`) as an
+    // inline `.katex` span — force it onto its own centered line regardless
+    // of which syntax was used, since defintions write formulas inline
+    // (e.g. "... ($R = \frac{1}{2}d$)."). `!important` (Tailwind's `!`
+    // prefix) beats katex.min.css's own `.katex` rule at equal specificity.
+    <div className="[&_.katex]:!my-1 [&_.katex]:!block [&_.katex]:!text-center">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        components={definitionMarkdownComponents}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
   );
 }
 
