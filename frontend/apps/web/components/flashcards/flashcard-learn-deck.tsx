@@ -14,7 +14,7 @@ import type { FlashcardItem } from "@/lib/flashcards";
 import type { FlashcardStatus } from "@/stores/flashcard-progress-store";
 import { playDifficultSound, playKnowSound } from "@/lib/flashcard-sounds";
 import { ProgressBar } from "@/components/progress-bar";
-import type { CardFaceConfig } from "./card-face-config";
+import type { CardFaceConfig, CardFlipOrientation } from "./card-face-config";
 import { FlipCard } from "./flip-card";
 
 // "Навчання" (Flip Cards) mode, docs/preschool/games/cards.md — a linear,
@@ -38,6 +38,7 @@ export function FlashcardLearnDeck({
   resolveImage,
   frontConfig,
   backConfig,
+  flipOrientation,
   getStatus,
   onStatusChange,
 }: {
@@ -45,6 +46,7 @@ export function FlashcardLearnDeck({
   resolveImage: (item: FlashcardItem) => string | null;
   frontConfig: CardFaceConfig;
   backConfig: CardFaceConfig;
+  flipOrientation: CardFlipOrientation;
   getStatus: (itemId: number) => FlashcardStatus | undefined;
   onStatusChange: (itemId: number, status: FlashcardStatus | null) => void;
 }) {
@@ -131,7 +133,7 @@ export function FlashcardLearnDeck({
   }
 
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="flex w-full flex-col items-center gap-4">
       <div className="w-full max-w-md">
         <ProgressBar
           percent={((index + 1) / total) * 100}
@@ -155,6 +157,7 @@ export function FlashcardLearnDeck({
         flipHintLabel={t("flipHint")}
         frontConfig={frontConfig}
         backConfig={backConfig}
+        orientation={flipOrientation}
         status={getStatus(current.id)}
       />
 
@@ -177,15 +180,6 @@ export function FlashcardLearnDeck({
           className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
         >
           <RotateCw className="size-4" />
-        </button>
-        <button
-          type="button"
-          onClick={handleRepeat}
-          aria-label={t("repeatButton")}
-          title={t("repeatButton")}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-        >
-          <RotateCcw className="size-4" />
         </button>
         <button
           type="button"

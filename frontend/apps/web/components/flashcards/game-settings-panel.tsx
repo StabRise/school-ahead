@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Settings } from "lucide-react";
-import { CARD_FIELDS, type CardField, type CardFaceConfig } from "./card-face-config";
+import { FlipHorizontal2, FlipVertical2, Settings } from "lucide-react";
+import { CARD_FIELDS, type CardField, type CardFaceConfig, type CardFlipOrientation } from "./card-face-config";
 
 const FIELD_LABEL_KEY: Record<CardField, string> = {
   term: "fieldTerm",
@@ -68,6 +68,8 @@ export function GameSettingsPanel({
   onOnlyDifficultChange,
   skipKnown,
   onSkipKnownChange,
+  flipOrientation,
+  onFlipOrientationChange,
   frontConfig,
   onFrontConfigChange,
   backConfig,
@@ -76,13 +78,16 @@ export function GameSettingsPanel({
   topic: string;
   topics: { value: string; label: string }[];
   onTopicChange: (topic: string) => void;
-  // Навчання-only ("review only difficult" / "skip cards I know") — hidden
-  // in Тест, which always quizzes the full topic-filtered pool.
+  // Навчання-only ("review only difficult" / "skip cards I know", and the
+  // flip view below) — hidden in Тест, which always quizzes the full
+  // topic-filtered pool and doesn't use FlipCard at all.
   showLearnFilters: boolean;
   onlyDifficult: boolean;
   onOnlyDifficultChange: (value: boolean) => void;
   skipKnown: boolean;
   onSkipKnownChange: (value: boolean) => void;
+  flipOrientation: CardFlipOrientation;
+  onFlipOrientationChange: (orientation: CardFlipOrientation) => void;
   frontConfig: CardFaceConfig;
   onFrontConfigChange: (config: CardFaceConfig) => void;
   backConfig: CardFaceConfig;
@@ -164,6 +169,40 @@ export function GameSettingsPanel({
                   />
                   {t("skipKnownLabel")}
                 </label>
+              </div>
+
+              <p className="mb-1.5 mt-3 text-xs font-medium text-slate-500 dark:text-slate-400">
+                {t("flipViewLabel")}
+              </p>
+              <div className="inline-flex overflow-hidden rounded-lg border border-slate-300 dark:border-slate-600">
+                <button
+                  type="button"
+                  onClick={() => onFlipOrientationChange("vertical")}
+                  aria-pressed={flipOrientation === "vertical"}
+                  title={t("flipViewVertical")}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                    flipOrientation === "vertical"
+                      ? "bg-slate-900 text-white dark:bg-slate-50 dark:text-slate-900"
+                      : "bg-white text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <FlipVertical2 className="size-3.5" />
+                  {t("flipViewVertical")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onFlipOrientationChange("horizontal")}
+                  aria-pressed={flipOrientation === "horizontal"}
+                  title={t("flipViewHorizontal")}
+                  className={`flex items-center gap-1.5 border-l border-slate-300 px-2.5 py-1.5 text-xs font-medium transition-colors dark:border-slate-600 ${
+                    flipOrientation === "horizontal"
+                      ? "bg-slate-900 text-white dark:bg-slate-50 dark:text-slate-900"
+                      : "bg-white text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <FlipHorizontal2 className="size-3.5" />
+                  {t("flipViewHorizontal")}
+                </button>
               </div>
             </div>
           )}

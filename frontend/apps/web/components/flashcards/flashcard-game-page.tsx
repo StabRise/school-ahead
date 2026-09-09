@@ -59,6 +59,8 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
   const setFrontConfig = useFlashcardsStore((s) => s.setFrontConfig);
   const backConfig = useFlashcardsStore((s) => s.backConfig);
   const setBackConfig = useFlashcardsStore((s) => s.setBackConfig);
+  const flipOrientation = useFlashcardsStore((s) => s.flipOrientation);
+  const setFlipOrientation = useFlashcardsStore((s) => s.setFlipOrientation);
   const addQuizAttempt = useFlashcardQuizResultsStore((s) => s.addAttempt);
 
   // "Знаю"/"Складно" marks, persisted per group+set+card — see
@@ -162,6 +164,8 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
             onOnlyDifficultChange={setOnlyDifficult}
             skipKnown={skipKnown}
             onSkipKnownChange={setSkipKnown}
+            flipOrientation={flipOrientation}
+            onFlipOrientationChange={setFlipOrientation}
             frontConfig={frontConfig}
             onFrontConfigChange={setFrontConfig}
             backConfig={backConfig}
@@ -229,6 +233,7 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
             resolveImage={resolveImage}
             frontConfig={frontConfig}
             backConfig={backConfig}
+            flipOrientation={flipOrientation}
             getStatus={getItemStatus}
             onStatusChange={setItemStatus}
           />

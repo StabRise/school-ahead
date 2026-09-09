@@ -4,6 +4,7 @@ import {
   DEFAULT_BACK_CONFIG,
   DEFAULT_FRONT_CONFIG,
   type CardFaceConfig,
+  type CardFlipOrientation,
 } from "@/components/flashcards/card-face-config";
 
 export type FlashcardGameMode = "learn" | "quiz" | "list";
@@ -19,6 +20,9 @@ interface FlashcardsState {
   setFrontConfig: (config: CardFaceConfig) => void;
   backConfig: CardFaceConfig;
   setBackConfig: (config: CardFaceConfig) => void;
+  // FlipCard's flip axis in "Навчання" — see CardFlipOrientation.
+  flipOrientation: CardFlipOrientation;
+  setFlipOrientation: (orientation: CardFlipOrientation) => void;
 }
 
 export const useFlashcardsStore = create<FlashcardsState>()(
@@ -30,6 +34,8 @@ export const useFlashcardsStore = create<FlashcardsState>()(
       setFrontConfig: (frontConfig) => set({ frontConfig }),
       backConfig: DEFAULT_BACK_CONFIG,
       setBackConfig: (backConfig) => set({ backConfig }),
+      flipOrientation: "vertical",
+      setFlipOrientation: (flipOrientation) => set({ flipOrientation }),
     }),
     { name: "flashcards-store" },
   ),
