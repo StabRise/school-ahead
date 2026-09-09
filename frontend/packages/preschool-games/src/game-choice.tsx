@@ -8,7 +8,7 @@ import { TrainsGame } from "./trains-game";
 import { ReadingGame } from "./reading-game";
 import { CardsGame } from "./cards-game";
 import { StoriesGame } from "./stories-game";
-import { MultiplicationGame } from "./multiplication-game";
+import { MathGame } from "./math-game";
 import { HomeButton } from "./kit/home-button";
 
 // Celebration screen shown once every one of today's lessons (tails
@@ -21,7 +21,7 @@ import { HomeButton } from "./kit/home-button";
 // own — contrast the standalone /games entry point (games-page.tsx,
 // game-play-page.tsx), which reuses this file's GamePicker/GameCard but
 // navigates to /games/{game} instead so each game has its own URL.
-export type PreschoolGameId = "balloons" | "trains" | "reading" | "cards" | "stories" | "multiplication";
+export type PreschoolGameId = "balloons" | "trains" | "reading" | "cards" | "stories" | "math";
 
 function BalloonIcon() {
   return (
@@ -91,7 +91,7 @@ function StoriesIcon() {
   );
 }
 
-function MultiplicationIcon() {
+function MathIcon() {
   return (
     <svg viewBox="0 0 56 56" className="h-16 w-16 drop-shadow" aria-hidden="true">
       <rect x="4" y="24" width="14" height="10" rx="2" fill="#22c55e" />
@@ -116,7 +116,7 @@ const GAME_ACCENTS: Record<PreschoolGameId, { ring: string; play: string }> = {
   reading: { ring: "ring-orange-300", play: "bg-orange-500" },
   cards: { ring: "ring-amber-300", play: "bg-amber-500" },
   stories: { ring: "ring-violet-300", play: "bg-violet-500" },
-  multiplication: { ring: "ring-lime-300", play: "bg-lime-600" },
+  math: { ring: "ring-lime-300", play: "bg-lime-600" },
 };
 
 function GameCard({
@@ -219,11 +219,11 @@ export function GamePicker({
           onSelect={() => onSelect("stories")}
         />
         <GameCard
-          game="multiplication"
-          title={t("multiplicationTitle")}
-          subtitle={t("multiplicationSubtitle")}
-          icon={<MultiplicationIcon />}
-          onSelect={() => onSelect("multiplication")}
+          game="math"
+          title={t("mathTitle")}
+          subtitle={t("mathSubtitle")}
+          icon={<MathIcon />}
+          onSelect={() => onSelect("math")}
         />
       </div>
     </div>
@@ -268,9 +268,9 @@ export function PreschoolCelebration({
         <div className="flex flex-1 flex-col p-2 sm:p-4">
           <StoriesGame />
         </div>
-      ) : selectedGame === "multiplication" ? (
+      ) : selectedGame === "math" ? (
         <div className="flex flex-1 flex-col p-2 sm:p-4">
-          <MultiplicationGame />
+          <MathGame />
         </div>
       ) : (
         <TrainsGame />
