@@ -7,7 +7,7 @@ import { clampLevel, DEFAULT_CHOICE_COUNT, DEFAULT_LEVEL, DEFAULT_OPERATION, typ
 // trains-game-store.ts's `speed`, persisted so a chosen setting survives
 // closing the tab instead of resetting every session.
 
-const DEFAULT_SPEED = 1;
+const DEFAULT_SPEED = 0.5;
 
 interface MathGameState {
   speed: number;

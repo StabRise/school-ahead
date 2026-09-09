@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from . import services
-from .models import Class, Plan, School, Subject, SubjectBlock, Topic
+from .models import Class, Plan, School, Subject, SubjectBlock, SubjectMaterial, Topic
 
 
 @admin.register(School)
@@ -46,6 +46,14 @@ class TopicInline(admin.TabularInline):
     fields = ("order_index", "title", "description")
 
 
+class SubjectMaterialInline(admin.TabularInline):
+    """Inline manager for subject-level PDF materials within the Subject
+    admin view."""
+    model = SubjectMaterial
+    extra = 1
+    fields = ("order_index", "title", "file")
+
+
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
     """Admin configuration for Subject model with integrated blocks and topics inlines."""
@@ -75,8 +83,8 @@ class SubjectAdmin(admin.ModelAdmin):
     list_select_related = ("school_class", "school_class__school")
     date_hierarchy = "start_date"
 
-    # Embed blocks and topics directly inside the subject detail view
-    inlines = [SubjectBlockInline, TopicInline]
+    # Embed blocks, topics, and materials directly inside the subject detail view
+    inlines = [SubjectBlockInline, TopicInline, SubjectMaterialInline]
 
     def get_queryset(self, request):
         # Alphabetical by name — used by the autocomplete widget other

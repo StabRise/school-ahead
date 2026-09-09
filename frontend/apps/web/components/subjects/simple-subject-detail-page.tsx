@@ -15,6 +15,7 @@ import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { ProgressBar } from "@/components/progress-bar";
 import { Tabs } from "@/components/tabs";
 import { SemesterPlan } from "@/components/subjects/semester-plan";
+import { SubjectMaterials } from "@/components/subjects/subject-materials";
 import { groupTasksByTopicId, TaskListSection } from "@/components/subjects/task-list";
 import { LESSON_TYPE_ICON, LESSON_TYPE_ICON_COLOR } from "@/components/simple/lesson-type-icon";
 import { formatGradeLabel, formatShortDate, resolveStatusLabel } from "@/components/simple/format";
@@ -297,6 +298,11 @@ export function SimpleSubjectDetailPage({ subjectId, colorful }: { subjectId: nu
               value: "plan",
               label: t("planTab"),
               content: <SemesterPlan subjectId={subjectId} />,
+            },
+            {
+              value: "materials",
+              label: t("materialsTab"),
+              content: <SubjectMaterials subjectId={subjectId} />,
             },
           ]}
         />

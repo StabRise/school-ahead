@@ -88,8 +88,11 @@ const MULTIPLY_MAX_FACTOR_BY_LEVEL: Record<number, number> = { 1: 3, 2: 4, 3: 6,
 // "Найбільше число в прикладі" (the largest number among the operands and
 // the answer) stays under this bound — for addition the sum is always that
 // largest number (since both addends are positive and smaller than it), and
-// for subtraction the minuend plays that role.
-const ADD_SUB_MAX_BY_LEVEL: Record<number, number> = { 1: 4, 2: 5, 3: 10, 4: 20, 5: 100 };
+// for subtraction the minuend plays that role. Addition starts a notch
+// easier than subtraction at level 1 (3 vs 4) — separate tables so that can
+// diverge, even though every other level currently matches.
+const ADD_MAX_BY_LEVEL: Record<number, number> = { 1: 3, 2: 5, 3: 10, 4: 20, 5: 100 };
+const SUBTRACT_MAX_BY_LEVEL: Record<number, number> = { 1: 4, 2: 5, 3: 10, 4: 20, 5: 100 };
 
 const COUNT_MIN = 0;
 const COUNT_MAX_BY_LEVEL: Record<number, number> = { 1: 3, 2: 5, 3: 10 };
@@ -180,7 +183,7 @@ function generateDivideQuestion(level: number, choiceCount: number): GameQuestio
 }
 
 function generateAddQuestion(level: number, choiceCount: number): GameQuestion {
-  const max = ADD_SUB_MAX_BY_LEVEL[level];
+  const max = ADD_MAX_BY_LEVEL[level];
   const sum = randomInt(2, max);
   const a = randomInt(1, sum - 1);
   const b = sum - a;
@@ -195,7 +198,7 @@ function generateAddQuestion(level: number, choiceCount: number): GameQuestion {
 }
 
 function generateSubtractQuestion(level: number, choiceCount: number): GameQuestion {
-  const max = ADD_SUB_MAX_BY_LEVEL[level];
+  const max = SUBTRACT_MAX_BY_LEVEL[level];
   const a = randomInt(1, max); // larger number
   const b = randomInt(0, a); // smaller number, subtracted from a
   const answer = a - b;

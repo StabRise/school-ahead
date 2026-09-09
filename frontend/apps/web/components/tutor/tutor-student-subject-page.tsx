@@ -20,6 +20,7 @@ import { SimplePageContainer } from "@/components/simple/page-container";
 import { ProgressBar } from "@/components/progress-bar";
 import { Tabs } from "@/components/tabs";
 import { SemesterPlan } from "@/components/subjects/semester-plan";
+import { SubjectMaterials } from "@/components/subjects/subject-materials";
 import { LESSON_TYPE_ICON, LESSON_TYPE_ICON_COLOR } from "@/components/simple/lesson-type-icon";
 import { formatGradeLabel, formatShortDate } from "@/components/simple/format";
 import { StatusBadge } from "@/components/status-badge";
@@ -325,6 +326,11 @@ export function TutorStudentSubjectPage({ subjectId, studentId }: { subjectId: n
               value: "plan",
               label: t("planTab"),
               content: <SemesterPlan subjectId={subjectId} />,
+            },
+            {
+              value: "materials",
+              label: t("materialsTab"),
+              content: <SubjectMaterials subjectId={subjectId} />,
             },
           ]}
         />

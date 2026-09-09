@@ -819,16 +819,22 @@ def import_topics_and_lessons(subject: Subject, topics_data: list[dict]) -> Less
 
             content, task_content = build_lesson_content(lesson_data)
             lesson_type = _normalize_lesson_type(lesson_data['lesson_type'])
+            # with_quiz is auto-graded on a 1-12 scale (see
+            # _score_to_grade_points); 'theory' resolves to a Pass/Fail
+            # outcome (docs/core/lessons.md Path B); 'with_task' defaults to
+            # Pass/Fail too (Path C) but a caller can override this via an
+            # explicit 'grading_type' in lesson_data (see
+            # import_subject_markdown, whose source lessons carry an
+            # explicit "Task:"/"Zadanie:"/"Завдання:" grade marker).
+            grading_type = lesson_data.get('grading_type') or (
+                GradingType.POINTS if lesson_type == LessonType.WITH_QUIZ else GradingType.BINARY
+            )
             lesson = Lesson.objects.create(
                 topic=topic,
                 order_index=next_lesson_order,
                 title=lesson_data['title'],
                 lesson_type=lesson_type,
-                # with_quiz is auto-graded on a 1-12 scale (see
-                # _score_to_grade_points); the other lesson types ('theory',
-                # 'with_task') both resolve to a Pass/Fail outcome
-                # (docs/core/lessons.md Path B/C).
-                grading_type=GradingType.POINTS if lesson_type == LessonType.WITH_QUIZ else GradingType.BINARY,
+                grading_type=grading_type,
                 content=content,
                 task_content=task_content,
             )
@@ -921,6 +927,11 @@ def import_subject_markdown(school_class, plan: SubjectMarkdownPlan) -> SubjectM
                     {
                         'title': lesson.title,
                         'lesson_type': LessonType.WITH_TASK if lesson.task_content else LessonType.THEORY,
+                        # A markdown lesson with a "Task:"/"Zadanie:"/"Завдання:"
+                        # line is graded 1-12 (POINTS), not the with_task
+                        # default of Pass/Fail — see
+                        # academics.services.parse_subject_markdown.
+                        'grading_type': GradingType.POINTS if lesson.task_content else GradingType.BINARY,
                         'content': lesson.content,
                         'task_content': lesson.task_content,
                     }

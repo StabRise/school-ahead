@@ -36,6 +36,7 @@ import { SimplePageContainer } from "@/components/simple/page-container";
 import { Tabs } from "@/components/tabs";
 import { groupTopicsByBlock } from "@/components/subjects/group-topics-by-block";
 import { SemesterPlan } from "@/components/subjects/semester-plan";
+import { SubjectMaterials } from "@/components/subjects/subject-materials";
 import { groupTasksByTopicId, TaskListSection } from "@/components/subjects/task-list";
 import { LESSON_TYPE_ICON, LESSON_TYPE_ICON_COLOR } from "@/components/simple/lesson-type-icon";
 import { formatGradeLabel, formatShortDate } from "@/components/simple/format";
@@ -716,6 +717,11 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
               value: "plan",
               label: t("planTab"),
               content: <SemesterPlan subjectId={subjectId} />,
+            },
+            {
+              value: "materials",
+              label: t("materialsTab"),
+              content: <SubjectMaterials subjectId={subjectId} canManage />,
             },
           ]}
         />

@@ -1,10 +1,11 @@
 import datetime
 
 from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
 from django.db import models
 
 from common.models import TimeStampedModel
-from common.storage import subject_icon_upload_to
+from common.storage import subject_icon_upload_to, subject_material_upload_to
 
 
 class School(models.Model):
@@ -131,6 +132,23 @@ class SubjectBlock(models.Model):
 
     def __str__(self):
         return f'{self.subject} — {self.label}'
+
+
+class SubjectMaterial(TimeStampedModel):
+    """A tutor-uploaded PDF document attached to a whole Subject (not to a
+    single Lesson, like lessons.LessonAttachment) — shown on the Subject
+    detail page's Materials tab as a plain link for viewing/downloading,
+    same idiom as LessonAttachment on the lesson's Theory tab."""
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='materials')
+    file = models.FileField(upload_to=subject_material_upload_to, validators=[FileExtensionValidator(['pdf'])])
+    title = models.CharField(max_length=255, blank=True)
+    order_index = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order_index', 'created_at']
+
+    def __str__(self):
+        return self.title or f'Material #{self.pk}'
 
 
 class Plan(TimeStampedModel):

@@ -585,12 +585,47 @@ class TestUploadSubjectMarkdown:
         lessons = {l.title: l for l in topic.lessons.all()}
         assert lessons['H4.01 Czym jest historia'].lesson_type == 'with_task'
         assert lessons['H4.01 Czym jest historia'].task_content == 'Historia – nauka o przeszłości (str. 4-5)'
+        # A with_task lesson from the markdown import is graded 1-12
+        # (points), not the with_task default of Pass/Fail.
+        assert lessons['H4.01 Czym jest historia'].grading_type == 'points'
         assert lessons['H4.02 Historia wokół nas'].lesson_type == 'theory'
         assert lessons['H4.02 Historia wokół nas'].task_content == ''
+        assert lessons['H4.02 Historia wokół nas'].grading_type == 'binary'
 
         # The new Subject's homeroom-teacher tutor assignment happens
         # automatically (tutoring.signals.on_subject_created).
         assert TutorSubjectAssignment.objects.filter(tutor=tutor, subject=subject).exists()
+
+    def test_zadanie_and_zavdannia_markers_are_also_task_lines(self, api_client, auth_header, tutor, school_class):
+        self._make_class_teacher(school_class, tutor)
+        content = (
+            'Subject: PL:Historia\n'
+            'SubjectBlocks: 1\n'
+            '\n'
+            '## Wprowadzenie\n'
+            'H4.01 Czym jest historia\n'
+            '    Zadanie: konspekt\n'
+            'H4.02 Historia wokół nas\n'
+            '    Завдання: конспект\n'
+        )
+
+        response = api_client.post(
+            f'/tutor/classes/{school_class.id}/subject-markdown',
+            FILES={'file': self._file(content)},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        subject = Subject.objects.get(school_class=school_class, name='Historia')
+        lessons = {l.title: l for l in subject.topics.get(title='Wprowadzenie').lessons.all()}
+
+        assert lessons['H4.01 Czym jest historia'].lesson_type == 'with_task'
+        assert lessons['H4.01 Czym jest historia'].task_content == 'konspekt'
+        assert lessons['H4.01 Czym jest historia'].grading_type == 'points'
+
+        assert lessons['H4.02 Historia wokół nas'].lesson_type == 'with_task'
+        assert lessons['H4.02 Historia wokół nas'].task_content == 'конспект'
+        assert lessons['H4.02 Historia wokół nas'].grading_type == 'points'
 
     def test_reupload_reuses_subject_and_does_not_move_dates(self, api_client, auth_header, tutor, school_class):
         self._make_class_teacher(school_class, tutor)
