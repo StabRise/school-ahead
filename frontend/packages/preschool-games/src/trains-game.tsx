@@ -20,10 +20,10 @@ import { MusicToggleButton } from "./kit/music-toggle-button";
 
 type TrainPhase = "arriving" | "waiting" | "departing";
 
-// No Polish here (unlike the balloon game, which still offers all three) —
+// No Polish or Spanish here (unlike the balloon game, which offers more) —
 // this game is keyboard-position-driven (see KEYBOARD_ZONES below), and
 // only en/uk have a confidently-known physical layout in this codebase.
-type GameLanguage = Exclude<SpeechLanguage, "pl">;
+type GameLanguage = Exclude<SpeechLanguage, "pl" | "es">;
 
 // Uppercase only — the game asks for a physical keypress, matched
 // case-insensitively against KeyboardEvent.key, not a letter pair like the

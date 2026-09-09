@@ -10,9 +10,11 @@ import { Check, ChevronLeft, ChevronRight, Flag, RotateCcw, RotateCw } from "luc
 // a Ukrainian layout.
 const KNOW_KEYS = new Set(["q", "й"]);
 const DIFFICULT_KEYS = new Set(["w", "ц"]);
+import type { SpeechLanguage } from "@school-ahead/api-client";
 import type { FlashcardItem } from "@/lib/flashcards";
 import type { FlashcardStatus } from "@/stores/flashcard-progress-store";
 import { playDifficultSound, playKnowSound } from "@/lib/flashcard-sounds";
+import { playCardTerm } from "@/lib/flashcard-speech";
 import { ProgressBar } from "@/components/progress-bar";
 import type { CardFaceConfig, CardFlipOrientation } from "./card-face-config";
 import { FlipCard } from "./flip-card";
@@ -36,17 +38,23 @@ import { FlipCard } from "./flip-card";
 export function FlashcardLearnDeck({
   items,
   resolveImage,
+  resolveSound,
   frontConfig,
   backConfig,
   flipOrientation,
+  soundEnabled,
+  ttsLanguage,
   getStatus,
   onStatusChange,
 }: {
   items: FlashcardItem[];
   resolveImage: (item: FlashcardItem) => string | null;
+  resolveSound: (item: FlashcardItem) => string | null;
   frontConfig: CardFaceConfig;
   backConfig: CardFaceConfig;
   flipOrientation: CardFlipOrientation;
+  soundEnabled: boolean;
+  ttsLanguage: SpeechLanguage;
   getStatus: (itemId: number) => FlashcardStatus | undefined;
   onStatusChange: (itemId: number, status: FlashcardStatus | null) => void;
 }) {
@@ -65,6 +73,22 @@ export function FlashcardLearnDeck({
   const goPrevious = () => goTo(index - 1);
   const goNext = () => goTo(index + 1);
   const handleFlip = () => setFlipped((value) => !value);
+  const handleReplay = () => {
+    if (!current) return;
+    playCardTerm(current.term, resolveSound(current), ttsLanguage);
+  };
+
+  // Reads the term aloud whenever a new card becomes current (or the
+  // sound/language setting changes while the same card is showing) — see
+  // lib/flashcard-speech.ts. The very first card of a session may be
+  // silently blocked by the browser's autoplay policy (no click yet); the
+  // replay button above doubles as the fix, same limitation piper-tts.ts's
+  // own shared <audio> element already documents.
+  useEffect(() => {
+    if (!soundEnabled || !current) return;
+    playCardTerm(current.term, resolveSound(current), ttsLanguage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id, soundEnabled, ttsLanguage]);
 
   // Guarded on `current` so these are safe to wire into the keydown
   // listener below even on a render where the deck is exhausted (the
@@ -159,6 +183,8 @@ export function FlashcardLearnDeck({
         backConfig={backConfig}
         orientation={flipOrientation}
         status={getStatus(current.id)}
+        onReplay={handleReplay}
+        replayLabel={t("replayTermLabel")}
       />
 
       <div className="flex items-center gap-2">

@@ -1,5 +1,6 @@
 import datetime
 import json
+import re
 from dataclasses import dataclass, field
 from decimal import Decimal
 
@@ -15,6 +16,7 @@ from .models import (
     GradeResult,
     GradingType,
     Lesson,
+    LessonAttachment,
     LessonComment,
     LessonCommentKind,
     LessonsJson,
@@ -660,6 +662,84 @@ def create_extra_lesson(subject: Subject, *, title: str, content: str, task_cont
     if topic.subject_block_id is not None:
         academics_services.recompute_block_workload(topic.subject_block)
     return lesson
+
+
+_LESSON_TITLE_NUMBER_RE = re.compile(r'^(.*?)\s*#(\d+)\s*$')
+
+
+def _base_title_and_number(title: str) -> tuple[str, int]:
+    """Splits a lesson title into its base name and trailing "#N" series
+    number, e.g. "Spadek swobodny #1" -> ("Spadek swobodny", 1). A title
+    with no "#N" suffix implicitly counts as number 1 of its own series —
+    see duplicate_lesson."""
+    match = _LESSON_TITLE_NUMBER_RE.match(title)
+    return (match.group(1), int(match.group(2))) if match else (title, 1)
+
+
+def duplicate_lesson(lesson: Lesson) -> Lesson:
+    """Copies `lesson` (its own fields, quiz questions/choices, and
+    materials) into a new Lesson appended at the end of the same topic —
+    the tutor's "Дублювати" action on the Subject detail page
+    (tutoring.api.duplicate_lesson). The new title bumps the source
+    title's trailing "#N" series number to the next one not already used
+    by a sibling lesson in the same topic (a title with no "#N" yet counts
+    implicitly as "#1", so "Spadek swobodny" duplicates to "Spadek swobodny
+    #2", same as "Spadek swobodny #1" would) — scanning every sibling
+    rather than just source_number + 1 means duplicating any one lesson in
+    an existing series never collides with another already-duplicated one."""
+    base_title, _ = _base_title_and_number(lesson.title)
+    used_numbers = {
+        number
+        for title in Lesson.objects.filter(topic=lesson.topic).values_list('title', flat=True)
+        for sibling_base, number in [_base_title_and_number(title)]
+        if sibling_base == base_title
+    }
+    new_title = f'{base_title} #{max(used_numbers, default=0) + 1}'
+
+    new_lesson = Lesson.objects.create(
+        topic=lesson.topic,
+        order_index=_next_order_index(Lesson.objects.filter(topic=lesson.topic)),
+        title=new_title,
+        lesson_type=lesson.lesson_type,
+        grading_type=lesson.grading_type,
+        content=lesson.content,
+        task_content=lesson.task_content,
+        default_day_offset=lesson.default_day_offset,
+        icon=lesson.icon.name if lesson.icon else '',
+    )
+
+    for question in lesson.quiz_questions.prefetch_related('choices').all():
+        new_question = QuizQuestion.objects.create(
+            lesson=new_lesson,
+            prompt=question.prompt,
+            order_index=question.order_index,
+            language=question.language,
+        )
+        QuizChoice.objects.bulk_create(
+            QuizChoice(
+                question=new_question,
+                text=choice.text,
+                image=choice.image.name if choice.image else '',
+                is_correct=choice.is_correct,
+            )
+            for choice in question.choices.all()
+        )
+
+    LessonAttachment.objects.bulk_create(
+        LessonAttachment(
+            lesson=new_lesson,
+            file=material.file.name if material.file else '',
+            url=material.url,
+            kind=material.kind,
+            title=material.title,
+            order_index=material.order_index,
+        )
+        for material in lesson.materials.all()
+    )
+
+    if lesson.topic.subject_block_id is not None:
+        academics_services.recompute_block_workload(lesson.topic.subject_block)
+    return new_lesson
 
 
 # --- scrape_lessons JSON import -------------------------------------------

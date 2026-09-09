@@ -10,7 +10,7 @@ import { PIPER_VOICE_PATHS } from "./piper-voices.generated";
 import type { PiperVoiceId } from "./piper-voices.generated";
 import { useTtsVoiceSettingsStore } from "./tts-voice-settings-store";
 
-export type SpeechLanguage = "en" | "uk" | "pl";
+export type SpeechLanguage = "en" | "uk" | "pl" | "es";
 
 // @diffusionstudio/vits-web (last published 1.0.3) hardcodes both its VoiceId
 // union and the model paths it knows about (PATH_MAP), and fetches them from
@@ -79,6 +79,7 @@ const SHORT_VOICE_BY_LANGUAGE: Record<SpeechLanguage, AnyVoiceId> = {
   en: "en_US-lessac-medium",
   uk: "uk_UA-mykyta-high",
   pl: "pl_PL-gosia-medium",
+  es: "es_ES-davefx-medium",
 };
 
 // Full sentences need a voice with a fuller phoneme vocabulary than a tiny
@@ -91,6 +92,7 @@ const SENTENCE_VOICE_BY_LANGUAGE: Record<SpeechLanguage, AnyVoiceId> = {
   en: "en_US-lessac-medium",
   uk: "uk_UA-mykyta-high",
   pl: "pl_PL-gosia-medium",
+  es: "es_ES-davefx-medium",
 };
 
 // Admin-configured voice (System admin > Tts voice settings) takes priority

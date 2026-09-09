@@ -80,6 +80,10 @@ const DEFAULT_QUESTION_FORMAT: Record<GameLanguage, string> = {
   en: "Where is {card}?",
   uk: "Де {card}?",
   pl: "Gdzie jest {card}?",
+  // Not in GAME_LANGUAGES (Spanish isn't a playable balloon-pop language
+  // yet) — present only because DEFAULT_QUESTION_FORMAT is typed over the
+  // full SpeechLanguage union, which now includes "es".
+  es: "¿Dónde está {card}?",
 };
 
 // Checked once per spawn tick (independently of the normal balloon spawned

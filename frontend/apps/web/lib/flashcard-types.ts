@@ -10,6 +10,10 @@ export interface FlashcardItem {
   translation?: string;
   image?: string;
   definition?: string;
+  // Relative path (resolved via flashcardSoundUrl) to a pre-recorded mp3 of
+  // the term — played instead of TTS when present and reachable (see
+  // lib/flashcard-speech.ts).
+  sound?: string;
 }
 
 export interface FlashcardCategory {
@@ -50,16 +54,26 @@ function isAbsoluteUrl(value: string): boolean {
   return /^https?:\/\//i.test(value);
 }
 
-// A card's image is either a link from the internet (used as-is) or a path
-// relative to its own set folder (e.g. "img/potęga.jpeg") — resolved
-// segment-by-segment so a subfolder like "img/" stays a real path
-// separator instead of being percent-encoded away.
-export function flashcardImageUrl(group: string, set: string, image: string): string {
-  if (isAbsoluteUrl(image)) return image;
-  const encodedPath = image
+// A card asset (image or sound) is either a link from the internet (used
+// as-is) or a path relative to its own set folder (e.g. "img/potęga.jpeg")
+// — resolved segment-by-segment so a subfolder like "img/" stays a real
+// path separator instead of being percent-encoded away.
+function resolveRelativeCardAssetUrl(group: string, set: string, relativePath: string): string {
+  if (isAbsoluteUrl(relativePath)) return relativePath;
+  const encodedPath = relativePath
     .split("/")
     .filter(Boolean)
     .map(encodeURIComponent)
     .join("/");
   return `/static/cards/${encodeURIComponent(group)}/${encodeURIComponent(set)}/${encodedPath}`;
+}
+
+export function flashcardImageUrl(group: string, set: string, image: string): string {
+  return resolveRelativeCardAssetUrl(group, set, image);
+}
+
+// A card's pre-recorded pronunciation (see FlashcardItem.sound) — same
+// resolution rules as flashcardImageUrl, since both live next to set.json.
+export function flashcardSoundUrl(group: string, set: string, sound: string): string {
+  return resolveRelativeCardAssetUrl(group, set, sound);
 }
