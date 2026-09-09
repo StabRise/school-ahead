@@ -1,5 +1,6 @@
 "use client";
 
+import { Volume2 } from "lucide-react";
 import type { FlashcardItem } from "@/lib/flashcards";
 import type { FlashcardStatus } from "@/stores/flashcard-progress-store";
 import type { CardFaceConfig, CardFlipOrientation } from "./card-face-config";
@@ -36,6 +37,8 @@ export function FlipCard({
   backConfig,
   orientation,
   status,
+  onReplay,
+  replayLabel,
 }: {
   item: FlashcardItem;
   imageUrl: string | null;
@@ -46,6 +49,8 @@ export function FlipCard({
   backConfig: CardFaceConfig;
   orientation: CardFlipOrientation;
   status?: FlashcardStatus;
+  onReplay: () => void;
+  replayLabel: string;
 }) {
   const isHorizontal = orientation === "horizontal";
   const axis = isHorizontal ? "X" : "Y";
@@ -56,9 +61,22 @@ export function FlipCard({
   const heightClasses = isHorizontal ? "h-72 sm:h-80 md:h-96" : "h-96 sm:h-[28rem] md:h-[32rem]";
 
   return (
-    <button
-      type="button"
+    // A <div role="button"> rather than a real <button> — the replay
+    // speaker button below needs to nest inside this clickable area, and a
+    // <button> can't validly contain another <button> (browsers hoist the
+    // inner one out of the outer, breaking its click handling). Keyboard
+    // flipping still works via FlashcardLearnDeck's own Space-key listener,
+    // so this only needs Enter/Space handled here for when the card itself
+    // is the focused element.
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onToggle}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        onToggle();
+      }}
       aria-label={flipHintLabel}
       className={`relative block w-full cursor-pointer [perspective:1200px] ${widthClasses}`}
     >
@@ -66,6 +84,25 @@ export function FlipCard({
           the "Знаю"/"Складно" mark stays visible regardless of which side
           is currently up. */}
       <StatusBadge status={status} className="absolute right-3 top-3 z-10 h-8 w-8" />
+
+      {/* Same "pinned to the non-rotating wrapper" reasoning as StatusBadge
+          above — the term is a property of the card, not of whichever face
+          happens to be showing, so this stays available regardless of flip
+          state or front/back field configuration. stopPropagation keeps a
+          tap here from also flipping the card, since the whole card is
+          itself a click-to-flip button. */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onReplay();
+        }}
+        aria-label={replayLabel}
+        title={replayLabel}
+        className="absolute left-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+      >
+        <Volume2 className="size-4" />
+      </button>
 
       <div
         className={`relative w-full transition-transform duration-500 ease-out [transform-style:preserve-3d] ${heightClasses}`}
@@ -94,6 +131,6 @@ export function FlipCard({
           </div>
         </div>
       </div>
-    </button>
+    </div>
   );
 }

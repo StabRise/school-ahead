@@ -44,6 +44,7 @@ class QuizLanguage(models.TextChoices):
     UK = 'uk', 'Ukrainian'
     EN = 'en', 'English'
     PL = 'pl', 'Polish'
+    ES = 'es', 'Spanish'
 
 
 class Lesson(TimeStampedModel):

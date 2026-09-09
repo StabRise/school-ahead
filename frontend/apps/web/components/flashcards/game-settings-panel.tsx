@@ -3,7 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { FlipHorizontal2, FlipVertical2, Settings } from "lucide-react";
+import type { SpeechLanguage } from "@school-ahead/api-client";
 import { CARD_FIELDS, type CardField, type CardFaceConfig, type CardFlipOrientation } from "./card-face-config";
+
+// Scoped to what this game actually needs (unlike ReadAlong's own
+// LANGUAGE_OPTIONS, which also offers Ukrainian) — a card's term can be in
+// English, Polish, or Spanish across the sets this game currently has.
+const TTS_LANGUAGE_OPTIONS: { value: SpeechLanguage; labelKey: string }[] = [
+  { value: "en", labelKey: "languageEnglish" },
+  { value: "pl", labelKey: "languagePolish" },
+  { value: "es", labelKey: "languageSpanish" },
+];
 
 const FIELD_LABEL_KEY: Record<CardField, string> = {
   term: "fieldTerm",
@@ -74,6 +84,10 @@ export function GameSettingsPanel({
   onFrontConfigChange,
   backConfig,
   onBackConfigChange,
+  soundEnabled,
+  onSoundEnabledChange,
+  ttsLanguage,
+  onTtsLanguageChange,
 }: {
   topic: string;
   topics: { value: string; label: string }[];
@@ -92,6 +106,10 @@ export function GameSettingsPanel({
   onFrontConfigChange: (config: CardFaceConfig) => void;
   backConfig: CardFaceConfig;
   onBackConfigChange: (config: CardFaceConfig) => void;
+  soundEnabled: boolean;
+  onSoundEnabledChange: (value: boolean) => void;
+  ttsLanguage: SpeechLanguage;
+  onTtsLanguageChange: (language: SpeechLanguage) => void;
 }) {
   const t = useTranslations("FlashcardsGame");
   const [open, setOpen] = useState(false);
@@ -215,6 +233,33 @@ export function GameSettingsPanel({
               <FaceCheckboxGroup title={t("frontSideLabel")} config={frontConfig} onChange={onFrontConfigChange} />
               <FaceCheckboxGroup title={t("backSideLabel")} config={backConfig} onChange={onBackConfigChange} />
             </div>
+          </div>
+
+          <div>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              {t("soundToggleLabel")}
+            </p>
+            <label className="mb-2 flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+              <input
+                type="checkbox"
+                checked={soundEnabled}
+                onChange={(e) => onSoundEnabledChange(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 dark:border-slate-600"
+              />
+              {t("soundToggleLabel")}
+            </label>
+            <p className="mb-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">{t("ttsLanguageLabel")}</p>
+            <select
+              value={ttsLanguage}
+              onChange={(e) => onTtsLanguageChange(e.target.value as SpeechLanguage)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+            >
+              {TTS_LANGUAGE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {t(option.labelKey)}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       )}

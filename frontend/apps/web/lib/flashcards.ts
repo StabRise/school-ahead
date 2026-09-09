@@ -13,7 +13,7 @@ import type { FlashcardGroupSummary, FlashcardSet, FlashcardSetSummary } from ".
 // ./flashcard-types (this file can't be imported by a server route handler
 // since "use client" above makes the whole module client-only).
 export type { FlashcardItem, FlashcardCategory, FlashcardSet, FlashcardGroupSummary, FlashcardSetSummary } from "./flashcard-types";
-export { flashcardImageUrl } from "./flashcard-types";
+export { flashcardImageUrl, flashcardSoundUrl } from "./flashcard-types";
 
 let groupsPromise: Promise<FlashcardGroupSummary[]> | null = null;
 

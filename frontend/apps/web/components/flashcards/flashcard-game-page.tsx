@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { ArrowLeft, Layers, List, ListChecks, Printer } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { SimplePageContainer } from "@/components/simple/page-container";
-import { flashcardImageUrl, useFlashcardSet, type FlashcardItem } from "@/lib/flashcards";
+import { flashcardImageUrl, flashcardSoundUrl, useFlashcardSet, type FlashcardItem } from "@/lib/flashcards";
 import { FlashcardLearnDeck } from "./flashcard-learn-deck";
 import { FlashcardQuiz, type CategorizedFlashcardItem } from "./flashcard-quiz";
 import { FlashcardTermsList } from "./flashcard-terms-list";
@@ -61,6 +61,10 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
   const setBackConfig = useFlashcardsStore((s) => s.setBackConfig);
   const flipOrientation = useFlashcardsStore((s) => s.flipOrientation);
   const setFlipOrientation = useFlashcardsStore((s) => s.setFlipOrientation);
+  const soundEnabled = useFlashcardsStore((s) => s.soundEnabled);
+  const setSoundEnabled = useFlashcardsStore((s) => s.setSoundEnabled);
+  const ttsLanguage = useFlashcardsStore((s) => s.ttsLanguage);
+  const setTtsLanguage = useFlashcardsStore((s) => s.setTtsLanguage);
   const addQuizAttempt = useFlashcardQuizResultsStore((s) => s.addAttempt);
 
   // "Знаю"/"Складно" marks, persisted per group+set+card — see
@@ -114,6 +118,10 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
 
   const resolveImage = useCallback(
     (item: FlashcardItem) => (item.image ? flashcardImageUrl(group, set, item.image) : null),
+    [group, set],
+  );
+  const resolveSound = useCallback(
+    (item: FlashcardItem) => (item.sound ? flashcardSoundUrl(group, set, item.sound) : null),
     [group, set],
   );
 
@@ -170,6 +178,10 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
             onFrontConfigChange={setFrontConfig}
             backConfig={backConfig}
             onBackConfigChange={setBackConfig}
+            soundEnabled={soundEnabled}
+            onSoundEnabledChange={setSoundEnabled}
+            ttsLanguage={ttsLanguage}
+            onTtsLanguageChange={setTtsLanguage}
           />
           <QuizResultsPanel group={group} set={set} />
           <Link
@@ -231,9 +243,12 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
             key={`learn:${topic}:${onlyDifficult}:${skipKnown}`}
             items={learnItems}
             resolveImage={resolveImage}
+            resolveSound={resolveSound}
             frontConfig={frontConfig}
             backConfig={backConfig}
             flipOrientation={flipOrientation}
+            soundEnabled={soundEnabled}
+            ttsLanguage={ttsLanguage}
             getStatus={getItemStatus}
             onStatusChange={setItemStatus}
           />
