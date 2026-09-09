@@ -1,20 +1,23 @@
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
-from ninja import Router
+from ninja import File, Form, Router
 from ninja.errors import HttpError
+from ninja.files import UploadedFile
 
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
 from common.permissions import get_own_student_profile
+from tutoring.services import ensure_is_tutor_for_subject
 
 from . import services
-from .models import Class, School, Subject, Topic
+from .models import Class, School, Subject, SubjectMaterial, Topic
 from .schemas import (
     ClassIn,
     ClassOut,
     SchoolIn,
     SchoolOut,
     SubjectIn,
+    SubjectMaterialOut,
     SubjectOut,
     SubjectPatchIn,
     TopicIn,
@@ -66,6 +69,42 @@ def list_subject_topics(request: HttpRequest, subject_id: int):
 @router.get('/topics/{topic_id}', response=TopicOut, operation_id='get_topic')
 def get_topic(request: HttpRequest, topic_id: int):
     return get_object_or_404(Topic.objects.select_related('subject_block'), id=topic_id)
+
+
+@router.get('/subjects/{subject_id}/materials', response=list[SubjectMaterialOut], operation_id='list_subject_materials')
+def list_subject_materials(request: HttpRequest, subject_id: int):
+    return SubjectMaterial.objects.filter(subject_id=subject_id)
+
+
+@router.post('/subjects/{subject_id}/materials', response=SubjectMaterialOut, operation_id='add_subject_material')
+def add_subject_material(
+    request: HttpRequest,
+    subject_id: int,
+    title: str = Form(''),
+    file: UploadedFile = File(...),
+):
+    require_csrf(request)
+    ensure_is_tutor_for_subject(request, subject_id)
+    if not file.name.lower().endswith('.pdf'):
+        raise HttpError(400, 'Only PDF files are supported')
+
+    subject = get_object_or_404(Subject, id=subject_id)
+    return SubjectMaterial.objects.create(
+        subject=subject,
+        file=file,
+        title=title,
+        order_index=subject.materials.count(),
+    )
+
+
+@router.delete('/materials/{material_id}', operation_id='delete_subject_material')
+def delete_subject_material(request: HttpRequest, material_id: int, response: HttpResponse):
+    require_csrf(request)
+    material = get_object_or_404(SubjectMaterial, id=material_id)
+    ensure_is_tutor_for_subject(request, material.subject_id)
+    material.delete()
+    response.status_code = 204
+    return response
 
 
 @router.patch('/subjects/{subject_id}', response=SubjectOut)

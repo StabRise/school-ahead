@@ -468,6 +468,7 @@
     "isFilledError": "Не вдалося зберегти. Спробуйте ще раз.",
     "lessonsTab": "Уроки",
     "planTab": "План",
+    "materialsTab": "Матеріали",
     "noTopics": "Тем ще немає.",
     "noLessonsInTopic": "У цій темі ще немає уроків.",
     "lessonsCount": "Уроків: {count}",
@@ -855,6 +856,7 @@
     "isFilledBadge": "Наповнено",
     "lessonsTab": "Уроки",
     "planTab": "План",
+    "materialsTab": "Матеріали",
     "coursePlan": "План курсу",
     "expandAll": "Розгорнути все",
     "collapseAll": "Згорнути все",
@@ -881,6 +883,21 @@
     "weeksCountLabel": "Кількість тижнів",
     "workloadLabel": "Навантаження",
     "workloadValue": "{value} уроків/тиждень"
+  },
+  "SubjectMaterials": {
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити матеріали. Спробуйте ще раз.",
+    "empty": "Матеріалів ще немає.",
+    "untitled": "Без назви",
+    "titleLabel": "Назва",
+    "titlePlaceholder": "Наприклад, Розділ 1",
+    "uploadHint": "Натисніть або перетягніть сюди PDF-файл",
+    "uploadButton": "Додати матеріал",
+    "uploading": "Завантаження...",
+    "uploadError": "Не вдалося завантажити файл. Переконайтеся, що це PDF, і спробуйте ще раз.",
+    "deleteButton": "Видалити матеріал",
+    "deleteConfirm": "Видалити цей матеріал? Цю дію не можна скасувати.",
+    "deleteError": "Не вдалося видалити матеріал. Спробуйте ще раз."
   },
   "TopicDetail": {
     "loading": "Завантаження...",

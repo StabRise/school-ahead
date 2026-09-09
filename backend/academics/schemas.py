@@ -87,6 +87,18 @@ class SubjectOut(Schema):
         return ', '.join(names) or None
 
 
+class SubjectMaterialOut(Schema):
+    id: int
+    subject_id: int
+    file: str | None
+    title: str
+    order_index: int
+
+    @staticmethod
+    def resolve_file(obj, context):
+        return _absolute_file_url(obj.file, context)
+
+
 class TopicOut(Schema):
     id: int
     subject_id: int

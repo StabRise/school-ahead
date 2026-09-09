@@ -234,7 +234,7 @@ def import_class_plan(school_class: Class, sections: list[PlanSection]) -> PlanI
 
 _MD_FIELD_RE = re.compile(r'^(Class|Subject|SubjectBlocks|Description|Extra data|Lessons)\s*:\s*(.*)$')
 _MD_TOPIC_RE = re.compile(r'^##\s+(.+?)\s*$')
-_MD_TASK_RE = re.compile(r'^Task\s*:\s*(.*)$', re.IGNORECASE)
+_MD_TASK_RE = re.compile(r'^(?:Task|Zadanie|Завдання)\s*:\s*(.*)$', re.IGNORECASE)
 _CURRICULUM_PREFIX_RE = re.compile(r'^[A-Za-z]{2,4}:(.+)$')
 
 
@@ -291,13 +291,20 @@ def parse_subject_markdown(text: str) -> SubjectMarkdownPlan:
     scraped.tmp/!plans/4 PL/historia/historia-plan.md for the source shape:
     a "Key: value" front matter (Subject/SubjectBlocks/Description/…), then
     one "## Topic title" section per curriculum topic, each holding a flat
-    sequence of lessons. A lesson starts at any non-indented, non-blank,
-    non-heading line (its title, e.g. "H5.01 Życie pierwszych ludzi") and
-    runs until the next such line — every indented line under it is
-    content, except an indented "Task: …" line, which becomes
-    Lesson.task_content instead (see lessons.services.import_subject_markdown
-    for how that maps to lesson_type). Two consecutive lesson blocks sharing
-    the exact same title (the source file does this for split/continued
+    sequence of lessons. A lesson title is the first non-blank line under a
+    topic heading, or any later line indented no more than that first
+    line — its indentation sets the "title depth" for the rest of the
+    topic, since some source files indent lesson titles at column 0 (e.g.
+    "H5.01 Życie pierwszych ludzi") and others nest them one level under
+    the topic (e.g. "!plans/4 PL/pol lectury.md"'s "  Akademia Pana
+    Kleksa*… #1"). Every more-indented line under a title is content,
+    except a "Task:"/"Zadanie:"/"Завдання:" line, which becomes
+    Lesson.task_content instead (see
+    lessons.services.import_subject_markdown for how that maps to
+    lesson_type/grading_type) — a blank line never itself starts a new
+    lesson or ends the current one, since a lesson's own content sometimes
+    has one before its Task line. Two consecutive lesson blocks sharing the
+    exact same title (the source file does this for split/continued
     lessons) are merged into one Lesson rather than one silently
     overwriting or skipping the other."""
     lines = text.splitlines()
@@ -313,6 +320,21 @@ def parse_subject_markdown(text: str) -> SubjectMarkdownPlan:
     topics: list[SubjectMarkdownTopic] = []
     current_topic: SubjectMarkdownTopic | None = None
     current_lesson: dict | None = None  # {'title', 'content_lines', 'task_lines'}
+    # Indentation (in leading spaces) of a lesson-title line within
+    # current_topic — set from the topic's own first non-blank line, then
+    # reset to None on the next "## Topic" heading. See parse_subject_
+    # markdown's docstring for why this isn't a fixed column-0 check.
+    title_indent: int | None = None
+    # Whether the line just processed was blank — a nested title_indent (>0)
+    # additionally requires this to be true, since with titles indented one
+    # level in, a same-indent line can otherwise be a wrapped continuation
+    # of the previous line's sentence rather than a new item (see e.g.
+    # "!plans/4 PL/pol lectury.md"'s "Extra" topic's multi-line entries).
+    # Column-0 titles skip this check: real plans routinely run them back to
+    # back with no blank line between (see historia-plan.md), and at indent
+    # 0 there's no risk of confusing a title with wrapped content, since all
+    # content there is indented deeper.
+    prev_line_blank = True
 
     def finalize_lesson():
         nonlocal current_lesson
@@ -336,19 +358,34 @@ def parse_subject_markdown(text: str) -> SubjectMarkdownPlan:
             finalize_lesson()
             current_topic = SubjectMarkdownTopic(title=topic_match.group(1).strip())
             topics.append(current_topic)
+            title_indent = None
+            prev_line_blank = True
             continue
 
         if current_topic is None:
             continue  # stray content before the first "##" heading — ignore
 
         stripped = line.strip()
-        is_lesson_title = bool(stripped) and not line[0].isspace() and not line.startswith('#')
+        if not stripped:
+            prev_line_blank = True
+            continue  # never starts or ends a lesson — see docstring
+
+        indent = len(line) - len(line.lstrip(' '))
+        if title_indent is None:
+            title_indent = indent
+
+        is_lesson_title = (
+            indent <= title_indent
+            and not stripped.startswith('#')
+            and (title_indent == 0 or prev_line_blank)
+        )
+        prev_line_blank = False
         if is_lesson_title:
             finalize_lesson()
             current_lesson = {'title': stripped, 'content_lines': [], 'task_lines': []}
             continue
 
-        if current_lesson is None or not stripped:
+        if current_lesson is None:
             continue
 
         task_match = _MD_TASK_RE.match(stripped)

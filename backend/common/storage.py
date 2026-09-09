@@ -47,6 +47,10 @@ def subject_icon_upload_to(instance, filename: str) -> str:
     return _unique_path('subject_icons', filename)
 
 
+def subject_material_upload_to(instance, filename: str) -> str:
+    return _unique_path('subject_materials', filename)
+
+
 def avatar_image_upload_to(instance, filename: str) -> str:
     return _unique_path('avatars', filename)
 
