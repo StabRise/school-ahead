@@ -449,6 +449,20 @@ def delete_lesson(request: HttpRequest, lesson_id: int, response: HttpResponse):
     return response
 
 
+@router.post('/lessons/{lesson_id}/duplicate', response=LessonOut, operation_id='duplicate_tutor_lesson')
+def duplicate_lesson(request: HttpRequest, lesson_id: int):
+    """Copies a Lesson (content, quiz questions/choices, materials) into a
+    new one appended at the end of the same topic — the tutor's
+    "Дублювати" button on the Subject detail page. See
+    lesson_services.duplicate_lesson for the title-numbering rule."""
+    require_csrf(request)
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('topic__subject', 'topic__subject_block'), id=lesson_id
+    )
+    services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
+    return lesson_services.duplicate_lesson(lesson)
+
+
 @router.get(
     '/lessons/{lesson_id}/students',
     response=list[LessonStudentOut],

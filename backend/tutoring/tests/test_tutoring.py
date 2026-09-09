@@ -9,7 +9,7 @@ from academics import services as academics_services
 from academics.models import Class, School, Subject, Topic
 from accounts.models import Role, StudentProfile, TutorProfile, User
 from house.models import FurnitureItem, FurnitureTexture
-from lessons.models import Lesson, LessonType, StudentLesson, StudentLessonStatus
+from lessons.models import Lesson, LessonType, QuizChoice, QuizQuestion, StudentLesson, StudentLessonStatus
 from tutoring.models import TutorSubjectAssignment
 from tutoring.services import get_tutor_subject_ids
 
@@ -1359,6 +1359,84 @@ class TestDeleteLesson:
 
         assert response.status_code == 409
         assert Lesson.objects.filter(id=lesson.id).exists()
+
+
+class TestDuplicateLesson:
+    def test_duplicate_numbered_lesson_bumps_the_number(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Physics', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic,
+            order_index=1,
+            title='Spadek swobodny #1',
+            lesson_type=LessonType.THEORY,
+            grading_type='binary',
+            content='Some content',
+        )
+
+        response = api_client.post(f'/tutor/lessons/{lesson.id}/duplicate', headers=auth_header(tutor.user))
+
+        assert response.status_code == 200
+        assert response.data['title'] == 'Spadek swobodny #2'
+        assert response.data['content'] == 'Some content'
+        assert response.data['id'] != lesson.id
+        assert Lesson.objects.filter(topic=topic).count() == 2
+
+    def test_duplicate_bare_lesson_starts_a_number_2(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Physics', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Spadek swobodny', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.post(f'/tutor/lessons/{lesson.id}/duplicate', headers=auth_header(tutor.user))
+
+        assert response.status_code == 200
+        assert response.data['title'] == 'Spadek swobodny #2'
+
+    def test_duplicate_skips_numbers_already_used_by_siblings(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Physics', order_index=1)
+        lesson1 = Lesson.objects.create(
+            topic=topic, order_index=1, title='Spadek swobodny #1', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+        Lesson.objects.create(
+            topic=topic, order_index=2, title='Spadek swobodny #2', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.post(f'/tutor/lessons/{lesson1.id}/duplicate', headers=auth_header(tutor.user))
+
+        assert response.status_code == 200
+        assert response.data['title'] == 'Spadek swobodny #3'
+
+    def test_duplicate_copies_quiz_questions_and_choices(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Physics', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Quiz A', lesson_type=LessonType.WITH_QUIZ, grading_type='points'
+        )
+        question = QuizQuestion.objects.create(lesson=lesson, prompt='2+2?', order_index=1)
+        QuizChoice.objects.create(question=question, text='4', is_correct=True)
+        QuizChoice.objects.create(question=question, text='5', is_correct=False)
+
+        response = api_client.post(f'/tutor/lessons/{lesson.id}/duplicate', headers=auth_header(tutor.user))
+
+        assert response.status_code == 200
+        new_lesson = Lesson.objects.get(id=response.data['id'])
+        new_question = new_lesson.quiz_questions.get()
+        assert new_question.prompt == '2+2?'
+        assert {c.text: c.is_correct for c in new_question.choices.all()} == {'4': True, '5': False}
+
+    def test_duplicate_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        topic = Topic.objects.create(subject=subject, title='Physics', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.post(f'/tutor/lessons/{lesson.id}/duplicate', headers=auth_header(tutor.user))
+
+        assert response.status_code == 403
+        assert Lesson.objects.filter(topic=topic).count() == 1
 
 
 class TestListStudentSubjects:

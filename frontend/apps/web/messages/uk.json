@@ -485,6 +485,8 @@
     "deleteLessonConfirm": "Видалити урок «{title}»? Цю дію не можна скасувати.",
     "deleteLessonError": "Не вдалося видалити урок. Спробуйте ще раз.",
     "deleteLessonDisabledTitle": "Урок призначено учням — спершу видаліть призначення",
+    "duplicateLessonButton": "Дублювати урок",
+    "duplicateLessonError": "Не вдалося дублювати урок. Спробуйте ще раз.",
     "editAssignmentDateTitle": "Редагувати дату призначення",
     "editAssignmentDateButton": "Редагувати дату",
     "assignDateLabel": "Дата",

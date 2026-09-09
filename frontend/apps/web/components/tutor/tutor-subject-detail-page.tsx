@@ -3,7 +3,7 @@
 import { forwardRef, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Monitor, Pencil, Plus, type LucideIcon, Trash2, UserPlus } from "lucide-react";
+import { BookOpen, Copy, Monitor, Pencil, Plus, type LucideIcon, Trash2, UserPlus } from "lucide-react";
 import { getGetSubjectQueryKey, getListSubjectTopicsQueryKey, useGetSubject, useListSubjectTopics } from "@school-ahead/api-client/browser/academics/academics";
 import {
   getListTutorSubjectLessonsQueryKey,
@@ -11,6 +11,7 @@ import {
   useDeleteTutorLesson,
   useDeleteTutorStudentLesson,
   useDeleteTutorTopic,
+  useDuplicateTutorLesson,
   useGetTutorClass,
   useListTutorSubjectLessons,
   useListTutorSubjectLessonStudents,
@@ -109,6 +110,38 @@ function DeleteAssignmentButton({ studentLessonId, onDeleted }: { studentLessonI
       className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
     >
       <Trash2 className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
+// Not a Dialog trigger — direct action, same click-stopping rationale as
+// DeleteAssignmentButton above. No confirmation needed (unlike delete) —
+// duplicating is non-destructive and the result is just another lesson the
+// tutor can delete again. See lesson_services.duplicate_lesson for the
+// "#N" title-numbering rule the new lesson's title follows.
+function DuplicateLessonButton({ lessonId, onDuplicated }: { lessonId: number; onDuplicated: () => void }) {
+  const t = useTranslations("TutorSubjectDetail");
+  const duplicateLesson = useDuplicateTutorLesson();
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    duplicateLesson.mutate(
+      { lessonId },
+      { onSuccess: onDuplicated, onError: () => window.alert(t("duplicateLessonError")) },
+    );
+  };
+
+  return (
+    <button
+      type="button"
+      title={t("duplicateLessonButton")}
+      aria-label={t("duplicateLessonButton")}
+      onClick={handleClick}
+      disabled={duplicateLesson.isPending}
+      className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+    >
+      <Copy className="h-3.5 w-3.5" />
     </button>
   );
 }
@@ -273,13 +306,13 @@ function LessonRow({
   assignedStudents,
   selectedStudentId,
   onAssignmentChanged,
-  onLessonDeleted,
+  onLessonListChanged,
 }: {
   lesson: LessonOut;
   assignedStudents: SubjectLessonStudentOut[];
   selectedStudentId: number | null;
   onAssignmentChanged: () => void;
-  onLessonDeleted: () => void;
+  onLessonListChanged: () => void;
 }) {
   const t = useTranslations("TutorSubjectDetail");
   const tGrade = useTranslations("LessonWizard");
@@ -344,11 +377,12 @@ function LessonRow({
             onAssigned={onAssignmentChanged}
             trigger={<DialogTriggerIconButton icon={UserPlus} label={t("assignToStudentButton")} />}
           />
+          <DuplicateLessonButton lessonId={lesson.id} onDuplicated={onLessonListChanged} />
           <DeleteLessonButton
             lessonId={lesson.id}
             title={lesson.title}
             disabled={assignedStudents.length > 0}
-            onDeleted={onLessonDeleted}
+            onDeleted={onLessonListChanged}
           />
         </span>
       </Link>
@@ -451,7 +485,7 @@ function TopicSection({
   lessonStudentsByLessonId,
   selectedStudentId,
   onAssignmentChanged,
-  onLessonDeleted,
+  onLessonListChanged,
 }: {
   topic: TopicOut;
   lessons: LessonOut[];
@@ -460,7 +494,7 @@ function TopicSection({
   lessonStudentsByLessonId: Map<number, SubjectLessonStudentOut[]>;
   selectedStudentId: number | null;
   onAssignmentChanged: () => void;
-  onLessonDeleted: () => void;
+  onLessonListChanged: () => void;
 }) {
   const t = useTranslations("TutorSubjectDetail");
   const queryClient = useQueryClient();
@@ -508,7 +542,7 @@ function TopicSection({
               assignedStudents={lessonStudentsByLessonId.get(lesson.id) ?? []}
               selectedStudentId={selectedStudentId}
               onAssignmentChanged={onAssignmentChanged}
-              onLessonDeleted={onLessonDeleted}
+              onLessonListChanged={onLessonListChanged}
             />
           ))}
         </ul>
@@ -554,7 +588,7 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
     queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonStudentsQueryKey(subjectId) });
   };
 
-  const handleLessonDeleted = () => {
+  const handleLessonListChanged = () => {
     queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsQueryKey(subjectId) });
   };
 
@@ -697,7 +731,7 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                                 lessonStudentsByLessonId={lessonStudentsByLessonId}
                                 selectedStudentId={selectedStudentId}
                                 onAssignmentChanged={handleAssignmentChanged}
-                                onLessonDeleted={handleLessonDeleted}
+                                onLessonListChanged={handleLessonListChanged}
                               />
                             ))
                           )}
