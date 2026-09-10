@@ -151,6 +151,46 @@ def test_get_lesson_rejects_non_owner(api_client, auth_header, other_student, st
     assert response.status_code == 403
 
 
+def test_get_lesson_synopsis_falls_back_to_teachers_before_any_edit(api_client, auth_header, student, student_lesson):
+    student_lesson.lesson.synopsis = "# Teacher's notes"
+    student_lesson.lesson.save(update_fields=['synopsis'])
+
+    response = api_client.get(
+        f'/student-lessons/{student_lesson.id}', headers=auth_header(student.user)
+    )
+    assert response.status_code == 200
+    assert response.data['synopsis'] == "# Teacher's notes"
+
+
+def test_update_synopsis_saves_students_own_copy(api_client, auth_header, student, student_lesson):
+    student_lesson.lesson.synopsis = "# Teacher's notes"
+    student_lesson.lesson.save(update_fields=['synopsis'])
+
+    response = api_client.patch(
+        f'/student-lessons/{student_lesson.id}/synopsis',
+        json={'content': 'My own notes'},
+        headers=auth_header(student.user),
+    )
+    assert response.status_code == 200
+    assert response.data['synopsis'] == 'My own notes'
+
+    student_lesson.refresh_from_db()
+    assert student_lesson.synopsis_notes == 'My own notes'
+    # The teacher's original is untouched — only the student's own copy changed.
+    assert student_lesson.lesson.synopsis == "# Teacher's notes"
+
+
+def test_update_synopsis_rejects_non_owner(api_client, auth_header, other_student, student_lesson):
+    response = api_client.patch(
+        f'/student-lessons/{student_lesson.id}/synopsis',
+        json={'content': 'Hacked'},
+        headers=auth_header(other_student.user),
+    )
+    assert response.status_code == 403
+    student_lesson.refresh_from_db()
+    assert student_lesson.synopsis_notes is None
+
+
 def test_start_and_confirm_understanding_flow(api_client, auth_header, student, student_lesson):
     headers = auth_header(student.user)
 

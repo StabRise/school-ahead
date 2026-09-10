@@ -50,6 +50,7 @@ export function LessonEditorDialog({
   const [gradingType, setGradingType] = useState<GradingTypeValue>("points");
   const [content, setContent] = useState("");
   const [taskContent, setTaskContent] = useState("");
+  const [synopsis, setSynopsis] = useState("");
 
   const reset = () => {
     setTitle("");
@@ -57,6 +58,7 @@ export function LessonEditorDialog({
     setGradingType("points");
     setContent("");
     setTaskContent("");
+    setSynopsis("");
   };
 
   const handleOpenChange = (next: boolean) => {
@@ -77,6 +79,7 @@ export function LessonEditorDialog({
           title,
           content,
           task_content: lessonType === "with_task" ? taskContent : "",
+          synopsis,
           lesson_type: lessonType,
           grading_type: gradingType,
         },
@@ -161,6 +164,12 @@ export function LessonEditorDialog({
                 <MarkdownEditor value={taskContent} onChange={setTaskContent} rows={4} />
               </div>
             )}
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-gray-700">{t("synopsisLabel")}</label>
+              <p className="text-xs text-gray-500">{t("synopsisHint")}</p>
+              <MarkdownEditor value={synopsis} onChange={setSynopsis} rows={4} />
+            </div>
 
             {createLesson.isError && <p className="text-sm text-red-600">{t("saveError")}</p>}
 

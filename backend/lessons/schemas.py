@@ -62,6 +62,7 @@ class LessonOut(Schema):
     grading_type: str
     content: str
     task_content: str
+    synopsis: str
     materials: list[LessonAttachmentOut]
     quiz_questions: list[QuizQuestionOut]
     subject_id: int
@@ -108,12 +109,13 @@ class LessonOut(Schema):
 
 class LessonUpdateIn(Schema):
     """Inline editing from the tutor's Lesson detail page — title, content,
-    task_content, lesson_type, grading_type. Quiz questions/choices aren't
-    editable here yet, so this never touches them."""
+    task_content, synopsis, lesson_type, grading_type. Quiz questions/choices
+    aren't editable here yet, so this never touches them."""
 
     title: str
     content: str
     task_content: str = ''
+    synopsis: str = ''
     lesson_type: str
     grading_type: str
 
@@ -126,8 +128,16 @@ class LessonCreateIn(Schema):
     title: str
     content: str = ''
     task_content: str = ''
+    synopsis: str = ''
     lesson_type: str
     grading_type: str
+
+
+class UpdateSynopsisIn(Schema):
+    """A student saving their own edited copy of Lesson.synopsis — see
+    StudentLesson.synopsis_notes."""
+
+    content: str
 
 
 class LessonSubmissionOut(Schema):
@@ -220,6 +230,14 @@ class StudentLessonOut(Schema):
     # LessonAttachments shown on the "Теорія" tab) — these are the
     # student's own read-along saves, shown on the "Матеріали" tab.
     reading_materials: list[StudentLessonMaterialOut]
+    # The student's own copy once they've saved an edit (synopsis_notes),
+    # otherwise a live view of the teacher's lesson.synopsis — the frontend
+    # only ever sees this one merged value, never the two separately.
+    synopsis: str
+
+    @staticmethod
+    def resolve_synopsis(obj):
+        return obj.synopsis_notes if obj.synopsis_notes is not None else obj.lesson.synopsis
 
     @staticmethod
     def resolve_submissions(obj):

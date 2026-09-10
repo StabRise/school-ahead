@@ -890,6 +890,7 @@ class TestCreateLesson:
                 'title': 'New lesson',
                 'content': '# Theory',
                 'task_content': '',
+                'synopsis': '# Notes',
                 'lesson_type': 'theory',
                 'grading_type': 'binary',
             },
@@ -900,9 +901,11 @@ class TestCreateLesson:
         assert response.data['title'] == 'New lesson'
         assert response.data['topic_id'] == topic.id
         assert response.data['order_index'] == 2
+        assert response.data['synopsis'] == '# Notes'
 
         lesson = Lesson.objects.get(topic=topic, title='New lesson')
         assert lesson.content == '# Theory'
+        assert lesson.synopsis == '# Notes'
 
     def test_create_lesson_rejects_invalid_lesson_type(self, api_client, auth_header, tutor, subject):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
@@ -965,6 +968,7 @@ class TestUpdateLesson:
                 'title': 'Updated title',
                 'content': '# New content',
                 'task_content': 'Do the thing',
+                'synopsis': '# My notes',
                 'lesson_type': 'with_task',
                 'grading_type': 'points',
             },
@@ -975,10 +979,12 @@ class TestUpdateLesson:
         assert response.data['title'] == 'Updated title'
         assert response.data['content'] == '# New content'
         assert response.data['task_content'] == 'Do the thing'
+        assert response.data['synopsis'] == '# My notes'
         assert response.data['lesson_type'] == 'with_task'
         assert response.data['grading_type'] == 'points'
 
         lesson.refresh_from_db()
+        assert lesson.synopsis == '# My notes'
         assert lesson.title == 'Updated title'
         assert lesson.grading_type == 'points'
 

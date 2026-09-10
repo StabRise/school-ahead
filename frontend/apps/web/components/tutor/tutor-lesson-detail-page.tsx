@@ -60,6 +60,7 @@ function LessonEditForm({ lesson, onSaved, onCancel }: { lesson: LessonOut; onSa
   const [title, setTitle] = useState(lesson.title);
   const [content, setContent] = useState(lesson.content);
   const [taskContent, setTaskContent] = useState(lesson.task_content);
+  const [synopsis, setSynopsis] = useState(lesson.synopsis);
   const [lessonType, setLessonType] = useState(lesson.lesson_type);
   const [gradingType, setGradingType] = useState(lesson.grading_type);
 
@@ -73,6 +74,7 @@ function LessonEditForm({ lesson, onSaved, onCancel }: { lesson: LessonOut; onSa
           title,
           content,
           task_content: taskContent,
+          synopsis,
           lesson_type: lessonType,
           grading_type: gradingType,
         },
@@ -149,6 +151,12 @@ function LessonEditForm({ lesson, onSaved, onCancel }: { lesson: LessonOut; onSa
         <div className="flex flex-col gap-1 border-t border-gray-200 pt-4">
           <label className="text-xs font-medium text-gray-700">{t("taskContentLabel")}</label>
           <MarkdownEditor value={taskContent} onChange={setTaskContent} rows={6} />
+        </div>
+
+        <div className="flex flex-col gap-1 border-t border-gray-200 pt-4">
+          <label className="text-xs font-medium text-gray-700">{t("synopsisLabel")}</label>
+          <p className="text-xs text-gray-500">{t("synopsisHint")}</p>
+          <MarkdownEditor value={synopsis} onChange={setSynopsis} rows={6} />
         </div>
       </Card>
 

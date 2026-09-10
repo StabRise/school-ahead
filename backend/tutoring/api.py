@@ -413,6 +413,7 @@ def create_lesson(request: HttpRequest, payload: LessonCreateIn):
         grading_type=payload.grading_type,
         content=payload.content,
         task_content=payload.task_content,
+        synopsis=payload.synopsis,
     )
 
 
@@ -431,8 +432,8 @@ def get_lesson(request: HttpRequest, lesson_id: int):
 @router.patch('/lessons/{lesson_id}', response=LessonOut, operation_id='update_tutor_lesson')
 def update_lesson(request: HttpRequest, lesson_id: int, payload: LessonUpdateIn):
     """Inline editing from the tutor's Lesson detail page — title, content,
-    task_content, lesson_type, grading_type. Quiz questions/choices aren't
-    editable here yet."""
+    task_content, synopsis, lesson_type, grading_type. Quiz questions/choices
+    aren't editable here yet."""
     require_csrf(request)
     lesson = get_object_or_404(Lesson.objects.select_related('topic__subject'), id=lesson_id)
     services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
@@ -445,9 +446,10 @@ def update_lesson(request: HttpRequest, lesson_id: int, payload: LessonUpdateIn)
     lesson.title = payload.title
     lesson.content = payload.content
     lesson.task_content = payload.task_content
+    lesson.synopsis = payload.synopsis
     lesson.lesson_type = payload.lesson_type
     lesson.grading_type = payload.grading_type
-    lesson.save(update_fields=['title', 'content', 'task_content', 'lesson_type', 'grading_type'])
+    lesson.save(update_fields=['title', 'content', 'task_content', 'synopsis', 'lesson_type', 'grading_type'])
     return lesson
 
 

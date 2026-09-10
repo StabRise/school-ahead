@@ -641,7 +641,14 @@ def get_or_create_extra_topic(subject: Subject) -> Topic:
 
 
 def create_lesson(
-    topic: Topic, *, title: str, lesson_type: str, grading_type: str, content: str = '', task_content: str = ''
+    topic: Topic,
+    *,
+    title: str,
+    lesson_type: str,
+    grading_type: str,
+    content: str = '',
+    task_content: str = '',
+    synopsis: str = '',
 ) -> Lesson:
     """Creates a new Lesson appended at the end of `topic` — the tutor's "+"
     button on a topic section (tutoring.api.create_lesson), and
@@ -654,6 +661,7 @@ def create_lesson(
         grading_type=grading_type,
         content=content,
         task_content=task_content,
+        synopsis=synopsis,
     )
     # Doesn't touch topic membership, so assign_topics_to_blocks wouldn't
     # pick up the changed lesson count — refresh the block directly.

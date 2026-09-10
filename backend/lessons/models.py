@@ -61,6 +61,12 @@ class Lesson(TimeStampedModel):
     # second screen (the submission step), separate from `content` which is
     # the first-screen theory/materials page.
     task_content = models.TextField(blank=True)
+    # Optional tutor-authored summary/notes, independent of lesson_type —
+    # shown to the student as a toggleable side panel next to `content` on
+    # the "Теорія" tab (lesson-wizard.tsx's LessonSynopsisSplit) when
+    # non-empty. A student may edit their own copy of it — see
+    # StudentLesson.synopsis_notes.
+    synopsis = models.TextField(blank=True)
     default_day_offset = models.PositiveSmallIntegerField(null=True, blank=True)
     # Step-node icon for the preschool game map — falls back to the
     # subject's icon, then a frontend default, when empty. See
@@ -135,6 +141,12 @@ class StudentLesson(TimeStampedModel):
     attempt_count = models.PositiveSmallIntegerField(default=0)
     help_note = models.TextField(blank=True)
     tutor_feedback = models.TextField(blank=True)
+    # The student's own editable copy of lesson.synopsis (see StudentLessonOut
+    # .resolve_synopsis) — None means "not yet customized" (the frontend
+    # shows/edits a live view of the teacher's synopsis); once the student
+    # saves any edit (even an empty string), this becomes their own copy and
+    # stops following later edits to lesson.synopsis, same as forking a doc.
+    synopsis_notes = models.TextField(null=True, blank=True, default=None)
 
     class Meta:
         unique_together = [('student', 'lesson')]

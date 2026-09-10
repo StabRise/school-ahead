@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, NotebookText } from "lucide-react";
 import {
   useGetStudentLesson,
   useListLessonComments,
@@ -17,6 +17,7 @@ import { Card } from "@/components/card";
 import { useAuthStore } from "@school-ahead/api-client";
 import { formatGradeLabel, resolveStatusLabel } from "@/components/simple/format";
 import { LessonContent } from "./lesson-content";
+import { LessonSynopsisSplit } from "./lesson-synopsis-split";
 import { MaterialsStep } from "./materials-step";
 import { QuizStep } from "./quiz-step";
 import { TheoryStep } from "./theory-step";
@@ -192,6 +193,11 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   const searchParams = useSearchParams();
   const stepFromUrl = parseStepParam(searchParams.get("step"));
   const isSimple = useAuthStore((state) => state.user?.interfaceMode === "simple");
+  // The конспект split view is a "default" interface-mode feature only —
+  // resets to hidden on every visit rather than persisting, unlike the
+  // wizard step above (no strong reason a student would want it to survive
+  // a reload/navigation away and back).
+  const [showSynopsis, setShowSynopsis] = useState(false);
 
   const [step, setStepState] = useState<WizardStep | null>(stepFromUrl);
   // Whether the status-based landing tab (see initialStepForStatus) has been
@@ -248,6 +254,14 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
     { label: data.lesson.title },
   ];
   const effectiveStep: WizardStep = step ?? "materials";
+  // The toggle (and the split view it opens) only makes sense on the
+  // "Теорія" tab — that's the only place `content` is shown — and is a
+  // "default" interface-mode feature only (see isSimple/showSynopsis above).
+  // Available even when the teacher hasn't written a конспект — a student
+  // can still open the panel and start their own notes from scratch (see
+  // StudentLessonOut.synopsis / synopsis_notes's fork-on-first-edit
+  // semantics, which already handle an empty starting value fine).
+  const canShowSynopsisToggle = !isSimple && effectiveStep === "materials";
 
   return (
     <PageContainer maxWidthClassName="xl:max-w-7xl">
@@ -277,6 +291,22 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
                 <ScoreBadge gradePoints={data.grade_points} gradeResult={data.grade_result} />
               </>
             )}
+            {canShowSynopsisToggle && (
+              <button
+                type="button"
+                onClick={() => setShowSynopsis((value) => !value)}
+                aria-pressed={showSynopsis}
+                title={showSynopsis ? t("hideSynopsisButton") : t("showSynopsisButton")}
+                aria-label={showSynopsis ? t("hideSynopsisButton") : t("showSynopsisButton")}
+                className={`flex h-8 w-8 items-center justify-center rounded-md border ${
+                  showSynopsis
+                    ? "border-gray-900 bg-gray-900 text-white"
+                    : "border-gray-300 text-gray-500 hover:bg-gray-50"
+                }`}
+              >
+                <NotebookText className="size-4" />
+              </button>
+            )}
           </div>
         </div>
         <StepSwitcher
@@ -289,7 +319,16 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
 
       {effectiveStep === "materials" ? (
         <div className="flex flex-col gap-4">
-          <LessonContent content={data.lesson.content} materials={data.lesson.materials} />
+          {canShowSynopsisToggle && showSynopsis ? (
+            <LessonSynopsisSplit
+              studentLessonId={studentLessonId}
+              content={data.lesson.content}
+              materials={data.lesson.materials}
+              synopsis={data.synopsis}
+            />
+          ) : (
+            <LessonContent content={data.lesson.content} materials={data.lesson.materials} />
+          )}
           <div className="flex justify-end">
             <button
               type="button"
