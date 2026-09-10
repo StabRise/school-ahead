@@ -17,11 +17,11 @@ import { SimplePageContainer } from "@/components/simple/page-container";
 import { Markdown } from "@/components/markdown";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { LessonContent } from "@/components/lesson-wizard/lesson-content";
+import { LessonSynopsisSplit } from "@/components/lesson-wizard/lesson-synopsis-split";
 import { LESSON_TYPE_ICON } from "@/components/simple/lesson-type-icon";
 import { formatShortDate, resolveStatusLabel } from "@/components/simple/format";
 import { Monitor, NotebookText } from "lucide-react";
 import { AssignStudentDialog } from "./assign-student-dialog";
-import { LessonSynopsisPanel } from "./lesson-synopsis-panel";
 
 const LESSON_TYPE_OPTIONS = [
   { value: "theory", labelKey: "contentTheory" },
@@ -193,6 +193,8 @@ export function TutorLessonDetailPage({ lessonId }: { lessonId: number }) {
   const tSynopsis = useTranslations("LessonWizard");
   const [isEditing, setIsEditing] = useState(false);
   const [showSynopsis, setShowSynopsis] = useState(false);
+  const queryClient = useQueryClient();
+  const updateSynopsis = useUpdateTutorLesson();
 
   const lessonQuery = useGetTutorLesson(lessonId);
   const studentsQuery = useListTutorLessonStudents(lessonId);
@@ -207,6 +209,28 @@ export function TutorLessonDetailPage({ lessonId }: { lessonId: number }) {
   const lesson = lessonQuery.data;
   const students = studentsQuery.data ?? [];
   const LessonTypeIcon = LESSON_TYPE_ICON[lesson.lesson_type] ?? Monitor;
+
+  // update_tutor_lesson has no partial-field PATCH, so every autosave
+  // resends the lesson's other fields unchanged — same as the tutor's own
+  // edit form above. Edits Lesson.synopsis directly (the source every
+  // student's own copy forks from — see StudentLessonOut.resolve_synopsis),
+  // not a per-student copy like the student wizard's own save handler.
+  const saveSynopsis = (value: string) => {
+    updateSynopsis.mutate(
+      {
+        lessonId: lesson.id,
+        data: {
+          title: lesson.title,
+          content: lesson.content,
+          task_content: lesson.task_content,
+          synopsis: value,
+          lesson_type: lesson.lesson_type,
+          grading_type: lesson.grading_type,
+        },
+      },
+      { onSuccess: (updated) => queryClient.setQueryData(getGetTutorLessonQueryKey(lesson.id), updated) },
+    );
+  };
 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: t("breadcrumbMySubjects"), href: "/tutor/subjects" },
@@ -273,10 +297,20 @@ export function TutorLessonDetailPage({ lessonId }: { lessonId: number }) {
           </div>
         </div>
 
-        {showSynopsis && <LessonSynopsisPanel key={lesson.id} lesson={lesson} />}
-
         <Card className="flex flex-col gap-4">
-          <LessonContent content={lesson.content} materials={lesson.materials} />
+          {showSynopsis ? (
+            <LessonSynopsisSplit
+              key={lesson.id}
+              content={lesson.content}
+              materials={lesson.materials}
+              synopsis={lesson.synopsis}
+              onSave={saveSynopsis}
+              isSaving={updateSynopsis.isPending}
+              enableDictionary={false}
+            />
+          ) : (
+            <LessonContent content={lesson.content} materials={lesson.materials} />
+          )}
 
           {lesson.lesson_type === "with_task" && lesson.task_content && (
             <div className="flex flex-col gap-2 border-t border-gray-200 pt-4">

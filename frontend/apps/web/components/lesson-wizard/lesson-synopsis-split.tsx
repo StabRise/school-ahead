@@ -2,11 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { useQueryClient } from "@tanstack/react-query";
-import {
-  getGetStudentLessonQueryKey,
-  useUpdateStudentLessonSynopsis,
-} from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import type { LessonAttachmentOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { SynopsisEditor } from "@/components/synopsis-editor";
 import { LessonContent } from "./lesson-content";
@@ -16,28 +11,36 @@ const MAX_LEFT_PERCENT = 75;
 const AUTOSAVE_DELAY_MS = 1000;
 
 // Split view for the "Теорія" tab once a student toggles their конспект
-// visible (lesson-wizard.tsx) — the lesson's own content on the left, the
-// student's own editable copy of the teacher's конспект on the right (see
-// StudentLessonOut.synopsis / backend StudentLesson.synopsis_notes's
-// fork-on-first-edit semantics; the right column itself is the shared
-// SynopsisEditor, also used by the tutor's own Lesson detail page). No
-// split-pane library exists anywhere in this repo, and none is warranted
-// for a single draggable divider — the divider is hand-rolled via pointer
-// capture, the same technique components/profile/avatar-preview.tsx's own
-// drag-resize handle uses.
+// visible (lesson-wizard.tsx) — the lesson's own content on the left, an
+// editable конспект on the right (the right column itself is the shared
+// SynopsisEditor). Also reused as-is by the tutor's own Lesson detail page
+// (tutor/tutor-lesson-detail-page.tsx), which edits the lesson's original
+// Lesson.synopsis instead of a per-student copy — each caller owns its own
+// save mutation (they persist to different endpoints) and passes it in via
+// `onSave`/`isSaving`, so this component only owns the split layout, the
+// draggable divider, and the autosave debounce. No split-pane library
+// exists anywhere in this repo, and none is warranted for a single
+// draggable divider — the divider is hand-rolled via pointer capture, the
+// same technique components/profile/avatar-preview.tsx's own drag-resize
+// handle uses.
 export function LessonSynopsisSplit({
   studentLessonId,
   content,
   materials,
   synopsis,
+  onSave,
+  isSaving,
+  enableDictionary = true,
 }: {
-  studentLessonId: number;
+  studentLessonId?: number;
   content: string;
   materials: LessonAttachmentOut[];
   synopsis: string;
+  onSave: (value: string) => void;
+  isSaving?: boolean;
+  enableDictionary?: boolean;
 }) {
   const t = useTranslations("LessonWizard");
-  const queryClient = useQueryClient();
   const containerRef = useRef<HTMLDivElement>(null);
   const [leftPercent, setLeftPercent] = useState(55);
   const [notes, setNotes] = useState(synopsis);
@@ -45,31 +48,25 @@ export function LessonSynopsisSplit({
   // closes over the value from its very first render (an empty deps array
   // means its cleanup never sees later `setNotes` calls).
   const notesRef = useRef(notes);
-  const updateSynopsis = useUpdateStudentLessonSynopsis();
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // The mutation's own cache isn't the wizard's useGetStudentLesson query —
-  // without this, toggling the panel closed (unmounting this component) and
-  // back open would re-seed `notes` from the stale pre-edit `synopsis` prop,
-  // making the student's last save look reverted.
-  const saveNotes = (value: string) => {
-    updateSynopsis.mutate(
-      { studentLessonId, data: { content: value } },
-      { onSuccess: (data) => queryClient.setQueryData(getGetStudentLessonQueryKey(studentLessonId), data) },
-    );
-  };
+  // Mirrors `onSave` so the unmount-flush effect below (empty deps array)
+  // always calls the caller's latest mutation, not the one from mount.
+  const onSaveRef = useRef(onSave);
+  useEffect(() => {
+    onSaveRef.current = onSave;
+  }, [onSave]);
 
   // Flushes any pending autosave when the component unmounts (e.g. the
-  // student toggles the panel closed or switches tabs right after typing)
-  // so the last few keystrokes within the debounce window aren't lost.
+  // student/tutor toggles the panel closed or switches tabs right after
+  // typing) so the last few keystrokes within the debounce window aren't
+  // lost.
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
-        saveNotes(notesRef.current);
+        onSaveRef.current(notesRef.current);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleDividerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -94,7 +91,7 @@ export function LessonSynopsisSplit({
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       saveTimeoutRef.current = null;
-      saveNotes(value);
+      onSaveRef.current(value);
     }, AUTOSAVE_DELAY_MS);
   };
 
@@ -120,8 +117,9 @@ export function LessonSynopsisSplit({
         <SynopsisEditor
           value={notes}
           onChange={handleNotesChange}
-          isSaving={updateSynopsis.isPending}
+          isSaving={isSaving}
           studentLessonId={studentLessonId}
+          enableDictionary={enableDictionary}
         />
       </div>
     </div>
