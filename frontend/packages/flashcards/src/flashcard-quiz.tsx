@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import type { FlashcardItem } from "@/lib/flashcards";
-import type { FlashcardStatus } from "@/stores/flashcard-progress-store";
-import { ProgressBar } from "@/components/progress-bar";
+import type { FlashcardItem } from "./lib/flashcards";
+import type { FlashcardStatus } from "./stores/flashcard-progress-store";
+import { ProgressBar } from "./kit/progress-bar";
 import { CARD_FIELDS, type CardFaceConfig } from "./card-face-config";
 import { CardFaceContent } from "./card-face-content";
 import { StatusBadge } from "./status-badge";

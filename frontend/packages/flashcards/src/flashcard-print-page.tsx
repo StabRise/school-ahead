@@ -3,18 +3,18 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, Printer } from "lucide-react";
-import { Link } from "@/i18n/navigation";
-import { flashcardImageUrl, useFlashcardSet, type FlashcardItem } from "@/lib/flashcards";
+import { LocaleLink as Link } from "./kit/locale-link";
+import { flashcardImageUrl, useFlashcardSet, type FlashcardItem } from "./lib/flashcards";
 import { resolveVisibleCardFields, type CardFaceConfig } from "./card-face-config";
 import { DefinitionMarkdown } from "./card-face-content";
-import { useFlashcardsStore } from "@/stores/flashcards-store";
-import { flashcardTopicKey, useFlashcardTopicStore } from "@/stores/flashcard-topic-store";
+import { useFlashcardsStore } from "./stores/flashcards-store";
+import { flashcardTopicKey, useFlashcardTopicStore } from "./stores/flashcard-topic-store";
 import {
   PRINT_GRID_FORMATS,
   printGridFormatKey,
   useFlashcardPrintFormatStore,
   type PrintGridFormat,
-} from "@/stores/flashcard-print-format-store";
+} from "./stores/flashcard-print-format-store";
 
 const ALL_TOPICS = "all";
 

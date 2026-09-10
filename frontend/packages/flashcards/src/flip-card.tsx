@@ -1,8 +1,8 @@
 "use client";
 
 import { Volume2 } from "lucide-react";
-import type { FlashcardItem } from "@/lib/flashcards";
-import type { FlashcardStatus } from "@/stores/flashcard-progress-store";
+import type { FlashcardItem } from "./lib/flashcards";
+import type { FlashcardStatus } from "./stores/flashcard-progress-store";
 import type { CardFaceConfig, CardFlipOrientation } from "./card-face-config";
 import { CardFaceContent } from "./card-face-content";
 import { StatusBadge } from "./status-badge";

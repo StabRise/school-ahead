@@ -3,18 +3,18 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, Layers, List, ListChecks, Printer } from "lucide-react";
-import { Link } from "@/i18n/navigation";
-import { SimplePageContainer } from "@/components/simple/page-container";
-import { flashcardImageUrl, flashcardSoundUrl, useFlashcardSet, type FlashcardItem } from "@/lib/flashcards";
+import { LocaleLink as Link } from "./kit/locale-link";
+import { PageShell as SimplePageContainer } from "./kit/page-shell";
+import { flashcardImageUrl, flashcardSoundUrl, useFlashcardSet, type FlashcardItem } from "./lib/flashcards";
 import { FlashcardLearnDeck } from "./flashcard-learn-deck";
 import { FlashcardQuiz, type CategorizedFlashcardItem } from "./flashcard-quiz";
 import { FlashcardTermsList } from "./flashcard-terms-list";
 import { GameSettingsPanel } from "./game-settings-panel";
 import { QuizResultsPanel } from "./quiz-results-panel";
-import { useFlashcardsStore } from "@/stores/flashcards-store";
-import { useFlashcardQuizResultsStore } from "@/stores/flashcard-quiz-results-store";
-import { flashcardProgressKey, useFlashcardProgressStore, type FlashcardStatus } from "@/stores/flashcard-progress-store";
-import { flashcardTopicKey, useFlashcardTopicStore } from "@/stores/flashcard-topic-store";
+import { useFlashcardsStore } from "./stores/flashcards-store";
+import { useFlashcardQuizResultsStore } from "./stores/flashcard-quiz-results-store";
+import { flashcardProgressKey, useFlashcardProgressStore, type FlashcardStatus } from "./stores/flashcard-progress-store";
+import { flashcardTopicKey, useFlashcardTopicStore } from "./stores/flashcard-topic-store";
 
 const ALL_TOPICS = "all";
 

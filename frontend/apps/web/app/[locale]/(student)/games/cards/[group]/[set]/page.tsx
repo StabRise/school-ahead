@@ -1,4 +1,4 @@
-import { FlashcardGamePage } from "@/components/flashcards/flashcard-game-page";
+import { FlashcardGamePage } from "@school-ahead/flashcards";
 
 export default async function CardsSetRoutePage({
   params,

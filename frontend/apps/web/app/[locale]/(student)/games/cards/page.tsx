@@ -1,4 +1,4 @@
-import { FlashcardsGroupsPage } from "@/components/flashcards/flashcards-groups-page";
+import { FlashcardsGroupsPage } from "@school-ahead/flashcards";
 
 export default function CardsGroupsRoutePage() {
   return <FlashcardsGroupsPage />;

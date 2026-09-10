@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Flag } from "lucide-react";
-import type { FlashcardStatus } from "@/stores/flashcard-progress-store";
+import type { FlashcardStatus } from "./stores/flashcard-progress-store";
 
 // The «Знаю»/«Складно» mark (docs/preschool/games/cards.md) — shared by
 // FlipCard (Навчання) and FlashcardQuiz's question/option cards (Тест), so

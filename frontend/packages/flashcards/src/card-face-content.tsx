@@ -6,7 +6,7 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import "katex/dist/katex.min.css";
-import type { FlashcardItem } from "@/lib/flashcards";
+import type { FlashcardItem } from "./lib/flashcards";
 import { resolveVisibleCardFields, type CardFaceConfig } from "./card-face-config";
 
 // A card's `definition` (docs/preschool/games/cards.md) may be Markdown
