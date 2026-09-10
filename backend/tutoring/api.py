@@ -42,6 +42,7 @@ from lessons.models import (
 from lessons.schemas import (
     AddCommentIn,
     LessonCommentOut,
+    LessonCreateIn,
     LessonOut,
     LessonsJsonOut,
     LessonUpdateIn,
@@ -391,6 +392,28 @@ def delete_topic(request: HttpRequest, topic_id: int, response: HttpResponse):
     academics_services.assign_topics_to_blocks(subject)
     response.status_code = 204
     return response
+
+
+@router.post('/lessons', response=LessonOut, operation_id='create_tutor_lesson')
+def create_lesson(request: HttpRequest, payload: LessonCreateIn):
+    """Manually adding a single lesson to an existing topic — the tutor's
+    "+" button on a topic section (Subject detail page). Appended at the
+    end of the topic, same order_index rule as duplicate_lesson."""
+    require_csrf(request)
+    if payload.lesson_type not in LessonType.values:
+        raise HttpError(400, f'Invalid lesson_type: {payload.lesson_type!r}')
+    if payload.grading_type not in GradingType.values:
+        raise HttpError(400, f'Invalid grading_type: {payload.grading_type!r}')
+    topic = get_object_or_404(Topic.objects.select_related('subject', 'subject_block'), id=payload.topic_id)
+    services.ensure_is_tutor_for_subject(request, topic.subject_id)
+    return lesson_services.create_lesson(
+        topic,
+        title=payload.title,
+        lesson_type=payload.lesson_type,
+        grading_type=payload.grading_type,
+        content=payload.content,
+        task_content=payload.task_content,
+    )
 
 
 @router.get('/lessons/{lesson_id}', response=LessonOut, operation_id='get_tutor_lesson')

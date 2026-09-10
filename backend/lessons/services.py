@@ -640,20 +640,18 @@ def get_or_create_extra_topic(subject: Subject) -> Topic:
     )
 
 
-def create_extra_lesson(subject: Subject, *, title: str, content: str, task_content: str = '') -> Lesson:
-    """Creates a one-off Lesson under get_or_create_extra_topic, for the
-    tutor's "assign a lesson to this day" popup's is_new=true branch
-    (tutoring.api.assign_day_lesson). Type is with_task when task_content is
-    given, otherwise theory; grading is binary (pass/fail), matching every
-    other non-quiz lesson (see import_topics_and_lessons)."""
-    topic = get_or_create_extra_topic(subject)
-    lesson_type = LessonType.WITH_TASK if task_content else LessonType.THEORY
+def create_lesson(
+    topic: Topic, *, title: str, lesson_type: str, grading_type: str, content: str = '', task_content: str = ''
+) -> Lesson:
+    """Creates a new Lesson appended at the end of `topic` — the tutor's "+"
+    button on a topic section (tutoring.api.create_lesson), and
+    create_extra_lesson's shared base below."""
     lesson = Lesson.objects.create(
         topic=topic,
         order_index=_next_order_index(Lesson.objects.filter(topic=topic)),
         title=title,
         lesson_type=lesson_type,
-        grading_type=GradingType.BINARY,
+        grading_type=grading_type,
         content=content,
         task_content=task_content,
     )
@@ -662,6 +660,24 @@ def create_extra_lesson(subject: Subject, *, title: str, content: str, task_cont
     if topic.subject_block_id is not None:
         academics_services.recompute_block_workload(topic.subject_block)
     return lesson
+
+
+def create_extra_lesson(subject: Subject, *, title: str, content: str, task_content: str = '') -> Lesson:
+    """Creates a one-off Lesson under get_or_create_extra_topic, for the
+    tutor's "assign a lesson to this day" popup's is_new=true branch
+    (tutoring.api.assign_day_lesson). Type is with_task when task_content is
+    given, otherwise theory; grading is binary (pass/fail), matching every
+    other non-quiz lesson (see import_topics_and_lessons)."""
+    topic = get_or_create_extra_topic(subject)
+    lesson_type = LessonType.WITH_TASK if task_content else LessonType.THEORY
+    return create_lesson(
+        topic,
+        title=title,
+        lesson_type=lesson_type,
+        grading_type=GradingType.BINARY,
+        content=content,
+        task_content=task_content,
+    )
 
 
 _LESSON_TITLE_NUMBER_RE = re.compile(r'^(.*?)\s*#(\d+)\s*$')

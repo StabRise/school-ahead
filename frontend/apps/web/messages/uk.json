@@ -481,6 +481,7 @@
     "emptySemesterHint": "У цьому семестрі ще немає тем.",
     "workloadLabel": "Навантаження: {value} уроків/тиждень",
     "moveToBlockLabel": "Перемістити тему до блоку",
+    "addLessonButton": "Додати урок",
     "deleteTopicButton": "Видалити тему",
     "deleteTopicConfirm": "Видалити тему «{title}» разом з усіма її уроками ({count})? Цю дію не можна скасувати.",
     "deleteTopicError": "Не вдалося видалити тему. Спробуйте ще раз.",
@@ -1064,6 +1065,16 @@
     "kindImage": "Зображення",
     "dropzoneHint": "Натисніть або перетягніть зображення сюди",
     "keepExistingImage": "Поточне зображення залишиться, якщо не завантажити нове.",
+    "saveError": "Не вдалося зберегти. Спробуйте ще раз.",
+    "cancelButton": "Скасувати",
+    "saveButton": "Зберегти"
+  },
+  "LessonEditor": {
+    "createTitle": "Новий урок",
+    "titleLabel": "Назва",
+    "lessonTypeLabel": "Тип уроку",
+    "contentLabel": "Зміст",
+    "taskContentLabel": "Завдання",
     "saveError": "Не вдалося зберегти. Спробуйте ще раз.",
     "cancelButton": "Скасувати",
     "saveButton": "Зберегти"

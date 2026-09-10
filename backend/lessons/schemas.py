@@ -118,6 +118,18 @@ class LessonUpdateIn(Schema):
     grading_type: str
 
 
+class LessonCreateIn(Schema):
+    """Manually adding a single lesson to an existing topic — the tutor's
+    "+" button on a topic section (Subject detail page)."""
+
+    topic_id: int
+    title: str
+    content: str = ''
+    task_content: str = ''
+    lesson_type: str
+    grading_type: str
+
+
 class LessonSubmissionOut(Schema):
     id: int
     files: list[str]
