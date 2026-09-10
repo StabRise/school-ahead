@@ -42,6 +42,7 @@ from lessons.models import (
 from lessons.schemas import (
     AddCommentIn,
     LessonCommentOut,
+    LessonCreateIn,
     LessonOut,
     LessonsJsonOut,
     LessonUpdateIn,
@@ -393,6 +394,29 @@ def delete_topic(request: HttpRequest, topic_id: int, response: HttpResponse):
     return response
 
 
+@router.post('/lessons', response=LessonOut, operation_id='create_tutor_lesson')
+def create_lesson(request: HttpRequest, payload: LessonCreateIn):
+    """Manually adding a single lesson to an existing topic — the tutor's
+    "+" button on a topic section (Subject detail page). Appended at the
+    end of the topic, same order_index rule as duplicate_lesson."""
+    require_csrf(request)
+    if payload.lesson_type not in LessonType.values:
+        raise HttpError(400, f'Invalid lesson_type: {payload.lesson_type!r}')
+    if payload.grading_type not in GradingType.values:
+        raise HttpError(400, f'Invalid grading_type: {payload.grading_type!r}')
+    topic = get_object_or_404(Topic.objects.select_related('subject', 'subject_block'), id=payload.topic_id)
+    services.ensure_is_tutor_for_subject(request, topic.subject_id)
+    return lesson_services.create_lesson(
+        topic,
+        title=payload.title,
+        lesson_type=payload.lesson_type,
+        grading_type=payload.grading_type,
+        content=payload.content,
+        task_content=payload.task_content,
+        synopsis=payload.synopsis,
+    )
+
+
 @router.get('/lessons/{lesson_id}', response=LessonOut, operation_id='get_tutor_lesson')
 def get_lesson(request: HttpRequest, lesson_id: int):
     """Plain curriculum content for one lesson — same LessonOut shape the
@@ -408,8 +432,8 @@ def get_lesson(request: HttpRequest, lesson_id: int):
 @router.patch('/lessons/{lesson_id}', response=LessonOut, operation_id='update_tutor_lesson')
 def update_lesson(request: HttpRequest, lesson_id: int, payload: LessonUpdateIn):
     """Inline editing from the tutor's Lesson detail page — title, content,
-    task_content, lesson_type, grading_type. Quiz questions/choices aren't
-    editable here yet."""
+    task_content, synopsis, lesson_type, grading_type. Quiz questions/choices
+    aren't editable here yet."""
     require_csrf(request)
     lesson = get_object_or_404(Lesson.objects.select_related('topic__subject'), id=lesson_id)
     services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
@@ -422,9 +446,10 @@ def update_lesson(request: HttpRequest, lesson_id: int, payload: LessonUpdateIn)
     lesson.title = payload.title
     lesson.content = payload.content
     lesson.task_content = payload.task_content
+    lesson.synopsis = payload.synopsis
     lesson.lesson_type = payload.lesson_type
     lesson.grading_type = payload.grading_type
-    lesson.save(update_fields=['title', 'content', 'task_content', 'lesson_type', 'grading_type'])
+    lesson.save(update_fields=['title', 'content', 'task_content', 'synopsis', 'lesson_type', 'grading_type'])
     return lesson
 
 

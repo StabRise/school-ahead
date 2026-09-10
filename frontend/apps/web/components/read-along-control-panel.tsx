@@ -8,6 +8,7 @@ export const LANGUAGE_OPTIONS: { value: SpeechLanguage; labelKey: string }[] = [
   { value: "pl", labelKey: "languagePolish" },
   { value: "en", labelKey: "languageEnglish" },
   { value: "uk", labelKey: "languageUkrainian" },
+  { value: "es", labelKey: "languageSpanish" },
 ];
 
 // Bottom fixed playback bar for a loaded ReadAlongPlayer: restart, previous/

@@ -43,6 +43,7 @@ import { LESSON_TYPE_ICON, LESSON_TYPE_ICON_COLOR } from "@/components/simple/le
 import { formatGradeLabel, formatShortDate } from "@/components/simple/format";
 import { StatusBadge } from "@/components/status-badge";
 import { AssignStudentDialog } from "./assign-student-dialog";
+import { LessonEditorDialog } from "./lesson-editor-dialog";
 import { LoadLessonsJsonDialog } from "./load-lessons-json-dialog";
 import { PlanSubjectLessonsDialog } from "./plan-subject-lessons-dialog";
 import { RescheduleAssignmentDialog } from "./reschedule-assignment-dialog";
@@ -520,6 +521,19 @@ function TopicSection({
         <span className="text-xs font-medium text-gray-500">{topic.title}</span>
         <div className="flex shrink-0 items-center gap-2">
           {blocks.length > 1 && <TopicBlockSelect topic={topic} blocks={blocks} subjectId={subjectId} />}
+          <LessonEditorDialog
+            topicId={topic.id}
+            onCreated={onLessonListChanged}
+            trigger={
+              <button
+                type="button"
+                className="flex items-center gap-1 rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <Plus className="h-3 w-3" />
+                {t("addLessonButton")}
+              </button>
+            }
+          />
           <button
             type="button"
             onClick={handleDelete}

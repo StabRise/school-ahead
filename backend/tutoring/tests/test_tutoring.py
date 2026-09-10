@@ -875,6 +875,84 @@ class TestLessonDetail:
         assert response.status_code == 403
 
 
+class TestCreateLesson:
+    def test_create_lesson(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        Lesson.objects.create(
+            topic=topic, order_index=1, title='Existing', lesson_type=LessonType.THEORY, grading_type='binary',
+        )
+
+        response = api_client.post(
+            '/tutor/lessons',
+            json={
+                'topic_id': topic.id,
+                'title': 'New lesson',
+                'content': '# Theory',
+                'task_content': '',
+                'synopsis': '# Notes',
+                'lesson_type': 'theory',
+                'grading_type': 'binary',
+            },
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['title'] == 'New lesson'
+        assert response.data['topic_id'] == topic.id
+        assert response.data['order_index'] == 2
+        assert response.data['synopsis'] == '# Notes'
+
+        lesson = Lesson.objects.get(topic=topic, title='New lesson')
+        assert lesson.content == '# Theory'
+        assert lesson.synopsis == '# Notes'
+
+    def test_create_lesson_rejects_invalid_lesson_type(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+
+        response = api_client.post(
+            '/tutor/lessons',
+            json={
+                'topic_id': topic.id, 'title': 'New lesson', 'content': '', 'task_content': '',
+                'lesson_type': 'bogus', 'grading_type': 'binary',
+            },
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 400
+
+    def test_create_lesson_rejects_invalid_grading_type(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+
+        response = api_client.post(
+            '/tutor/lessons',
+            json={
+                'topic_id': topic.id, 'title': 'New lesson', 'content': '', 'task_content': '',
+                'lesson_type': 'theory', 'grading_type': 'bogus',
+            },
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 400
+
+    def test_create_lesson_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+
+        response = api_client.post(
+            '/tutor/lessons',
+            json={
+                'topic_id': topic.id, 'title': 'Hacked', 'content': '', 'task_content': '',
+                'lesson_type': 'theory', 'grading_type': 'binary',
+            },
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 403
+        assert not Lesson.objects.filter(topic=topic, title='Hacked').exists()
+
+
 class TestUpdateLesson:
     def test_update_lesson(self, api_client, auth_header, tutor, subject):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
@@ -890,6 +968,7 @@ class TestUpdateLesson:
                 'title': 'Updated title',
                 'content': '# New content',
                 'task_content': 'Do the thing',
+                'synopsis': '# My notes',
                 'lesson_type': 'with_task',
                 'grading_type': 'points',
             },
@@ -900,10 +979,12 @@ class TestUpdateLesson:
         assert response.data['title'] == 'Updated title'
         assert response.data['content'] == '# New content'
         assert response.data['task_content'] == 'Do the thing'
+        assert response.data['synopsis'] == '# My notes'
         assert response.data['lesson_type'] == 'with_task'
         assert response.data['grading_type'] == 'points'
 
         lesson.refresh_from_db()
+        assert lesson.synopsis == '# My notes'
         assert lesson.title == 'Updated title'
         assert lesson.grading_type == 'points'
 

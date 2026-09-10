@@ -38,6 +38,7 @@ from .schemas import (
     SubmitQuizIn,
     SubmitQuizOut,
     TopicLessonOut,
+    UpdateSynopsisIn,
 )
 
 router = Router(tags=['student-lessons'], auth=CookieOrBearerJWTAuth())
@@ -80,6 +81,23 @@ def list_my_assignable_lessons(request: HttpRequest):
 def get_student_lesson(request: HttpRequest, student_lesson_id: int):
     student_lesson = _get_owned(request, student_lesson_id)
     services.ensure_started(student_lesson, request.auth)
+    return student_lesson
+
+
+@router.patch(
+    '/{student_lesson_id}/synopsis',
+    response=StudentLessonOut,
+    operation_id='update_student_lesson_synopsis',
+)
+def update_synopsis(request: HttpRequest, student_lesson_id: int, payload: UpdateSynopsisIn):
+    """A student saving their own edited copy of the teacher's конспект
+    (Lesson.synopsis) — see StudentLesson.synopsis_notes and
+    StudentLessonOut.resolve_synopsis. Once saved, it's the student's own
+    copy and stops following later edits to lesson.synopsis."""
+    require_csrf(request)
+    student_lesson = _get_owned(request, student_lesson_id)
+    student_lesson.synopsis_notes = payload.content
+    student_lesson.save(update_fields=['synopsis_notes'])
     return student_lesson
 
 

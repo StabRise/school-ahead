@@ -4,17 +4,12 @@ import { useEffect, useState, type RefObject } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { BookPlus, Check, Languages, X } from "lucide-react";
 import { isTranslatorSupported, translateText } from "@/lib/chrome-translator";
+import { DICTIONARY_MAX_WORDS, wordCount } from "@/lib/dictionary-word-count";
 import { useAddDictionaryItem } from "@school-ahead/api-client/browser/dictionary/dictionary";
 import type { SpeechLanguage } from "@school-ahead/api-client";
 import { flatSentencesOf, type ReadingBlock } from "@/lib/reading-blocks";
 import type { SelectionReadTarget } from "@/lib/use-read-along-player";
 import type { TranslationScope } from "@school-ahead/api-client";
-
-const DICTIONARY_MAX_WORDS = 5;
-
-function wordCount(text: string): number {
-  return text.split(/\s+/).filter(Boolean).length;
-}
 
 // Renders a loaded ReadAlongPlayer's content: heading/paragraph/image
 // blocks, each sentence its own highlightable span, plus the floating
