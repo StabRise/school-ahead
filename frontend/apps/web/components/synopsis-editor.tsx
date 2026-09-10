@@ -24,11 +24,15 @@ export function SynopsisEditor({
   onChange,
   isSaving,
   enableDictionary = true,
+  studentLessonId,
 }: {
   value: string;
   onChange: (value: string) => void;
   isSaving?: boolean;
   enableDictionary?: boolean;
+  // Enables the sibling "add to cards" button — omitted by the tutor's own
+  // panel (tutor/lesson-synopsis-panel.tsx), which has no StudentProfile.
+  studentLessonId?: number;
 }) {
   const t = useTranslations("LessonWizard");
   // LANGUAGE_OPTIONS' labelKeys are ReadAlong namespace keys (see
@@ -76,7 +80,7 @@ export function SynopsisEditor({
 
       {mode === "preview" ? (
         <div className="min-h-32 rounded-md border border-gray-200 bg-gray-50 p-3">
-          <TranslatableContent sourceLanguage={sourceLanguage} enableDictionary={enableDictionary}>
+          <TranslatableContent sourceLanguage={sourceLanguage} enableDictionary={enableDictionary} studentLessonId={studentLessonId}>
             <Markdown content={value} embedYoutube embedPdf />
           </TranslatableContent>
         </div>

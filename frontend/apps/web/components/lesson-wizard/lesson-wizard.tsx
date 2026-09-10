@@ -327,7 +327,7 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
               synopsis={data.synopsis}
             />
           ) : (
-            <LessonContent content={data.lesson.content} materials={data.lesson.materials} />
+            <LessonContent content={data.lesson.content} materials={data.lesson.materials} studentLessonId={studentLessonId} />
           )}
           <div className="flex justify-end">
             <button
@@ -341,7 +341,7 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
           </div>
         </div>
       ) : effectiveStep === "readingMaterials" ? (
-        <MaterialsStep materials={data.reading_materials} onChanged={refetch} />
+        <MaterialsStep materials={data.reading_materials} onChanged={refetch} studentLessonId={studentLessonId} />
       ) : effectiveStep === "assessment" ? (
         <AssessmentStep studentLesson={data} onChanged={refetch} />
       ) : effectiveStep === "comments" ? (

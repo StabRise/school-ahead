@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, Layers, List, ListChecks, Printer } from "lucide-react";
 import { LocaleLink as Link } from "./kit/locale-link";
@@ -30,6 +31,8 @@ const ALL_TOPICS = "all";
 export function FlashcardGamePage({ group, set }: { group: string; set: string }) {
   const t = useTranslations("FlashcardsGame");
   const { groupTitle, set: flashcardSet, isLoading } = useFlashcardSet(group, set);
+  const searchParams = useSearchParams();
+  const urlTopic = searchParams.get("topic");
 
   // Persisted (localStorage) but specific to this group+set — unlike
   // mode/frontConfig/backConfig below, narrowing "math/7 klasa" to one
@@ -38,18 +41,46 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
   const topicByCardSet = useFlashcardTopicStore((s) => s.topicByCardSet);
   const setTopicForCardSet = useFlashcardTopicStore((s) => s.setTopic);
   const persistedTopic = topicByCardSet[flashcardTopicKey(group, set)] ?? ALL_TOPICS;
-  // A topic persisted from an earlier version of this set might not exist
-  // anymore (e.g. a renamed/removed category) — fall back to "all" rather
-  // than silently filtering everything out, same self-heal other games'
-  // persisted settings use.
-  const topic =
-    persistedTopic === ALL_TOPICS || !flashcardSet || flashcardSet.categories.some((c) => c.title === persistedTopic)
-      ? persistedTopic
-      : ALL_TOPICS;
   const setTopic = useCallback(
     (value: string) => setTopicForCardSet(group, set, value),
     [setTopicForCardSet, group, set],
   );
+
+  // A ?topic=... deep link (the Subject page's "play this lesson's cards"
+  // button, matched against a category title) overrides the persisted
+  // topic exactly once the set has loaded, then persists like any other
+  // topic choice — applied only once (urlTopicApplied) so it doesn't fight
+  // a student's own later topic changes on the same visit. The flag itself
+  // is flipped as a render-time state adjustment (see lesson-wizard.tsx's
+  // landingTabApplied / https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  // rather than inside an effect; the actual setTopic() call is a genuine
+  // external-store write, so that part stays in its own effect, keyed off
+  // the flag flipping rather than re-deriving "was this the first load".
+  const [urlTopicApplied, setUrlTopicApplied] = useState(false);
+  const urlTopicMatches = urlTopic !== null && (flashcardSet?.categories.some((c) => c.title === urlTopic) ?? false);
+  if (!urlTopicApplied && flashcardSet) {
+    setUrlTopicApplied(true);
+  }
+  useEffect(() => {
+    if (urlTopicApplied && urlTopicMatches) setTopic(urlTopic!);
+    // Fire only right when urlTopicApplied flips true, not on every later
+    // persisted-topic change (urlTopicMatches/urlTopic/setTopic are stable
+    // for the lifetime of that one application).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlTopicApplied]);
+
+  // A topic persisted from an earlier version of this set might not exist
+  // anymore (e.g. a renamed/removed category) — fall back to "all" rather
+  // than silently filtering everything out, same self-heal other games'
+  // persisted settings use. An unapplied but matching URL topic wins over
+  // the persisted value so the deep link doesn't flash the old topic for
+  // one render before the effect above commits it.
+  const topic =
+    !urlTopicApplied && urlTopicMatches
+      ? urlTopic!
+      : persistedTopic === ALL_TOPICS || !flashcardSet || flashcardSet.categories.some((c) => c.title === persistedTopic)
+        ? persistedTopic
+        : ALL_TOPICS;
 
   // Persisted (localStorage) and shared across every card set the student
   // opens — see stores/flashcards-store.ts.

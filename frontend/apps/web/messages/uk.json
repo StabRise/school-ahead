@@ -857,6 +857,9 @@
     "langFilterLabel": "Мова",
     "langFilterAll": "Усі мови"
   },
+  "Cards": {
+    "addButton": "Додати до карток"
+  },
   "SubjectDetail": {
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити предмет. Спробуйте ще раз.",
@@ -892,7 +895,15 @@
     "noTasksInTopic": "У цій темі ще немає завдань.",
     "tasksProgress": "{completed}/{total} завдань виконано",
     "markDoneButton": "Позначити виконаним",
-    "markNotDoneButton": "Позначити невиконаним"
+    "markNotDoneButton": "Позначити невиконаним",
+    "cardsTab": "Картки",
+    "noCards": "Карток ще немає. Додавайте слова під час читання уроків.",
+    "noCardsInTopic": "У цій темі ще немає карток.",
+    "cardsCount": "{count} карток",
+    "playCardsButton": "Грати в картки",
+    "editButton": "Редагувати переклад",
+    "saveButton": "Зберегти",
+    "cancelButton": "Скасувати"
   },
   "SubjectPlan": {
     "loading": "Завантаження...",

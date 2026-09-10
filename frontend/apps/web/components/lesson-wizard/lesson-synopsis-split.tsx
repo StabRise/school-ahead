@@ -101,7 +101,7 @@ export function LessonSynopsisSplit({
   return (
     <div ref={containerRef} className="flex h-[70vh] w-full">
       <div className="overflow-y-auto pr-3" style={{ width: `${leftPercent}%` }}>
-        <LessonContent content={content} materials={materials} />
+        <LessonContent content={content} materials={materials} studentLessonId={studentLessonId} />
       </div>
 
       {/* stopPropagation not needed — this sits between two independent
@@ -117,7 +117,12 @@ export function LessonSynopsisSplit({
       />
 
       <div className="overflow-y-auto pl-3" style={{ width: `${100 - leftPercent}%` }}>
-        <SynopsisEditor value={notes} onChange={handleNotesChange} isSaving={updateSynopsis.isPending} />
+        <SynopsisEditor
+          value={notes}
+          onChange={handleNotesChange}
+          isSaving={updateSynopsis.isPending}
+          studentLessonId={studentLessonId}
+        />
       </div>
     </div>
   );
