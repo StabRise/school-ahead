@@ -19,8 +19,9 @@ import { MarkdownEditor } from "@/components/markdown-editor";
 import { LessonContent } from "@/components/lesson-wizard/lesson-content";
 import { LESSON_TYPE_ICON } from "@/components/simple/lesson-type-icon";
 import { formatShortDate, resolveStatusLabel } from "@/components/simple/format";
-import { Monitor } from "lucide-react";
+import { Monitor, NotebookText } from "lucide-react";
 import { AssignStudentDialog } from "./assign-student-dialog";
+import { LessonSynopsisPanel } from "./lesson-synopsis-panel";
 
 const LESSON_TYPE_OPTIONS = [
   { value: "theory", labelKey: "contentTheory" },
@@ -186,7 +187,12 @@ export function TutorLessonDetailPage({ lessonId }: { lessonId: number }) {
   const t = useTranslations("TutorLessonDetail");
   const tContentType = useTranslations("SubjectDetail");
   const tStatus = useTranslations("LessonStatus");
+  // Reuses the student wizard's own show/hide-конспект labels rather than
+  // duplicating them under a new key, same cross-namespace pattern as
+  // tContentType above.
+  const tSynopsis = useTranslations("LessonWizard");
   const [isEditing, setIsEditing] = useState(false);
+  const [showSynopsis, setShowSynopsis] = useState(false);
 
   const lessonQuery = useGetTutorLesson(lessonId);
   const studentsQuery = useListTutorLessonStudents(lessonId);
@@ -243,6 +249,20 @@ export function TutorLessonDetailPage({ lessonId }: { lessonId: number }) {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
+                onClick={() => setShowSynopsis((value) => !value)}
+                aria-pressed={showSynopsis}
+                title={showSynopsis ? tSynopsis("hideSynopsisButton") : tSynopsis("showSynopsisButton")}
+                aria-label={showSynopsis ? tSynopsis("hideSynopsisButton") : tSynopsis("showSynopsisButton")}
+                className={`flex h-9 w-9 items-center justify-center rounded-md border ${
+                  showSynopsis
+                    ? "border-gray-900 bg-gray-900 text-white"
+                    : "border-gray-300 text-gray-500 hover:bg-gray-50"
+                }`}
+              >
+                <NotebookText className="size-4" />
+              </button>
+              <button
+                type="button"
                 onClick={() => setIsEditing(true)}
                 className="shrink-0 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
@@ -252,6 +272,8 @@ export function TutorLessonDetailPage({ lessonId }: { lessonId: number }) {
             </div>
           </div>
         </div>
+
+        {showSynopsis && <LessonSynopsisPanel key={lesson.id} lesson={lesson} />}
 
         <Card className="flex flex-col gap-4">
           <LessonContent content={lesson.content} materials={lesson.materials} />

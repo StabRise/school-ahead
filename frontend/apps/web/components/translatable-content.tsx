@@ -44,9 +44,14 @@ function getSampleText(): string | undefined {
 // elsewhere on the page (e.g. a sibling textarea).
 export function TranslatableContent({
   sourceLanguage,
+  enableDictionary = true,
   children,
 }: {
   sourceLanguage: SpeechLanguage;
+  // Off for viewers with no personal dictionary of their own (e.g. a tutor
+  // previewing their own lesson's конспект) — the backend endpoint requires
+  // a StudentProfile, so showing this button there would just fail.
+  enableDictionary?: boolean;
   children: ReactNode;
 }) {
   const t = useTranslations("ReadAlong");
@@ -147,6 +152,7 @@ export function TranslatableContent({
   };
 
   const canAddToDictionary =
+    enableDictionary &&
     translation !== null &&
     !translation.loading &&
     !translation.error &&
