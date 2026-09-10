@@ -48,8 +48,8 @@ function langLabel(t: (key: string) => string, lang: string) {
 
 // Flag emoji shown next to a dictionary item's text — a quicker visual cue
 // than a text pill for the item's source language. Matches LANGUAGE_OPTIONS'
-// three supported languages; falls back to the raw code for anything else.
-const LANG_FLAG: Record<string, string> = { en: "🇬🇧", uk: "🇺🇦", pl: "🇵🇱" };
+// supported languages; falls back to the raw code for anything else.
+const LANG_FLAG: Record<string, string> = { en: "🇬🇧", uk: "🇺🇦", pl: "🇵🇱", es: "🇪🇸" };
 
 function langFlag(lang: string): string {
   return LANG_FLAG[lang] ?? lang;

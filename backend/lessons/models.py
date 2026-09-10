@@ -161,6 +161,7 @@ class MaterialLanguage(models.TextChoices):
     EN = 'en', 'English'
     UK = 'uk', 'Ukrainian'
     PL = 'pl', 'Polish'
+    ES = 'es', 'Spanish'
 
 
 class StudentLessonMaterial(models.Model):
