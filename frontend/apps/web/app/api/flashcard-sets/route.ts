@@ -1,7 +1,7 @@
 import { readdir, readFile } from "fs/promises";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
-import { isValidFlashcardSlug, type FlashcardSet, type FlashcardSetSummary } from "@/lib/flashcard-types";
+import { isValidFlashcardSlug, type FlashcardSet, type FlashcardSetSummary } from "@school-ahead/flashcards/types";
 
 // One subject group's set picker (docs/preschool/games/cards.md) — every
 // subfolder of public/static/cards/<group> that has a set.json in it (e.g.

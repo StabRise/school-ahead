@@ -1,4 +1,4 @@
-import { FlashcardsSetsPage } from "@/components/flashcards/flashcards-sets-page";
+import { FlashcardsSetsPage } from "@school-ahead/flashcards";
 
 export default async function CardsGroupRoutePage({ params }: { params: Promise<{ group: string }> }) {
   const { group } = await params;

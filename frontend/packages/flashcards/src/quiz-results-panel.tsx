@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { BarChart3 } from "lucide-react";
-import { useFlashcardQuizResultsStore } from "@/stores/flashcard-quiz-results-store";
+import { useFlashcardQuizResultsStore } from "./stores/flashcard-quiz-results-store";
 
 const DATE_FORMAT = new Intl.DateTimeFormat("uk-UA", {
   day: "numeric",

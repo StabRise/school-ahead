@@ -1,7 +1,7 @@
 import { readFile } from "fs/promises";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
-import { isValidFlashcardSlug, type FlashcardSet } from "@/lib/flashcard-types";
+import { isValidFlashcardSlug, type FlashcardSet } from "@school-ahead/flashcards/types";
 
 // Raw content of one set.json (docs/preschool/games/cards.md) — the direct
 // link a lesson embeds (games/cards/<group>/<set>) reads this on load.

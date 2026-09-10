@@ -4,9 +4,9 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Check, Flag } from "lucide-react";
-import type { FlashcardCategory, FlashcardItem } from "@/lib/flashcards";
-import type { FlashcardStatus } from "@/stores/flashcard-progress-store";
-import { playDifficultSound, playKnowSound } from "@/lib/flashcard-sounds";
+import type { FlashcardCategory, FlashcardItem } from "./lib/flashcards";
+import type { FlashcardStatus } from "./stores/flashcard-progress-store";
+import { playDifficultSound, playKnowSound } from "./lib/flashcard-sounds";
 import { DefinitionMarkdown } from "./card-face-content";
 
 type ListFilter = "all" | "known" | "difficult";

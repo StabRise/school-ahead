@@ -2,10 +2,11 @@
 
 import { useEffect, useState, type RefObject } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { BookPlus, Check, Languages, X } from "lucide-react";
+import { BookPlus, Check, Languages, Layers, X } from "lucide-react";
 import { isTranslatorSupported, translateText } from "@/lib/chrome-translator";
 import { DICTIONARY_MAX_WORDS, wordCount } from "@/lib/dictionary-word-count";
 import { useAddDictionaryItem } from "@school-ahead/api-client/browser/dictionary/dictionary";
+import { useAddStudentCard } from "@school-ahead/api-client/browser/cards/cards";
 import type { SpeechLanguage } from "@school-ahead/api-client";
 import { flatSentencesOf, type ReadingBlock } from "@/lib/reading-blocks";
 import type { SelectionReadTarget } from "@/lib/use-read-along-player";
@@ -26,6 +27,7 @@ export function ReadAlongContent({
   sourceLanguage,
   translationScope = "word",
   translateOnSelect = false,
+  studentLessonId,
 }: {
   blocks: ReadingBlock[];
   speakingIndex: number | null;
@@ -39,13 +41,16 @@ export function ReadAlongContent({
   translationScope?: TranslationScope;
   /** Translates as soon as text is selected instead of waiting for the translate icon button click — same settings section. */
   translateOnSelect?: boolean;
+  /** Enables the sibling "add to cards" button, alongside "add to dictionary" — needs a lesson to file the resulting flashcard under (see backend/cards/). Omitted by the standalone /read-along tool, which has no lesson context. */
+  studentLessonId?: number;
 }) {
   const t = useTranslations("ReadAlong");
   const tDict = useTranslations("Dictionary");
+  const tCards = useTranslations("Cards");
   const locale = useLocale() as SpeechLanguage;
   const [translation, setTranslation] = useState<{
     original: string;
-    /** The literal substring the student selected — always just the word/phrase, regardless of translationScope. Used for the "add to dictionary" button (both its word-count gating and its `text` field). */
+    /** The literal substring the student selected — always just the word/phrase, regardless of translationScope. Used for the "add to dictionary"/"add to cards" buttons (word-count gating, and their own `text`/`term` fields). */
     selectedText: string;
     text: string;
     loading: boolean;
@@ -53,10 +58,12 @@ export function ReadAlongContent({
   } | null>(null);
   const addDictionaryItem = useAddDictionaryItem();
   const [dictionaryItemAdded, setDictionaryItemAdded] = useState(false);
+  const addStudentCard = useAddStudentCard();
+  const [cardAdded, setCardAdded] = useState(false);
 
-  // Clears any shown translation (and the "added to dictionary" checkmark)
-  // as soon as the selection it was for changes (cleared, or moved to
-  // different text) — a render-time state adjustment (see
+  // Clears any shown translation (and the "added" checkmarks) as soon as
+  // the selection it was for changes (cleared, or moved to different text)
+  // — a render-time state adjustment (see
   // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
   // rather than an effect, same pattern as lesson-wizard.tsx's landingTabApplied.
   const [lastSelectionTarget, setLastSelectionTarget] = useState(selectionTarget);
@@ -64,6 +71,7 @@ export function ReadAlongContent({
     setLastSelectionTarget(selectionTarget);
     setTranslation(null);
     setDictionaryItemAdded(false);
+    setCardAdded(false);
   }
 
   const canTranslate =
@@ -175,6 +183,31 @@ export function ReadAlongContent({
     wordCount(translation.selectedText) >= 1 &&
     wordCount(translation.selectedText) <= DICTIONARY_MAX_WORDS;
 
+  // Saves the translated word/phrase as a personal flashcard — no
+  // word-count cap (unlike dictionary; a card's term is often a full
+  // phrase already, same as every static card set), and `definition` is
+  // the full sentence in the *source* language (not translated), same
+  // convention every static set already uses.
+  const handleAddToCards = () => {
+    if (!translation || !sourceLanguage || studentLessonId === undefined) return;
+    const { selectedText } = translation;
+    const wordTranslation =
+      translationScope === "word" ? Promise.resolve(translation.text) : translateText(selectedText, sourceLanguage, locale);
+    const definition = getFullSentenceText() ?? selectedText;
+
+    wordTranslation
+      .then((wordTranslationResult) => {
+        addStudentCard.mutate(
+          { data: { student_lesson_id: studentLessonId, term: selectedText, translation: wordTranslationResult, definition } },
+          { onSuccess: () => setCardAdded(true) },
+        );
+      })
+      .catch(() => {});
+  };
+
+  const canAddToCards =
+    studentLessonId !== undefined && translation !== null && !translation.loading && !translation.error;
+
   let runningIndex = 0;
 
   return (
@@ -225,6 +258,19 @@ export function ReadAlongContent({
                       ) : (
                         <BookPlus className="size-4" />
                       )}
+                    </button>
+                  )}
+                  {canAddToCards && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={handleAddToCards}
+                      disabled={addStudentCard.isPending || cardAdded}
+                      aria-label={tCards("addButton")}
+                      title={tCards("addButton")}
+                      className="text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed"
+                    >
+                      {cardAdded ? <Check className="size-4 text-green-600" /> : <Layers className="size-4" />}
                     </button>
                   )}
                   <button

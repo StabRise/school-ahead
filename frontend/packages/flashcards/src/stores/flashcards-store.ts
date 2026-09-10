@@ -6,7 +6,7 @@ import {
   DEFAULT_FRONT_CONFIG,
   type CardFaceConfig,
   type CardFlipOrientation,
-} from "@/components/flashcards/card-face-config";
+} from "../card-face-config";
 
 export type FlashcardGameMode = "learn" | "quiz" | "list";
 

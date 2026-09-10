@@ -10,6 +10,7 @@
 @source "../../../packages/preschool-games/src";
 @source "../../../packages/preschool-ui/src";
 @source "../../../packages/house-3d/src";
+@source "../../../packages/flashcards/src";
 
 :root {
   --background: #ffffff;
@@ -36,7 +37,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Printable flashcards (components/flashcards/flashcard-print-page.tsx) —
+/* Printable flashcards (@school-ahead/flashcards' flashcard-print-page.tsx) —
    each .print-sheet is one physical A4 page; forcing a page break before
    every one but the first keeps every front/back sheet one-per-page
    without an extra blank page at the end. break-before has no effect

@@ -13,12 +13,16 @@ minimalist (slate palette, no gradients, no mascots, no bounce animations,
 no diamond/gamification rewards) — nothing about it should read as
 "childish".
 
-Implementation lives entirely in `frontend/apps/web` (not the
-`preschool-games` package): route shells under
-`app/[locale]/(student)/games/cards/`, page components under
-`components/flashcards/`, static-content types/fetch hooks in
-`lib/flashcard-types.ts`/`lib/flashcards.ts`, and two client-only Zustand
-stores under `stores/`.
+Implementation lives in its own workspace package,
+`frontend/packages/flashcards` (`@school-ahead/flashcards` — a separate
+package from `preschool-games`, despite the shared "games" framing): page
+components at its `src/` root, static-content types/fetch hooks in
+`src/lib/flashcard-types.ts`/`src/lib/flashcards.ts`, and its Zustand
+stores under `src/stores/`. `frontend/apps/web` only keeps the thin route
+shells under `app/[locale]/(student)/games/cards/` (which render the
+package's page components) and the `app/api/flashcard-*` Route Handlers
+(which read `public/static/cards/**` off disk and import types from the
+package's `@school-ahead/flashcards/types` subpath export).
 
 ## 2. Content structure
 
@@ -179,7 +183,7 @@ back to whatever fields the card does have, rather than rendering blank —
 the same graceful-degradation rule the content format applies to a missing
 image.
 
-This preference is persisted client-side (`stores/flashcards-store.ts`, a
+This preference is persisted client-side (`src/stores/flashcards-store.ts`, a
 Zustand store with `persist`, localStorage-backed) and shared across every
 set the student opens — it's a personal study preference, not a per-set
 setting.
@@ -187,7 +191,7 @@ setting.
 ## 7. Quiz results history
 
 Every completed Тест round is recorded client-side
-(`stores/flashcard-quiz-results-store.ts`): group, set, topic, score,
+(`src/stores/flashcard-quiz-results-store.ts`): group, set, topic, score,
 total, and a completion timestamp, capped at the 200 most recent attempts
 across all sets. The 📊 button opens a popup listing past attempts *for
 the currently open set only*, newest first, each row showing the date and

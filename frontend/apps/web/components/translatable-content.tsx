@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { BookPlus, Check, Languages, X } from "lucide-react";
+import { BookPlus, Check, Languages, Layers, X } from "lucide-react";
 import { isTranslatorSupported, translateText } from "@/lib/chrome-translator";
 import { DICTIONARY_MAX_WORDS, wordCount } from "@/lib/dictionary-word-count";
 import { useAddDictionaryItem } from "@school-ahead/api-client/browser/dictionary/dictionary";
+import { useAddStudentCard } from "@school-ahead/api-client/browser/cards/cards";
 import { useAuthStore } from "@school-ahead/api-client";
 import type { SpeechLanguage } from "@school-ahead/api-client";
 
@@ -44,13 +45,25 @@ function getSampleText(): string | undefined {
 // elsewhere on the page (e.g. a sibling textarea).
 export function TranslatableContent({
   sourceLanguage,
+  enableDictionary = true,
+  studentLessonId,
   children,
 }: {
   sourceLanguage: SpeechLanguage;
+  // Off for viewers with no personal dictionary of their own (e.g. a tutor
+  // previewing their own lesson's конспект) — the backend endpoint requires
+  // a StudentProfile, so showing this button there would just fail.
+  enableDictionary?: boolean;
+  // Enables the sibling "add to cards" button — needs a lesson to file the
+  // resulting flashcard under (Subject → Topic → Lesson, see
+  // backend/cards/), so it's only offered where one is in scope. Omit (or
+  // leave undefined) anywhere a tutor/no-lesson context renders this.
+  studentLessonId?: number;
   children: ReactNode;
 }) {
   const t = useTranslations("ReadAlong");
   const tDict = useTranslations("Dictionary");
+  const tCards = useTranslations("Cards");
   const locale = useLocale() as SpeechLanguage;
   const translateOnSelect = useAuthStore((state) => state.user?.translateOnSelect ?? false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -58,6 +71,8 @@ export function TranslatableContent({
   const [translation, setTranslation] = useState<{ original: string; text: string; loading: boolean; error: boolean } | null>(null);
   const addDictionaryItem = useAddDictionaryItem();
   const [dictionaryItemAdded, setDictionaryItemAdded] = useState(false);
+  const addStudentCard = useAddStudentCard();
+  const [cardAdded, setCardAdded] = useState(false);
 
   const canTranslate = sourceLanguage !== locale && isTranslatorSupported();
 
@@ -76,6 +91,7 @@ export function TranslatableContent({
         setTarget(null);
         setTranslation(null);
         setDictionaryItemAdded(false);
+        setCardAdded(false);
         return;
       }
 
@@ -86,6 +102,7 @@ export function TranslatableContent({
       });
       setTranslation(null);
       setDictionaryItemAdded(false);
+      setCardAdded(false);
     };
 
     document.addEventListener("selectionchange", handleSelectionChange);
@@ -147,11 +164,37 @@ export function TranslatableContent({
   };
 
   const canAddToDictionary =
+    enableDictionary &&
     translation !== null &&
     !translation.loading &&
     !translation.error &&
     wordCount(translation.original) >= 1 &&
     wordCount(translation.original) <= DICTIONARY_MAX_WORDS;
+
+  // Saves the translated word/phrase as a personal flashcard — no
+  // word-count cap (unlike dictionary): a card's `term` is commonly a full
+  // phrase already (e.g. "¡Cómo estás?"), matching every static card set.
+  // `definition` is the sample sentence in the *source* language (not
+  // translated) — a card's definition is normally in the term's own
+  // language, same convention every static set already uses.
+  const handleAddToCards = () => {
+    if (!translation || studentLessonId === undefined) return;
+    const sample = getSampleText() ?? translation.original;
+    addStudentCard.mutate(
+      {
+        data: {
+          student_lesson_id: studentLessonId,
+          term: translation.original,
+          translation: translation.text,
+          definition: sample,
+        },
+      },
+      { onSuccess: () => setCardAdded(true) },
+    );
+  };
+
+  const canAddToCards =
+    studentLessonId !== undefined && translation !== null && !translation.loading && !translation.error;
 
   return (
     <div ref={containerRef}>
@@ -193,6 +236,19 @@ export function TranslatableContent({
                       ) : (
                         <BookPlus className="size-4" />
                       )}
+                    </button>
+                  )}
+                  {canAddToCards && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={handleAddToCards}
+                      disabled={addStudentCard.isPending || cardAdded}
+                      aria-label={tCards("addButton")}
+                      title={tCards("addButton")}
+                      className="text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed"
+                    >
+                      {cardAdded ? <Check className="size-4 text-green-600" /> : <Layers className="size-4" />}
                     </button>
                   )}
                   <button

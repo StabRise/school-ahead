@@ -1,4 +1,4 @@
-import { FlashcardPrintPage } from "@/components/flashcards/flashcard-print-page";
+import { FlashcardPrintPage } from "@school-ahead/flashcards";
 
 export default async function CardsSetPrintRoutePage({
   params,

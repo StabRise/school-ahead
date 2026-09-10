@@ -1,7 +1,7 @@
 import { readdir, readFile } from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
-import type { FlashcardGroupSummary } from "@/lib/flashcard-types";
+import type { FlashcardGroupSummary } from "@school-ahead/flashcards/types";
 
 // The "Cards" study flashcards game's subject picker (docs/preschool/games/
 // cards.md) — every subfolder of public/static/cards that has a title.json

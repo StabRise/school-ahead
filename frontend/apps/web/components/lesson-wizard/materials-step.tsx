@@ -35,11 +35,13 @@ function MaterialDetail({
   material,
   onBack,
   onChanged,
+  studentLessonId,
 }: {
   material: StudentLessonMaterialOut;
   onBack?: () => void;
   /** Called after the material's saved content changes (e.g. a deletion) — lets the wizard refetch so re-opening this material later reflects it too. */
   onChanged: () => void;
+  studentLessonId: number;
 }) {
   const t = useTranslations("MaterialsStep");
   const player = useReadAlongPlayer(true);
@@ -201,6 +203,7 @@ function MaterialDetail({
           sourceLanguage={player.language}
           translationScope={translationScope}
           translateOnSelect={translateOnSelect}
+          studentLessonId={studentLessonId}
         />
         <AnnotationCanvas
           containerRef={contentRef}
@@ -256,10 +259,12 @@ function MaterialDetail({
 export function MaterialsStep({
   materials,
   onChanged,
+  studentLessonId,
 }: {
   materials: StudentLessonMaterialOut[];
   /** Called when a material's saved content changes (e.g. a deletion) — the wizard should refetch its StudentLesson data. */
   onChanged: () => void;
+  studentLessonId: number;
 }) {
   const t = useTranslations("MaterialsStep");
   const router = useRouter();
@@ -293,6 +298,7 @@ export function MaterialsStep({
         material={selected}
         onBack={materials.length > 1 ? () => setSelectedId(null) : undefined}
         onChanged={onChanged}
+        studentLessonId={studentLessonId}
       />
     );
   }

@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'scheduling',
     'tts',
     'dictionary',
+    'cards',
 ]
 
 MIDDLEWARE = [

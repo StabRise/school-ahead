@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Monitor } from "lucide-react";
+import { Check, Monitor, Pencil, Play, X } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { useGetSubject, useListSubjectTopics } from "@school-ahead/api-client/browser/academics/academics";
 import {
@@ -11,6 +11,12 @@ import {
   useListStudentSubjectLessons,
 } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import { useGetSubjectTaskProgress, useListSubjectTasks } from "@school-ahead/api-client/browser/tasks/tasks";
+import {
+  useGetMyCardSet,
+  useListMyCardSets,
+  useUpdateStudentCardTranslation,
+} from "@school-ahead/api-client/browser/cards/cards";
+import type { CardSetSummaryOut, StudentCardOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { ProgressBar } from "@/components/progress-bar";
 import { Tabs } from "@/components/tabs";
@@ -178,6 +184,203 @@ function SimpleTopicSection({
   );
 }
 
+// One saved card (term + translation) within a lesson's personal-cards
+// list — mirrors DictionaryItemRow's inline-edit-translation pattern
+// exactly (dictionary-page.tsx), backed by the same kind of endpoint
+// (cards/api.py::update_card_translation).
+function CardsCardRow({ card }: { card: StudentCardOut }) {
+  const t = useTranslations("SubjectDetail");
+  const updateTranslation = useUpdateStudentCardTranslation();
+  const [editing, setEditing] = useState(false);
+  const [draftTranslation, setDraftTranslation] = useState(card.translation);
+
+  const startEditing = () => {
+    setDraftTranslation(card.translation);
+    setEditing(true);
+  };
+  const cancelEditing = () => setEditing(false);
+  const saveTranslation = () => {
+    const translation = draftTranslation.trim();
+    if (!translation || updateTranslation.isPending) return;
+    updateTranslation.mutate(
+      { cardId: card.id, data: { translation } },
+      { onSuccess: () => setEditing(false) },
+    );
+  };
+
+  return (
+    <li className="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-gray-50">
+      <span className="min-w-0 flex-1 truncate text-xs text-gray-700">{card.term}</span>
+      {editing ? (
+        <span className="flex shrink-0 items-center gap-1">
+          <input
+            value={draftTranslation}
+            onChange={(event) => setDraftTranslation(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") saveTranslation();
+              if (event.key === "Escape") cancelEditing();
+            }}
+            autoFocus
+            className="w-28 rounded-md border border-gray-300 px-2 py-0.5 text-xs focus:border-gray-400 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={saveTranslation}
+            disabled={updateTranslation.isPending || !draftTranslation.trim()}
+            aria-label={t("saveButton")}
+            title={t("saveButton")}
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-green-600 disabled:opacity-50"
+          >
+            <Check className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={cancelEditing}
+            aria-label={t("cancelButton")}
+            title={t("cancelButton")}
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          >
+            <X className="size-3.5" />
+          </button>
+        </span>
+      ) : (
+        <span className="flex shrink-0 items-center gap-1">
+          <span className="text-xs text-gray-500">{card.translation}</span>
+          <button
+            type="button"
+            onClick={startEditing}
+            aria-label={t("editButton")}
+            title={t("editButton")}
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          >
+            <Pencil className="size-3.5" />
+          </button>
+        </span>
+      )}
+    </li>
+  );
+}
+
+// One Lesson (category) section within a topic's own personal-cards
+// section — mirrors SimpleSubjectLessonRow's header shape (icon + truncated
+// title + a small grey meta cluster) but shows a card count instead of
+// status/grade, and a play icon-button (not the row's own link) deep-
+// linking into the Cards game filtered to just this lesson's category (see
+// flashcard-game-page.tsx's ?topic= support) — followed by the lesson's
+// actual saved cards, each inline-editable via CardsCardRow.
+function CardsTopicLessonRow({
+  title,
+  items,
+  groupSlug,
+  setSlug,
+}: {
+  title: string;
+  items: StudentCardOut[];
+  groupSlug: string;
+  setSlug: string;
+}) {
+  const t = useTranslations("SubjectDetail");
+
+  return (
+    <li className="flex flex-col gap-1 py-1">
+      <div className="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-gray-50">
+        <Play className="size-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate text-xs text-gray-700">{title}</span>
+        <span className="flex shrink-0 items-center gap-1.5">
+          <span className="text-[11px] text-gray-400">{t("cardsCount", { count: items.length })}</span>
+          <Link
+            href={`/games/cards/${encodeURIComponent(groupSlug)}/${encodeURIComponent(setSlug)}?topic=${encodeURIComponent(title)}`}
+            aria-label={t("playCardsButton")}
+            title={t("playCardsButton")}
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          >
+            <Play className="size-3.5" />
+          </Link>
+        </span>
+      </div>
+      <ul className="flex flex-col divide-y divide-gray-50 pl-6">
+        {items.map((card) => (
+          <CardsCardRow key={card.id} card={card} />
+        ))}
+      </ul>
+    </li>
+  );
+}
+
+// One Topic (set) section of the Cards tab — fetches its own lesson
+// (category) breakdown via useGetMyCardSet since the summary list
+// (useListMyCardSets) only carries topic-level aggregate counts, not the
+// per-lesson list needed to render rows here.
+function CardsTopicSection({ groupSlug, summary }: { groupSlug: string; summary: CardSetSummaryOut }) {
+  const t = useTranslations("SubjectDetail");
+  const setQuery = useGetMyCardSet(groupSlug, summary.slug);
+  const categories = setQuery.data?.categories ?? [];
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between gap-2 px-1.5">
+        <span className="text-xs font-medium text-gray-500">{summary.title}</span>
+        <Link
+          href={`/games/cards/${encodeURIComponent(groupSlug)}/${encodeURIComponent(summary.slug)}`}
+          aria-label={t("playCardsButton")}
+          title={t("playCardsButton")}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+        >
+          <Play className="size-3.5" />
+        </Link>
+      </div>
+      {setQuery.isLoading ? (
+        <p className="px-4 text-xs text-gray-400">{t("loading")}</p>
+      ) : categories.length === 0 ? (
+        <p className="px-4 text-xs text-gray-400">{t("noCardsInTopic")}</p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-gray-50 pl-3">
+          {categories.map((category) => (
+            <CardsTopicLessonRow
+              key={category.title}
+              title={category.title}
+              items={category.items}
+              groupSlug={groupSlug}
+              setSlug={summary.slug}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// The Cards tab's content — the student's own personal flashcards (saved
+// while translating a lesson's content/синопсис/матеріали, see
+// translatable-content.tsx/read-along-content.tsx's "add to cards"
+// button), grouped Subject → Topic → Lesson the same way the Cards game
+// itself does (backend/cards/ reshapes this into the game's Group/Set/
+// Category shape — see @school-ahead/flashcards' lib/flashcards.ts).
+function CardsTabContent({ subjectId }: { subjectId: number }) {
+  const t = useTranslations("SubjectDetail");
+  const groupSlug = `subject-${subjectId}`;
+  const setsQuery = useListMyCardSets(groupSlug);
+  const sets = setsQuery.data ?? [];
+
+  if (setsQuery.isLoading) {
+    return <p className="text-sm text-gray-500">{t("loading")}</p>;
+  }
+  if (setsQuery.isError) {
+    return <p className="text-sm text-red-600">{t("error")}</p>;
+  }
+  if (sets.length === 0) {
+    return <p className="text-sm text-gray-500">{t("noCards")}</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      {sets.map((set) => (
+        <CardsTopicSection key={set.slug} groupSlug={groupSlug} summary={set} />
+      ))}
+    </div>
+  );
+}
+
 // The one Subject detail component for every student role/mode — a flat,
 // always-expanded, borderless topic/lesson list instead of the (now-
 // deleted) Standard view's accordion, per-block progress bars, deep-link-
@@ -303,6 +506,11 @@ export function SimpleSubjectDetailPage({ subjectId, colorful }: { subjectId: nu
               value: "materials",
               label: t("materialsTab"),
               content: <SubjectMaterials subjectId={subjectId} />,
+            },
+            {
+              value: "cards",
+              label: t("cardsTab"),
+              content: <CardsTabContent subjectId={subjectId} />,
             },
           ]}
         />

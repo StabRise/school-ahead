@@ -11,11 +11,11 @@ import { Check, ChevronLeft, ChevronRight, Flag, RotateCcw, RotateCw } from "luc
 const KNOW_KEYS = new Set(["q", "й"]);
 const DIFFICULT_KEYS = new Set(["w", "ц"]);
 import type { SpeechLanguage } from "@school-ahead/api-client";
-import type { FlashcardItem } from "@/lib/flashcards";
-import type { FlashcardStatus } from "@/stores/flashcard-progress-store";
-import { playDifficultSound, playKnowSound } from "@/lib/flashcard-sounds";
-import { playCardTerm } from "@/lib/flashcard-speech";
-import { ProgressBar } from "@/components/progress-bar";
+import type { FlashcardItem } from "./lib/flashcards";
+import type { FlashcardStatus } from "./stores/flashcard-progress-store";
+import { playDifficultSound, playKnowSound } from "./lib/flashcard-sounds";
+import { playCardTerm } from "./lib/flashcard-speech";
+import { ProgressBar } from "./kit/progress-bar";
 import type { CardFaceConfig, CardFlipOrientation } from "./card-face-config";
 import { FlipCard } from "./flip-card";
 

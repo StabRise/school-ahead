@@ -4,9 +4,12 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ChevronRight, NotebookText } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
+  getGetStudentLessonQueryKey,
   useGetStudentLesson,
   useListLessonComments,
+  useUpdateStudentLessonSynopsis,
 } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import type { StudentLessonOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { StatusBadge } from "@/components/status-badge";
@@ -198,6 +201,8 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   // wizard step above (no strong reason a student would want it to survive
   // a reload/navigation away and back).
   const [showSynopsis, setShowSynopsis] = useState(false);
+  const queryClient = useQueryClient();
+  const updateSynopsis = useUpdateStudentLessonSynopsis();
 
   const [step, setStepState] = useState<WizardStep | null>(stepFromUrl);
   // Whether the status-based landing tab (see initialStepForStatus) has been
@@ -262,6 +267,16 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   // StudentLessonOut.synopsis / synopsis_notes's fork-on-first-edit
   // semantics, which already handle an empty starting value fine).
   const canShowSynopsisToggle = !isSimple && effectiveStep === "materials";
+  // The mutation's own cache isn't this page's useGetStudentLesson query —
+  // without this, toggling the split view closed and back open would
+  // re-seed LessonSynopsisSplit's draft from the stale pre-edit `synopsis`
+  // value, making the student's last save look reverted.
+  const saveSynopsis = (value: string) => {
+    updateSynopsis.mutate(
+      { studentLessonId, data: { content: value } },
+      { onSuccess: (updated) => queryClient.setQueryData(getGetStudentLessonQueryKey(studentLessonId), updated) },
+    );
+  };
 
   return (
     <PageContainer maxWidthClassName="xl:max-w-7xl">
@@ -325,9 +340,11 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
               content={data.lesson.content}
               materials={data.lesson.materials}
               synopsis={data.synopsis}
+              onSave={saveSynopsis}
+              isSaving={updateSynopsis.isPending}
             />
           ) : (
-            <LessonContent content={data.lesson.content} materials={data.lesson.materials} />
+            <LessonContent content={data.lesson.content} materials={data.lesson.materials} studentLessonId={studentLessonId} />
           )}
           <div className="flex justify-end">
             <button
@@ -341,7 +358,7 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
           </div>
         </div>
       ) : effectiveStep === "readingMaterials" ? (
-        <MaterialsStep materials={data.reading_materials} onChanged={refetch} />
+        <MaterialsStep materials={data.reading_materials} onChanged={refetch} studentLessonId={studentLessonId} />
       ) : effectiveStep === "assessment" ? (
         <AssessmentStep studentLesson={data} onChanged={refetch} />
       ) : effectiveStep === "comments" ? (
