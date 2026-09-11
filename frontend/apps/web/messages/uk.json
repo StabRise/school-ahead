@@ -168,6 +168,8 @@
     "storiesSubtitle": "Читай казку по складах",
     "mathTitle": "Математика",
     "mathSubtitle": "Розв'язуй приклади, встигай збудувати місток",
+    "jumpingFrogsTitle": "Жабки-Стрибунці",
+    "jumpingFrogsSubtitle": "Стрибай по кувшинках, читай слова",
     "switchGame": "Обрати іншу гру"
   },
   "ReadingGame": {
@@ -226,6 +228,21 @@
     "victoryTitle": "Місток збудовано! Перемога!",
     "solvedCount": "Розв'язано прикладів: {count} з {total}",
     "retryButton": "Спробувати знову"
+  },
+  "JumpingFrogsGame": {
+    "settingsButton": "Налаштування",
+    "difficultyLabel": "Рівень складності",
+    "difficultyLetters": "1. Букви",
+    "difficultySyllables": "2. Склади",
+    "difficultyWords": "3. Слова",
+    "letterLabel": "Приголосна",
+    "randomLetterLabel": "Випадкова буква",
+    "mutedLabel": "Без звуку",
+    "targetLabel": "Знайди: {word}",
+    "replaySoundLabel": "Повторити звук",
+    "levelsClearedLabel": "Рівнів пройдено: {count}",
+    "celebrationTitle": "Ура! Жабка перестрибнула річку!",
+    "noWordsMessage": "Для цієї букви поки що немає слів"
   },
   "FlashcardsGame": {
     "groupsTitle": "Картки для навчання",

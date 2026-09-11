@@ -11,6 +11,7 @@ import { useStories, useStory, type Story, type StoryWordSegment, type StorySumm
 import { remarkStoryCards, STORY_CARD_TAG } from "./lib/story-markdown";
 import { parseSyllableGroup } from "./lib/story-parser";
 import { useStoryBackgroundMusic } from "./lib/use-story-background-music";
+import { WordCardRow, lgCardSizeRem } from "./lib/syllable-card";
 import { StoryBook } from "./story-book";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { useLocaleAwareGamesRouter } from "./kit/use-locale-aware-router";
@@ -62,12 +63,6 @@ import { useLocaleAwareGamesRouter } from "./kit/use-locale-aware-router";
 // award a Diamond to.
 const DIAMOND_MILESTONE_STARS = 5;
 
-const UK_VOWELS = new Set(["А", "О", "У", "Е", "И", "І", "Я", "Ю", "Є", "Ї"]);
-
-function isVowelUk(letter: string): boolean {
-  return UK_VOWELS.has(letter.toLocaleUpperCase("uk"));
-}
-
 function storyAssetUrl(storySlug: string, filename: string): string {
   return `/static/stories/${encodeURIComponent(storySlug)}/${encodeURIComponent(filename)}`;
 }
@@ -111,184 +106,11 @@ function youtubeEmbedUrl(videoId: string): string {
   return `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&rel=0`;
 }
 
-// One card inside a {...} word breakdown, at either its small inline size
-// (within running text) or its big full-screen size — same rendering rules
-// either way, just bigger. A "text" segment that happens to be a known
-// two-letter consonant+vowel syllable shows that exact flashcard image
-// from the "Картки" game's asset folder instead of plain text — no need to
-// ask the server which folders are "ready" (see /api/cards-game-modes)
-// first, since a missing/not-yet-labeled file just 404s and onError falls
-// back to colored letters. An "image" segment shows its own photo from
-// this story's folder the same way, falling back to a "?" placeholder if
-// it hasn't been uploaded yet.
-// The fixed small square each card renders at inline, within running text
-// (StoryCard's "sm" row) — deliberately tiny so a word breakdown reads as
-// part of the sentence, not a big interruption in it.
-const SM_CARD_SIZE_REM = 2.75; // 44px
-
-// Popup ("lg") cards default to this size for a short 1-2 segment word, but
-// shrink for a longer breakdown so the whole row always fits on screen
-// without needing to scroll — see lgCardSizeRem below, same linear
-// interpolation approach as reading-game.tsx's slotSizeRem.
-const MAX_LG_CARD_REM = 15; // 240px
-const MIN_LG_CARD_REM = 6; // 96px
-const MIN_SEGMENTS_FOR_MAX_SIZE = 2;
-const MAX_SEGMENTS_FOR_MIN_SIZE = 6;
-
-function lgCardSizeRem(segmentCount: number): number {
-  const clamped = Math.min(MAX_SEGMENTS_FOR_MIN_SIZE, Math.max(MIN_SEGMENTS_FOR_MAX_SIZE, segmentCount));
-  const t = (clamped - MIN_SEGMENTS_FOR_MAX_SIZE) / (MAX_SEGMENTS_FOR_MIN_SIZE - MIN_SEGMENTS_FOR_MAX_SIZE);
-  return MAX_LG_CARD_REM - t * (MAX_LG_CARD_REM - MIN_LG_CARD_REM);
-}
-
-function WordSegmentCard({
-  segment,
-  storySlug,
-  sizeRem,
-}: {
-  segment: StoryWordSegment;
-  storySlug: string;
-  sizeRem: number;
-}) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const boxStyle = { width: `${sizeRem}rem`, height: `${sizeRem}rem` };
-  const cardClass = "shrink-0 rounded-lg border-2 border-gray-400 bg-white object-cover";
-  // Scales with the box so a plain-letter card's glyphs stay legible (and
-  // don't overflow it) at any sizeRem, not just the two fixed sizes this
-  // used to support.
-  const fontSizeRem = sizeRem * 0.45;
-
-  if (segment.kind === "image") {
-    if (imageFailed) {
-      return (
-        <span
-          aria-hidden="true"
-          style={boxStyle}
-          className="flex shrink-0 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-gray-400"
-        >
-          ?
-        </span>
-      );
-    }
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={storyAssetUrl(storySlug, segment.filename)}
-        alt=""
-        draggable={false}
-        style={boxStyle}
-        className={cardClass}
-        onError={() => setImageFailed(true)}
-      />
-    );
-  }
-
-  if (segment.kind === "audio") {
-    // Audio is only meant to appear as its own {...} group (see isAudio),
-    // rendered as StoryAudioButton instead of this card row — this is just
-    // a harmless fallback should one ever get mixed into a breakdown.
-    return (
-      <span
-        aria-hidden="true"
-        style={boxStyle}
-        className="flex shrink-0 items-center justify-center rounded-lg border-2 border-gray-400 bg-white text-lg"
-      >
-        🔊
-      </span>
-    );
-  }
-
-  if (segment.kind === "video") {
-    // Same rationale as the audio fallback above — video is only meant to
-    // appear as its own {...} group (see isVideo), rendered as StoryVideo.
-    return (
-      <span
-        aria-hidden="true"
-        style={boxStyle}
-        className="flex shrink-0 items-center justify-center rounded-lg border-2 border-gray-400 bg-white text-lg"
-      >
-        🎬
-      </span>
-    );
-  }
-
-  if (segment.kind === "youtube") {
-    // Same rationale as the audio/video fallbacks above — a YouTube link is
-    // only meant to appear as its own {...} group (see isYouTube), rendered
-    // as StoryYoutube.
-    return (
-      <span
-        aria-hidden="true"
-        style={boxStyle}
-        className="flex shrink-0 items-center justify-center rounded-lg border-2 border-gray-400 bg-white text-lg"
-      >
-        📺
-      </span>
-    );
-  }
-
-  const lower = segment.text.toLocaleLowerCase("uk");
-  const canBeCardImage = lower.length === 2 && !imageFailed;
-
-  if (canBeCardImage) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={`/static/syllables/${encodeURIComponent(lower[0])}/${encodeURIComponent(lower)}.png`}
-        alt={segment.text.toLocaleUpperCase("uk")}
-        draggable={false}
-        style={boxStyle}
-        className={cardClass}
-        onError={() => setImageFailed(true)}
-      />
-    );
-  }
-
-  return (
-    <span
-      style={{ ...boxStyle, fontSize: `${fontSizeRem}rem` }}
-      className="flex shrink-0 items-center justify-center rounded-lg border-2 border-gray-400 bg-white font-extrabold"
-    >
-      {[...segment.text.toLocaleUpperCase("uk")].map((letter, index) => (
-        <span key={index} style={{ color: isVowelUk(letter) ? "#dc2626" : "#0369a1" }}>
-          {letter}
-        </span>
-      ))}
-    </span>
-  );
-}
-
-// The bordered "sheet" containing every card of one {...} word breakdown,
-// in a single row — the same photograph-a-hand-drawn-sheet look as
-// public/static/syllables (docs/preschool/games/reading/Stories.md §3), just
-// composed live from individual cards instead of being one photo itself.
-// `size` picks the sheet's own chrome scale (border/gap/padding) — thin
-// inline vs. thick popup; `cardSizeRem` (popup only) shrinks the cards
-// themselves for a longer word, see lgCardSizeRem.
-function WordCardRow({
-  segments,
-  storySlug,
-  size,
-  cardSizeRem,
-}: {
-  segments: StoryWordSegment[];
-  storySlug: string;
-  size: "sm" | "lg";
-  cardSizeRem?: number;
-}) {
-  const resolvedCardSizeRem = cardSizeRem ?? (size === "lg" ? MAX_LG_CARD_REM : SM_CARD_SIZE_REM);
-  return (
-    <span
-      className={`inline-flex items-center border-gray-700 bg-white shadow ${
-        size === "lg" ? "gap-5 rounded-[1.875rem] border-[10px] p-5" : "gap-1 rounded-xl border-2 p-1"
-      }`}
-    >
-      {segments.map((segment, index) => (
-        <WordSegmentCard key={index} segment={segment} storySlug={storySlug} sizeRem={resolvedCardSizeRem} />
-      ))}
-    </span>
-  );
-}
+// Syllable/letter breakdown cards (WordCardRow/WordSegmentCard, the "known
+// two-letter syllable -> flashcard image, else colored letters" rendering,
+// plus the lgCardSizeRem popup-sizing helper) now live in
+// ./lib/syllable-card, shared with other minigames — see that file's
+// header comment.
 
 // A full illustration for the story (see isIllustration above) — shown
 // plain and rectangular, no card border, at its natural aspect ratio
