@@ -28,6 +28,15 @@ export const DEFAULT_LEVEL = 5;
 
 export const QUESTION_COUNT = 15;
 
+// How many *correct* answers within a session earn a Diamond (see
+// useDiamondMilestoneReward's "count" mode in math-game.tsx) — levels 1-3
+// are easier, so fewer correct answers are required than levels 4-5.
+const DIAMOND_THRESHOLD_LOW_LEVEL = 10; // levels 1-3
+const DIAMOND_THRESHOLD_HIGH_LEVEL = 15; // levels 4-5
+export function diamondThreshold(level: number): number {
+  return level <= 3 ? DIAMOND_THRESHOLD_LOW_LEVEL : DIAMOND_THRESHOLD_HIGH_LEVEL;
+}
+
 // The hotbar's size is a player-configurable setting (see
 // stores/math-game-store.ts's choiceCount, chosen in math-game.tsx's
 // settings panel) rather than a fixed constant —

@@ -264,6 +264,24 @@ def award_multiplication_game_diamond(student: StudentProfile) -> None:
     student.refresh_from_db(fields=['diamond_balance_cache'])
 
 
+# Diamond reward for the "Jumping Frogs" minigame (see
+# frontend/packages/preschool-games/src/jumping-frogs-game.tsx) — awarded
+# once per lily-pad level cleared, repeatable all game long (same "count"
+# milestone shape as CARDS_GAME_MILESTONE_DIAMONDS above, not a one-shot
+# "finish the session" reward like MULTIPLICATION_GAME_MILESTONE_DIAMONDS).
+# Same trust model as every other minigame reward: no server-side tracking
+# of the run, the frontend calls this once per level cleared.
+JUMPING_FROGS_MILESTONE_DIAMONDS = 1
+
+
+def award_jumping_frogs_diamond(student: StudentProfile) -> None:
+    """Same atomic F() update as award_balloon_pop_diamond."""
+    StudentProfile.objects.filter(pk=student.pk).update(
+        diamond_balance_cache=F('diamond_balance_cache') + JUMPING_FROGS_MILESTONE_DIAMONDS
+    )
+    student.refresh_from_db(fields=['diamond_balance_cache'])
+
+
 def is_item_unlocked(student: StudentProfile, item: AvatarItem) -> bool:
     """Free items are unlocked for everyone; priced ones need a purchase
     record. See docs/core/avatar.md section 2.2."""

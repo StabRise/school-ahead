@@ -433,3 +433,19 @@ def reward_multiplication_game(request: HttpRequest):
     student = get_own_student_profile(request)
     services.award_multiplication_game_diamond(student)
     return MeOut(user=_user_out(request, request.auth))
+
+
+@router.post(
+    '/me/jumping-frogs-reward',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='reward_jumping_frogs',
+)
+def reward_jumping_frogs(request: HttpRequest):
+    """Awards a Diamond for clearing one level of the "Jumping Frogs" minigame
+    (frontend/packages/preschool-games/src/jumping-frogs-game.tsx). See
+    accounts.services.award_jumping_frogs_diamond for the trust model."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    services.award_jumping_frogs_diamond(student)
+    return MeOut(user=_user_out(request, request.auth))

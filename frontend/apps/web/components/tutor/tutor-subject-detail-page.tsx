@@ -36,6 +36,7 @@ import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { Tabs } from "@/components/tabs";
 import { groupTopicsByBlock } from "@/components/subjects/group-topics-by-block";
+import { subjectBlockAnchorId, subjectTopicAnchorId } from "@/components/subjects/subject-anchors";
 import { SemesterPlan } from "@/components/subjects/semester-plan";
 import { SubjectMaterials } from "@/components/subjects/subject-materials";
 import { groupTasksByTopicId, TaskListSection } from "@/components/subjects/task-list";
@@ -518,7 +519,9 @@ function TopicSection({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1.5">
-        <span className="text-xs font-medium text-gray-500">{topic.title}</span>
+        <h3 id={subjectTopicAnchorId(topic.id)} className="m-0 scroll-mt-20 text-xs font-medium text-gray-500">
+          {topic.title}
+        </h3>
         <div className="flex shrink-0 items-center gap-2">
           {blocks.length > 1 && <TopicBlockSelect topic={topic} blocks={blocks} subjectId={subjectId} />}
           <LessonEditorDialog
@@ -724,7 +727,12 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                         <div key={group.key} className="flex flex-col gap-4">
                           {group.label && (
                             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                              <h2 className="text-base font-semibold text-gray-900">{group.label}</h2>
+                              <h2
+                                id={subjectBlockAnchorId(group.label)}
+                                className="scroll-mt-20 text-base font-semibold text-gray-900"
+                              >
+                                {group.label}
+                              </h2>
                               {group.workload !== null && (
                                 <span className="text-xs text-gray-500">
                                   {t("workloadLabel", { value: group.workload.toFixed(2) })}

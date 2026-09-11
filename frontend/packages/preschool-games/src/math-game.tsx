@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useRewardMultiplicationGame } from "@school-ahead/api-client/browser/auth/auth";
 import { Raccoon, EquippedAvatarLayers, useEquippedAvatarLayers, type RaccoonMood } from "@school-ahead/preschool-ui";
 import {
+  diamondThreshold,
   generateQuestion,
   MAX_CHOICE_COUNT,
   MAX_LEVEL_BY_OPERATION,
@@ -256,7 +257,7 @@ function AvatarRunner({
         ? "115%"
         : `${PIT_START}%`;
   const opacity = phase === "crossing" || phase === "falling" ? 0 : 1;
-  const transform = phase === "falling" ? "translateX(-50%) translateY(60px) rotate(75deg)" : "translateX(-50%)";
+  const transform = phase === "falling" ? "translateX(calc(-50% + 30px)) translateY(60px) rotate(75deg)" : "translateX(-50%)";
   const transition =
     phase === "falling"
       ? `transform ${FALL_DURATION_S}s ease-in, opacity ${FALL_DURATION_S}s ease-in`
@@ -350,6 +351,11 @@ function MathRun({
   const [locked, setLocked] = useState(false);
   const [hasCorrectAnswer, setHasCorrectAnswer] = useState(false);
   const victoryBadgeRef = useRef<HTMLDivElement>(null);
+  // Diamond-flight origin for the in-run reward below — the top progress/
+  // lives bar, since it's on screen for the whole "playing" stage (unlike
+  // victoryBadgeRef's trophy, which only exists once the run is already
+  // over).
+  const statsBarRef = useRef<HTMLDivElement>(null);
   // Wall-clock time the current round's "running" leg started — lets a
   // wrong click compute how far along the (linear) 0%-to-PIT_START% run the
   // avatar actually is, so the "rushing" leg can pick up from exactly
@@ -358,15 +364,17 @@ function MathRun({
 
   const rewardMultiplicationGame = useRewardMultiplicationGame();
 
-  // Awards 1 Diamond for finishing every question with a heart left — an
-  // anonymous visitor can still finish the run, they just don't earn
-  // anything (see useDiamondMilestoneReward). Falling on the last life
-  // never awards, even if most questions were solved correctly.
+  // Awards 1 Diamond once `solvedCount` reaches the level's correct-answer
+  // threshold (10 for levels 1-3, 15 for levels 4-5 — see
+  // lib/math-game.ts's diamondThreshold) — an anonymous visitor still sees
+  // the run play out, they just don't earn anything (see
+  // useDiamondMilestoneReward).
   useDiamondMilestoneReward({
-    mode: "level",
-    complete: stage === "victory",
+    mode: "count",
+    count: solvedCount,
+    threshold: diamondThreshold(level),
     rewardMutation: rewardMultiplicationGame,
-    originRef: victoryBadgeRef,
+    originRef: statsBarRef,
     onMilestone: playCelebrationChime,
   });
 
@@ -464,7 +472,7 @@ function MathRun({
     <div className="relative flex h-full w-full flex-1 flex-col items-center gap-2 overflow-hidden">
       {stage === "playing" && question && (
         <>
-          <div className="grid w-full shrink-0 grid-cols-3 items-center gap-4 px-3 pt-14">
+          <div ref={statsBarRef} className="grid w-full shrink-0 grid-cols-3 items-center gap-4 px-3 pt-14">
             <div aria-hidden="true" />
             <div className="flex flex-col items-center gap-1">
               <p className="text-xs font-bold text-gray-600 sm:text-sm">

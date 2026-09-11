@@ -118,3 +118,18 @@ export function playBuildSound() {
 export function playFallSound() {
   playTone(200, { type: "sawtooth", duration: 0.35, gain: 0.12, glideTo: 60 });
 }
+
+// A buzzy downward "bonk" for Jumping Frogs' wrong lily-pad tap — the
+// brief (docs/preschool/games/jumping-frogs.md §3) asks for a "кумедний
+// звук-помилка (наприклад, глухе «пук»)": comic, not harsh, so this stays a
+// deliberately silly square-wave glide rather than a real buzzer.
+export function playFrogMissSound() {
+  playTone(150, { type: "square", duration: 0.22, gain: 0.18, glideTo: 50 });
+}
+
+// A cheerful two-note hop for Jumping Frogs' correct lily-pad tap — same
+// ascending-arpeggio shape as playBuildSound, just brighter/faster to read
+// as a spring rather than a block placing down.
+export function playFrogJumpSound() {
+  playChime([392, 523.25], { type: "triangle", noteGap: 0.05, noteDuration: 0.15, gain: 0.25 }); // G4, C5
+}

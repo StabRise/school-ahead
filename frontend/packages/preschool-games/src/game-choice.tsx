@@ -21,7 +21,7 @@ import { HomeButton } from "./kit/home-button";
 // own — contrast the standalone /games entry point (games-page.tsx,
 // game-play-page.tsx), which reuses this file's GamePicker/GameCard but
 // navigates to /games/{game} instead so each game has its own URL.
-export type PreschoolGameId = "balloons" | "trains" | "reading" | "cards" | "stories" | "math";
+export type PreschoolGameId = "balloons" | "trains" | "reading" | "cards" | "stories" | "math" | "jumping-frogs";
 
 function BalloonIcon() {
   return (
@@ -107,9 +107,23 @@ function MathIcon() {
   );
 }
 
+function JumpingFrogsIcon() {
+  return (
+    <svg viewBox="0 0 56 48" className="h-16 w-16 drop-shadow" aria-hidden="true">
+      <ellipse cx="28" cy="40" rx="24" ry="6" fill="#4ade80" opacity="0.7" />
+      <ellipse cx="28" cy="24" rx="18" ry="14" fill="#22c55e" />
+      <circle cx="19" cy="14" r="5" fill="#22c55e" />
+      <circle cx="37" cy="14" r="5" fill="#22c55e" />
+      <circle cx="19" cy="13" r="2.5" fill="#052e16" />
+      <circle cx="37" cy="13" r="2.5" fill="#052e16" />
+      <ellipse cx="28" cy="28" rx="6" ry="4" fill="#166534" />
+    </svg>
+  );
+}
+
 // Each game's own accent color — the thick colored ring around its card
-// (see GameCard) and the "Play" pill's background, so the five cards read
-// as distinct at a glance instead of all being the same gray box.
+// (see GameCard) and the "Play" pill's background, so the cards read as
+// distinct at a glance instead of all being the same gray box.
 const GAME_ACCENTS: Record<PreschoolGameId, { ring: string; play: string }> = {
   balloons: { ring: "ring-rose-300", play: "bg-rose-500" },
   trains: { ring: "ring-sky-300", play: "bg-sky-500" },
@@ -117,6 +131,7 @@ const GAME_ACCENTS: Record<PreschoolGameId, { ring: string; play: string }> = {
   cards: { ring: "ring-amber-300", play: "bg-amber-500" },
   stories: { ring: "ring-violet-300", play: "bg-violet-500" },
   math: { ring: "ring-lime-300", play: "bg-lime-600" },
+  "jumping-frogs": { ring: "ring-emerald-300", play: "bg-emerald-500" },
 };
 
 function GameCard({
@@ -224,6 +239,13 @@ export function GamePicker({
           subtitle={t("mathSubtitle")}
           icon={<MathIcon />}
           onSelect={() => onSelect("math")}
+        />
+        <GameCard
+          game="jumping-frogs"
+          title={t("jumpingFrogsTitle")}
+          subtitle={t("jumpingFrogsSubtitle")}
+          icon={<JumpingFrogsIcon />}
+          onSelect={() => onSelect("jumping-frogs")}
         />
       </div>
     </div>

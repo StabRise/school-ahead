@@ -12,6 +12,7 @@ import {
 import type { LessonOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
+import { subjectBlockAnchorId, subjectTopicAnchorId } from "@/components/subjects/subject-anchors";
 import { Card } from "@/components/card";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { Markdown } from "@/components/markdown";
@@ -236,8 +237,15 @@ export function TutorLessonDetailPage({ lessonId }: { lessonId: number }) {
     { label: t("breadcrumbMySubjects"), href: "/tutor/subjects" },
     { label: lesson.class_name },
     { label: lesson.subject_name, href: `/tutor/subjects/${lesson.subject_id}` },
-    ...(lesson.subject_block_label ? [{ label: lesson.subject_block_label }] : []),
-    { label: lesson.topic_title },
+    ...(lesson.subject_block_label
+      ? [
+          {
+            label: lesson.subject_block_label,
+            href: `/tutor/subjects/${lesson.subject_id}#${subjectBlockAnchorId(lesson.subject_block_label)}`,
+          },
+        ]
+      : []),
+    { label: lesson.topic_title, href: `/tutor/subjects/${lesson.subject_id}#${subjectTopicAnchorId(lesson.topic_id)}` },
     { label: t("breadcrumbLessonRow", { index: lesson.order_index, title: lesson.title }) },
   ];
 

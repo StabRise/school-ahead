@@ -15,6 +15,7 @@ import type { StudentLessonOut } from "@school-ahead/api-client/browser/schoolAh
 import { StatusBadge } from "@/components/status-badge";
 import { ScoreBadge } from "@/components/score-badge";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
+import { subjectBlockAnchorId, subjectTopicAnchorId } from "@/components/subjects/subject-anchors";
 import { SubmissionThread } from "@/components/submission-thread";
 import { Card } from "@/components/card";
 import { useAuthStore } from "@school-ahead/api-client";
@@ -255,7 +256,14 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: t("breadcrumbLessons"), href: "/" },
     { label: data.lesson.subject_name, href: `/subjects/${data.lesson.subject_id}` },
-    ...(data.lesson.subject_block_label ? [{ label: data.lesson.subject_block_label }] : []),
+    ...(data.lesson.subject_block_label
+      ? [
+          {
+            label: data.lesson.subject_block_label,
+            href: `/subjects/${data.lesson.subject_id}#${subjectBlockAnchorId(data.lesson.subject_block_label)}`,
+          },
+        ]
+      : []),
     { label: data.lesson.title },
   ];
   const effectiveStep: WizardStep = step ?? "materials";
@@ -287,7 +295,7 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
           <div className="flex flex-col gap-0.5">
             <h1 className="text-xl font-semibold text-gray-900">{data.lesson.title}</h1>
             <Link
-              href={`/subjects/${data.lesson.subject_id}#topic-${data.lesson.topic_id}`}
+              href={`/subjects/${data.lesson.subject_id}#${subjectTopicAnchorId(data.lesson.topic_id)}`}
               className="text-sm text-gray-500 hover:text-gray-700 hover:underline"
             >
               {data.lesson.topic_title}

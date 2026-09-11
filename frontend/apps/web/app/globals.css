@@ -362,3 +362,55 @@ body {
 .preschool-button:active {
   transform: scale(0.92);
 }
+
+/* Jumping Frogs minigame (packages/preschool-games/src/jumping-frogs-game.tsx)
+   — docs/preschool/games/jumping-frogs.md. One diagonal hop: rises by one
+   row (--row-height, fixed) while covering --dx horizontally (real pond
+   pixels, set inline per tap by FrogSprite — `%` units inside `transform:
+   translate()` resolve against the *element's own* box, not the pond, so
+   the caller measures the pond's width and passes a px value instead),
+   with a bouncy arc/rotate/scale along the way. The pond column itself
+   pans via its own `transform: translateY(...)` transition set from React
+   state, so the frog rides that pan for free once it's landed. */
+@keyframes frog-jump {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(calc(var(--dx) * 0.5), calc(-1 * var(--hop-height))) rotate(-10deg) scale(1.15);
+  }
+  100% {
+    transform: translate(var(--dx), calc(-1 * var(--row-height))) rotate(0deg);
+  }
+}
+
+/* A wrong lily-pad tap's "bonk" feedback — the pad dips down-and-right (as
+   if pressed into the water) then springs back and settles, self-contained
+   on the pad itself (docs/preschool/games/jumping-frogs.md §3: "картка
+   плавно повертається на вихідну позицію"), no input lockout. A plain
+   sideways nudge here (the very first version) read as barely more than a
+   flicker next to the pad simultaneously shrinking back down from its
+   hover-enlarged size, so the dip/rebound is deliberately large — the
+   clearest, most legible motion wins over subtlety for this age group.
+   Includes the pad's own centering translate(-50%,-50%) (see LilyPad) in
+   every stop, since an active `animation` fully replaces an element's
+   `transform` for its duration rather than composing with a separately-set
+   static one — without it, the pad would visibly jump to its top-left-
+   anchored position for the wiggle's duration. */
+@keyframes lily-bonk {
+  0% {
+    transform: translate(-50%, -50%) translate(0, 0) rotate(0deg) scale(1);
+  }
+  25% {
+    transform: translate(-50%, -50%) translate(10%, 14%) rotate(8deg) scale(0.88);
+  }
+  55% {
+    transform: translate(-50%, -50%) translate(-6%, 4%) rotate(-6deg) scale(0.95);
+  }
+  80% {
+    transform: translate(-50%, -50%) translate(3%, 1%) rotate(3deg) scale(0.99);
+  }
+  100% {
+    transform: translate(-50%, -50%) translate(0, 0) rotate(0deg) scale(1);
+  }
+}
