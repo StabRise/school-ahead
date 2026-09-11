@@ -106,17 +106,83 @@ export function playCelebrationChime() {
   playChime([523.25, 659.25, 783.99, 1046.5], { noteGap: 0.09, noteDuration: 0.4, gain: 0.3 }); // C5, E5, G5, C6
 }
 
-// A short rising two-note "thunk" for a Minecraft-style block placing into
-// the bridge — the math game's correct-answer sound.
+// A bright, modern two-note "ding" (two lightly detuned sine unisons per
+// note, for a fuller synth-pad feel) for the math game's correct-answer /
+// bridge-build moment — replaced the old chiptune-y square-wave "thunk".
 export function playBuildSound() {
-  playChime([196, 261.63], { type: "square", noteGap: 0.08, noteDuration: 0.16, gain: 0.25 }); // G3, C4
+  const AudioContextClass = getAudioContextClass();
+  if (!AudioContextClass) return;
+  try {
+    const ctx = new AudioContextClass();
+    const notes = [659.25, 987.77]; // E5, B5
+    notes.forEach((frequency, i) => {
+      const startTime = ctx.currentTime + i * 0.07;
+      [1, 1.005].forEach((detune) => {
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(frequency * detune, startTime);
+        gainNode.gain.setValueAtTime(0.0001, startTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.22, startTime + 0.015);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.22);
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        oscillator.start(startTime);
+        oscillator.stop(startTime + 0.25);
+      });
+    });
+    setTimeout(() => ctx.close(), (notes.length * 0.07 + 0.25) * 1000);
+  } catch {
+    // Best-effort only.
+  }
 }
 
-// A short descending glide for the math game's runner falling
-// into the pit — a bit lower and longer than playMissSound so it reads as a
-// "fall", not just "wrong".
+// A modern filtered-noise "whoosh" into a low sine "thud" for the math
+// game's runner falling into the pit — replaced the old plain sawtooth
+// glide with something that actually reads as an impact.
 export function playFallSound() {
-  playTone(200, { type: "sawtooth", duration: 0.35, gain: 0.12, glideTo: 60 });
+  const AudioContextClass = getAudioContextClass();
+  if (!AudioContextClass) return;
+  try {
+    const ctx = new AudioContextClass();
+
+    const bufferSize = Math.floor(ctx.sampleRate * 0.3);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(1200, ctx.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.3);
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.2, ctx.currentTime);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+    noise.start();
+    noise.stop(ctx.currentTime + 0.3);
+
+    const thudStart = ctx.currentTime + 0.16;
+    const thud = ctx.createOscillator();
+    const thudGain = ctx.createGain();
+    thud.type = "sine";
+    thud.frequency.setValueAtTime(140, thudStart);
+    thud.frequency.exponentialRampToValueAtTime(50, thudStart + 0.2);
+    thudGain.gain.setValueAtTime(0.0001, thudStart);
+    thudGain.gain.exponentialRampToValueAtTime(0.3, thudStart + 0.02);
+    thudGain.gain.exponentialRampToValueAtTime(0.0001, thudStart + 0.22);
+    thud.connect(thudGain);
+    thudGain.connect(ctx.destination);
+    thud.start(thudStart);
+    thud.stop(thudStart + 0.25);
+
+    setTimeout(() => ctx.close(), 500);
+  } catch {
+    // Best-effort only.
+  }
 }
 
 // A buzzy downward "bonk" for Jumping Frogs' wrong lily-pad tap — the
@@ -127,9 +193,21 @@ export function playFrogMissSound() {
   playTone(150, { type: "square", duration: 0.22, gain: 0.18, glideTo: 50 });
 }
 
-// A cheerful two-note hop for Jumping Frogs' correct lily-pad tap — same
-// ascending-arpeggio shape as playBuildSound, just brighter/faster to read
-// as a spring rather than a block placing down.
+// A cheerful two-note hop for Jumping Frogs' correct lily-pad tap — a
+// bright, fast ascending arpeggio that reads as a spring rather than a
+// block placing down.
 export function playFrogJumpSound() {
   playChime([392, 523.25], { type: "triangle", noteGap: 0.05, noteDuration: 0.15, gain: 0.25 }); // G4, C5
+}
+
+// A longer, playful jingle for the math game's victory screen (a full run
+// cleared) — a fuller arpeggio than playCelebrationChime's per-milestone
+// ding, so a whole run finishing reads as a bigger moment than one Diamond.
+export function playVictoryFanfare() {
+  playChime([523.25, 659.25, 783.99, 1046.5, 783.99, 1318.51], {
+    type: "triangle",
+    noteGap: 0.13,
+    noteDuration: 0.32,
+    gain: 0.28,
+  }); // C5, E5, G5, C6, G5, E6
 }

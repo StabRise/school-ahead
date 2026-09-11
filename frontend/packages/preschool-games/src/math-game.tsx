@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject, type TransitionEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject, type TransitionEvent } from "react";
 import { useTranslations } from "next-intl";
 import { useRewardMultiplicationGame } from "@school-ahead/api-client/browser/auth/auth";
 import { Raccoon, EquippedAvatarLayers, useEquippedAvatarLayers, type RaccoonMood } from "@school-ahead/preschool-ui";
 import {
-  diamondThreshold,
   generateQuestion,
   MAX_CHOICE_COUNT,
   MAX_LEVEL_BY_OPERATION,
@@ -18,7 +17,7 @@ import {
 } from "./lib/math-game";
 import { useBackgroundMusic } from "./lib/use-background-music";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
-import { playBuildSound, playCelebrationChime, playFallSound, playMissSound } from "./kit/sound-effects";
+import { playBuildSound, playCelebrationChime, playFallSound, playMissSound, playVictoryFanfare } from "./kit/sound-effects";
 import { MusicToggleButton } from "./kit/music-toggle-button";
 import { useMathGameStore } from "./stores/math-game-store";
 
@@ -103,6 +102,30 @@ function useElementWidth<T extends HTMLElement>(): [RefObject<T | null>, number]
   return [ref, width];
 }
 
+// A "game clock" that stops advancing while `paused` is true — every
+// elapsed-time computation below (how far into its leg the avatar's CSS
+// transition currently is) reads this instead of performance.now()
+// directly, so pausing mid-run and resuming later doesn't silently eat a
+// chunk of the run's timing. While paused, totalPausedMs grows at exactly
+// the same rate real time does, which is what holds the returned value
+// constant for the whole pause (see the arithmetic below).
+function usePausableClock(paused: boolean): () => number {
+  const pausedAtRef = useRef<number | null>(null);
+  const totalPausedMsRef = useRef(0);
+  useEffect(() => {
+    if (paused) {
+      pausedAtRef.current = performance.now();
+    } else if (pausedAtRef.current !== null) {
+      totalPausedMsRef.current += performance.now() - pausedAtRef.current;
+      pausedAtRef.current = null;
+    }
+  }, [paused]);
+  return useCallback(() => {
+    const pausedSoFar = totalPausedMsRef.current + (pausedAtRef.current !== null ? performance.now() - pausedAtRef.current : 0);
+    return performance.now() - pausedSoFar;
+  }, []);
+}
+
 // The answer square's font should read as big as the square comfortably
 // allows, but shrink for longer numbers (e.g. add/subtract level 5's up to
 // 3-digit answers) so they still fit on one line — see HotbarSlot.
@@ -172,7 +195,10 @@ type Stage = "playing" | "gameOver" | "victory";
 // "rushing" is the short, fixed-speed dash to the pit cut in when a wrong
 // answer is picked before the avatar would otherwise have gotten there.
 type Phase = "running" | "rushing" | "crossing" | "falling";
-type SlotStatus = "default" | "correct" | "incorrect" | "dimmed";
+// No "correct" status — a right answer isn't highlighted at all, only a
+// wrong pick is (see HotbarSlot below); the avatar building/crossing the
+// bridge is feedback enough for a correct one.
+type SlotStatus = "default" | "incorrect" | "dimmed";
 
 function HeartIcon({ filled }: { filled: boolean }) {
   return (
@@ -193,13 +219,46 @@ function HeartIcon({ filled }: { filled: boolean }) {
 function QuestionCloud({ children }: { children: ReactNode }) {
   return (
     <div className="relative flex shrink-0 items-center justify-center">
-      <svg viewBox="0 0 200 110" className="h-24 w-48 drop-shadow sm:h-36 sm:w-72" aria-hidden="true">
+      <svg viewBox="0 0 200 110" className="h-32 w-64 drop-shadow sm:h-48 sm:w-96" aria-hidden="true">
         <path
           d="M50 82 Q18 82 18 56 Q18 34 40 31 Q43 14 63 14 Q79 14 85 27 Q99 16 115 25 Q133 18 144 34 Q167 34 169 56 Q171 80 145 82 Z"
           fill="white"
         />
       </svg>
-      <div className="absolute inset-0 flex items-center justify-center px-8 text-center">{children}</div>
+      <div className="absolute inset-0 flex items-center justify-center px-10 text-center">{children}</div>
+    </div>
+  );
+}
+
+const VICTORY_CONFETTI_EMOJI = ["🎉", "✨", "🌟", "🎊"];
+const VICTORY_CONFETTI_COUNT = 24;
+
+// Falling confetti for the victory screen — reuses the same confetti-fall
+// keyframe as CelebrationScene/Jumping Frogs's overlay (see globals.css).
+// A lazy useState initializer, not a plain constant, so the random layout
+// is rolled once per mount rather than re-rolling (and visibly jittering)
+// on every render.
+function VictoryConfetti() {
+  const [pieces] = useState(() =>
+    Array.from({ length: VICTORY_CONFETTI_COUNT }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 0.5,
+      duration: 1.6 + Math.random() * 1.2,
+      emoji: VICTORY_CONFETTI_EMOJI[i % VICTORY_CONFETTI_EMOJI.length],
+    })),
+  );
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+      {pieces.map((piece) => (
+        <span
+          key={piece.id}
+          className="absolute top-0 text-2xl"
+          style={{ left: `${piece.left}%`, animation: `confetti-fall ${piece.duration}s ease-in ${piece.delay}s forwards` }}
+        >
+          {piece.emoji}
+        </span>
+      ))}
     </div>
   );
 }
@@ -208,9 +267,21 @@ function QuestionCloud({ children }: { children: ReactNode }) {
 // fallback-to-mascot pattern as preschool-ui/game-map.tsx's CompanionAvatar
 // — an anonymous visitor (or a student who never picked an avatar) has no
 // equipped layers, so the raccoon mascot runs instead.
-function RunnerAvatar({ mood, className }: { mood: RaccoonMood; className: string }) {
+// `crop` (default true) puts the equipped-avatar case in the round
+// badge frame the running avatar needs (it's a token sliding along the
+// track); the victory screen passes `crop={false}` to show the full
+// costume uncropped instead of letting a tall hat/accessory get clipped by
+// that circle.
+function RunnerAvatar({ mood, className, crop = true }: { mood: RaccoonMood; className: string; crop?: boolean }) {
   const layers = useEquippedAvatarLayers();
   if (layers.length > 0) {
+    if (!crop) {
+      return (
+        <span className={`flex items-center justify-center ${className}`}>
+          <EquippedAvatarLayers layers={layers} />
+        </span>
+      );
+    }
     return (
       <span
         className={`flex items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-white/70 p-1 shadow-md ${className}`}
@@ -222,55 +293,100 @@ function RunnerAvatar({ mood, className }: { mood: RaccoonMood; className: strin
   return <Raccoon mood={mood} className={className} />;
 }
 
-// Owns the "has the fresh DOM node painted at its cold-start position yet"
-// flag itself, reset for free by remounting (a fresh `key` at the call
-// site) rather than by an explicit setState-in-effect reset — see the
-// file-level comment for why the first paint has to land before the
-// transition can animate the move. `coldStartLeft` is "0%" for a fresh
-// round's "running" leg, or the interrupted position for a "rushing" leg
-// cut in mid-run.
+function lerp(from: number, to: number, fraction: number): number {
+  return from + (to - from) * fraction;
+}
+
+// One easing keyword per phase — reused both for the live CSS transition
+// and (approximately — see the freeze/resume comment below) for
+// reconstructing where along the leg the avatar visually is when pausing
+// mid-leg.
+const PHASE_EASING: Record<Phase, string> = {
+  running: "linear",
+  rushing: "ease-out",
+  crossing: "ease-in",
+  falling: "ease-in",
+};
+
+// The avatar's left/opacity/transform at an arbitrary point (0-1) along the
+// current phase's leg — normally the browser interpolates this for us via
+// the CSS transition, but pausing needs to freeze at a specific
+// in-between point, which means computing that point ourselves. `fraction`
+// is linear-time-based even for eased phases (rushing/crossing/falling),
+// so a freeze mid-leg is a close approximation of the true eased position
+// rather than pixel-exact — imperceptible given those legs are short and
+// the pause screen covers the avatar anyway.
+function avatarVisualAt(
+  phase: Phase,
+  fraction: number,
+  fromPercent: number,
+): { left: string; opacity: number; transform: string } {
+  if (phase === "falling") {
+    // Drifts from the pit's left edge to its center as a % of track width
+    // (not a fixed px offset, which used to land the avatar well past the
+    // pit's right edge — visibly "falling" past it — on any track narrower
+    // than the offset was tuned for).
+    const pitCenter = PIT_START + (PIT_END - PIT_START) / 2;
+    return {
+      left: `${lerp(PIT_START, pitCenter, fraction)}%`,
+      opacity: lerp(1, 0, fraction),
+      transform: `translateX(-50%) translateY(${lerp(0, 60, fraction)}px) rotate(${lerp(0, 75, fraction)}deg)`,
+    };
+  }
+  if (phase === "crossing") {
+    return { left: `${lerp(PIT_START, 115, fraction)}%`, opacity: lerp(1, 0, fraction), transform: "translateX(-50%)" };
+  }
+  // running or rushing — both just move left towards the pit.
+  return { left: `${lerp(fromPercent, PIT_START, fraction)}%`, opacity: 1, transform: "translateX(-50%)" };
+}
+
+// Owns the "has the fresh DOM node painted at its start position yet" flag
+// itself, reset for free by remounting (a fresh `key` at the call site)
+// rather than by an explicit setState-in-effect reset — see the file-level
+// comment for why the first paint has to land before the transition can
+// animate the move. Every leg (a fresh round's "running", the "rushing"
+// dash cut in on an answer, "crossing"/"falling", and a leg resumed after a
+// pause) is one of these mounts: `initialFraction`/`durationMs` are 0/full
+// for a fresh leg, or the frozen fraction/remaining time for a resumed one
+// — see MathRun's beginPhase/resumeGame. `frozenFraction`, unlike the
+// others, is a normal reactive prop (not baked in at mount): it's set the
+// instant the game is paused and overrides the rendered position to that
+// exact frozen point with no transition, without needing to remount.
 function AvatarRunner({
   phase,
-  speed,
+  fromPercent,
+  initialFraction,
+  durationMs,
+  frozenFraction,
   mood,
-  coldStartLeft,
   onTransitionEnd,
 }: {
   phase: Phase;
-  speed: number;
+  fromPercent: number;
+  initialFraction: number;
+  durationMs: number;
+  frozenFraction: number | null;
   mood: RaccoonMood;
-  coldStartLeft: number;
   onTransitionEnd: (event: TransitionEvent<HTMLDivElement>) => void;
 }) {
-  const [started, setStarted] = useState(false);
+  const [progressed, setProgressed] = useState(false);
   useEffect(() => {
-    const raf = requestAnimationFrame(() => setStarted(true));
+    if (frozenFraction !== null) return;
+    const raf = requestAnimationFrame(() => setProgressed(true));
     return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const left =
-    phase === "running" || phase === "rushing"
-      ? started
-        ? `${PIT_START}%`
-        : `${coldStartLeft}%`
-      : phase === "crossing"
-        ? "115%"
-        : `${PIT_START}%`;
-  const opacity = phase === "crossing" || phase === "falling" ? 0 : 1;
-  const transform = phase === "falling" ? "translateX(calc(-50% + 30px)) translateY(60px) rotate(75deg)" : "translateX(-50%)";
+  const fraction = frozenFraction ?? (progressed ? 1 : initialFraction);
+  const { left, opacity, transform } = avatarVisualAt(phase, fraction, fromPercent);
   const transition =
-    phase === "falling"
-      ? `transform ${FALL_DURATION_S}s ease-in, opacity ${FALL_DURATION_S}s ease-in`
-      : phase === "crossing"
-        ? `left ${CROSS_DURATION_S}s ease-in, opacity ${CROSS_DURATION_S}s ease-in`
-        : phase === "rushing"
-          ? `left ${RUSH_DURATION_S}s ease-out`
-          : `left ${RUN_DURATION_S / speed}s linear`;
-  const style: CSSProperties = { left, opacity, transform, transition };
+    frozenFraction !== null || !progressed
+      ? "none"
+      : `left ${durationMs}ms ${PHASE_EASING[phase]}, opacity ${durationMs}ms ${PHASE_EASING[phase]}, transform ${durationMs}ms ${PHASE_EASING[phase]}`;
 
   return (
-    <div className="absolute bottom-16" style={style} onTransitionEnd={onTransitionEnd}>
-      <RunnerAvatar mood={mood} className="h-12 w-12 sm:h-14 sm:w-14" />
+    <div className="absolute bottom-16" style={{ left, opacity, transform, transition }} onTransitionEnd={onTransitionEnd}>
+      <RunnerAvatar mood={mood} className="h-20 w-20 sm:h-24 sm:w-24" />
     </div>
   );
 }
@@ -297,13 +413,11 @@ function HotbarSlot({
   onClick: () => void;
 }) {
   const statusClass =
-    status === "correct"
-      ? "border-emerald-400 bg-emerald-100 ring-4 ring-emerald-300"
-      : status === "incorrect"
-        ? "border-red-400 bg-red-100 ring-4 ring-red-300"
-        : status === "dimmed"
-          ? "border-gray-300 bg-gray-100 opacity-50"
-          : "border-gray-400 bg-gray-200 hover:bg-gray-300";
+    status === "incorrect"
+      ? "border-red-400 bg-red-100 ring-4 ring-red-300"
+      : status === "dimmed"
+        ? "border-gray-300 bg-gray-100 opacity-50"
+        : "border-gray-400 bg-gray-200 hover:bg-gray-300";
   return (
     <button
       type="button"
@@ -323,12 +437,14 @@ function MathRun({
   level,
   choiceCount,
   onRetry,
+  onPauseChange,
 }: {
   speed: number;
   operation: Operation;
   level: number;
   choiceCount: number;
   onRetry: () => void;
+  onPauseChange: (paused: boolean) => void;
 }) {
   const t = useTranslations("MathGame");
   // Each question is generated on demand (not a whole session pre-built
@@ -342,45 +458,155 @@ function MathRun({
   const [solvedCount, setSolvedCount] = useState(0);
   const [stage, setStage] = useState<Stage>("playing");
   const [phase, setPhase] = useState<Phase>("running");
-  const [runToken, setRunToken] = useState(0);
-  const [rushToken, setRushToken] = useState(0);
-  const [rushFromPercent, setRushFromPercent] = useState(0);
+  // Bumped on every fresh leg (a round's "running" start, the "rushing"
+  // dash cut in on an answer, "crossing"/"falling", and a leg resumed after
+  // a pause) — the AvatarRunner `key` below, forcing a fresh cold-start
+  // mount each time (see AvatarRunner's doc comment).
+  const [legToken, setLegToken] = useState(0);
+  const [paused, setPaused] = useState(false);
   // Only one hotbar click is accepted per round — set the instant either a
   // right or wrong answer is picked, independent of `hasCorrectAnswer`
   // (which only tracks whether *that* click was the right one).
   const [locked, setLocked] = useState(false);
   const [hasCorrectAnswer, setHasCorrectAnswer] = useState(false);
+  // Which hotbar slot was actually clicked — so a wrong pick can be
+  // highlighted red without also revealing the correct one in green (see
+  // the choices.map status computation below).
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  // Diamond-flight origin for the reward below — mounted in the same
+  // render that flips stage to "victory", so it's already on screen by the
+  // time useDiamondMilestoneReward's effect reads its rect.
   const victoryBadgeRef = useRef<HTMLDivElement>(null);
-  // Diamond-flight origin for the in-run reward below — the top progress/
-  // lives bar, since it's on screen for the whole "playing" stage (unlike
-  // victoryBadgeRef's trophy, which only exists once the run is already
-  // over).
-  const statsBarRef = useRef<HTMLDivElement>(null);
-  // Wall-clock time the current round's "running" leg started — lets a
-  // wrong click compute how far along the (linear) 0%-to-PIT_START% run the
-  // avatar actually is, so the "rushing" leg can pick up from exactly
-  // there instead of snapping back to the start or jumping ahead.
-  const runStartRef = useRef(0);
+
+  // The current leg's bookkeeping — a "leg" is one AvatarRunner mount's
+  // worth of motion (see AvatarRunner's doc comment). `fromPercent` is the
+  // leg's fixed start-left% for "running"/"rushing" (irrelevant, but
+  // harmless, for "crossing"/"falling" — see avatarVisualAt); `durationMs`
+  // is the current *segment*'s own duration (the leg's full duration for a
+  // fresh one, the remaining time for a resumed one); `consumedFraction` is
+  // how much of the leg's overall 0-1 progress was already done before this
+  // segment began (0 for a fresh leg). State, not refs, since it's read
+  // directly in the AvatarRunner render below — reading a ref during render
+  // isn't safe. Read together with `phaseProgress()`. The lazy initial
+  // value matches the very first round's "running" leg (0% -> PIT_START%
+  // over the initial speed's run duration) — the same values beginPhase
+  // would set, since that first leg starts before any beginPhase call: a
+  // 0 durationMs here would give the CSS transition a 0ms duration, and a
+  // zero-duration transition never fires transitionend, so the game would
+  // never advance past round 1 at all.
+  const [legInfo, setLegInfo] = useState(() => ({ fromPercent: 0, durationMs: (RUN_DURATION_S / speed) * 1000, consumedFraction: 0 }));
+  // Rendered directly as AvatarRunner's frozenFraction prop — non-null iff
+  // paused, set once by pauseGame and cleared by resumeGame.
+  const [frozenFraction, setFrozenFraction] = useState<number | null>(null);
+  // Game-clock time the current segment started — only read/written from
+  // event-handler code (phaseProgress, beginPhase, resumeGame), never
+  // during render, so a plain ref (not state) is fine here. Set for real by
+  // the mount effect just below — 0 until then is harmless since nothing
+  // reads it before that effect runs (it fires before any user input can).
+  const phaseStartRef = useRef(0);
+  // How much of the segment interrupted by pauseGame was left — stashed
+  // here (rather than computed fresh in resumeGame) so both read the exact
+  // same snapshot; also event-handler-only, never rendered.
+  const remainingMsRef = useRef(0);
+
+  const gameNow = usePausableClock(paused);
+
+  // Round 1's "running" leg starts before any beginPhase call (legInfo's
+  // lazy initial value above covers its duration/from/consumed), so this
+  // sets the one remaining piece — its segment start time — the same way
+  // beginPhase would, without calling an impure function during render.
+  useEffect(() => {
+    phaseStartRef.current = gameNow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const rewardMultiplicationGame = useRewardMultiplicationGame();
 
-  // Awards 1 Diamond once `solvedCount` reaches the level's correct-answer
-  // threshold (10 for levels 1-3, 15 for levels 4-5 — see
-  // lib/math-game.ts's diamondThreshold) — an anonymous visitor still sees
-  // the run play out, they just don't earn anything (see
-  // useDiamondMilestoneReward).
+  // Awards 1 Diamond once the whole run is cleared (all QUESTION_COUNT
+  // questions solved — reaching "victory") — not per correct answer along
+  // the way, so a run doesn't pay out until it's actually finished. An
+  // anonymous visitor still sees the run play out, they just don't earn
+  // anything (see useDiamondMilestoneReward).
   useDiamondMilestoneReward({
-    mode: "count",
-    count: solvedCount,
-    threshold: diamondThreshold(level),
+    mode: "level",
+    complete: stage === "victory",
     rewardMutation: rewardMultiplicationGame,
-    originRef: statsBarRef,
+    originRef: victoryBadgeRef,
     onMilestone: playCelebrationChime,
   });
 
   useEffect(() => {
-    runStartRef.current = performance.now();
-  }, [runToken]);
+    if (stage === "victory") playVictoryFanfare();
+  }, [stage]);
+
+  // Lets MathGame duck the background music while paused (see its
+  // useBackgroundMusic call) without this component needing to know
+  // anything about audio itself.
+  useEffect(() => {
+    onPauseChange(paused);
+  }, [paused, onPauseChange]);
+
+  // Starts a fresh leg: resets this leg's bookkeeping to segment 0 (no
+  // progress consumed yet) and bumps legToken to remount AvatarRunner cold
+  // — see its doc comment.
+  const beginPhase = (newPhase: Phase, fromPercent: number, durationMs: number) => {
+    phaseStartRef.current = gameNow();
+    setLegInfo({ fromPercent, durationMs, consumedFraction: 0 });
+    setPhase(newPhase);
+    setLegToken((token) => token + 1);
+  };
+
+  // Where the current leg's progress actually is right now (0-1, absolute
+  // — not just this segment's), and how much of this segment's own
+  // duration is left. Used both to cut a leg short on an answer (handleSelect)
+  // and to freeze it on pause (pauseGame). Reads `legInfo` from this
+  // render's closure, which is fine — both call sites below run inside
+  // event handlers that only ever read it *before* the same handler goes on
+  // to change it (never after), so there's no staleness to worry about.
+  const phaseProgress = (): { fraction: number; remainingMs: number } => {
+    const elapsed = Math.max(0, gameNow() - phaseStartRef.current);
+    const segmentFraction = legInfo.durationMs > 0 ? Math.min(1, elapsed / legInfo.durationMs) : 1;
+    return {
+      fraction: legInfo.consumedFraction + (1 - legInfo.consumedFraction) * segmentFraction,
+      remainingMs: legInfo.durationMs * (1 - segmentFraction),
+    };
+  };
+
+  // Manual pause button and the tab-visibility effect below both funnel
+  // through here — freezes the current leg exactly where it is (see
+  // AvatarRunner's frozenFraction prop) instead of letting its CSS
+  // transition keep running unseen behind the pause screen.
+  const pauseGame = () => {
+    if (stage !== "playing" || paused) return;
+    const snapshot = phaseProgress();
+    remainingMsRef.current = snapshot.remainingMs;
+    setFrozenFraction(snapshot.fraction);
+    setPaused(true);
+  };
+
+  const resumeGame = () => {
+    if (frozenFraction !== null) {
+      setLegInfo((prev) => ({ ...prev, durationMs: remainingMsRef.current, consumedFraction: frozenFraction }));
+      phaseStartRef.current = gameNow();
+      setLegToken((token) => token + 1);
+    }
+    setFrozenFraction(null);
+    setPaused(false);
+  };
+
+  // Auto-pause the instant the child switches tabs/minimizes the window —
+  // same treatment as the manual pause button, so nothing keeps running
+  // (and no life gets silently lost) while the game isn't visible. No
+  // dependency array — re-registers on every render so the listener always
+  // closes over the latest pauseGame (cheap; addEventListener churn here is
+  // negligible for a minigame).
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) pauseGame();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  });
 
   const startNextRound = (nextIndex: number) => {
     if (nextIndex >= QUESTION_COUNT) {
@@ -389,20 +615,19 @@ function MathRun({
     }
     setIndex(nextIndex);
     setQuestion(generateQuestion(operation, level, choiceCount));
-    setPhase("running");
     setLocked(false);
     setHasCorrectAnswer(false);
-    setRushToken(0);
-    setRunToken((token) => token + 1);
+    setSelectedIndex(null);
+    beginPhase("running", 0, (RUN_DURATION_S / speed) * 1000);
   };
 
   const handleAvatarTransitionEnd = (event: TransitionEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget) return;
     if ((phase === "running" || phase === "rushing") && event.propertyName === "left") {
       if (hasCorrectAnswer) {
-        setPhase("crossing");
+        beginPhase("crossing", PIT_START, CROSS_DURATION_S * 1000);
       } else {
-        setPhase("falling");
+        beginPhase("falling", PIT_START, FALL_DURATION_S * 1000);
         playFallSound();
       }
       return;
@@ -424,8 +649,9 @@ function MathRun({
   };
 
   const handleSelect = (choiceIndex: number) => {
-    if (stage !== "playing" || phase !== "running" || locked || !question) return;
+    if (stage !== "playing" || phase !== "running" || locked || paused || !question) return;
     setLocked(true);
+    setSelectedIndex(choiceIndex);
     const correct = choiceIndex === question.correctIndex;
     if (correct) {
       setHasCorrectAnswer(true);
@@ -438,17 +664,14 @@ function MathRun({
     // straight to a quick dash from wherever the avatar actually is right
     // now to the pit: crossing the just-built bridge if correct, or
     // tumbling in if not (see handleAvatarTransitionEnd).
-    const elapsedMs = performance.now() - runStartRef.current;
-    const fraction = Math.min(1, Math.max(0, elapsedMs / ((RUN_DURATION_S / speed) * 1000)));
-    setRushFromPercent(fraction * PIT_START);
-    setRushToken((token) => token + 1);
-    setPhase("rushing");
+    const { fraction } = phaseProgress();
+    beginPhase("rushing", lerp(0, PIT_START, fraction), RUSH_DURATION_S * 1000);
   };
 
   // Keys 1-N (N = the current question's choice count) mirror clicking the
   // matching hotbar slot.
   useEffect(() => {
-    if (stage !== "playing" || phase !== "running" || locked || !question) return;
+    if (stage !== "playing" || phase !== "running" || locked || paused || !question) return;
     const slotCount = question.choices.length;
     const handleKeyDown = (event: KeyboardEvent) => {
       const slot = Number(event.key);
@@ -457,7 +680,7 @@ function MathRun({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, phase, locked, question]);
+  }, [stage, phase, locked, paused, question]);
 
   const avatarMood: RaccoonMood = phase === "crossing" ? "happy" : phase === "falling" ? "sad" : "idle";
 
@@ -472,7 +695,20 @@ function MathRun({
     <div className="relative flex h-full w-full flex-1 flex-col items-center gap-2 overflow-hidden">
       {stage === "playing" && question && (
         <>
-          <div ref={statsBarRef} className="grid w-full shrink-0 grid-cols-3 items-center gap-4 px-3 pt-14">
+          {/* Same absolute top-4 row as MathGame's settings gear (left-20)
+              and music toggle (left-32) — left-44 keeps it clear of both
+              those and the site-wide fixed Home button (left-4 top-20),
+              which a grid cell inside the stats bar below used to collide
+              with. */}
+          <button
+            type="button"
+            aria-label={t("pauseButton")}
+            onClick={pauseGame}
+            className="absolute left-44 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+          >
+            ⏸️
+          </button>
+          <div className="grid w-full shrink-0 grid-cols-3 items-center gap-4 px-3 pt-14">
             <div aria-hidden="true" />
             <div className="flex flex-col items-center gap-1">
               <p className="text-xs font-bold text-gray-600 sm:text-sm">
@@ -497,9 +733,9 @@ function MathRun({
               <div className="flex flex-col items-center gap-1">
                 <p className="text-xs font-bold text-gray-500 sm:text-sm">{t("countPrompt")}</p>
                 {question.a > 0 && (
-                  <div className="flex max-w-[220px] flex-wrap items-center justify-center gap-1 sm:max-w-[280px]">
+                  <div className="flex max-w-[260px] flex-wrap items-center justify-center gap-1 sm:max-w-[380px]">
                     {Array.from({ length: question.a }, (_, i) => (
-                      <span key={i} className="text-5xl sm:text-6xl" aria-hidden="true">
+                      <span key={i} className="text-6xl sm:text-7xl" aria-hidden="true">
                         {question.emoji}
                       </span>
                     ))}
@@ -507,7 +743,7 @@ function MathRun({
                 )}
               </div>
             ) : (
-              <p className="text-3xl font-extrabold text-gray-800 sm:text-5xl">
+              <p className="text-4xl font-extrabold text-gray-800 sm:text-6xl">
                 {question.a} {OPERATOR_SYMBOL[question.operation]} {question.b} = ?
               </p>
             )}
@@ -534,11 +770,13 @@ function MathRun({
               />
             )}
             <AvatarRunner
-              key={`${runToken}-${rushToken}`}
+              key={legToken}
               phase={phase}
-              speed={speed}
+              fromPercent={legInfo.fromPercent}
+              initialFraction={legInfo.consumedFraction}
+              durationMs={legInfo.durationMs}
+              frozenFraction={frozenFraction}
               mood={avatarMood}
-              coldStartLeft={phase === "rushing" ? rushFromPercent : 0}
               onTransitionEnd={handleAvatarTransitionEnd}
             />
           </div>
@@ -554,13 +792,17 @@ function MathRun({
             className={`mx-auto grid w-full shrink-0 gap-2 px-4 pb-4 ${HOTBAR_GRID_COLS[columns] ?? "grid-cols-8"}`}
           >
             {question.choices.map((choice, i) => {
-              const status: SlotStatus = locked && i === question.correctIndex ? "correct" : locked ? "dimmed" : "default";
+              const status: SlotStatus = locked
+                ? i === selectedIndex && !hasCorrectAnswer
+                  ? "incorrect"
+                  : "dimmed"
+                : "default";
               return (
                 <HotbarSlot
                   key={`${choice}-${i}`}
                   value={choice}
                   status={status}
-                  disabled={locked}
+                  disabled={locked || paused}
                   fontSize={hotbarFontSize}
                   onClick={() => handleSelect(i)}
                 />
@@ -588,18 +830,38 @@ function MathRun({
       )}
 
       {stage === "victory" && (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-          <div ref={victoryBadgeRef} className="text-6xl" style={{ animation: "score-pop 0.4s ease-out" }} aria-hidden="true">
-            🏆
+        <div className="relative flex flex-1 flex-col items-center justify-center gap-4 text-center">
+          <VictoryConfetti />
+          <div ref={victoryBadgeRef} className="relative z-10" style={{ animation: "score-pop 0.4s ease-out" }} aria-hidden="true">
+            <RunnerAvatar mood="happy" crop={false} className="h-40 w-40 sm:h-56 sm:w-56" />
+            <div className="absolute -right-2 -top-1 text-4xl">🏆</div>
           </div>
-          <p className="text-2xl font-extrabold text-gray-800">{t("victoryTitle")}</p>
-          <p className="text-lg font-semibold text-gray-600">{t("solvedCount", { count: solvedCount, total: QUESTION_COUNT })}</p>
+          <p className="relative z-10 text-2xl font-extrabold text-gray-800">{t("victoryTitle")}</p>
+          <p className="relative z-10 text-lg font-semibold text-gray-600">
+            {t("solvedCount", { count: solvedCount, total: QUESTION_COUNT })}
+          </p>
           <button
             type="button"
             onClick={onRetry}
-            className="rounded-full bg-emerald-500 px-8 py-3 text-lg font-bold text-white shadow-lg transition-transform active:scale-95"
+            className="relative z-10 rounded-full bg-emerald-500 px-8 py-3 text-lg font-bold text-white shadow-lg transition-transform active:scale-95"
           >
             {t("retryButton")}
+          </button>
+        </div>
+      )}
+
+      {paused && stage === "playing" && (
+        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-white/90 text-center">
+          <div className="text-6xl" aria-hidden="true">
+            ⏸️
+          </div>
+          <p className="text-2xl font-extrabold text-gray-800">{t("pausedTitle")}</p>
+          <button
+            type="button"
+            onClick={resumeGame}
+            className="rounded-full bg-emerald-500 px-8 py-3 text-lg font-bold text-white shadow-lg transition-transform active:scale-95"
+          >
+            {t("resumeButton")}
           </button>
         </div>
       )}
@@ -608,7 +870,12 @@ function MathRun({
 }
 
 export function MathGame() {
-  useBackgroundMusic();
+  // Ducks the background track while the run's pause screen is up (manual
+  // pause or a tab switch — see MathRun's usePausableClock/pauseGame) —
+  // MathRun reports its pause state up via onPauseChange since it owns the
+  // pause/resume logic itself.
+  const [gamePaused, setGamePaused] = useState(false);
+  useBackgroundMusic(gamePaused);
   const t = useTranslations("MathGame");
   const speed = useMathGameStore((s) => s.speed);
   const setSpeed = useMathGameStore((s) => s.setSpeed);
@@ -637,7 +904,7 @@ export function MathGame() {
         type="button"
         aria-label={t("settingsButton")}
         onClick={() => setSettingsOpen((current) => !current)}
-        className="absolute left-20 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+        className="absolute left-20 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
       >
         ⚙️
       </button>
@@ -707,6 +974,7 @@ export function MathGame() {
         level={level}
         choiceCount={choiceCount}
         onRetry={() => setPlayToken((token) => token + 1)}
+        onPauseChange={setGamePaused}
       />
     </div>
   );

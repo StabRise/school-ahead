@@ -33,7 +33,10 @@ function pickTrack(tracks: string[], exclude?: string): string | undefined {
 // picking a new random one (never repeating the one that just finished)
 // whenever the current one ends. Purely a side effect — the corner on/off
 // button lives in each game and reads/writes useGameMusicStore directly.
-export function useBackgroundMusic() {
+// `paused` (only the math game passes it today, for its pause screen) mutes
+// the track without touching the musicEnabled store, so it comes back on
+// its own on resume instead of looking like the player turned music off.
+export function useBackgroundMusic(paused = false) {
   const enabled = useGameMusicStore((s) => s.musicEnabled);
   const volume = useGameMusicStore((s) => s.volume);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -92,7 +95,7 @@ export function useBackgroundMusic() {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (!enabled) {
+    if (paused || !enabled) {
       audio.pause();
       return;
     }
@@ -108,7 +111,7 @@ export function useBackgroundMusic() {
         // Best-effort only — autoplay may be blocked until a user gesture.
       });
     }
-  }, [enabled]);
+  }, [enabled, paused]);
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume;

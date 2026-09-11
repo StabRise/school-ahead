@@ -64,22 +64,6 @@ function ReadingIcon() {
   );
 }
 
-function CardsIcon() {
-  return (
-    <svg viewBox="0 0 64 52" className="h-16 w-16 drop-shadow" aria-hidden="true">
-      <rect x="4" y="8" width="24" height="36" rx="4" fill="#f1f5f9" stroke="#cbd5e1" strokeWidth="2" />
-      <rect x="26" y="4" width="24" height="36" rx="4" fill="white" stroke="#cbd5e1" strokeWidth="2" />
-      <text x="38" y="24" textAnchor="middle" fontSize="14" fontWeight="bold" fill="#0369a1">
-        М
-      </text>
-      <text x="47" y="24" textAnchor="middle" fontSize="14" fontWeight="bold" fill="#dc2626">
-        А
-      </text>
-      <circle cx="38" cy="32" r="5" fill="#fbbf24" />
-    </svg>
-  );
-}
-
 function StoriesIcon() {
   return (
     <svg viewBox="0 0 56 52" className="h-16 w-16 drop-shadow" aria-hidden="true">
@@ -218,13 +202,6 @@ export function GamePicker({
           subtitle={t("readingSubtitle")}
           icon={<ReadingIcon />}
           onSelect={() => onSelect("reading")}
-        />
-        <GameCard
-          game="cards"
-          title={t("cardsTitle")}
-          subtitle={t("cardsSubtitle")}
-          icon={<CardsIcon />}
-          onSelect={() => onSelect("cards")}
         />
         <GameCard
           game="stories"
