@@ -94,14 +94,14 @@ export interface JumpingFrogsLevelContent {
 
 // The three reading-difficulty tiers a level can be built at: 1 = bare
 // letters, 2 = open (consonant+vowel) syllables, 3 = whole words (the
-// original/default game). All three share the exact same 5-row, 3-option
-// jump mechanic — only what a "card" *is* changes.
+// original/default game). All three share the exact same ROWS_PER_LEVEL,
+// 3-option jump mechanic — only what a "card" *is* changes.
 export type JumpingFrogsDifficulty = 1 | 2 | 3;
 
-// "Щоб пройти рівень - потрібно проскочити 5 кувшинок" (docs/preschool/
-// games/jumping-frogs.md §3) — 5 lily-pad rows per level, 3 word choices
-// (1 target + 2 distractors) per row.
-const ROWS_PER_LEVEL = 5;
+// "Щоб пройти рівень - потрібно проскочити 10 кувшинок" (docs/preschool/
+// games/jumping-frogs.md §3) — this many lily-pad rows per level, 3 word
+// choices (1 target + 2 distractors) per row.
+export const ROWS_PER_LEVEL = 10;
 const OPTIONS_PER_ROW = 3;
 
 // The 6 "hard" vowels open syllables are conventionally first taught with
@@ -129,9 +129,10 @@ function pickDistractors(pool: ReadingGameCard[], target: ReadingGameCard, count
   return Array.from({ length: count }, (_, i) => shuffled[i % shuffled.length]);
 }
 
-// Builds 5 rows for a fixed `target`, each independently shuffling it in
-// among 2 fresh distractors (drawn from `pool`, `target` included or not —
-// pickDistractors excludes it either way) at a random position.
+// Builds ROWS_PER_LEVEL rows for a fixed `target`, each independently
+// shuffling it in among 2 fresh distractors (drawn from `pool`, `target`
+// included or not — pickDistractors excludes it either way) at a random
+// position.
 function buildRowsFor(target: ReadingGameCard, pool: ReadingGameCard[]): JumpingFrogsRow[] {
   return Array.from({ length: ROWS_PER_LEVEL }, () => {
     const distractors = pickDistractors(pool, target, OPTIONS_PER_ROW - 1);
@@ -144,7 +145,7 @@ function buildRowsFor(target: ReadingGameCard, pool: ReadingGameCard[]): Jumping
   });
 }
 
-// Picks a random target from `pool`, then builds 5 rows around it — used
+// Picks a random target from `pool`, then builds ROWS_PER_LEVEL rows around it — used
 // by every difficulty tier where "any card in the pool" is a fair target
 // (levels 2 and 3; level 1 fixes its target to the chosen consonant
 // instead, see buildLetterLevel).
@@ -163,9 +164,9 @@ function syntheticCard(key: string): ReadingGameCard {
 }
 
 // Level 3 (words) — a random target word from a consonant's card pool
-// (shown fixed in the header for the whole level, per §2) and 5 rows, each
-// independently reshuffled. Returns null for an empty pool (no words
-// loaded yet, or a consonant folder with none).
+// (shown fixed in the header for the whole level, per §2) and ROWS_PER_LEVEL
+// rows, each independently reshuffled. Returns null for an empty pool (no
+// words loaded yet, or a consonant folder with none).
 export function buildLevel(cards: ReadingGameCard[]): JumpingFrogsLevelContent | null {
   return assembleLevel(cards);
 }

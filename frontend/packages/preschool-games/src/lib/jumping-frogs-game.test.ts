@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLetterLevel, buildLevel, buildSyllableLevel, splitUkrainianSyllables } from "./jumping-frogs-game";
+import { buildLetterLevel, buildLevel, buildSyllableLevel, ROWS_PER_LEVEL, splitUkrainianSyllables } from "./jumping-frogs-game";
 import type { ReadingGameCard } from "./reading-game";
 
 describe("splitUkrainianSyllables", () => {
@@ -43,10 +43,10 @@ describe("buildLevel", () => {
     expect(buildLevel([])).toBeNull();
   });
 
-  it("builds 5 rows of 3 options each, with the target appearing exactly once per row at correctIndex", () => {
+  it("builds ROWS_PER_LEVEL rows of 3 options each, with the target appearing exactly once per row at correctIndex", () => {
     const level = buildLevel(CARDS);
     expect(level).not.toBeNull();
-    expect(level!.rows).toHaveLength(5);
+    expect(level!.rows).toHaveLength(ROWS_PER_LEVEL);
     for (const row of level!.rows) {
       expect(row.options).toHaveLength(3);
       expect(row.options[row.correctIndex].key).toBe(level!.target.key);
@@ -67,7 +67,7 @@ describe("buildLevel", () => {
     const thin = CARDS.slice(0, 2);
     const level = buildLevel(thin);
     expect(level).not.toBeNull();
-    expect(level!.rows).toHaveLength(5);
+    expect(level!.rows).toHaveLength(ROWS_PER_LEVEL);
     for (const row of level!.rows) {
       expect(row.options).toHaveLength(3);
       expect(row.options[row.correctIndex].key).toBe(level!.target.key);
@@ -87,7 +87,7 @@ describe("buildLetterLevel", () => {
     const level = buildLetterLevel("М", CONSONANT_POOL);
     expect(level).not.toBeNull();
     expect(level!.target.key).toBe("М");
-    expect(level!.rows).toHaveLength(5);
+    expect(level!.rows).toHaveLength(ROWS_PER_LEVEL);
     for (const row of level!.rows) {
       expect(row.options[row.correctIndex].key).toBe("М");
       const keys = row.options.map((card) => card.key);

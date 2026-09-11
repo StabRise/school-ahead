@@ -16,6 +16,7 @@ import {
   buildLetterLevel,
   buildLevel,
   buildSyllableLevel,
+  ROWS_PER_LEVEL,
   splitUkrainianSyllables,
   type JumpingFrogsLevelContent,
   type JumpingFrogsRow,
@@ -29,20 +30,21 @@ import { MusicToggleButton } from "./kit/music-toggle-button";
 
 // Preschool "Jumping Frogs" reading minigame — see docs/preschool/games/
 // jumping-frogs.md for the design brief. A frog crosses a river by hopping
-// across 5 rows of lily pads while a fixed target word stays shown in the
-// header for the whole level; each row offers 3 word choices — rendered as
-// the same syllable-card breakdown as the "Казки" game
-// (lib/syllable-card.tsx), automatically split via lib/jumping-frogs-game.ts's
-// splitUkrainianSyllables — and tapping the one matching the target hops the
-// frog onto it. Reaching the far bank celebrates and starts a new word.
+// across ROWS_PER_LEVEL (lib/jumping-frogs-game.ts) rows of lily pads while
+// a fixed target word stays shown in the header for the whole level; each
+// row offers 3 word choices — rendered as the same syllable-card breakdown
+// as the "Казки" game (lib/syllable-card.tsx), automatically split via
+// lib/jumping-frogs-game.ts's splitUkrainianSyllables — and tapping the one
+// matching the target hops the frog onto it. Reaching the far bank
+// celebrates and starts a new word.
 //
-// The play area is modeled as 7 fixed vertical "slots": 0 = the start
-// bank, 1..5 = the 5 lily-pad rows, 6 = the finish bank — so "auto-hop onto
-// the far bank after row 5" reuses the exact same jump/pan machinery as an
-// ordinary row hop (see JumpingFrogsLevel's performJump).
+// The play area is modeled as SLOT_COUNT fixed vertical "slots": 0 = the
+// start bank, 1..ROWS_PER_LEVEL = the lily-pad rows, the last = the finish
+// bank — so "auto-hop onto the far bank after the last row" reuses the
+// exact same jump/pan machinery as an ordinary row hop (see
+// JumpingFrogsLevel's performJump).
 
-const ROWS_PER_LEVEL = 5;
-const SLOT_COUNT = ROWS_PER_LEVEL + 2; // start bank + 5 rows + finish bank
+const SLOT_COUNT = ROWS_PER_LEVEL + 2; // start bank + ROWS_PER_LEVEL rows + finish bank
 const VISIBLE_SLOTS = 4;
 const MAX_BASE_SLOT = SLOT_COUNT - VISIBLE_SLOTS;
 const COLUMN_PERCENTS: [number, number, number] = [18, 50, 82]; // left offsets for the 3 lily pads/options
@@ -340,8 +342,8 @@ function BankRow() {
   );
 }
 
-// The clipping viewport + the tall, absolutely-positioned 7-slot column
-// (start bank, 5 lily rows, finish bank) that pans via a plain CSS
+// The clipping viewport + the tall, absolutely-positioned SLOT_COUNT-slot
+// column (start bank, ROWS_PER_LEVEL lily rows, finish bank) that pans via a plain CSS
 // `transform: translateY(...)` transition driven from JumpingFrogsLevel's
 // `cameraSlot` state — see baseSlotFor's header comment for the transform
 // math and `docs/preschool/games/jumping-frogs.md` §2 for the 3 "which

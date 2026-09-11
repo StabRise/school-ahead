@@ -50,16 +50,16 @@ export function FlyingDiamond({
     <span
       aria-hidden="true"
       onTransitionEnd={onDone}
-      className="pointer-events-none fixed top-0 left-0 z-50 flex items-center gap-0.5 text-3xl"
+      className="pointer-events-none fixed top-0 left-0 z-50 flex items-center gap-0.5 text-7xl"
       style={{
-        transform: `translate(${point.x - 16}px, ${point.y - 16}px) scale(${flying ? 0.4 : 1.4})`,
+        transform: `translate(${point.x - 32}px, ${point.y - 32}px) scale(${flying ? 0.3 : 1.2})`,
         opacity: flying ? 0.15 : 1,
         transition: "transform 0.9s cubic-bezier(0.3, 0, 0.6, 1), opacity 0.9s ease-in",
       }}
     >
       💎
       {amount != null && amount > 1 && (
-        <span className="text-base font-extrabold text-cyan-700">+{amount}</span>
+        <span className="text-xl font-extrabold text-cyan-700">+{amount}</span>
       )}
     </span>,
     document.body,

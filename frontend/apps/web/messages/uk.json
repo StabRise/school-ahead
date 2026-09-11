@@ -212,6 +212,9 @@
   "MathGame": {
     "progress": "Питання {current}/{total}",
     "settingsButton": "Налаштування",
+    "pauseButton": "Пауза",
+    "pausedTitle": "Гру призупинено",
+    "resumeButton": "Продовжити",
     "operationLabel": "Дія",
     "operation": {
       "count": "Рахувати",
@@ -225,7 +228,7 @@
     "speedLabel": "Швидкість бігу",
     "choiceCountLabel": "Кількість варіантів",
     "gameOverTitle": "Ой, провалився у прірву!",
-    "victoryTitle": "Місток збудовано! Перемога!",
+    "victoryTitle": "У тебе все вийшло!",
     "solvedCount": "Розв'язано прикладів: {count} з {total}",
     "retryButton": "Спробувати знову"
   },
