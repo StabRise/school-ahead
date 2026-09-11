@@ -89,3 +89,11 @@ def furniture_material_upload_to(instance, filename: str) -> str:
 
 def furniture_thumbnail_upload_to(instance, filename: str) -> str:
     return _unique_path('furniture_thumbnails', filename)
+
+
+def story_cover_upload_to(instance, filename: str) -> str:
+    return _unique_path('story_covers', filename)
+
+
+def story_asset_upload_to(instance, filename: str) -> str:
+    return _unique_path('story_assets', filename)

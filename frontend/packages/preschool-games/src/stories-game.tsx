@@ -63,7 +63,18 @@ import { useLocaleAwareGamesRouter } from "./kit/use-locale-aware-router";
 // award a Diamond to.
 const DIAMOND_MILESTONE_STARS = 5;
 
+// A DB-backed story's content (see docs/preschool/games/reading/Stories.md)
+// embeds asset references as absolute URLs already (the tutor editor's
+// "insert image" button splices in the uploaded file's full media URL, and
+// the backend's cover/story responses do the same), since those files don't
+// live under this story's own public/static/stories/<slug>/ folder — pass
+// those straight through instead of re-prefixing them.
+function isAbsoluteUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value) || value.startsWith("/");
+}
+
 function storyAssetUrl(storySlug: string, filename: string): string {
+  if (isAbsoluteUrl(filename)) return filename;
   return `/static/stories/${encodeURIComponent(storySlug)}/${encodeURIComponent(filename)}`;
 }
 
@@ -434,6 +445,98 @@ function FullscreenOverlay({ onClose, children }: { onClose: () => void; childre
   );
 }
 
+// The actual story-body renderer — real Markdown (headings/emphasis/lists/
+// blockquotes/...) via react-markdown, plus every "{...}" card
+// (illustration/video/YouTube/audio/syllable-breakdown) via remarkStoryCards
+// + StoryCard, with its own fullscreen-on-tap state for illustrations/
+// videos/YouTube/syllable rows — exactly what StoryPage renders below,
+// factored out so the tutor story editor's preview mode
+// (components/tutor/story-markdown-editor.tsx) can render through this
+// exact same pipeline instead of a generic, lower-fidelity Markdown
+// preview. `onCardOpen`/`onDuckMusic`/`onUnduckMusic` are optional hooks
+// for StoryPage's game-only concerns (star/Diamond rewards, ducking the
+// background track) — the tutor preview just omits them.
+export function StoryBody({
+  slug,
+  markdown,
+  onCardOpen,
+  onDuckMusic = () => {},
+  onUnduckMusic = () => {},
+}: {
+  slug: string;
+  markdown: string;
+  onCardOpen?: (segments: StoryWordSegment[]) => void;
+  onDuckMusic?: () => void;
+  onUnduckMusic?: () => void;
+}) {
+  const [fullscreenSegments, setFullscreenSegments] = useState<StoryWordSegment[] | null>(null);
+
+  // Same "a fullscreen video/YouTube embed has its own sound, duck the
+  // background track while it's open" reasoning as StoryAudioButton.
+  useEffect(() => {
+    if (!fullscreenSegments || (!isVideo(fullscreenSegments) && !isYouTube(fullscreenSegments))) return;
+    onDuckMusic();
+    return () => onUnduckMusic();
+    // onDuckMusic/onUnduckMusic are expected to be stable (useCallback or
+    // the module-level no-op defaults above), so this only re-fires when
+    // the fullscreen selection itself changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullscreenSegments]);
+
+  const handleOpenCard = (segments: StoryWordSegment[]) => {
+    setFullscreenSegments(segments);
+    onCardOpen?.(segments);
+  };
+
+  const markdownComponents = useMemo(
+    (): Components =>
+      ({
+        [STORY_CARD_TAG]: ({ raw }: { raw: string }) => (
+          <StoryCard
+            raw={raw}
+            storySlug={slug}
+            onOpen={handleOpenCard}
+            onDuckMusic={onDuckMusic}
+            onUnduckMusic={onUnduckMusic}
+          />
+        ),
+      }) as unknown as Components,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [slug, onCardOpen, onDuckMusic, onUnduckMusic],
+  );
+
+  return (
+    <>
+      {/* prose-lg for the fairy-tale-sized body text; max-w-none since the
+          mx-auto max-w-2xl wrapper already constrains width. */}
+      <div className="prose prose-lg mx-auto max-w-2xl text-gray-700 prose-p:leading-loose">
+        <ReactMarkdown remarkPlugins={[remarkStoryCards, remarkBreaks]} components={markdownComponents}>
+          {markdown}
+        </ReactMarkdown>
+      </div>
+
+      {fullscreenSegments && (
+        <FullscreenOverlay onClose={() => setFullscreenSegments(null)}>
+          {isIllustration(fullscreenSegments) ? (
+            <StoryIllustration url={storyAssetUrl(slug, fullscreenSegments[0].filename)} size="lg" />
+          ) : isVideo(fullscreenSegments) ? (
+            <StoryVideo url={storyAssetUrl(slug, fullscreenSegments[0].filename)} size="lg" />
+          ) : isYouTube(fullscreenSegments) ? (
+            <StoryYoutube videoId={fullscreenSegments[0].videoId} size="lg" />
+          ) : (
+            <WordCardRow
+              segments={fullscreenSegments}
+              storySlug={slug}
+              size="lg"
+              cardSizeRem={lgCardSizeRem(fullscreenSegments.length)}
+            />
+          )}
+        </FullscreenOverlay>
+      )}
+    </>
+  );
+}
+
 // How many books sit on one shelf before a new shelf starts underneath —
 // keeps a shelf plank's width believable instead of stretching it across
 // an arbitrary number of books.
@@ -502,7 +605,6 @@ function StoryPicker({ stories, onSelect }: { stories: StorySummary[]; onSelect:
 
 function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack: () => void }) {
   const t = useTranslations("StoriesGame");
-  const [fullscreenSegments, setFullscreenSegments] = useState<StoryWordSegment[] | null>(null);
   const [stars, setStars] = useState(0);
   const [starBump, setStarBump] = useState(0);
   const starBadgeRef = useRef<HTMLDivElement>(null);
@@ -510,13 +612,13 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
 
   // Only a logged-in student earns stars/Diamonds here — the public /games
   // route renders this same StoryPage with no session, so `user` stays null
-  // there and this whole feature no-ops (see handleOpenCard below).
+  // there and this whole feature no-ops (see handleCardOpen below).
   const user = useAuthStore((s) => s.user);
   const rewardStoriesGame = useRewardStoriesGame();
 
   // Every DIAMOND_MILESTONE_STARS stars awards 1 Diamond for a signed-in
   // student — see useDiamondMilestoneReward. `stars` itself only ever
-  // increments for a signed-in student (handleOpenCard below), so this is
+  // increments for a signed-in student (handleCardOpen below), so this is
   // already a no-op for an anonymous visitor.
   useDiamondMilestoneReward({
     mode: "count",
@@ -526,22 +628,7 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
     originRef: starBadgeRef,
   });
 
-  // A fullscreen video or YouTube embed (unlike a fullscreen illustration or
-  // card row) has its own sound (see StoryVideo/StoryYoutube's "lg" size) —
-  // duck the background track for as long as it's open, same reason
-  // StoryAudioButton does.
-  useEffect(() => {
-    if (!fullscreenSegments || (!isVideo(fullscreenSegments) && !isYouTube(fullscreenSegments))) return;
-    backgroundMusic.duck();
-    return () => backgroundMusic.unduck();
-    // backgroundMusic.duck/unduck are useStoryBackgroundMusic's own
-    // useCallbacks (stable identity), so this only re-fires when the
-    // fullscreen selection itself changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fullscreenSegments]);
-
-  const handleOpenCard = (segments: StoryWordSegment[]) => {
-    setFullscreenSegments(segments);
+  const handleCardOpen = (segments: StoryWordSegment[]) => {
     // A plain illustration, video, or YouTube embed isn't a "word" (see
     // DIAMOND_MILESTONE_STARS above) — only a syllable/letter breakdown
     // earns a star.
@@ -550,32 +637,6 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
       setStarBump((current) => current + 1);
     }
   };
-
-  const markdownComponents = useMemo(
-    (): Components =>
-      ({
-        [STORY_CARD_TAG]: ({ raw }: { raw: string }) => (
-          <StoryCard
-            raw={raw}
-            storySlug={slug}
-            onOpen={handleOpenCard}
-            onDuckMusic={backgroundMusic.duck}
-            onUnduckMusic={backgroundMusic.unduck}
-          />
-        ),
-      }) as unknown as Components,
-    // handleOpenCard closes over `user`, which starts null and flips to a
-    // real user once useAuthStore's session check resolves (asynchronously,
-    // shortly after mount — not only "mid-story" as this comment used to
-    // assume) — leaving `user` out of these deps would freeze that first
-    // render's null into the closure forever, silently breaking the
-    // star/Diamond reward for every card opened after login resolves.
-    // backgroundMusic.duck/unduck are useStoryBackgroundMusic's own
-    // useCallbacks (stable identity), so depending on them doesn't cause
-    // this to recreate every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [slug, user, backgroundMusic.duck, backgroundMusic.unduck],
-  );
 
   // Stars this round, 1-5, wrapping right after a Diamond is awarded —
   // e.g. stars=6 shows "1/5", not "6/5".
@@ -652,34 +713,14 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
           <h2 className="text-3xl font-extrabold text-gray-800">{story.title}</h2>
         </div>
 
-        {/* prose-lg for the fairy-tale-sized body text (headings, emphasis,
-            lists, blockquotes — anything real Markdown supports); max-w-none
-            since the mx-auto max-w-2xl wrapper already constrains width. */}
-        <div className="prose prose-lg mx-auto max-w-2xl text-gray-700 prose-p:leading-loose">
-          <ReactMarkdown remarkPlugins={[remarkStoryCards, remarkBreaks]} components={markdownComponents}>
-            {story.body}
-          </ReactMarkdown>
-        </div>
+        <StoryBody
+          slug={slug}
+          markdown={story.body}
+          onCardOpen={handleCardOpen}
+          onDuckMusic={backgroundMusic.duck}
+          onUnduckMusic={backgroundMusic.unduck}
+        />
       </div>
-
-      {fullscreenSegments && (
-        <FullscreenOverlay onClose={() => setFullscreenSegments(null)}>
-          {isIllustration(fullscreenSegments) ? (
-            <StoryIllustration url={storyAssetUrl(slug, fullscreenSegments[0].filename)} size="lg" />
-          ) : isVideo(fullscreenSegments) ? (
-            <StoryVideo url={storyAssetUrl(slug, fullscreenSegments[0].filename)} size="lg" />
-          ) : isYouTube(fullscreenSegments) ? (
-            <StoryYoutube videoId={fullscreenSegments[0].videoId} size="lg" />
-          ) : (
-            <WordCardRow
-              segments={fullscreenSegments}
-              storySlug={slug}
-              size="lg"
-              cardSizeRem={lgCardSizeRem(fullscreenSegments.length)}
-            />
-          )}
-        </FullscreenOverlay>
-      )}
     </div>
   );
 }

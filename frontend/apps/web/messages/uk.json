@@ -77,7 +77,8 @@
     "preschoolMode": "Дитячий режим",
     "diamondBalance": "{count, plural, one {# діамант} few {# діаманти} many {# діамантів} other {# діаманта}}",
     "avatarEditor": "Редактор аватарів",
-    "furnitureEditor": "Редактор фурнітури"
+    "furnitureEditor": "Редактор фурнітури",
+    "storiesEditor": "Редактор казок"
   },
   "Home": {
     "welcomeBack": "З поверненням, {name}!",
@@ -1080,6 +1081,25 @@
     "uploadDuplicateKey": "Предмет з таким ключем вже існує.",
     "uploadInvalidFile": "Невірний формат файлу.",
     "uploadFailed": "Не вдалося завантажити предмет. Спробуйте ще раз."
+  },
+  "TutorStories": {
+    "title": "Редактор казок",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити казки. Спробуйте ще раз.",
+    "empty": "Ще немає жодної казки.",
+    "storyTitle": "Назва",
+    "subtitle": "Підзаголовок",
+    "coverImage": "Обкладинка",
+    "content": "Текст казки",
+    "insertImage": "Вставити зображення",
+    "uploadingImage": "Завантаження...",
+    "editButton": "Редагувати",
+    "previewButton": "Перегляд",
+    "save": "Зберегти",
+    "remove": "Видалити",
+    "confirmDelete": "Видалити казку «{title}»? Це прибере її з гри у всіх учнів.",
+    "newStoryTitle": "Нова казка",
+    "create": "Створити"
   },
   "TaskDetail": {
     "loading": "Завантаження...",

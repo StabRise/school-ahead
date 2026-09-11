@@ -11,6 +11,7 @@ const MENU_ITEMS = [
   { href: "/tutor/classes", labelKey: "myClasses" },
   { href: "/tutor/avatars", labelKey: "avatarEditor" },
   { href: "/tutor/furniture", labelKey: "furnitureEditor" },
+  { href: "/tutor/stories", labelKey: "storiesEditor" },
 ] as const;
 
 // Below `md` this collapses into a ☰ dropdown instead of the plain inline
