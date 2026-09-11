@@ -20,6 +20,8 @@ import type { CardSetSummaryOut, StudentCardOut } from "@school-ahead/api-client
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { ProgressBar } from "@/components/progress-bar";
 import { Tabs } from "@/components/tabs";
+import { groupTopicsByBlock } from "@/components/subjects/group-topics-by-block";
+import { subjectBlockAnchorId, subjectTopicAnchorId } from "@/components/subjects/subject-anchors";
 import { SemesterPlan } from "@/components/subjects/semester-plan";
 import { SubjectMaterials } from "@/components/subjects/subject-materials";
 import { groupTasksByTopicId, TaskListSection } from "@/components/subjects/task-list";
@@ -170,7 +172,9 @@ function SimpleTopicSection({
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="px-1.5 text-xs font-medium text-gray-500">{topic.title}</div>
+      <h3 id={subjectTopicAnchorId(topic.id)} className="m-0 scroll-mt-20 px-1.5 text-xs font-medium text-gray-500">
+        {topic.title}
+      </h3>
       {lessons.length === 0 ? (
         <p className="px-4 text-xs text-gray-400">{t("noLessonsInTopic")}</p>
       ) : (
@@ -422,6 +426,7 @@ export function SimpleSubjectDetailPage({ subjectId, colorful }: { subjectId: nu
   const subject = subjectQuery.data;
   const percent = Math.round(Math.min(100, Math.max(0, progressQuery.data?.completed_percent ?? 0)));
   const nextLesson = nextLessonQuery.data;
+  const blockGroups = groupTopicsByBlock(topics, subject.blocks);
 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: t("breadcrumbMySubjects"), href: "/subjects" },
@@ -480,13 +485,25 @@ export function SimpleSubjectDetailPage({ subjectId, colorful }: { subjectId: nu
                     {!isLoadingLessons && !isErrorLessons && topics.length === 0 && (
                       <p className="text-sm text-gray-500">{t("noTopics")}</p>
                     )}
-                    {topics.map((topic) => (
-                      <SimpleTopicSection
-                        key={topic.id}
-                        topic={topic}
-                        lessons={lessonsByTopicId.get(topic.id) ?? []}
-                        colorful={colorful}
-                      />
+                    {blockGroups.map((group) => (
+                      <div key={group.key} className="flex flex-col gap-4">
+                        {group.label && (
+                          <h2
+                            id={subjectBlockAnchorId(group.label)}
+                            className="scroll-mt-20 px-1.5 text-sm font-semibold text-gray-900"
+                          >
+                            {group.label}
+                          </h2>
+                        )}
+                        {group.topics.map((topic) => (
+                          <SimpleTopicSection
+                            key={topic.id}
+                            topic={topic}
+                            lessons={lessonsByTopicId.get(topic.id) ?? []}
+                            colorful={colorful}
+                          />
+                        ))}
+                      </div>
                     ))}
                   </div>
                 </div>

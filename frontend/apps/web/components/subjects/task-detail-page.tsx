@@ -15,6 +15,7 @@ import {
 } from "@school-ahead/api-client/browser/tasks/tasks";
 import type { TaskOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
+import { subjectTopicAnchorId } from "@/components/subjects/subject-anchors";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { Markdown } from "@/components/markdown";
 import { FileDropzone } from "@/components/file-dropzone";
@@ -137,7 +138,7 @@ export function TaskDetailPage({ taskId }: { taskId: number }) {
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: t("breadcrumbMySubjects"), href: "/subjects" },
     { label: task.subject_name, href: `/subjects/${task.subject_id}` },
-    { label: task.topic_title },
+    { label: task.topic_title, href: `/subjects/${task.subject_id}#${subjectTopicAnchorId(task.topic_id)}` },
     { label: task.title },
   ];
 

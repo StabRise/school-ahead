@@ -14,7 +14,9 @@ import { SimpleEntityIcon } from "@/components/simple/entity-icon";
 // (TutorStudentOut.completed_percent, denormalized on StudentProfile — see
 // backend lessons.services._update_completion_percent_cache) and links to
 // that student's read-only calendar (see tutor-class-detail-page.tsx's
-// StudentRow for the same destination).
+// StudentRow for the same destination). The class header links to that
+// class's detail page, same destination as the class breadcrumb elsewhere
+// (e.g. tutor-subject-detail-page.tsx).
 export function MyStudentsSidebar({ students }: { students: TutorStudentOut[] }) {
   const t = useTranslations("TutorDashboard");
 
@@ -42,13 +44,15 @@ export function MyStudentsSidebar({ students }: { students: TutorStudentOut[] })
       {studentsByClass.map((group) => (
         <div key={group.classId} className="flex flex-col gap-1">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-            {t("classLabel", { name: group.className })}
+            <Link href={`/tutor/classes/${group.classId}`} className="hover:text-gray-900 hover:underline">
+              {t("classLabel", { name: group.className })}
+            </Link>
           </h4>
           <ul className="flex flex-col divide-y divide-gray-50">
             {group.students.map((s) => (
               <li key={s.id}>
                 <Link
-                  href={`/tutor/students/${s.id}`}
+                  href={`/tutor/students/${s.id}/calendar`}
                   className="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
                 >
                   <SimpleEntityIcon fallback={User} />
