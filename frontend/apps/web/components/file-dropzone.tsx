@@ -10,11 +10,13 @@ export function FileDropzone({
   id,
   hint,
   multiple = true,
+  accept,
   onFilesSelected,
 }: {
   id?: string;
   hint: string;
   multiple?: boolean;
+  accept?: string;
   onFilesSelected: (files: FileList | null) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -51,6 +53,7 @@ export function FileDropzone({
         id={id}
         type="file"
         multiple={multiple}
+        accept={accept}
         className="hidden"
         onChange={(e) => {
           onFilesSelected(e.target.files);

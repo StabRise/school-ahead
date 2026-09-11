@@ -12,11 +12,22 @@ def _absolute_file_url(file_field, context: dict) -> str | None:
     return request.build_absolute_uri(file_field.url) if request else file_field.url
 
 
+class StoryAssetOut(Schema):
+    id: int
+    url: str
+    original_filename: str
+
+    @staticmethod
+    def resolve_url(obj, context):
+        return _absolute_file_url(obj.file, context)
+
+
 class StoryOut(Schema):
     id: int
     title: str
     subtitle: str
     cover_image: str | None
+    is_published: bool
     updated_at: datetime.datetime
 
     @staticmethod
@@ -26,7 +37,14 @@ class StoryOut(Schema):
 
 class StoryDetailOut(StoryOut):
     content: str
+    assets: list[StoryAssetOut]
 
-
-class StoryAssetOut(Schema):
-    url: str
+    @staticmethod
+    def resolve_assets(obj, context):
+        # The raw StoryAsset objects, not pre-built dicts/StoryAssetOut(...)
+        # instances — StoryAssetOut.resolve_url always runs and expects a
+        # real object with a `.file` FileField attribute (same as the
+        # top-level list[StoryAssetOut] response from
+        # create_tutor_story_assets), so feeding it anything else fails to
+        # find `url`.
+        return list(obj.assets.all())

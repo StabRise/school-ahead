@@ -11,6 +11,11 @@ import { StoryBody } from "@school-ahead/preschool-games";
 // local filename with, see frontend's lib/story-parser.ts). Preview mode
 // renders through StoryBody, the actual game's body renderer, not a plain
 // Markdown preview, so a tutor sees exactly what a student will see.
+//
+// `onUploadImage` is omitted while creating a brand-new story (see
+// story-editor-dialog.tsx) — the upload endpoint needs an existing story id
+// to attach the image to, so the button is hidden until the story has been
+// saved once.
 export function StoryMarkdownEditor({
   value,
   onChange,
@@ -21,7 +26,7 @@ export function StoryMarkdownEditor({
   value: string;
   onChange: (value: string) => void;
   previewSlug: string;
-  onUploadImage: (file: File) => Promise<string>;
+  onUploadImage?: (file: File) => Promise<string>;
   rows?: number;
 }) {
   const t = useTranslations("TutorStories");
@@ -49,7 +54,7 @@ export function StoryMarkdownEditor({
 
   const handleImageSelected = async () => {
     const file = imageFileRef.current?.files?.[0];
-    if (!file) return;
+    if (!file || !onUploadImage) return;
     setIsUploading(true);
     try {
       const url = await onUploadImage(file);
@@ -64,22 +69,26 @@ export function StoryMarkdownEditor({
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <input
-            ref={imageFileRef}
-            type="file"
-            accept="image/*"
-            onChange={handleImageSelected}
-            disabled={isUploading}
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={() => imageFileRef.current?.click()}
-            disabled={isUploading}
-            className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-          >
-            {isUploading ? t("uploadingImage") : t("insertImage")}
-          </button>
+          {onUploadImage && (
+            <>
+              <input
+                ref={imageFileRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelected}
+                disabled={isUploading}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => imageFileRef.current?.click()}
+                disabled={isUploading}
+                className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              >
+                {isUploading ? t("uploadingImage") : t("insertImage")}
+              </button>
+            </>
+          )}
         </div>
         <button
           type="button"

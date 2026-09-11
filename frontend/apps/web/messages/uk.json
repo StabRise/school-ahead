@@ -78,7 +78,7 @@
     "diamondBalance": "{count, plural, one {# діамант} few {# діаманти} many {# діамантів} other {# діаманта}}",
     "avatarEditor": "Редактор аватарів",
     "furnitureEditor": "Редактор фурнітури",
-    "storiesEditor": "Редактор казок"
+    "storiesEditor": "Казки"
   },
   "Home": {
     "welcomeBack": "З поверненням, {name}!",
@@ -1083,23 +1083,30 @@
     "uploadFailed": "Не вдалося завантажити предмет. Спробуйте ще раз."
   },
   "TutorStories": {
-    "title": "Редактор казок",
+    "title": "Казки",
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити казки. Спробуйте ще раз.",
     "empty": "Ще немає жодної казки.",
+    "addStoryButton": "Додати казку",
+    "edit": "Редагувати",
+    "remove": "Видалити",
+    "confirmDelete": "Видалити казку «{title}»? Це прибере її з гри у всіх учнів.",
+    "deleteError": "Не вдалося видалити казку. Спробуйте ще раз.",
+    "createTitle": "Нова казка",
+    "editTitle": "Редагувати казку",
     "storyTitle": "Назва",
     "subtitle": "Підзаголовок",
     "coverImage": "Обкладинка",
+    "dropzoneHint": "Натисніть або перетягніть зображення сюди",
     "content": "Текст казки",
     "insertImage": "Вставити зображення",
     "uploadingImage": "Завантаження...",
     "editButton": "Редагувати",
     "previewButton": "Перегляд",
-    "save": "Зберегти",
-    "remove": "Видалити",
-    "confirmDelete": "Видалити казку «{title}»? Це прибере її з гри у всіх учнів.",
-    "newStoryTitle": "Нова казка",
-    "create": "Створити"
+    "insertImageAfterCreate": "Вставляти зображення можна після збереження казки.",
+    "saveError": "Не вдалося зберегти казку. Спробуйте ще раз.",
+    "cancelButton": "Скасувати",
+    "saveButton": "Зберегти"
   },
   "TaskDetail": {
     "loading": "Завантаження...",

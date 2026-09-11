@@ -10,7 +10,8 @@ class StoryAssetInline(admin.TabularInline):
 
 @admin.register(Story)
 class StoryAdmin(admin.ModelAdmin):
-    list_display = ('title', 'subtitle', 'created_by', 'updated_at')
+    list_display = ('title', 'subtitle', 'is_published', 'created_by', 'updated_at')
+    list_filter = ('is_published',)
     search_fields = ('title', 'subtitle')
     autocomplete_fields = ('created_by',)
     inlines = [StoryAssetInline]
