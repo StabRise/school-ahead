@@ -386,7 +386,7 @@ function CardsFallingGame({ cards, muted }: { cards: CardsGameCard[]; muted: boo
               type="button"
               aria-label={t("replaySoundLabel")}
               onClick={() => speakTarget(target)}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-50 text-lg"
+              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-sky-50 text-lg"
             >
               🔊
             </button>
@@ -504,7 +504,7 @@ export function CardsGame() {
         type="button"
         aria-label={t("settingsButton")}
         onClick={() => setSettingsOpen((current) => !current)}
-        className="absolute left-20 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+        className="absolute left-20 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
       >
         ⚙️
       </button>

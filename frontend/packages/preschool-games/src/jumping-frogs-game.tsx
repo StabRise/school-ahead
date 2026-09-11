@@ -80,11 +80,11 @@ function wordSegments(word: string) {
 // value, and rendered `bare` (WordCardRow's own bordered "sheet" would
 // otherwise be a second border concentric with the card's own — only
 // meaningful for grouping *several* cards into one word).
-const BIG_CARD_MIN_REM = 4;
-const BIG_CARD_MAX_REM = 8;
+const BIG_CARD_MIN_REM = 5.5;
+const BIG_CARD_MAX_REM = 11;
 
 function bigCardSizeRem(rowHeightPx: number): number {
-  const rem = (rowHeightPx * 0.42) / 16;
+  const rem = (rowHeightPx * 0.6) / 16;
   return Math.min(BIG_CARD_MAX_REM, Math.max(BIG_CARD_MIN_REM, rem));
 }
 
@@ -242,7 +242,7 @@ function LilyPad({
   // (no second, redundant border) than a word's multi-card breakdown
   // (level 3) needs.
   const simpleCard = difficulty < 3;
-  const padHeight = Math.min(150, Math.max(96, rowHeight * 0.78));
+  const padHeight = Math.min(190, Math.max(120, rowHeight * 0.85));
 
   return (
     <button
@@ -483,27 +483,31 @@ function TargetHeaderBar({
           <WordCardRow
             segments={wordSegments(target.key)}
             size="sm"
-            cardSizeRem={5}
+            cardSizeRem={7}
             preferPlainText={difficulty === 2}
             bare
           />
         ) : (
           <WordCardRow segments={wordSegments(target.key)} size="sm" cardSizeRem={3.25} />
         )}
-        {/* Always shown and always functional (unlike the level's automatic
-            narration, which respects `muted`) — a dedicated "read it to me"
-            affordance should work on tap regardless, same as every other
-            game's own replay button (e.g. cards-game.tsx's CardsFallingGame,
-            which isn't muted-gated at all either). */}
-        <button
-          type="button"
-          aria-label={t("replaySoundLabel")}
-          onClick={onReplay}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-50 text-lg"
-        >
-          🔊
-        </button>
       </div>
+      {/* A separate button, not inside the white pill above (it used to sit
+          inside it, sharing the card's own rounded box) — its own distinct
+          circle reads more clearly as a separate control than as another
+          part of the card display. Always shown and always functional
+          (unlike the level's automatic narration, which respects `muted`)
+          — a dedicated "read it to me" affordance should work on tap
+          regardless, same as every other game's own replay button (e.g.
+          cards-game.tsx's CardsFallingGame, which isn't muted-gated at all
+          either). */}
+      <button
+        type="button"
+        aria-label={t("replaySoundLabel")}
+        onClick={onReplay}
+        className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+      >
+        🔊
+      </button>
     </div>
   );
 }
@@ -798,8 +802,17 @@ function CelebrationOverlay() {
         autoPlay
         muted
         playsInline
-        className="w-48 rounded-2xl shadow-xl sm:w-64 md:max-w-96"
-        style={{ animation: "score-pop 0.5s ease-out" }}
+        className="rounded-2xl shadow-xl"
+        // Fluidly scaled by the actual viewport (vw/vh), not fixed
+        // breakpoint steps — capped on *both* axes so it can't overflow a
+        // short/narrow screen either; no explicit width/height needed,
+        // a replaced element (video) with only max-width/max-height set
+        // shrinks to fit within both while keeping its own aspect ratio.
+        style={{
+          maxWidth: "min(85vw, 48rem)",
+          maxHeight: "60vh",
+          animation: "score-pop 0.5s ease-out",
+        }}
       />
       <p className="text-2xl font-bold text-gray-700">{t("celebrationTitle")}</p>
     </div>
@@ -900,7 +913,7 @@ export function JumpingFrogsGame() {
         type="button"
         aria-label={t("settingsButton")}
         onClick={() => setSettingsOpen((current) => !current)}
-        className="absolute left-20 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+        className="absolute left-20 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
       >
         ⚙️
       </button>

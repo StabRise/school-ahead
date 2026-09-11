@@ -19,7 +19,7 @@ export function MusicToggleButton({ className }: { className: string }) {
       type="button"
       aria-label={musicEnabled ? t("musicOnLabel") : t("musicOffLabel")}
       onClick={() => setMusicEnabled(!musicEnabled)}
-      className={`flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200 ${className}`}
+      className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200 ${className}`}
     >
       {musicEnabled ? "🎵" : "🔇"}
     </button>
