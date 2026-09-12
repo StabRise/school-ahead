@@ -22,16 +22,38 @@ import { MarkdownToolbar, type MarkdownToolbarActions } from "../markdown-toolba
 // text instead (see handleDrop below).
 const IMAGE_DROP_RE = new RegExp(`^${IMAGE_CARD_RE.source}$`, "i");
 
-function buildImageChip(url: string, removeLabel: string, onRemoved: () => void): HTMLElement {
+// `onDragStart`/`onDragEnd` let the editor track which chip (if any) a drag
+// currently in progress came from — see handleDrop below, which moves that
+// exact DOM node instead of inserting a duplicate when the drag originated
+// from inside this same editor (as opposed to a fresh asset dragged in from
+// story-asset-sidebar.tsx).
+function buildImageChip(
+  url: string,
+  removeLabel: string,
+  onRemoved: () => void,
+  onDragStart: (chip: HTMLElement) => void,
+  onDragEnd: () => void,
+): HTMLElement {
   const chip = document.createElement("span");
   chip.contentEditable = "false";
+  chip.draggable = true;
   chip.dataset.imageUrl = url;
-  chip.className = "relative mx-0.5 inline-block align-middle";
+  chip.className = "relative mx-0.5 inline-block cursor-grab align-middle active:cursor-grabbing";
+
+  chip.addEventListener("dragstart", (e) => {
+    // Same "{ <url> }" shape story-asset-sidebar.tsx's drag payload uses, so
+    // dropping this chip somewhere else in the editor (or back onto itself)
+    // is indistinguishable, at the data level, from dragging a fresh asset in.
+    e.dataTransfer?.setData("text/plain", `{ ${url} }`);
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+    onDragStart(chip);
+  });
+  chip.addEventListener("dragend", onDragEnd);
 
   const img = document.createElement("img");
   img.src = url;
   img.alt = "";
-  img.draggable = false;
+  img.draggable = false; // let the chip (not the browser's native image drag) own dragstart
   img.className = "inline-block h-14 w-auto rounded object-contain align-middle shadow";
   chip.appendChild(img);
 
@@ -102,12 +124,29 @@ export function StoryRichTextEditor({
   const t = useTranslations("TutorStories");
   const containerRef = useRef<HTMLDivElement>(null);
   const savedRangeRef = useRef<Range | null>(null);
+  // The chip currently being dragged, when the drag started on a chip already
+  // in this editor — see handleDrop, which relocates this exact node instead
+  // of inserting a fresh one when it's set.
+  const draggedChipRef = useRef<HTMLElement | null>(null);
   const [toolbar, setToolbar] = useState<SelectionToolbar | null>(null);
 
   const emit = () => {
     const container = containerRef.current;
     if (container) onChange(serializeContainer(container));
   };
+
+  const createImageChip = (url: string) =>
+    buildImageChip(
+      url,
+      t("removeImageLabel"),
+      emit,
+      (chip) => {
+        draggedChipRef.current = chip;
+      },
+      () => {
+        draggedChipRef.current = null;
+      },
+    );
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -123,7 +162,7 @@ export function StoryRichTextEditor({
     container.innerHTML = "";
     for (const segment of splitIntoSegments(value)) {
       if (segment.type === "image") {
-        container.appendChild(buildImageChip(segment.url, t("removeImageLabel"), emit));
+        container.appendChild(createImageChip(segment.url));
       } else if (segment.text) {
         container.appendChild(document.createTextNode(segment.text));
       }
@@ -251,8 +290,6 @@ export function StoryRichTextEditor({
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const dropped = e.dataTransfer.getData("text/plain");
-    if (!dropped) return;
     const container = containerRef.current;
     if (!container) return;
 
@@ -263,8 +300,22 @@ export function StoryRichTextEditor({
       target.collapse(false);
     }
 
+    // Repositioning an image already in the text: move the exact chip node
+    // (Range.insertNode removes a node from its old spot when it's already
+    // in the document) rather than inserting a duplicate — see buildImageChip's
+    // onDragStart/onDragEnd, which track this across the drag.
+    const draggedChip = draggedChipRef.current;
+    if (draggedChip) {
+      draggedChipRef.current = null;
+      target.insertNode(draggedChip);
+      emit();
+      return;
+    }
+
+    const dropped = e.dataTransfer.getData("text/plain");
+    if (!dropped) return;
     const imageMatch = dropped.match(IMAGE_DROP_RE);
-    target.insertNode(imageMatch ? buildImageChip(imageMatch[1], t("removeImageLabel"), emit) : document.createTextNode(dropped));
+    target.insertNode(imageMatch ? createImageChip(imageMatch[1]) : document.createTextNode(dropped));
     emit();
   };
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { FileAudio, FileVideo, Trash2 } from "lucide-react";
+import { Check, FileAudio, FileVideo, Trash2 } from "lucide-react";
 import {
   getGetTutorPreschoolStoryQueryKey,
   useCreateTutorPreschoolStoryAssets,
@@ -23,15 +23,40 @@ export function assetCardText(url: string): string {
 const IMAGE_RE = /\.(jpe?g|png|webp|gif)$/i;
 const AUDIO_RE = /\.(mp3|wav|ogg|m4a)$/i;
 
-function AssetThumb({ asset }: { asset: StoryAssetOut }) {
+// The little corner badge is the only "used?" signal that doesn't depend on
+// reading the row's text label — useful once the sidebar has many assets and
+// the tutor is scanning thumbnails rather than filenames.
+function UsedBadge({ isUsed, label }: { isUsed: boolean; label: string }) {
+  return (
+    <span
+      title={label}
+      aria-hidden="true"
+      className={`absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white ${
+        isUsed ? "bg-emerald-500" : "bg-gray-300"
+      }`}
+    >
+      {isUsed && <Check className="h-2.5 w-2.5 text-white" />}
+    </span>
+  );
+}
+
+function AssetThumb({ asset, isUsed, usedLabel }: { asset: StoryAssetOut; isUsed: boolean; usedLabel: string }) {
   if (IMAGE_RE.test(asset.url)) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={asset.url} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />;
+    return (
+      <span className="relative inline-flex shrink-0">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={asset.url} alt="" className="h-10 w-10 rounded object-cover" />
+        <UsedBadge isUsed={isUsed} label={usedLabel} />
+      </span>
+    );
   }
   const Icon = AUDIO_RE.test(asset.url) ? FileAudio : FileVideo;
   return (
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-gray-100">
-      <Icon className="h-4 w-4 text-gray-500" />
+    <span className="relative inline-flex shrink-0">
+      <span className="flex h-10 w-10 items-center justify-center rounded bg-gray-100">
+        <Icon className="h-4 w-4 text-gray-500" />
+      </span>
+      <UsedBadge isUsed={isUsed} label={usedLabel} />
     </span>
   );
 }
@@ -58,10 +83,12 @@ function AssetRow({ storyId, asset, isUsed }: { storyId: number; asset: StoryAss
       title={t("dragIntoText")}
       className="flex cursor-grab items-center gap-2 rounded-md border border-gray-200 p-1.5 active:cursor-grabbing"
     >
-      <AssetThumb asset={asset} />
+      <AssetThumb asset={asset} isUsed={isUsed} usedLabel={t(isUsed ? "usedInText" : "notUsedInText")} />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-xs font-medium text-gray-700">{asset.original_filename}</span>
-        {isUsed && <span className="text-[10px] text-emerald-600">{t("usedInText")}</span>}
+        <span className={`text-[10px] ${isUsed ? "text-emerald-600" : "text-gray-400"}`}>
+          {t(isUsed ? "usedInText" : "notUsedInText")}
+        </span>
       </span>
       <button
         type="button"
@@ -103,7 +130,10 @@ export function StoryAssetSidebar({
   };
 
   return (
-    <div className="flex w-full flex-col gap-3 lg:w-64">
+    // Sticky + its own scroll so the panel stays fully visible next to a long
+    // story (the form column can run well past one screen) instead of
+    // scrolling out of view with the rest of the page.
+    <div className="flex w-full flex-col gap-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-64 lg:self-start lg:overflow-y-auto">
       <span className="text-xs font-medium text-gray-700">{t("assets")}</span>
       <FileDropzone
         id="story-assets"
