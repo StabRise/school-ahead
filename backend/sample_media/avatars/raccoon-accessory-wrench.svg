@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 896 1216" width="896" height="1216">
+  <defs>
+    <linearGradient id="wrenchBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#C6CBD1"/>
+      <stop offset="100%" stop-color="#8A929B"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#wrenchBody)" d="M300,1120 L360,1060 L610,930 C630,940 636,960 626,980 L400,1090 L340,1150 Z"/>
+  <path fill="url(#wrenchBody)" d="M600,900 C630,890 660,900 675,925 C690,950 685,980 660,995 L636,975 C646,960 644,945 630,935 C616,925 600,930 590,942 Z"/>
+  <circle cx="320" cy="1140" r="26" fill="none" stroke="url(#wrenchBody)" stroke-width="18"/>
+</svg>

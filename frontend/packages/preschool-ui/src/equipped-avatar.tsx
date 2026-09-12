@@ -42,13 +42,24 @@ export function useEquippedAvatarLayers(): AvatarLayer[] {
   const equippedHeadwearItems = useAuthStore((state) => state.user?.equippedHeadwearItems);
   const equippedAccessoryItems = useAuthStore((state) => state.user?.equippedAccessoryItems);
 
+  // Stacking order is global across all three slots (a student can put an
+  // accessory under a piece of clothing, not just reorder within its own
+  // slot — see docs/core/avatar.md section 2.2 and PATCH /me/avatar-items/
+  // order) — the backend already returns each item's *effective* rank in
+  // `layerOrder` (accounts.services.equipped_items_out), so merge every
+  // slot's items together and sort by that one field instead of assuming
+  // clothing always draws under headwear under accessory.
+  const wardrobeItems = [
+    ...(equippedClothingItems ?? []),
+    ...(equippedHeadwearItems ?? []),
+    ...(equippedAccessoryItems ?? []),
+  ].sort((a, b) => a.layerOrder - b.layerOrder);
+
   return [
     ...(equippedAvatar?.image
       ? [{ itemId: null, image: equippedAvatar.image, scale: equippedAvatar.scale, offsetX: 0, offsetY: 0, rotation: 0 }]
       : []),
-    ...itemsToLayers(equippedClothingItems),
-    ...itemsToLayers(equippedHeadwearItems),
-    ...itemsToLayers(equippedAccessoryItems),
+    ...itemsToLayers(wardrobeItems),
   ];
 }
 
@@ -58,9 +69,27 @@ export function useEquippedAvatarLayers(): AvatarLayer[] {
 // every preschool companion frame can drop the same clothed avatar into
 // their own differently-sized circular frames instead of each duplicating
 // (or, previously, skipping) this layering.
-export function EquippedAvatarLayers({ layers, className = "" }: { layers: AvatarLayer[]; className?: string }) {
+export function EquippedAvatarLayers({
+  layers,
+  className = "",
+  crop = true,
+}: {
+  layers: AvatarLayer[];
+  className?: string;
+  // A wardrobe item's scale/offsetX/offsetY (see AvatarLayer) are set
+  // assuming a caller with generous surrounding room, like /profile's own
+  // padded editor frame — a tall headwear item calibrated to sit above the
+  // head there can end up pushed outside a smaller, unpadded container
+  // elsewhere (e.g. math-game.tsx's victory-screen RunnerAvatar). `crop`
+  // (default true, matching every circular-badge caller — header nav icon,
+  // tutor's student card, game-map/calendar companion badges, which
+  // intentionally clip to their frame) hard-clips at this div's own edges;
+  // pass false to let the full costume render even if it overflows this
+  // box, instead of cutting it off mid-item.
+  crop?: boolean;
+}) {
   return (
-    <div className={`relative h-full w-full overflow-hidden ${className}`}>
+    <div className={`relative h-full w-full ${crop ? "overflow-hidden" : ""} ${className}`}>
       {layers.map((layer, index) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img

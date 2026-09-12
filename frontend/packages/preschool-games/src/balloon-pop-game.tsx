@@ -530,8 +530,21 @@ export function BalloonPopGame() {
     const cards = currentModeData.cards;
     if (cards.length === 0) return null;
     const unique = uniqueByKey(cards);
-    return shuffle(unique).slice(0, Math.min(cardCount, unique.length));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const count = Math.min(cardCount, unique.length);
+    if (mode === "numbers-0-10") {
+      // Numbers are learned in counting order, not shuffled — with N cards
+      // enabled that's 0..N-1, regardless of the API's lexicographic
+      // ("0","1","10","2",...) card order (see the "Кількість карток"
+      // slider below).
+      const byNumber = new Map(unique.map((card) => [card.key, card]));
+      const sequential: PreschoolCard[] = [];
+      for (let n = 0; n < count; n++) {
+        const card = byNumber.get(String(n));
+        if (card) sequential.push(card);
+      }
+      return sequential;
+    }
+    return shuffle(unique).slice(0, count);
   }, [mode, cardCount, currentModeData.cards]);
 
   // `selectedCards` resolved to this language's actual display text (see

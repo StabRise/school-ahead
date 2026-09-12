@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kBunnyEar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F4EFE9"/>
+      <stop offset="100%" stop-color="#D8D2C8"/>
+    </linearGradient>
+  </defs>
+  <path d="M40,62 Q116,80 192,62" stroke="#D8D2C8" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <path d="M84,60 C76,32 78,4 96,2 C112,2 114,30 106,58 C100,66 88,66 84,60 Z" fill="url(#kBunnyEar)" stroke="#B9B4AC" stroke-width="2"/>
+  <path d="M148,60 C156,32 154,4 136,2 C120,2 118,30 126,58 C132,66 144,66 148,60 Z" fill="url(#kBunnyEar)" stroke="#B9B4AC" stroke-width="2"/>
+  <path d="M92,50 C87,28 88,8 97,6 C104,6 105,26 100,48 Z" fill="#F0A9C4"/>
+  <path d="M140,50 C145,28 144,8 135,6 C128,6 127,26 132,48 Z" fill="#F0A9C4"/>
+</svg>

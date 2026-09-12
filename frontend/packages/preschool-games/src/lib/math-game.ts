@@ -15,10 +15,10 @@ export const OPERATIONS: Operation[] = ["count", "add", "subtract", "multiply", 
 export const DEFAULT_OPERATION: Operation = "multiply";
 
 export const MIN_LEVEL = 1;
-// "count" only has 3 rungs (0-3 / 0-5 / 0-10); the other four operations
+// "count" has 8 rungs (see COUNT_LEVELS below); the other four operations
 // have 5.
 export const MAX_LEVEL_BY_OPERATION: Record<Operation, number> = {
-  count: 3,
+  count: 8,
   add: 5,
   subtract: 5,
   multiply: 5,
@@ -57,6 +57,13 @@ export interface GameQuestion {
   // Set only for "count" — which critter the cluster of `a` emoji is made
   // of (all emoji in one question are this same kind).
   emoji?: string;
+  // Set only for "count" at a level with size variance (level 4+, see
+  // COUNT_LEVELS) — one randomized size multiplier per animal in the
+  // cluster (same length as `a`), generated once here so it stays stable
+  // for this question's whole lifetime instead of jittering on re-render.
+  // undefined at levels 1-3, where every animal renders at the same fixed
+  // size.
+  emojiSizes?: number[];
   choices: number[];
   correctIndex: number;
 }
@@ -97,8 +104,34 @@ const MULTIPLY_MAX_FACTOR_BY_LEVEL: Record<number, number> = { 1: 3, 2: 4, 3: 6,
 const ADD_MAX_BY_LEVEL: Record<number, number> = { 1: 3, 2: 5, 3: 10, 4: 20, 5: 100 };
 const SUBTRACT_MAX_BY_LEVEL: Record<number, number> = { 1: 4, 2: 5, 3: 10, 4: 20, 5: 100 };
 
-const COUNT_MIN = 0;
-const COUNT_MAX_BY_LEVEL: Record<number, number> = { 1: 3, 2: 5, 3: 10 };
+interface CountLevelConfig {
+  min: number;
+  max: number;
+  // From level 4, the cluster's animals render at varied sizes instead of
+  // a uniform one (see emojiSizes on GameQuestion and math-game.tsx's
+  // rendering) — cosmetic only, doesn't affect the counting range.
+  variedSize: boolean;
+}
+
+// Level 1 alone allows an answer of 0 (an empty cluster) — every level from
+// 2 up always shows at least 1 animal.
+const COUNT_LEVELS: Record<number, CountLevelConfig> = {
+  1: { min: 0, max: 3, variedSize: false },
+  2: { min: 1, max: 4, variedSize: false },
+  3: { min: 1, max: 5, variedSize: false },
+  4: { min: 1, max: 6, variedSize: true },
+  5: { min: 1, max: 7, variedSize: true },
+  6: { min: 1, max: 8, variedSize: true },
+  7: { min: 1, max: 9, variedSize: true },
+  8: { min: 1, max: 10, variedSize: true },
+};
+
+// Random per-animal size multiplier for a varied-size level's cluster —
+// wide enough (0.65-1.35x) to read as clearly different sizes at a glance,
+// without shrinking any animal so small it's hard to count.
+function randomEmojiSize(): number {
+  return 0.65 + Math.random() * 0.7;
+}
 
 // --- Distractor generation ----------------------------------------------
 // "Logical" wrong answers per docs/preschool/games/multiplication.md §4:
@@ -214,26 +247,43 @@ function generateSubtractQuestion(level: number, choiceCount: number): GameQuest
   return { operation: "subtract", a, b, answer, choices, correctIndex };
 }
 
-function generateCountQuestion(level: number, choiceCount: number): GameQuestion {
-  const max = COUNT_MAX_BY_LEVEL[level];
-  const answer = randomInt(COUNT_MIN, max);
-  const emoji = COUNT_ANIMAL_EMOJIS[Math.floor(Math.random() * COUNT_ANIMAL_EMOJIS.length)];
+// Re-rolls (bounded — the answer/emoji pool is always at least 4 x 10 = 40
+// combinations, so this settles almost immediately in practice) while the
+// new answer+emoji combo exactly matches `previous`'s, so two consecutive
+// rounds are never "the same example" (same count of the same critter).
+const MAX_REROLL_ATTEMPTS = 20;
+
+function generateCountQuestion(level: number, choiceCount: number, previous?: GameQuestion): GameQuestion {
+  const { min, max, variedSize } = COUNT_LEVELS[level];
+  let answer = min;
+  let emoji = COUNT_ANIMAL_EMOJIS[0];
+  for (let attempt = 0; attempt < MAX_REROLL_ATTEMPTS; attempt++) {
+    answer = randomInt(min, max);
+    emoji = COUNT_ANIMAL_EMOJIS[Math.floor(Math.random() * COUNT_ANIMAL_EMOJIS.length)];
+    const repeatsPrevious = previous?.operation === "count" && previous.answer === answer && previous.emoji === emoji;
+    if (!repeatsPrevious) break;
+  }
 
   const logical = [answer - 1, answer + 1, answer - 2, answer + 2];
 
-  const { choices, correctIndex } = buildChoiceSet(answer, logical, COUNT_MIN, max, choiceCount);
-  return { operation: "count", a: answer, b: 0, answer, emoji, choices, correctIndex };
+  const { choices, correctIndex } = buildChoiceSet(answer, logical, min, max, choiceCount);
+  const emojiSizes = variedSize ? Array.from({ length: answer }, randomEmojiSize) : undefined;
+  return { operation: "count", a: answer, b: 0, answer, emoji, emojiSizes, choices, correctIndex };
 }
 
 export function generateQuestion(
   operation: Operation = DEFAULT_OPERATION,
   level: number = DEFAULT_LEVEL,
   choiceCount: number = DEFAULT_CHOICE_COUNT,
+  // The just-answered question, if any — only "count" uses this (see
+  // generateCountQuestion) to avoid handing out the exact same example
+  // (same count of the same critter) two rounds in a row.
+  previous?: GameQuestion,
 ): GameQuestion {
   const clampedLevel = clampLevel(operation, level);
   switch (operation) {
     case "count":
-      return generateCountQuestion(clampedLevel, choiceCount);
+      return generateCountQuestion(clampedLevel, choiceCount, previous);
     case "add":
       return generateAddQuestion(clampedLevel, choiceCount);
     case "subtract":
@@ -251,5 +301,11 @@ export function buildSession(
   level: number = DEFAULT_LEVEL,
   choiceCount: number = DEFAULT_CHOICE_COUNT,
 ): GameQuestion[] {
-  return Array.from({ length: QUESTION_COUNT }, () => generateQuestion(operation, level, choiceCount));
+  const questions: GameQuestion[] = [];
+  let previous: GameQuestion | undefined;
+  for (let i = 0; i < QUESTION_COUNT; i++) {
+    previous = generateQuestion(operation, level, choiceCount, previous);
+    questions.push(previous);
+  }
+  return questions;
 }

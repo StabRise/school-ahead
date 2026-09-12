@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <radialGradient id="kBearFur" cx="35%" cy="25%" r="85%">
+      <stop offset="0%" stop-color="#C99A6B"/>
+      <stop offset="100%" stop-color="#9C6E44"/>
+    </radialGradient>
+  </defs>
+  <g transform="translate(196,254)">
+    <circle cx="-14" cy="-40" r="9" fill="url(#kBearFur)"/>
+    <circle cx="14" cy="-40" r="9" fill="url(#kBearFur)"/>
+    <circle cx="0" cy="-30" r="22" fill="url(#kBearFur)"/>
+    <ellipse cx="0" cy="-24" rx="10" ry="8" fill="#E8D3B8"/>
+    <circle cx="0" cy="-24" r="2.4" fill="#4A3324"/>
+    <circle cx="-7" cy="-32" r="1.8" fill="#4A3324"/>
+    <circle cx="7" cy="-32" r="1.8" fill="#4A3324"/>
+    <ellipse cx="0" cy="4" rx="24" ry="26" fill="url(#kBearFur)"/>
+    <ellipse cx="-20" cy="6" rx="8" ry="14" fill="url(#kBearFur)"/>
+    <ellipse cx="20" cy="6" rx="8" ry="14" fill="url(#kBearFur)"/>
+    <ellipse cx="-10" cy="26" rx="9" ry="7" fill="url(#kBearFur)"/>
+    <ellipse cx="10" cy="26" rx="9" ry="7" fill="url(#kBearFur)"/>
+  </g>
+</svg>

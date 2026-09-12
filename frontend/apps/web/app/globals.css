@@ -384,33 +384,66 @@ body {
   }
 }
 
-/* A wrong lily-pad tap's "bonk" feedback — the pad dips down-and-right (as
-   if pressed into the water) then springs back and settles, self-contained
-   on the pad itself (docs/preschool/games/jumping-frogs.md §3: "картка
-   плавно повертається на вихідну позицію"), no input lockout. A plain
-   sideways nudge here (the very first version) read as barely more than a
-   flicker next to the pad simultaneously shrinking back down from its
-   hover-enlarged size, so the dip/rebound is deliberately large — the
-   clearest, most legible motion wins over subtlety for this age group.
-   Includes the pad's own centering translate(-50%,-50%) (see LilyPad) in
-   every stop, since an active `animation` fully replaces an element's
-   `transform` for its duration rather than composing with a separately-set
-   static one — without it, the pad would visibly jump to its top-left-
-   anchored position for the wiggle's duration. */
-@keyframes lily-bonk {
+/* A lily-pad row's word cards fading/growing into place the moment that row
+   becomes the one the frog needs to answer next (docs/preschool/games/
+   jumping-frogs.md §2/§3: cards on the row just left disappear outright —
+   plain unmount, no exit animation needed — while the next row's cards
+   "плавно появляються"). Applied to a plain wrapper div around the card
+   (see LilyPad), not the pad button itself, so it never fights the pad's
+   own hover/hover-scale transform. */
+@keyframes row-card-reveal {
   0% {
-    transform: translate(-50%, -50%) translate(0, 0) rotate(0deg) scale(1);
-  }
-  25% {
-    transform: translate(-50%, -50%) translate(10%, 14%) rotate(8deg) scale(0.88);
-  }
-  55% {
-    transform: translate(-50%, -50%) translate(-6%, 4%) rotate(-6deg) scale(0.95);
-  }
-  80% {
-    transform: translate(-50%, -50%) translate(3%, 1%) rotate(3deg) scale(0.99);
+    opacity: 0;
+    transform: translateY(10px) scale(0.85);
   }
   100% {
-    transform: translate(-50%, -50%) translate(0, 0) rotate(0deg) scale(1);
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Jumping Frogs' occasional decorative butterfly/dragonfly (FlyingCritters,
+   jumping-frogs-game.tsx) drifting across the pond from one side to the
+   other, with a gentle up/down flutter along the way — `left` (not
+   `transform: translateX`) carries the actual crossing since it's
+   positioned as a percent of the pond's own width, letting it start/end
+   fully off-screen (-10%/110%) regardless of the pond's pixel size. */
+@keyframes flutter-across-ltr {
+  0% {
+    left: -10%;
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-16px);
+  }
+  50% {
+    transform: translateY(8px);
+  }
+  75% {
+    transform: translateY(-10px);
+  }
+  100% {
+    left: 110%;
+    transform: translateY(0);
+  }
+}
+
+@keyframes flutter-across-rtl {
+  0% {
+    left: 110%;
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(8px);
+  }
+  50% {
+    transform: translateY(-16px);
+  }
+  75% {
+    transform: translateY(10px);
+  }
+  100% {
+    left: -10%;
+    transform: translateY(0);
   }
 }

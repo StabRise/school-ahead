@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <radialGradient id="kBalloon" cx="35%" cy="25%" r="80%">
+      <stop offset="0%" stop-color="#F591B2"/>
+      <stop offset="100%" stop-color="#D9457F"/>
+    </radialGradient>
+  </defs>
+  <path d="M204,180 Q214,220 200,236 Q190,246 178,236 Q166,220 176,180 Q190,164 204,180 Z" fill="url(#kBalloon)" stroke="#B03060" stroke-width="2"/>
+  <polygon points="188,236 196,236 192,244" fill="#B03060"/>
+  <path d="M192,244 Q198,260 188,270 Q182,278 186,286" stroke="#8A8F98" stroke-width="2" fill="none"/>
+  <ellipse cx="192" cy="192" rx="6" ry="10" fill="#FFFFFF" opacity="0.5"/>
+</svg>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 896 1216" width="896" height="1216">
+  <defs>
+    <linearGradient id="flBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#DADFE4"/>
+      <stop offset="100%" stop-color="#9AA3AC"/>
+    </linearGradient>
+  </defs>
+  <path fill="#F4D35E" d="M540,1010 L470,1080 L500,1110 L570,1040 Z" opacity="0.55"/>
+  <path fill="#F4D35E" d="M540,1010 L440,1030 L450,1065 L550,1045 Z" opacity="0.4"/>
+  <rect x="560" y="1010" width="80" height="40" rx="8" fill="#E0703A"/>
+  <rect x="612" y="1015" width="34" height="30" rx="6" fill="#F4D35E"/>
+  <rect x="628" y="1025" width="70" height="90" rx="10" fill="url(#flBody)"/>
+  <rect x="628" y="1055" width="70" height="10" fill="#7A828A"/>
+  <circle cx="663" cy="1100" r="8" fill="#3E7BC4"/>
+</svg>

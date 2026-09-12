@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 896 1216" width="896" height="1216">
+  <defs>
+    <radialGradient id="hardhatDome" cx="35%" cy="20%" r="85%">
+      <stop offset="0%" stop-color="#F2C61D"/>
+      <stop offset="100%" stop-color="#C79A0E"/>
+    </radialGradient>
+  </defs>
+  <path fill="url(#hardhatDome)" d="M448,50 C560,50 630,120 630,210 L266,210 C266,120 336,50 448,50 Z"/>
+  <path d="M266,190 L630,190 L630,225 L266,225 Z" fill="#C79A0E"/>
+  <path d="M448,55 C448,110 448,165 448,205" stroke="#C79A0E" stroke-width="8" opacity="0.5"/>
+  <path d="M360,60 C355,110 355,160 362,205" stroke="#C79A0E" stroke-width="6" opacity="0.4" fill="none"/>
+  <path d="M536,60 C541,110 541,160 534,205" stroke="#C79A0E" stroke-width="6" opacity="0.4" fill="none"/>
+</svg>

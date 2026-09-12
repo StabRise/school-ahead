@@ -293,6 +293,7 @@ def avatar_item_out(
     request: HttpRequest,
     unlocked_ids: set[int] | None,
     placement: tuple[float, float, float, float] | None = None,
+    layer_order_override: int | None = None,
 ) -> AvatarItemOut | None:
     if item is None:
         return None
@@ -320,7 +321,7 @@ def avatar_item_out(
         offset_x=offset_x,
         offset_y=offset_y,
         rotation=rotation,
-        layer_order=item.layer_order,
+        layer_order=layer_order_override if layer_order_override is not None else item.layer_order,
         price=item.price,
         is_unlocked=is_unlocked,
     )
@@ -334,16 +335,38 @@ def avatar_out(avatar: Avatar | None, request: HttpRequest, unlocked_ids: set[in
     return AvatarOut(id=avatar.id, key=avatar.key, name=avatar.name, image=image_url, scale=avatar.scale, items=items)
 
 
+# Default cross-slot draw order (see equipped_items_out) for an item with no
+# EquippedItemOrder override yet — reproduces the old fixed stack (clothing
+# under headwear under accessory) so a student who's never touched the
+# global reorder UI sees no visual change at all.
+EQUIPPED_SLOT_PRIORITY = {'clothing': 0, 'headwear': 1, 'accessory': 2}
+
+
 def equipped_items_out(
-    student_profile: StudentProfile, field_name: str, request: HttpRequest, unlocked_ids: set[int] | None
-) -> list[AvatarItemOut]:
-    manager = getattr(student_profile, field_name)
-    items = list(manager.filter(is_active=True))
-    # A student's own stacking-order override (EquippedItemOrder), if any —
-    # falls back to the catalog's default layer_order for any item without
-    # one (never reordered, or newly equipped since the last reorder).
+    student_profile: StudentProfile, request: HttpRequest, unlocked_ids: set[int] | None
+) -> dict[str, list[AvatarItemOut]]:
+    """All three wardrobe slots' currently-equipped items at once (not one
+    slot at a time — computing this together is what lets stacking order be
+    global across slots), keyed by slot ('clothing'/'headwear'/'accessory').
+    Each item's `layer_order` in the response is replaced by its *effective*
+    global rank (student's own EquippedItemOrder override if any, else
+    EQUIPPED_SLOT_PRIORITY-then-catalog-layer_order-then-id) so
+    packages/preschool-ui's useEquippedAvatarLayers can merge all three
+    lists back into one true stacking order for rendering, instead of just
+    concatenating them slot-by-slot."""
+    fields = {
+        'clothing': 'equipped_clothing_items',
+        'headwear': 'equipped_headwear_items',
+        'accessory': 'equipped_accessory_items',
+    }
+    items_by_slot = {slot: list(getattr(student_profile, field).filter(is_active=True)) for slot, field in fields.items()}
+    all_items = [item for items in items_by_slot.values() for item in items]
+
+    default_ordered = sorted(all_items, key=lambda item: (EQUIPPED_SLOT_PRIORITY[item.slot], item.layer_order, item.id))
+    default_rank = {item.id: index for index, item in enumerate(default_ordered)}
     custom_order = dict(student_profile.item_orders.values_list('item_id', 'order'))
-    items.sort(key=lambda item: (custom_order.get(item.id, item.layer_order), item.id))
+    effective_order = {item.id: custom_order.get(item.id, default_rank[item.id]) for item in all_items}
+
     # A student's own move/rotate/resize override (EquippedItemPlacement), if
     # any — see avatar_item_out and docs/core/avatar.md section 2.2.
     placements = {
@@ -352,7 +375,14 @@ def equipped_items_out(
             'item_id', 'offset_x', 'offset_y', 'rotation', 'scale'
         )
     }
-    return [avatar_item_out(item, request, unlocked_ids, placements.get(item.id)) for item in items]
+
+    return {
+        slot: [
+            avatar_item_out(item, request, unlocked_ids, placements.get(item.id), effective_order[item.id])
+            for item in sorted(items, key=lambda item: (effective_order[item.id], item.id))
+        ]
+        for slot, items in items_by_slot.items()
+    }
 
 
 def purchase_avatar_item(student: StudentProfile, item: AvatarItem) -> None:
@@ -378,22 +408,16 @@ def purchase_avatar_item(student: StudentProfile, item: AvatarItem) -> None:
     student.refresh_from_db(fields=['diamond_balance_cache'])
 
 
-def save_equipped_item_order(
-    student: StudentProfile, clothing_ids: list[int], headwear_ids: list[int], accessory_ids: list[int]
-) -> None:
-    """Persists the student's own stacking-order override, within each slot,
-    from the order PATCH /me/avatar-items's item ids already arrive in — see
-    EquippedItemOrder and accounts.api.update_avatar_items. Same "always
-    replace with the full state" contract as UpdateAvatarItemsIn itself:
-    every call here fully replaces this student's previous overrides rather
-    than diffing against them, since the frontend always sends its current
-    picks for every slot, not just what changed."""
+def save_equipped_item_order(student: StudentProfile, item_ids: list[int]) -> None:
+    """Persists the student's own global stacking-order override — one flat
+    list spanning every slot, from PATCH /me/avatar-items/order — see
+    EquippedItemOrder and accounts.api.update_avatar_item_order. Same
+    "always replace with the full state" contract as UpdateAvatarItemsIn:
+    fully replaces this student's previous overrides rather than diffing
+    against them. A separate action from equipping/unequipping
+    (update_avatar_items no longer touches this table at all)."""
     student.item_orders.all().delete()
-    rows = [
-        EquippedItemOrder(student_profile=student, item_id=item_id, order=index)
-        for ids in (clothing_ids, headwear_ids, accessory_ids)
-        for index, item_id in enumerate(ids)
-    ]
+    rows = [EquippedItemOrder(student_profile=student, item_id=item_id, order=index) for index, item_id in enumerate(item_ids)]
     EquippedItemOrder.objects.bulk_create(rows)
 
 

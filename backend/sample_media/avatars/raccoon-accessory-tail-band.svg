@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 896 1216" width="896" height="1216">
+  <defs>
+    <linearGradient id="tailFur" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#8C8478"/>
+      <stop offset="100%" stop-color="#655D50"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#tailFur)" d="M700,880 C760,900 790,960 780,1030 C772,1090 730,1130 680,1140 L660,1090 C696,1080 722,1050 726,1010 C730,970 712,930 682,910 Z"/>
+  <path fill="#2C2116" d="M700,900 L735,900 L735,930 L700,930 Z"/>
+  <path fill="#2C2116" d="M690,950 L730,950 L730,980 L690,980 Z"/>
+  <circle cx="712" cy="1000" r="18" fill="#B0B0B0"/>
+  <circle cx="712" cy="1000" r="10" fill="#8C8478"/>
+  <circle cx="700" cy="1040" r="16" fill="#B0B0B0"/>
+  <circle cx="700" cy="1040" r="9" fill="#8C8478"/>
+</svg>

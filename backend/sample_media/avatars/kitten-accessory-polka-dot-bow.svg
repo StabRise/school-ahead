@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kPolkaBow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3E7BD9"/>
+      <stop offset="100%" stop-color="#1F4E9E"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(116,26)">
+    <polygon points="-4,0 -38,-22 -42,22" fill="url(#kPolkaBow)" stroke="#153A78" stroke-width="1.6" stroke-linejoin="round"/>
+    <polygon points="4,0 38,-22 42,22" fill="url(#kPolkaBow)" stroke="#153A78" stroke-width="1.6" stroke-linejoin="round"/>
+    <circle r="8" fill="#F2C233" stroke="#153A78" stroke-width="1.6"/>
+    <g fill="#FFFFFF">
+      <circle cx="-24" cy="-8" r="2.4"/>
+      <circle cx="-14" cy="6" r="2"/>
+      <circle cx="-30" cy="10" r="2.2"/>
+      <circle cx="24" cy="-8" r="2.4"/>
+      <circle cx="14" cy="6" r="2"/>
+      <circle cx="30" cy="10" r="2.2"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kScarfBase" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#D9704A"/>
+      <stop offset="100%" stop-color="#B04E2C"/>
+    </linearGradient>
+  </defs>
+  <path d="M70,156 Q116,176 162,156 L162,180 Q116,198 70,180 Z" fill="url(#kScarfBase)" stroke="#8A3A1E" stroke-width="2"/>
+  <path d="M96,178 L88,236 Q96,246 108,240 L112,180 Z" fill="url(#kScarfBase)" stroke="#8A3A1E" stroke-width="2"/>
+  <path d="M136,178 L144,236 Q136,246 124,240 L120,180 Z" fill="url(#kScarfBase)" stroke="#8A3A1E" stroke-width="2"/>
+  <g stroke="#8A3A1E" stroke-width="1.6" opacity="0.6">
+    <path d="M74,164 Q116,182 158,164"/>
+    <path d="M92,200 L108,200"/>
+    <path d="M92,216 L108,216"/>
+    <path d="M124,200 L140,200"/>
+    <path d="M124,216 L140,216"/>
+  </g>
+  <g fill="#8A3A1E">
+    <rect x="88" y="236" width="20" height="6" rx="2"/>
+    <rect x="124" y="236" width="20" height="6" rx="2"/>
+  </g>
+</svg>

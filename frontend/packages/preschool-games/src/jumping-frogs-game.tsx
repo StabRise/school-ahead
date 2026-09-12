@@ -164,7 +164,7 @@ function FrogSprite({
   jumpDx: number;
   onJumpEnd: () => void;
 }) {
-  const size = Math.min(72, Math.max(36, rowHeight * 0.6));
+  const size = Math.min(104, Math.max(52, rowHeight * 0.85));
   // Centered within its slot's own box via plain arithmetic on `left`/
   // `bottom` (not a static `transform: translate(-50%,-50%)`, the way a
   // lily pad centers itself) — a *static* transform would get silently
@@ -202,27 +202,41 @@ function FrogSprite({
   );
 }
 
+// A handful of non-active pads deterministically read as a decorative pink
+// water-lily flower instead of a bare lily pad — pure pond dressing (docs/
+// preschool/games/jumping-frogs.md §2: rows the frog hasn't reached yet, or
+// has already passed, are "просто латаття або іноді рожеві квітки"), not an
+// answer choice. A pure function of position (not Math.random()) so it
+// doesn't re-roll — and flicker — on every re-render.
+function isFlowerPad(rowIndex: number, column: number): boolean {
+  return (rowIndex * 3 + column * 7) % 5 === 0;
+}
+
 function LilyPad({
   card,
   column,
   active,
-  bonking,
+  eliminated,
+  showFlower,
   difficulty,
   rowHeight,
   onTap,
-  onBonkEnd,
 }: {
   card: ReadingGameCard;
   column: 0 | 1 | 2;
   active: boolean;
-  bonking: boolean;
+  // This pad's card was already tapped and answered wrong for the current
+  // row — it stays a bare, unclickable lily pad for the rest of this row
+  // rather than coming back for another guess (docs §3: wrong tap plays the
+  // comic "пук" miss sound and "картка зникає").
+  eliminated: boolean;
+  showFlower: boolean;
   difficulty: JumpingFrogsDifficulty;
   // Real pond pixels (see usePondSize) — what a level-1/2 card's size and
   // pad size scale from, so they grow/shrink with the actual viewport
   // instead of sitting at a fixed rem/px value.
   rowHeight: number;
   onTap: (column: 0 | 1 | 2) => void;
-  onBonkEnd: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   // Only the row the frog can actually jump to next scales up on hover — a
@@ -234,7 +248,7 @@ function LilyPad({
   // composes correctly with the centering translate below every time —
   // relying on Tailwind's hover-variant class to compose with a *second*
   // static transform utility rendered the pad noticeably larger than 1.5x.
-  const scale = active && hovered && !bonking ? 1.5 : 1;
+  const scale = active && hovered && !eliminated ? 1.5 : 1;
   // The lily pad itself is the same size everywhere — scaled off the
   // pond's own measured size (rowHeight, itself responsive to the
   // viewport) rather than a fixed value, so it grows/shrinks with the
@@ -245,6 +259,11 @@ function LilyPad({
   // (level 3) needs.
   const simpleCard = difficulty < 3;
   const padHeight = Math.min(190, Math.max(120, rowHeight * 0.85));
+  // Only the row currently being decided shows its real word cards — every
+  // other row (already passed, or not reached yet) reads as plain pond
+  // scenery, per docs §2/§3. Card mounts fresh exactly when a row becomes
+  // active, so `row-card-reveal` always plays on its actual reveal.
+  const showCard = active && !eliminated;
 
   return (
     <button
@@ -252,64 +271,88 @@ function LilyPad({
       onClick={() => onTap(column)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onAnimationEnd={bonking ? onBonkEnd : undefined}
-      aria-label={card.key}
+      disabled={!active || eliminated}
+      aria-label={showCard ? card.key : undefined}
       className="absolute top-1/2 flex flex-col items-center touch-manipulation"
       style={{
         left: `${COLUMN_PERCENTS[column]}%`,
-        transform: bonking ? undefined : `translate(-50%, -50%) scale(${scale})`,
-        transition: bonking ? undefined : "transform 200ms ease-out",
-        animation: bonking ? "lily-bonk 0.4s ease-in-out" : undefined,
-        cursor: active ? "pointer" : "default",
+        transform: `translate(-50%, -50%) scale(${scale})`,
+        transition: "transform 200ms ease-out",
+        cursor: active && !eliminated ? "pointer" : "default",
       }}
     >
       <span
         aria-hidden="true"
         className="absolute -z-10 rounded-[50%] bg-emerald-400/80 shadow-md"
-        style={{ width: padHeight * 1.5, height: padHeight }}
+        // Centered on the button's own box via an explicit top/left/
+        // translate, not by relying on its auto static position among
+        // flex siblings — the button now shrink-wraps to whatever's
+        // actually shown (a card, a flower, or nothing at all, see
+        // showCard/showFlower below), so a static-position placement would
+        // anchor this pad to the *card's* box instead of the button's own
+        // center, visibly dragging the pad up/down as that content changes
+        // (e.g. right when a wrong tap eliminates the card).
+        style={{ top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: padHeight * 1.5, height: padHeight }}
       />
-      {simpleCard ? (
-        <WordCardRow
-          segments={wordSegments(card.key)}
-          size="sm"
-          cardSizeRem={bigCardSizeRem(rowHeight)}
-          preferPlainText={difficulty === 2}
-          bare
-        />
+      {showCard ? (
+        <div style={{ animation: "row-card-reveal 320ms ease-out" }}>
+          {simpleCard ? (
+            <WordCardRow
+              segments={wordSegments(card.key)}
+              size="sm"
+              cardSizeRem={bigCardSizeRem(rowHeight)}
+              preferPlainText={difficulty === 2}
+              bare
+            />
+          ) : (
+            <WordCardRow segments={wordSegments(card.key)} size="sm" />
+          )}
+        </div>
       ) : (
-        <WordCardRow segments={wordSegments(card.key)} size="sm" />
+        showFlower &&
+        !eliminated && (
+          // Scaled off the pad's own size (rowHeight-derived, see padHeight
+          // above) rather than a fixed Tailwind size, so it grows/shrinks
+          // with the screen the same way the pad and its card do.
+          <span aria-hidden="true" style={{ fontSize: padHeight * 0.45 }}>
+            🌸
+          </span>
+        )
       )}
     </button>
   );
 }
 
-// One row's 3 lily pads — owns which column (if any) is mid-"bonk" from a
-// wrong tap, since that's purely local, self-contained feedback (docs/
-// preschool/games/jumping-frogs.md §3: "картка плавно повертається" — no
-// input lockout, the row stays immediately tappable).
+// One row's 3 lily pads — owns which columns have already been tapped and
+// answered wrong this row (purely local, self-contained state: it resets
+// for free every level via JumpingFrogsLevel's remount, and a row is only
+// ever active once in a level's linear playthrough so it never needs to
+// reset mid-level).
 function LilyPadRow({
   row,
   active,
+  rowIndex,
   difficulty,
   rowHeight,
   onCorrect,
 }: {
   row: JumpingFrogsRow;
   active: boolean;
+  rowIndex: number;
   difficulty: JumpingFrogsDifficulty;
   rowHeight: number;
   onCorrect: (column: 0 | 1 | 2) => void;
 }) {
-  const [bonkColumn, setBonkColumn] = useState<0 | 1 | 2 | null>(null);
+  const [eliminated, setEliminated] = useState<Set<0 | 1 | 2>>(new Set());
 
   const handleTap = (column: 0 | 1 | 2) => {
-    if (!active) return;
+    if (!active || eliminated.has(column)) return;
     if (column === row.correctIndex) {
       onCorrect(column);
       return;
     }
     playFrogMissSound();
-    setBonkColumn(column);
+    setEliminated((prev) => new Set(prev).add(column));
   };
 
   return (
@@ -320,12 +363,111 @@ function LilyPadRow({
           card={card}
           column={index as 0 | 1 | 2}
           active={active}
-          bonking={bonkColumn === index}
+          eliminated={eliminated.has(index as 0 | 1 | 2)}
+          showFlower={isFlowerPad(rowIndex, index)}
           difficulty={difficulty}
           rowHeight={rowHeight}
           onTap={handleTap}
-          onBonkEnd={() => setBonkColumn(null)}
         />
+      ))}
+    </>
+  );
+}
+
+interface FlyingCritter {
+  id: number;
+  kind: "butterfly" | "dragonfly";
+  fromLeft: boolean;
+  topPercent: number;
+  durationS: number;
+  sizeRem: number;
+}
+
+// Every so often, spawns one decorative butterfly/dragonfly that flutters
+// across the pond from one side to the other — pure ambiance, no gameplay
+// effect (see docs/preschool/games/jumping-frogs.md §2). One in flight at a
+// time reads as "sometimes", not a constant swarm; each removes itself once
+// its flight animation ends.
+const CRITTER_MIN_DELAY_MS = 9000;
+const CRITTER_MAX_DELAY_MS = 20000;
+
+function useFlyingCritters(): FlyingCritter[] {
+  const [critters, setCritters] = useState<FlyingCritter[]>([]);
+  const nextIdRef = useRef(0);
+
+  useEffect(() => {
+    let delayTimeout: ReturnType<typeof setTimeout>;
+    let removeTimeout: ReturnType<typeof setTimeout>;
+    let cancelled = false;
+
+    const scheduleNext = () => {
+      const delay = CRITTER_MIN_DELAY_MS + Math.random() * (CRITTER_MAX_DELAY_MS - CRITTER_MIN_DELAY_MS);
+      delayTimeout = setTimeout(() => {
+        if (cancelled) return;
+        const id = nextIdRef.current++;
+        const durationS = 6 + Math.random() * 4;
+        setCritters((current) => [
+          ...current,
+          {
+            id,
+            kind: Math.random() < 0.5 ? "butterfly" : "dragonfly",
+            fromLeft: Math.random() < 0.5,
+            topPercent: 10 + Math.random() * 55,
+            durationS,
+            sizeRem: 1.5 + Math.random(),
+          },
+        ]);
+        removeTimeout = setTimeout(() => {
+          if (!cancelled) setCritters((current) => current.filter((critter) => critter.id !== id));
+        }, durationS * 1000);
+        scheduleNext();
+      }, delay);
+    };
+    scheduleNext();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(delayTimeout);
+      clearTimeout(removeTimeout);
+    };
+  }, []);
+
+  return critters;
+}
+
+// A plain, roughly bilaterally-symmetric dragonfly (long body + two wing
+// pairs) — no standard emoji for "бабка" exists, unlike 🦋 for the
+// butterfly below.
+function DragonflyIcon({ sizeRem }: { sizeRem: number }) {
+  return (
+    <svg width={`${sizeRem}rem`} height={`${sizeRem}rem`} viewBox="0 0 48 48" aria-hidden="true">
+      <ellipse cx="14" cy="16" rx="11" ry="5" fill="#7DD3FC" opacity="0.75" transform="rotate(-20 14 16)" />
+      <ellipse cx="34" cy="16" rx="11" ry="5" fill="#7DD3FC" opacity="0.75" transform="rotate(20 34 16)" />
+      <ellipse cx="14" cy="30" rx="10" ry="4.5" fill="#BAE6FD" opacity="0.65" transform="rotate(-14 14 30)" />
+      <ellipse cx="34" cy="30" rx="10" ry="4.5" fill="#BAE6FD" opacity="0.65" transform="rotate(14 34 30)" />
+      <rect x="21.5" y="8" width="5" height="34" rx="2.5" fill="#0E7490" />
+      <circle cx="24" cy="8" r="4" fill="#155E75" />
+    </svg>
+  );
+}
+
+function FlyingCritters() {
+  const critters = useFlyingCritters();
+  return (
+    <>
+      {critters.map((critter) => (
+        <span
+          key={critter.id}
+          aria-hidden="true"
+          className="pointer-events-none absolute z-20"
+          style={{
+            top: `${critter.topPercent}%`,
+            fontSize: `${critter.sizeRem}rem`,
+            animation: `${critter.fromLeft ? "flutter-across-ltr" : "flutter-across-rtl"} ${critter.durationS}s linear forwards`,
+          }}
+        >
+          {critter.kind === "butterfly" ? "🦋" : <DragonflyIcon sizeRem={critter.sizeRem} />}
+        </span>
       ))}
     </>
   );
@@ -391,6 +533,10 @@ function PondColumn({
 
   return (
     <div ref={setPondRef} className="relative flex-1 overflow-hidden bg-gradient-to-b from-sky-200 to-sky-300">
+      {/* Outside the panning column below (fixed to the viewport, not the
+          row stack) and clipped by this container's own overflow-hidden —
+          exactly "flies in from the sides [and off the other side]". */}
+      <FlyingCritters />
       <div
         className="absolute inset-x-0 bottom-0"
         style={{
@@ -413,6 +559,7 @@ function PondColumn({
             <LilyPadRow
               row={row}
               active={rowIndex === activeRowIndex}
+              rowIndex={rowIndex}
               difficulty={difficulty}
               rowHeight={rowHeight}
               onCorrect={(column) => onTapRow(rowIndex, column)}
@@ -488,6 +635,7 @@ function TargetHeaderBar({
             cardSizeRem={7}
             preferPlainText={difficulty === 2}
             bare
+            frameless
           />
         ) : (
           <WordCardRow segments={wordSegments(target.key)} size="sm" cardSizeRem={3.25} />

@@ -26,6 +26,12 @@ interface MathGameState {
   // up to 3) rather than leaving an out-of-range value sitting in storage.
   level: number;
   setLevel: (level: number) => void;
+  // Multiply/divide only (see MathRun's PauseOverlay) — while paused, shows
+  // the full times-table for the current question's key number (the first
+  // factor for multiply, the divisor for divide) as a study aid. Off by
+  // default: a hint the child didn't ask for isn't a hint.
+  showHint: boolean;
+  setShowHint: (showHint: boolean) => void;
 }
 
 export const useMathGameStore = create<MathGameState>()(
@@ -39,6 +45,8 @@ export const useMathGameStore = create<MathGameState>()(
       setOperation: (operation) => set({ operation, level: clampLevel(operation, get().level) }),
       level: DEFAULT_LEVEL,
       setLevel: (level) => set({ level: clampLevel(get().operation, level) }),
+      showHint: false,
+      setShowHint: (showHint) => set({ showHint }),
     }),
     { name: "math-game-store" },
   ),

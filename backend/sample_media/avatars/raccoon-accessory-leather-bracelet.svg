@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 896 1216" width="896" height="1216">
+  <defs>
+    <linearGradient id="braceletBase" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7A5233"/>
+      <stop offset="100%" stop-color="#5A3B22"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#braceletBase)" d="M566,1075 L640,1075 L640,1115 L566,1115 Z"/>
+  <path d="M576,1080 L576,1110" stroke="#3E2814" stroke-width="4"/>
+  <path d="M600,1080 L600,1110" stroke="#3E2814" stroke-width="4"/>
+  <path d="M624,1080 L624,1110" stroke="#3E2814" stroke-width="4"/>
+  <circle cx="603" cy="1095" r="8" fill="#C0432A"/>
+</svg>

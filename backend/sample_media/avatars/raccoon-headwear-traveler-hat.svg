@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 896 1216" width="896" height="1216">
+  <defs>
+    <radialGradient id="travelCrown" cx="35%" cy="18%" r="85%">
+      <stop offset="0%" stop-color="#B98A55"/>
+      <stop offset="100%" stop-color="#8F6636"/>
+    </radialGradient>
+  </defs>
+  <ellipse cx="448" cy="150" rx="150" ry="110" fill="url(#travelCrown)"/>
+  <ellipse cx="448" cy="250" rx="360" ry="70" fill="#7A5A32"/>
+  <ellipse cx="448" cy="242" rx="330" ry="55" fill="#8F6636"/>
+  <path d="M448,50 C448,110 448,170 448,210" stroke="#7A5A32" stroke-width="8" opacity="0.5"/>
+  <path d="M540,90 C570,65 605,40 640,15" stroke="#3E7B3E" stroke-width="14" stroke-linecap="round" fill="none"/>
+  <path d="M540,90 C558,60 580,35 606,12" stroke="#5AA35A" stroke-width="10" stroke-linecap="round" fill="none"/>
+  <ellipse cx="500" cy="140" rx="130" ry="20" fill="#6E4F28" opacity="0.7"/>
+</svg>

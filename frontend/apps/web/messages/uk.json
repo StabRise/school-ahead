@@ -227,8 +227,10 @@
     },
     "levelLabel": "Рівень {level} з {max}",
     "countPrompt": "Скільки?",
+    "correctAnswerLabel": "Правильна відповідь: {answer}",
     "speedLabel": "Швидкість бігу",
     "choiceCountLabel": "Кількість варіантів",
+    "showHintLabel": "Показувати підказку",
     "gameOverTitle": "Ой, провалився у прірву!",
     "victoryTitle": "У тебе все вийшло!",
     "solvedCount": "Розв'язано прикладів: {count} з {total}",
@@ -1143,7 +1145,8 @@
     "assetsDropzoneHint": "Натисніть або перетягніть файли сюди (можна декілька)",
     "noAssets": "Ще немає завантажених файлів.",
     "dragIntoText": "Перетягніть у текст казки",
-    "usedInText": "використано в тексті"
+    "usedInText": "використано в тексті",
+    "notUsedInText": "ще не використано"
   },
   "TaskDetail": {
     "loading": "Завантаження...",

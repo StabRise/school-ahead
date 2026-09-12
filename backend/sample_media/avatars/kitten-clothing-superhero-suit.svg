@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kHeroCape" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3E7BD9"/>
+      <stop offset="100%" stop-color="#1F4E9E"/>
+    </linearGradient>
+    <linearGradient id="kHeroSuit" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E8433A"/>
+      <stop offset="100%" stop-color="#B4241C"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#kHeroCape)" d="M70,158 C40,178 20,230 26,288 C50,278 70,272 92,278 L92,182 Z"/>
+  <path fill="url(#kHeroCape)" d="M162,158 C192,178 212,230 206,288 C182,278 162,272 140,278 L140,182 Z"/>
+  <path fill="url(#kHeroSuit)" d="M116,150 C150,150 176,161 187,181 C198,201 199,240 192,270 C186,290 168,294 116,294 C64,294 46,290 40,270 C33,240 34,201 45,181 C56,161 82,150 116,150 Z"/>
+  <path d="M97,160 C90,168 86,178 88,188 C94,181 102,176 111,173 C107,168 102,163 97,160 Z" fill="#8F1912"/>
+  <path d="M135,160 C142,168 146,178 144,188 C138,181 130,176 121,173 C125,168 130,163 135,160 Z" fill="#8F1912"/>
+  <polygon points="116,192 124,210 143,210 128,222 134,241 116,229 98,241 104,222 89,210 108,210" fill="#FFD84A" stroke="#C99A0E" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M100,161 Q116,171 132,161" stroke="#8F1912" stroke-width="3" fill="none" stroke-linecap="round"/>
+</svg>

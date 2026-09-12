@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
-import { ChevronDown, ChevronUp, Lock } from "lucide-react";
+import { ChevronDown, Lock } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { getMeQueryKey, usePurchaseAvatarItem, useUpdateAvatarItems } from "@school-ahead/api-client/browser/auth/auth";
@@ -145,17 +145,6 @@ export function AvatarWardrobe() {
     save({ ...equippedIdsBySlot, [slot]: [] });
   };
 
-  const handleMove = (slot: Slot, itemId: number, direction: "up" | "down") => {
-    if (isBusy) return;
-    const current = equippedIdsBySlot[slot];
-    const index = current.indexOf(itemId);
-    const swapWith = direction === "up" ? index - 1 : index + 1;
-    if (index === -1 || swapWith < 0 || swapWith >= current.length) return;
-    const next = [...current];
-    [next[index], next[swapWith]] = [next[swapWith], next[index]];
-    save({ ...equippedIdsBySlot, [slot]: next });
-  };
-
   const handleTryOn = (item: EquippedAvatarItem) => {
     if (isBusy) return;
     setTryOnItem(item);
@@ -224,57 +213,12 @@ export function AvatarWardrobe() {
 
             {isOpen && (
               <>
-                {equippedIds.length >= 2 && (
-                  <div className={`flex flex-col border-b border-gray-100 ${isPreschool ? "gap-2 p-4" : "gap-1.5 p-3"}`}>
-                    <span className={`font-semibold text-gray-500 ${isPreschool ? "text-base" : "text-xs"}`}>
-                      {t("wardrobeStackOrderLabel")}
-                    </span>
-                    {equippedIds.map((itemId, index) => {
-                      const item = slotItems.find((candidate) => candidate.id === itemId);
-                      if (!item) return null;
-                      return (
-                        <div
-                          key={itemId}
-                          className={`flex items-center gap-2 rounded-lg border border-gray-200 bg-white ${isPreschool ? "p-2" : "p-1.5"}`}
-                        >
-                          <span
-                            className={`flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-gray-50 ${isPreschool ? "h-12 w-12" : "h-8 w-8"}`}
-                          >
-                            {item.image ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={item.image} alt="" className="h-full w-full object-contain" />
-                            ) : null}
-                          </span>
-                          <span className={`flex-1 truncate font-medium text-gray-700 ${isPreschool ? "text-base" : "text-xs"}`}>
-                            {item.name}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleMove(slot, itemId, "up")}
-                            disabled={isBusy || index === 0}
-                            aria-label={t("wardrobeMoveUp")}
-                            className={`flex shrink-0 items-center justify-center rounded-md border border-gray-200 text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50 disabled:cursor-default disabled:opacity-40 ${
-                              isPreschool ? "h-10 w-10" : "h-7 w-7"
-                            }`}
-                          >
-                            <ChevronUp className={isPreschool ? "h-5 w-5" : "h-4 w-4"} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleMove(slot, itemId, "down")}
-                            disabled={isBusy || index === equippedIds.length - 1}
-                            aria-label={t("wardrobeMoveDown")}
-                            className={`flex shrink-0 items-center justify-center rounded-md border border-gray-200 text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50 disabled:cursor-default disabled:opacity-40 ${
-                              isPreschool ? "h-10 w-10" : "h-7 w-7"
-                            }`}
-                          >
-                            <ChevronDown className={isPreschool ? "h-5 w-5" : "h-4 w-4"} />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                {/* Stacking order is edited elsewhere now — see
+                    AvatarLayerOrder, rendered below AvatarPreview on
+                    profile-page.tsx. It's a single order spanning every
+                    equipped item at once (global across slots, e.g. an
+                    accessory under a piece of clothing), not something that
+                    fits per-slot inside this accordion panel anymore. */}
                 <div className={`flex flex-wrap p-4 ${isPreschool ? "gap-3" : "gap-2"}`}>
                   <button
                     type="button"
