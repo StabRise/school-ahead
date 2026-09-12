@@ -10,7 +10,7 @@
 //
 // Run with: bun run svgedit-assets:copy
 
-import { cp, rm } from "node:fs/promises";
+import { cp, rm, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -23,6 +23,11 @@ const require = createRequire(import.meta.url);
 const editorEntry = require.resolve("svgedit");
 const distEditorDir = path.dirname(editorEntry);
 const packageRoot = path.dirname(require.resolve("svgedit/package.json"));
+
+// Must match SVGEDIT_BASE_PATH in svg-artwork-editor.tsx (imgPath/extPath
+// there, this bundle patch here — both work around the same "dist bundle
+// assumes it's served from the site root" issue).
+const SVGEDIT_BASE_PATH = "/svgedit";
 
 const OUTPUT_DIR = new URL("../public/svgedit/", import.meta.url).pathname;
 
@@ -54,4 +59,28 @@ const localeSource = path.join(packageRoot, "src/editor/locale");
 if (!existsSync(localeSource)) throw new Error(`Expected svgedit locale source not found: ${localeSource}`);
 await cp(localeSource, path.join(OUTPUT_DIR, "locale"), { recursive: true });
 
-console.log(`Copied svgedit dist assets (${DIST_ENTRIES.join(", ")}, locale) to public/svgedit/`);
+// The bundled color-picker widget (jGraduate, used for both the fill and
+// stroke swatches) hardcodes a *relative* path for its own popup's images
+// (the color map, hue bar, alpha bar, etc.) — "./components/jgraduate/
+// images/" — which resolves against whatever page embeds the editor, not
+// against Editor.js's own URL (unlike imgPath/extPath, there's no config
+// hook for this one; see components/jgraduate/images/ under svgedit's own
+// dist for the actual files, already copied above by the "components"
+// DIST_ENTRIES). Left as-is, every popup image 404s under any route
+// deeper than the site root, and the whole picker renders with nothing
+// visible in it. Two known occurrences in the bundle: the jGraduate popup's
+// own injected `background-image: url(...)` CSS, and the `clientPath`
+// passed to it when opened. Rewrite both to the absolute path our bundle
+// is actually served from.
+const editorJsPath = path.join(OUTPUT_DIR, "Editor.js");
+const relativeClientPath = "./components/jgraduate/images/";
+const editorJs = await readFile(editorJsPath, "utf8");
+const occurrences = editorJs.split(relativeClientPath).length - 1;
+if (occurrences !== 2) {
+  throw new Error(
+    `Expected exactly 2 occurrences of ${JSON.stringify(relativeClientPath)} in Editor.js to patch (found ${occurrences}) — svgedit's bundle output may have changed, check components/jgraduate's clientPath usage still needs this fix.`,
+  );
+}
+await writeFile(editorJsPath, editorJs.replaceAll(relativeClientPath, `${SVGEDIT_BASE_PATH}/components/jgraduate/images/`));
+
+console.log(`Copied svgedit dist assets (${DIST_ENTRIES.join(", ")}, locale) to public/svgedit/, patched jGraduate's image path`);
