@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -30,7 +30,10 @@ export function AvatarItemArtworkEditorPage({ itemId, onSaved }: { itemId: numbe
 
   const [svgText, setSvgText] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
-  const editorHandleRef = useRef<SvgArtworkEditorHandle | null>(null);
+  // State, not a ref: the load-once-both-are-ready effect below needs to
+  // re-run when *this* becomes available too, not just when svgText does —
+  // a ref write wouldn't retrigger it (see that effect's own comment).
+  const [editorHandle, setEditorHandle] = useState<SvgArtworkEditorHandle | null>(null);
 
   useEffect(() => {
     if (!item?.image) return;
@@ -52,20 +55,17 @@ export function AvatarItemArtworkEditorPage({ itemId, onSaved }: { itemId: numbe
   }, [item?.image]);
 
   // The editor (async module load + init) and the artwork fetch above race
-  // independently — whichever finishes second is the one that actually
-  // loads the starting document into the canvas.
+  // independently, and in practice the fetch always wins (initializing
+  // svgedit is far slower) — so this must key off *both* svgText and
+  // editorHandle, not just svgText, or it never re-fires once the editor
+  // catches up and finally becomes ready.
   useEffect(() => {
-    if (svgText && editorHandleRef.current) editorHandleRef.current.loadSvgString(svgText);
-  }, [svgText]);
-
-  const handleEditorReady = (handle: SvgArtworkEditorHandle) => {
-    editorHandleRef.current = handle;
-    if (svgText) handle.loadSvgString(svgText);
-  };
+    if (svgText && editorHandle) editorHandle.loadSvgString(svgText);
+  }, [svgText, editorHandle]);
 
   const handleSave = () => {
-    if (!editorHandleRef.current) return;
-    const svg = editorHandleRef.current.getSvgString();
+    if (!editorHandle) return;
+    const svg = editorHandle.getSvgString();
     updateArtwork.mutate(
       { itemId, data: { svg } },
       {
@@ -95,7 +95,7 @@ export function AvatarItemArtworkEditorPage({ itemId, onSaved }: { itemId: numbe
       </div>
       {(loadError || updateArtwork.isError) && <p className="text-sm text-red-600">{t("error")}</p>}
       <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <SvgArtworkEditor onReady={handleEditorReady} />
+        <SvgArtworkEditor onReady={setEditorHandle} />
       </div>
     </div>
   );

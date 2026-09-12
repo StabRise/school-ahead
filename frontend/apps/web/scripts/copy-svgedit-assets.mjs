@@ -22,19 +22,36 @@ const require = createRequire(import.meta.url);
 // working regardless of how the workspace happens to hoist/nest it.
 const editorEntry = require.resolve("svgedit");
 const distEditorDir = path.dirname(editorEntry);
+const packageRoot = path.dirname(require.resolve("svgedit/package.json"));
 
 const OUTPUT_DIR = new URL("../public/svgedit/", import.meta.url).pathname;
 
 // Only what SvgArtworkEditor actually references (imgPath/extPath config,
-// the stylesheet, the entry module itself) — not the demo HTML pages,
-// tests, or iife/source-map build variants also present in dist/editor/.
-const ENTRIES = ["Editor.js", "svgedit.css", "images", "extensions", "components"];
+// the stylesheet, the entry module itself, and its sourcemap so a real
+// error in the bundle maps back to readable source in devtools instead of
+// pointing at minified code) — not the demo HTML pages, tests, or iife
+// build variant also present in dist/editor/.
+const DIST_ENTRIES = ["Editor.js", "Editor.js.map", "svgedit.css", "images", "extensions", "components"];
 
 await rm(OUTPUT_DIR, { recursive: true, force: true });
-for (const entry of ENTRIES) {
+for (const entry of DIST_ENTRIES) {
   const source = path.join(distEditorDir, entry);
   if (!existsSync(source)) throw new Error(`Expected svgedit dist entry not found: ${source}`);
   await cp(source, path.join(OUTPUT_DIR, entry), { recursive: true });
 }
 
-console.log(`Copied svgedit dist assets (${ENTRIES.join(", ")}) to public/svgedit/`);
+// The published dist/editor/ build doesn't include the locale files at
+// all — Editor.js's putLocale() does a runtime `import('./locale/lang.
+// <code>.js')` relative to itself regardless, which 404s for every
+// language (not just non-English ones) and leaves init() hanging forever
+// (it's an unguarded top-level await, so nothing else in init() — the DOM
+// template injection included — ever runs, and nothing throws either).
+// The plain-object files under the package's own src/editor/locale/ are
+// already valid, dependency-free ES modules (`export default {...}`, no
+// build step needed), so copy those straight across as the missing
+// dist/editor/locale/.
+const localeSource = path.join(packageRoot, "src/editor/locale");
+if (!existsSync(localeSource)) throw new Error(`Expected svgedit locale source not found: ${localeSource}`);
+await cp(localeSource, path.join(OUTPUT_DIR, "locale"), { recursive: true });
+
+console.log(`Copied svgedit dist assets (${DIST_ENTRIES.join(", ")}, locale) to public/svgedit/`);
