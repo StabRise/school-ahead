@@ -346,12 +346,17 @@ function StoryCard({
   onOpen,
   onDuckMusic,
   onUnduckMusic,
+  onRemove,
 }: {
   raw: string;
   storySlug: string;
   onOpen: (segments: StoryWordSegment[]) => void;
   onDuckMusic: () => void;
   onUnduckMusic: () => void;
+  // Only ever supplied by the tutor editor's preview (story-markdown-
+  // editor.tsx), never by the real game (StoryPage) — a student reading a
+  // story never gets a delete button on its pictures.
+  onRemove?: (raw: string) => void;
 }) {
   const t = useTranslations("StoriesGame");
   const segments = useMemo(() => parseSyllableGroup(raw), [raw]);
@@ -375,9 +380,25 @@ function StoryCard({
       // <img>, including the ones inside our own cards — not-prose opts
       // this whole subtree back out of that (see Tailwind Typography's
       // docs), which is what keeps the card row from ballooning in height.
-      <button type="button" onClick={() => onOpen(segments)} className="not-prose mx-auto block cursor-pointer">
-        <StoryIllustration url={storyAssetUrl(storySlug, segments[0].filename)} size="sm" />
-      </button>
+      <span className="not-prose relative mx-auto block w-fit">
+        <button type="button" onClick={() => onOpen(segments)} className="block cursor-pointer">
+          <StoryIllustration url={storyAssetUrl(storySlug, segments[0].filename)} size="sm" />
+        </button>
+        {onRemove && (
+          <button
+            type="button"
+            title={t("removeImageLabel")}
+            aria-label={t("removeImageLabel")}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(raw);
+            }}
+            className="absolute -right-2 -top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-gray-900 text-xs text-white shadow-md hover:bg-red-600"
+          >
+            ✕
+          </button>
+        )}
+      </span>
     );
   }
 
@@ -462,12 +483,18 @@ export function StoryBody({
   onCardOpen,
   onDuckMusic = () => {},
   onUnduckMusic = () => {},
+  onRemoveCard,
 }: {
   slug: string;
   markdown: string;
   onCardOpen?: (segments: StoryWordSegment[]) => void;
   onDuckMusic?: () => void;
   onUnduckMusic?: () => void;
+  // Only the tutor editor's preview passes this (see
+  // story-markdown-editor.tsx) — shows a ✕ button on inline pictures that
+  // removes that "{...}" reference from the source text. StoryPage (the
+  // real game) never passes it, so students never see it.
+  onRemoveCard?: (raw: string) => void;
 }) {
   const [fullscreenSegments, setFullscreenSegments] = useState<StoryWordSegment[] | null>(null);
 
@@ -498,11 +525,12 @@ export function StoryBody({
             onOpen={handleOpenCard}
             onDuckMusic={onDuckMusic}
             onUnduckMusic={onUnduckMusic}
+            onRemove={onRemoveCard}
           />
         ),
       }) as unknown as Components,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [slug, onCardOpen, onDuckMusic, onUnduckMusic],
+    [slug, onCardOpen, onDuckMusic, onUnduckMusic, onRemoveCard],
   );
 
   return (
