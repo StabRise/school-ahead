@@ -16,6 +16,7 @@
     "@school-ahead/api-client": "workspace:*",
     "@school-ahead/flashcards": "workspace:*",
     "@school-ahead/house-3d": "workspace:*",
+    "@school-ahead/markdown-editor": "workspace:*",
     "@school-ahead/preschool-games": "workspace:*",
     "@school-ahead/preschool-ui": "workspace:*",
     "@tanstack/react-query": "^5.101.4",

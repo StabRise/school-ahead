@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { getQuizQuestionHint, useSubmitQuiz } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import type { QuizQuestionOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
-import { Markdown } from "@/components/markdown";
+import { Markdown } from "@school-ahead/markdown-editor";
 import { prefetchVoice, speakSequence, toSpeechText, type SpeechLanguage } from "@school-ahead/api-client";
 import {
   Raccoon,

@@ -7,7 +7,7 @@ import { Check, CheckCircle2, X, XCircle } from "lucide-react";
 import { getMeQueryKey } from "@school-ahead/api-client/browser/auth/auth";
 import { getQuizQuestionHint, useSubmitQuiz } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import type { QuizQuestionOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
-import { Markdown } from "@/components/markdown";
+import { Markdown } from "@school-ahead/markdown-editor";
 import { useAuthStore } from "@school-ahead/api-client";
 import { useDiamondRewardStore } from "@school-ahead/preschool-ui";
 

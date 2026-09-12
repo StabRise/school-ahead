@@ -1,9 +1,9 @@
-// components/tutor/story-rich-text-editor.tsx builds a contentEditable
-// surface where an inserted picture's "{ <url> }" card (see
-// lib/story-parser.ts's grammar) renders as an actual inline <img> chip
-// instead of raw braces-and-url text — a "rich text editor"-style view —
-// while Story.content in the DB still stores the plain "{ <url> }" text
-// (see serializeContainer, which turns the chip back into that text).
+// story-rich-text-editor.tsx builds a contentEditable surface where an
+// inserted picture's "{ <url> }" card (see @school-ahead/preschool-games's
+// story-parser grammar) renders as an actual inline <img> chip instead of
+// raw braces-and-url text — a "rich text editor"-style view — while
+// Story.content in the DB still stores the plain "{ <url> }" text (see
+// serializeContainer, which turns the chip back into that text).
 // Only ever matches an image extension — audio/video/syllable "{...}"
 // groups stay as plain visible text in that editor, unaffected.
 export const IMAGE_CARD_RE = /\{\s*(https?:\/\/[^\s{}]+\.(?:jpe?g|png|webp|gif))\s*\}/gi;
@@ -70,8 +70,8 @@ export function detectCardGroup(text: string): string | null {
   return match ? match[1] : null;
 }
 
-// The plain-text inverse of formatSelectionAsCards (lib/story-card-format.ts)
-// — strips the dashes a syllable/letter breakdown card has between its
+// The plain-text inverse of formatSelectionAsCards (story-card-format.ts) —
+// strips the dashes a syllable/letter breakdown card has between its
 // segments (e.g. "ш-та-н-ці" -> "штанці"), so "remove formatting" restores
 // the original word rather than leaving the dashes behind. A no-op for a
 // card with no dashes (e.g. a lone audio/video/YouTube reference).

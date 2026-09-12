@@ -15,7 +15,7 @@ import { useRouter } from "@/i18n/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { FileDropzone } from "@/components/file-dropzone";
-import { StoryMarkdownEditor } from "@/components/tutor/story-markdown-editor";
+import { StoryMarkdownEditor } from "@school-ahead/markdown-editor/story";
 import { StoryAssetSidebar } from "@/components/tutor/story-asset-sidebar";
 
 // How often unsaved edits get auto-saved (see the effect below) — a plain

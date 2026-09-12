@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { X } from "lucide-react";
 import { useSubmitTask, useResubmitLesson } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
-import { Markdown } from "@/components/markdown";
+import { Markdown } from "@school-ahead/markdown-editor";
 import { FileDropzone } from "@/components/file-dropzone";
 
 // A submission needs at least one file or a written comment — never neither.

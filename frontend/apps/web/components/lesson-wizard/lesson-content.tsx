@@ -1,7 +1,7 @@
 "use client";
 
 import type { LessonAttachmentOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
-import { Markdown } from "@/components/markdown";
+import { Markdown } from "@school-ahead/markdown-editor";
 import { TranslatableContent } from "@/components/translatable-content";
 import { useSynopsisLanguageStore } from "@/stores/synopsis-language-store";
 

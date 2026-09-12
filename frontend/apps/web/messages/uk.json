@@ -573,7 +573,8 @@
   },
   "MarkdownEditor": {
     "editButton": "Редагувати",
-    "previewButton": "Перегляд"
+    "previewButton": "Перегляд",
+    "linkPlaceholder": "текст"
   },
   "MarkdownToolbar": {
     "heading1Label": "Заголовок 1",

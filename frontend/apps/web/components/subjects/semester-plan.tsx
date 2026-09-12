@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useGetSubject } from "@school-ahead/api-client/browser/academics/academics";
 import type { SubjectBlockOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
-import { Markdown } from "@/components/markdown";
+import { Markdown } from "@school-ahead/markdown-editor";
 
 const DATE_FORMAT = new Intl.DateTimeFormat("uk-UA", { day: "numeric", month: "short", year: "numeric" });
 

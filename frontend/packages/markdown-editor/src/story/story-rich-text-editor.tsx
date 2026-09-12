@@ -11,9 +11,9 @@ import {
   serializeContainer,
   splitIntoSegments,
   unformatCardText,
-} from "@/lib/story-rich-text";
-import { formatSelectionAsCards } from "@/lib/story-card-format";
-import { MarkdownToolbar, type MarkdownToolbarActions } from "@/components/markdown-toolbar";
+} from "./story-rich-text";
+import { formatSelectionAsCards } from "./story-card-format";
+import { MarkdownToolbar, type MarkdownToolbarActions } from "../markdown-toolbar";
 
 // A single "{ <url> }" text/braces group matched exactly (not "anywhere in
 // a longer string") — what a drop payload from story-asset-sidebar.tsx
@@ -79,10 +79,10 @@ type SelectionToolbar =
 // contentEditable surface for Story.content: a dropped/inserted picture
 // renders as an actual inline image (see buildImageChip) instead of raw
 // "{ <url> }" text, while the underlying value stays exactly that plain
-// text — see lib/story-rich-text.ts's serializeContainer, called after
-// every DOM mutation to keep `onChange` in sync. The fixed MarkdownToolbar
-// above it inserts basic Markdown syntax (headings, lists, a horizontal
-// rule, bold, italic, code, links, emoji) at the cursor/selection.
+// text — see story-rich-text.ts's serializeContainer, called after every
+// DOM mutation to keep `onChange` in sync. The fixed MarkdownToolbar above
+// it inserts basic Markdown syntax (headings, lists, a horizontal rule,
+// bold, italic, code, links, emoji) at the cursor/selection.
 //
 // The DOM is the source of truth once mounted: `value` only seeds the
 // *initial* content (useLayoutEffect below runs once), never re-syncs on

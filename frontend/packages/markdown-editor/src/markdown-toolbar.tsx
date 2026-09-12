@@ -19,9 +19,9 @@ import {
 
 // Callbacks a MarkdownToolbar caller implements to actually mutate its own
 // text-editing surface — a plain <textarea>'s selectionStart/End, or a
-// contentEditable's Selection/Range (see components/tutor/
-// story-rich-text-editor.tsx for the latter). This component is pure
-// presentation: every button just calls the matching action.
+// contentEditable's Selection/Range (see story/story-rich-text-editor.tsx
+// for the latter). This component is pure presentation: every button just
+// calls the matching action.
 export interface MarkdownToolbarActions {
   onHeading: (level: 1 | 2 | 3) => void;
   onBold: () => void;
