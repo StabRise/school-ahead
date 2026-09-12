@@ -199,6 +199,8 @@ export function TrainsGame() {
   const t = useTranslations("TrainsGame");
   const [language, setLanguage] = useState<GameLanguage>(DEFAULT_LANGUAGE);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsPanelRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const [trainKey, setTrainKey] = useState(0);
   const [phase, setPhase] = useState<TrainPhase>("arriving");
   const [currentLetter, setCurrentLetter] = useState<string | null>(null);
@@ -324,6 +326,20 @@ export function TrainsGame() {
     };
   }, []);
 
+  // Closes the settings panel on a click/tap outside it — same pattern as
+  // balloon-pop-game.tsx/reading-game.tsx/cards-game.tsx/jumping-frogs-game.tsx/math-game.tsx.
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (settingsPanelRef.current?.contains(target)) return;
+      if (settingsButtonRef.current?.contains(target)) return;
+      setSettingsOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [settingsOpen]);
+
   const handleAnimationEnd = () => {
     if (phase === "arriving") {
       setPhase("waiting");
@@ -380,6 +396,7 @@ export function TrainsGame() {
       </div>
 
       <button
+        ref={settingsButtonRef}
         type="button"
         aria-label={t("settingsButton")}
         onClick={() => setSettingsOpen((current) => !current)}
@@ -391,7 +408,10 @@ export function TrainsGame() {
       <MusicToggleButton className="absolute left-32 top-4 z-10" />
 
       {settingsOpen && (
-        <div className="absolute left-20 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200">
+        <div
+          ref={settingsPanelRef}
+          className="absolute left-20 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200"
+        >
           <label className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("languageLabel")}</span>
             <select

@@ -33,11 +33,14 @@ function Avatar({
   // @school-ahead/preschool-ui), takes priority over the Google account
   // picture once a student has picked one. Its SVG artwork has no margin
   // baked in, so it's shown with object-contain and extra padding instead
-  // of the object-cover crop used for real account photos.
+  // of the object-cover crop used for real account photos. Square with
+  // rounded corners, same framing as the profile page's avatar preview and
+  // the tutor's student-overview card — not the plain circle a real photo
+  // gets below, so the companion reads the same everywhere it's shown.
   const equippedLayers = useEquippedAvatarLayers();
   if (equippedLayers.length > 0) {
     return (
-      <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gray-100">
+      <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-gray-100">
         <span className="h-6 w-6">
           <EquippedAvatarLayers layers={equippedLayers} />
         </span>

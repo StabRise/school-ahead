@@ -5,6 +5,7 @@ import { useAuthStore } from "@school-ahead/api-client";
 import { PageContainer } from "@/components/page-container";
 import { AvatarPicker } from "@/components/profile/avatar-picker";
 import { AvatarPreview } from "@/components/profile/avatar-preview";
+import { AvatarLayerOrder } from "@/components/profile/avatar-layer-order";
 import { AvatarWardrobe } from "@/components/profile/avatar-wardrobe";
 import { PreschoolProfileView } from "@/components/preschool/profile-view";
 
@@ -30,7 +31,10 @@ export function ProfilePage() {
   return (
     <PageContainer title={t("title")}>
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-        <AvatarPreview />
+        <div className="flex flex-col gap-4">
+          <AvatarPreview />
+          <AvatarLayerOrder />
+        </div>
         <div className="flex flex-1 flex-col gap-6">
           <AvatarPicker />
           <AvatarWardrobe />

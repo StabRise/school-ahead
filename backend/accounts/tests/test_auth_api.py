@@ -503,12 +503,12 @@ def test_unlocked_item_survives_switching_avatar_and_back(api_client, auth_heade
     assert student.diamond_balance_cache == 70
 
 
-def test_equipping_items_in_a_given_order_persists_that_stacking_order(api_client, auth_header):
-    """A student's own override of AvatarItem.layer_order (docs/core/
-    avatar.md section 2.2) — see accounts.services.save_equipped_item_order.
-    layer_order is set backwards from the equip order sent below, so this
-    can only pass if the response order comes from the override, not the
-    catalog default."""
+def test_equipping_items_does_not_change_their_stacking_order(api_client, auth_header):
+    """Equipping (PATCH /me/avatar-items) is purely about which items are
+    worn, never their stacking order — see accounts.api.update_avatar_items
+    and services.equipped_items_out's fallback. layer_order is set backwards
+    from the equip order sent below, so this can only pass if the response
+    order still comes from the catalog default, not the send order."""
     user, student, avatar = _make_student_with_avatar(diamonds=0)
     scarf = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='scarf', name='Scarf', layer_order=10)
     jacket = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='jacket', name='Jacket', layer_order=1)
@@ -518,10 +518,13 @@ def test_equipping_items_in_a_given_order_persists_that_stacking_order(api_clien
     )
 
     assert response.status_code == 200
-    assert [i['key'] for i in response.data['user']['equipped_clothing_items']] == ['scarf', 'jacket']
+    assert [i['key'] for i in response.data['user']['equipped_clothing_items']] == ['jacket', 'scarf']
 
 
 def test_reordering_equipped_items_flips_their_stacking_order(api_client, auth_header):
+    """PATCH /me/avatar-items/order (accounts.services.
+    save_equipped_item_order) — a separate action from equipping, per the
+    test above."""
     user, student, avatar = _make_student_with_avatar(diamonds=0)
     scarf = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='scarf', name='Scarf')
     jacket = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='jacket', name='Jacket')
@@ -530,7 +533,58 @@ def test_reordering_equipped_items_flips_their_stacking_order(api_client, auth_h
     )
 
     reordered = api_client.patch(
-        '/auth/me/avatar-items', json={'clothing_item_ids': [jacket.id, scarf.id]}, headers=auth_header(user),
+        '/auth/me/avatar-items/order', json={'item_ids': [jacket.id, scarf.id]}, headers=auth_header(user),
+    )
+
+    assert reordered.status_code == 200
+    assert [i['key'] for i in reordered.data['user']['equipped_clothing_items']] == ['jacket', 'scarf']
+
+
+def test_reordering_is_global_across_slots(api_client, auth_header):
+    """The whole point of a global (not per-slot) EquippedItemOrder: an
+    accessory can be told to draw under a piece of clothing. Verified via
+    the numeric `layer_order` the API returns for each equipped item (what
+    the frontend merge-sorts every slot's items by — see
+    accounts.services.equipped_items_out), since clothing/accessory stay
+    separate arrays in the response."""
+    user, student, avatar = _make_student_with_avatar(diamonds=0)
+    jacket = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='jacket', name='Jacket')
+    glasses = AvatarItem.objects.create(avatar=avatar, slot='accessory', key='glasses', name='Glasses')
+    api_client.patch(
+        '/auth/me/avatar-items',
+        json={'clothing_item_ids': [jacket.id], 'accessory_item_ids': [glasses.id]},
+        headers=auth_header(user),
+    )
+    default = api_client.get('/auth/me', headers=auth_header(user))
+    assert (
+        default.data['user']['equipped_clothing_items'][0]['layer_order']
+        < default.data['user']['equipped_accessory_items'][0]['layer_order']
+    )
+
+    reordered = api_client.patch(
+        '/auth/me/avatar-items/order', json={'item_ids': [glasses.id, jacket.id]}, headers=auth_header(user),
+    )
+
+    assert reordered.status_code == 200
+    assert (
+        reordered.data['user']['equipped_accessory_items'][0]['layer_order']
+        < reordered.data['user']['equipped_clothing_items'][0]['layer_order']
+    )
+
+
+def test_reordering_drops_ids_that_are_not_currently_equipped(api_client, auth_header):
+    user, student, avatar = _make_student_with_avatar(diamonds=0)
+    scarf = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='scarf', name='Scarf')
+    jacket = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='jacket', name='Jacket')
+    not_equipped = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='cape', name='Cape')
+    api_client.patch(
+        '/auth/me/avatar-items', json={'clothing_item_ids': [scarf.id, jacket.id]}, headers=auth_header(user),
+    )
+
+    reordered = api_client.patch(
+        '/auth/me/avatar-items/order',
+        json={'item_ids': [jacket.id, not_equipped.id, scarf.id]},
+        headers=auth_header(user),
     )
 
     assert reordered.status_code == 200
@@ -540,7 +594,7 @@ def test_reordering_equipped_items_flips_their_stacking_order(api_client, auth_h
 def test_item_with_no_stored_order_falls_back_to_layer_order(api_client, auth_header):
     """An item equipped some other way than PATCH /me/avatar-items (e.g.
     data from before this feature existed) has no EquippedItemOrder row at
-    all — see accounts.api._equipped_items_out's fallback."""
+    all — see accounts.services.equipped_items_out's fallback."""
     user, student, avatar = _make_student_with_avatar(diamonds=0)
     scarf = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='scarf', name='Scarf', layer_order=5)
     jacket = AvatarItem.objects.create(avatar=avatar, slot='clothing', key='jacket', name='Jacket', layer_order=1)
@@ -553,10 +607,11 @@ def test_item_with_no_stored_order_falls_back_to_layer_order(api_client, auth_he
 
 def test_multiple_headwear_and_accessories_equip_together(api_client, auth_header):
     """Equipping several items at once, in each of two slots, in one call —
-    docs/core/avatar.md section 2.2. Sent in the same order they're expected
-    back in, since (unlike before this equip endpoint also persisted a
-    per-student stacking order — see the order-related tests around this
-    one) send order is now authoritative, not just AvatarItem.layer_order."""
+    docs/core/avatar.md section 2.2. Both fall back to the catalog's default
+    layer_order (equipping never persists a stacking order — see the
+    order-related tests around this one), which happens to match creation/
+    send order here since these items were created with equal layer_order
+    (id is the final tie-break — see equipped_items_out)."""
     user, student, avatar = _make_student_with_avatar(diamonds=0)
     beanie = AvatarItem.objects.create(avatar=avatar, slot='headwear', key='beanie', name='Beanie')
     flower_crown = AvatarItem.objects.create(avatar=avatar, slot='headwear', key='flower-crown', name='Flower Crown')

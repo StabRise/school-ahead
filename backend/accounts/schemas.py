@@ -1,4 +1,4 @@
-from ninja import Schema
+from ninja import Field, Schema
 
 
 class GoogleLoginIn(Schema):
@@ -21,7 +21,7 @@ class AvatarItemOut(Schema):
     # sync without re-authoring the SVG. For an equipped item, already
     # reflects the requesting student's own move/rotate/resize override
     # (EquippedItemPlacement) when one exists — see
-    # accounts.api._equipped_items_out.
+    # accounts.services.equipped_items_out.
     scale: float = 1.0
     offset_x: float = 0.0
     offset_y: float = 0.0
@@ -30,8 +30,13 @@ class AvatarItemOut(Schema):
     # any equipped item the student hasn't rotated; no catalog-side
     # counterpart to fall back to (art is always authored upright).
     rotation: float = 0.0
-    # Stacking order among simultaneously-equipped items in the same slot —
-    # see AvatarItem.layer_order.
+    # For a catalog item (shop/AvatarOut), just AvatarItem.layer_order. For
+    # an *equipped* item, this is instead the student's effective stacking
+    # rank among EVERY currently-equipped item at once, global across all
+    # three slots (see accounts.services.equipped_items_out and
+    # EquippedItemOrder) — the frontend merge-sorts every equipped item by
+    # this one field to get the true draw order, rather than assuming
+    # clothing always draws under headwear under accessory.
     layer_order: int = 0
     # Diamond shop — see docs/core/avatar.md section 2.2. price=0 is free.
     # is_unlocked is relative to the requesting user (accounts.services.
@@ -123,6 +128,18 @@ class UpdateAvatarItemsIn(Schema):
     accessory_item_ids: list[int] = []
 
 
+class UpdateAvatarItemOrderIn(Schema):
+    """The student's desired global stacking order across ALL currently-
+    equipped items at once, regardless of slot — see EquippedItemOrder and
+    accounts.api.update_avatar_item_order. A separate action from equipping/
+    unequipping (UpdateAvatarItemsIn): any id here that isn't currently
+    equipped is silently dropped rather than erroring, since a stale id
+    (the student unequipped something between loading the page and
+    reordering) shouldn't block saving the rest of the order."""
+
+    item_ids: list[int] = []
+
+
 class UpdateAvatarTransformIn(Schema):
     """Tutor avatar editor — see docs/core/avatar.md."""
 
@@ -144,9 +161,13 @@ class UpdateAvatarItemPlacementIn(Schema):
     wardrobe items directly on their avatar preview — see
     EquippedItemPlacement and accounts.api.update_avatar_item_placement.
     offset_x/offset_y/scale are absolute replacements for AvatarItem.
-    offset_x/offset_y/scale (same conventions), not deltas/multipliers."""
+    offset_x/offset_y/scale (same conventions), not deltas/multipliers.
+    The frontend clamps these to a tight, per-item bounding box that keeps
+    the item fully visible on the avatar canvas (see MOVE_RANGE/
+    computeMoveBounds in avatar-preview.tsx) — the wider bounds here are
+    just a generous sanity ceiling against a client that skips it."""
 
-    offset_x: float
-    offset_y: float
-    rotation: float = 0.0
-    scale: float = 1.0
+    offset_x: float = Field(ge=-100, le=100)
+    offset_y: float = Field(ge=-100, le=100)
+    rotation: float = Field(default=0.0, ge=-360, le=360)
+    scale: float = Field(default=1.0, ge=0.1, le=5.0)

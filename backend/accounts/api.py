@@ -17,6 +17,7 @@ from .schemas import (
     GoogleLoginOut,
     MeOut,
     UpdateAvatarIn,
+    UpdateAvatarItemOrderIn,
     UpdateAvatarItemPlacementIn,
     UpdateAvatarItemsIn,
     UpdateInterfaceModeIn,
@@ -32,6 +33,13 @@ def _user_out(request: HttpRequest, user) -> UserOut:
     unlocked_ids = (
         set(student_profile.unlocked_items.values_list('id', flat=True)) if student_profile else None
     )
+    # Computed once (not once per slot) since stacking order is now global
+    # across all three slots — see services.equipped_items_out.
+    equipped = (
+        services.equipped_items_out(student_profile, request, unlocked_ids)
+        if student_profile
+        else {'clothing': [], 'headwear': [], 'accessory': []}
+    )
     return UserOut(
         id=user.id,
         email=user.email,
@@ -46,21 +54,9 @@ def _user_out(request: HttpRequest, user) -> UserOut:
         equipped_avatar=services.avatar_out(student_profile.equipped_avatar, request, unlocked_ids)
         if student_profile
         else None,
-        equipped_clothing_items=services.equipped_items_out(
-            student_profile, 'equipped_clothing_items', request, unlocked_ids
-        )
-        if student_profile
-        else [],
-        equipped_headwear_items=services.equipped_items_out(
-            student_profile, 'equipped_headwear_items', request, unlocked_ids
-        )
-        if student_profile
-        else [],
-        equipped_accessory_items=services.equipped_items_out(
-            student_profile, 'equipped_accessory_items', request, unlocked_ids
-        )
-        if student_profile
-        else [],
+        equipped_clothing_items=equipped['clothing'],
+        equipped_headwear_items=equipped['headwear'],
+        equipped_accessory_items=equipped['accessory'],
         diamond_balance=student_profile.diamond_balance_cache if student_profile else None,
     )
 
@@ -229,20 +225,40 @@ def update_avatar_items(request: HttpRequest, payload: UpdateAvatarItemsIn):
     """Equips/unequips the wardrobe on top of the current equipped_avatar —
     see docs/core/avatar.md section 2.2. Always sends the full wardrobe state
     (see UpdateAvatarItemsIn): every slot can hold several pieces worn
-    together at once, stacked by AvatarItem.layer_order by default — a
-    student can override that stacking order within a slot simply by
-    sending its ids in the order they want (see
-    accounts.services.save_equipped_item_order and EquippedItemOrder).
-    Every item must already be unlocked (free, or bought via
-    POST .../purchase)."""
+    together at once. Stacking order (which item draws on top of which,
+    global across slots) is a separate concern handled entirely by
+    PATCH /me/avatar-items/order — this endpoint never touches
+    EquippedItemOrder, so equipping/unequipping something never disturbs an
+    existing reorder. Every item must already be unlocked (free, or bought
+    via POST .../purchase)."""
     require_csrf(request)
     student = get_own_student_profile(request)
     student.equipped_clothing_items.set(_resolve_slot_items(student, payload.clothing_item_ids, 'clothing'))
     student.equipped_headwear_items.set(_resolve_slot_items(student, payload.headwear_item_ids, 'headwear'))
     student.equipped_accessory_items.set(_resolve_slot_items(student, payload.accessory_item_ids, 'accessory'))
-    services.save_equipped_item_order(
-        student, payload.clothing_item_ids, payload.headwear_item_ids, payload.accessory_item_ids
-    )
+    return MeOut(user=_user_out(request, request.auth))
+
+
+@router.patch(
+    '/me/avatar-items/order',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='update_avatar_item_order',
+)
+def update_avatar_item_order(request: HttpRequest, payload: UpdateAvatarItemOrderIn):
+    """Reorders the student's currently-equipped items into one global
+    stacking order across all three slots at once — see EquippedItemOrder
+    and services.save_equipped_item_order. Ids that aren't currently
+    equipped (a stale id from before an unequip elsewhere) are silently
+    dropped rather than erroring."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    equipped_ids = {
+        item.id
+        for manager in (student.equipped_clothing_items, student.equipped_headwear_items, student.equipped_accessory_items)
+        for item in manager.filter(is_active=True)
+    }
+    services.save_equipped_item_order(student, [item_id for item_id in payload.item_ids if item_id in equipped_ids])
     return MeOut(user=_user_out(request, request.auth))
 
 

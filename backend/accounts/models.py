@@ -205,19 +205,22 @@ class StudentProfile(models.Model):
 
 
 class EquippedItemOrder(models.Model):
-    """A student's own override of AvatarItem.layer_order's stacking order,
-    within one slot only (clothing among clothing, accessory among
-    accessory — see docs/core/avatar.md section 2.2) — not wired as the
+    """A student's own override of the stacking order among ALL currently-
+    equipped items at once — global across slots (an accessory can be told
+    to draw under a piece of clothing, not just reordered among other
+    accessories) — see docs/core/avatar.md section 2.2. Not wired as the
     equipped_*_items M2M fields' `through=` (no existing precedent for that
     in this codebase, and it would force every equip/unequip to go through
     a slower add-with-through-defaults loop instead of the plain `.set()`
     those keep using). Instead this is a plain side table, consulted only
-    when serializing (accounts.api._equipped_items_out): present for an
-    item -> use `order`; absent -> fall back to AvatarItem.layer_order, so a
-    student who's never reordered anything sees no change at all. Written
-    by accounts.services.save_equipped_item_order, from the order the
-    frontend's PATCH /me/avatar-items already sends its item ids in — see
-    that function."""
+    when serializing (accounts.services.equipped_items_out): present for an
+    item -> use `order`; absent -> fall back to a default rank that
+    reproduces the old fixed clothing-under-headwear-under-accessory stack
+    (see equipped_items_out), so a student who's never used the reorder UI
+    sees no change at all. Written by accounts.services.
+    save_equipped_item_order, from PATCH /me/avatar-items/order — a
+    separate action from equipping/unequipping (PATCH /me/avatar-items),
+    which no longer touches this table at all."""
 
     student_profile = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='item_orders')
     item = models.ForeignKey(AvatarItem, on_delete=models.CASCADE)
@@ -233,8 +236,8 @@ class EquippedItemPlacement(models.Model):
     it (like a graphic editor) and then dragging it to move, rotate, or
     resize — see components/profile/avatar-preview.tsx and docs/core/
     avatar.md section 2.2. Purely cosmetic and private to that student: only
-    ever consulted when serializing *their own* /me response (accounts.api.
-    _equipped_items_out) — a different viewer of this student's avatar
+    ever consulted when serializing *their own* /me response (accounts.
+    services.equipped_items_out) — a different viewer of this student's avatar
     (once that exists) always sees the tutor-configured AvatarItem.offset_x/
     offset_y/scale instead, since nothing else reads this table. offset_x/
     offset_y/scale here are absolute replacements (not deltas/multipliers)

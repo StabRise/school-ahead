@@ -54,6 +54,7 @@ export function WordSegmentCard({
   storySlug,
   sizeRem,
   preferPlainText,
+  frameless,
 }: {
   segment: StoryWordSegment;
   storySlug?: string | null;
@@ -65,10 +66,17 @@ export function WordSegmentCard({
   // word that syllable begins in the "Картки" game) that doesn't belong
   // next to a pure open-syllable drill.
   preferPlainText?: boolean;
+  // Drops this card's own rounded border/background too, leaving just the
+  // bare glyphs/image — distinct from WordCardRow's `bare` below, which
+  // only skips the *row's* outer sheet. Used by Jumping Frogs' header
+  // target display for levels 1/2 (see jumping-frogs-game.tsx's
+  // TargetHeaderBar), which wants the plain letter/syllable floating in its
+  // own white circle with no second frame around it.
+  frameless?: boolean;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
   const boxStyle = { width: `${sizeRem}rem`, height: `${sizeRem}rem` };
-  const cardClass = "shrink-0 rounded-lg border-2 border-gray-400 bg-white object-cover";
+  const cardClass = `shrink-0 object-cover ${frameless ? "" : "rounded-lg border-2 border-gray-400 bg-white"}`;
   // Scales with the box so a plain-letter card's glyphs stay legible (and
   // don't overflow it) at any sizeRem, not just the two fixed sizes this
   // used to support.
@@ -165,7 +173,9 @@ export function WordSegmentCard({
   return (
     <span
       style={{ ...boxStyle, fontSize: `${fontSizeRem}rem` }}
-      className="flex shrink-0 items-center justify-center rounded-lg border-2 border-gray-400 bg-white font-extrabold"
+      className={`flex shrink-0 items-center justify-center font-extrabold ${
+        frameless ? "" : "rounded-lg border-2 border-gray-400 bg-white"
+      }`}
     >
       {[...segment.text.toLocaleUpperCase("uk")].map((letter, index) => (
         <span key={index} style={{ color: isVowelUk(letter) ? "#dc2626" : "#0369a1" }}>
@@ -190,6 +200,7 @@ export function WordCardRow({
   cardSizeRem,
   preferPlainText,
   bare,
+  frameless,
 }: {
   segments: StoryWordSegment[];
   storySlug?: string | null;
@@ -202,6 +213,9 @@ export function WordCardRow({
   // Jumping Frogs lily pad), where the sheet would just be a second,
   // redundant border concentric with that slot's own.
   bare?: boolean;
+  // See WordSegmentCard's `frameless` — drops each card's own border/
+  // background too, not just this row's outer sheet.
+  frameless?: boolean;
 }) {
   const resolvedCardSizeRem = cardSizeRem ?? (size === "lg" ? MAX_LG_CARD_REM : SM_CARD_SIZE_REM);
   const cards = segments.map((segment, index) => (
@@ -211,6 +225,7 @@ export function WordCardRow({
       storySlug={storySlug}
       sizeRem={resolvedCardSizeRem}
       preferPlainText={preferPlainText}
+      frameless={frameless}
     />
   ));
 

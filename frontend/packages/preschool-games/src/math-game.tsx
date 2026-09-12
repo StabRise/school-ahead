@@ -136,6 +136,24 @@ function hotbarFontSizePx(slotWidthPx: number, maxDigits: number): number {
   return Math.min(64, Math.max(16, slotWidthPx * ratio));
 }
 
+// One animal's base size (rem) in a count-mode cluster — shrinks as the
+// count grows (up to 10 from level 8, see COUNT_LEVELS in lib/math-game.ts)
+// so a big cluster still wraps into a reasonable number of rows instead of
+// forcing QuestionCloud ever wider/taller than the screen comfortably
+// allows. A varied-size level (see emojiSizes on GameQuestion) multiplies
+// this per-animal, same interpolation shape as hotbarFontSizePx/
+// bigCardSizeRem elsewhere in this codebase.
+const COUNT_EMOJI_MAX_REM = 4.5;
+const COUNT_EMOJI_MIN_REM = 2;
+const MAX_COUNT_FOR_MAX_SIZE = 3;
+const MIN_COUNT_FOR_MIN_SIZE = 10;
+
+function countEmojiSizeRem(count: number): number {
+  const clamped = Math.min(MIN_COUNT_FOR_MIN_SIZE, Math.max(MAX_COUNT_FOR_MAX_SIZE, count));
+  const t = (clamped - MAX_COUNT_FOR_MAX_SIZE) / (MIN_COUNT_FOR_MIN_SIZE - MAX_COUNT_FOR_MAX_SIZE);
+  return COUNT_EMOJI_MAX_REM - t * (COUNT_EMOJI_MAX_REM - COUNT_EMOJI_MIN_REM);
+}
+
 const LIVES = 3;
 const MIN_SPEED = 0.25;
 const MAX_SPEED = 3;
@@ -180,6 +198,23 @@ const OPERATOR_SYMBOL: Partial<Record<Operation, string>> = {
   divide: "÷",
 };
 
+// A full ×1..×10 times-table is a standard teaching aid regardless of which
+// factor range the current level actually quizzes on (see
+// MULTIPLY_MAX_FACTOR_BY_LEVEL in lib/math-game.ts) — shown on pause when
+// the "showHint" setting is on (see PauseOverlay in MathRun).
+const TIMES_TABLE_MAX = 10;
+
+// The one number a multiply/divide question's times-table hint is built
+// from — the first factor for multiply (e.g. "5 × 6 = ?" hints ×5's whole
+// table), the divisor for divide (e.g. "30 ÷ 5 = ?" also hints ×5's table,
+// since that's the table a child scans to find which line lands on 30).
+// null for count/add/subtract, which have no such table to show.
+function timesTableKeyNumber(question: GameQuestion): number | null {
+  if (question.operation === "multiply") return question.a;
+  if (question.operation === "divide") return question.b;
+  return null;
+}
+
 // Emoji for the settings panel's operation picker — purely decorative, the
 // accessible label comes from next-intl (see the t(`operation.${op}`) calls
 // below).
@@ -216,16 +251,34 @@ function HeartIcon({ filled }: { filled: boolean }) {
 // A fluffy speech-cloud holding the current question — see the design
 // sketch: progress bar + hearts up top, the example inside a cloud below
 // them, the runner track underneath, the hotbar at the bottom.
+// The cloud grows to fit whatever's inside it instead of clipping at a
+// fixed size — count mode can show anywhere from 0 to 10 animals (see
+// COUNT_LEVELS in lib/math-game.ts), far more than the old fixed-size
+// cloud could ever hold, so a big cluster used to spill out past its edges
+// (some animals rendering outside the cloud shape entirely). The SVG's
+// `preserveAspectRatio="none"` lets it stretch non-uniformly to exactly
+// match the content div's box (an ordinary in-flow child, sized by its own
+// content/padding) — a plain `absolute inset-0 h-full w-full` on the SVG
+// wouldn't otherwise track a *changing* content size the way a fixed-size
+// sibling would. `min-h-*`/`min-w-*` keep the old fixed size as a floor for
+// small content (e.g. a single-digit arithmetic question).
 function QuestionCloud({ children }: { children: ReactNode }) {
   return (
     <div className="relative flex shrink-0 items-center justify-center">
-      <svg viewBox="0 0 200 110" className="h-32 w-64 drop-shadow sm:h-48 sm:w-96" aria-hidden="true">
+      <svg
+        viewBox="0 0 200 110"
+        preserveAspectRatio="none"
+        className="absolute inset-0 h-full w-full drop-shadow"
+        aria-hidden="true"
+      >
         <path
           d="M50 82 Q18 82 18 56 Q18 34 40 31 Q43 14 63 14 Q79 14 85 27 Q99 16 115 25 Q133 18 144 34 Q167 34 169 56 Q171 80 145 82 Z"
           fill="white"
         />
       </svg>
-      <div className="absolute inset-0 flex items-center justify-center px-10 text-center">{children}</div>
+      <div className="relative flex min-h-32 min-w-64 items-center justify-center px-10 py-6 text-center sm:min-h-48 sm:min-w-96">
+        {children}
+      </div>
     </div>
   );
 }
@@ -266,27 +319,17 @@ function VictoryConfetti() {
 // The student's own equipped avatar (wardrobe outfit + all), same
 // fallback-to-mascot pattern as preschool-ui/game-map.tsx's CompanionAvatar
 // — an anonymous visitor (or a student who never picked an avatar) has no
-// equipped layers, so the raccoon mascot runs instead.
-// `crop` (default true) puts the equipped-avatar case in the round
-// badge frame the running avatar needs (it's a token sliding along the
-// track); the victory screen passes `crop={false}` to show the full
-// costume uncropped instead of letting a tall hat/accessory get clipped by
-// that circle.
-function RunnerAvatar({ mood, className, crop = true }: { mood: RaccoonMood; className: string; crop?: boolean }) {
+// equipped layers, so the raccoon mascot runs instead. Deliberately not
+// cropped into a circular badge (unlike game-map.tsx's CompanionAvatar) —
+// a round frame clipped tall headwear/accessories no matter how it was
+// sized, so this just shows the full costume plainly, uncropped, both
+// while running and on the victory screen.
+function RunnerAvatar({ mood, className }: { mood: RaccoonMood; className: string }) {
   const layers = useEquippedAvatarLayers();
   if (layers.length > 0) {
-    if (!crop) {
-      return (
-        <span className={`flex items-center justify-center ${className}`}>
-          <EquippedAvatarLayers layers={layers} />
-        </span>
-      );
-    }
     return (
-      <span
-        className={`flex items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-white/70 p-1 shadow-md ${className}`}
-      >
-        <EquippedAvatarLayers layers={layers} />
+      <span className={`flex items-center justify-center ${className}`}>
+        <EquippedAvatarLayers layers={layers} crop={false} />
       </span>
     );
   }
@@ -436,6 +479,7 @@ function MathRun({
   operation,
   level,
   choiceCount,
+  showHint,
   onRetry,
   onPauseChange,
 }: {
@@ -443,6 +487,8 @@ function MathRun({
   operation: Operation;
   level: number;
   choiceCount: number;
+  // Multiply/divide only — see PauseOverlay's times-table hint below.
+  showHint: boolean;
   onRetry: () => void;
   onPauseChange: (paused: boolean) => void;
 }) {
@@ -608,13 +654,30 @@ function MathRun({
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   });
 
+  // P/p toggles pause, same as the button — checked via event.code (the
+  // physical key), not event.key, so it also fires as the same key types
+  // "з"/"З" under a Ukrainian/Russian keyboard layout instead of only
+  // working while the layout happens to be English. Same "no dependency
+  // array" idiom as the visibilitychange effect above.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== "KeyP") return;
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (paused) resumeGame();
+      else pauseGame();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
+
   const startNextRound = (nextIndex: number) => {
     if (nextIndex >= QUESTION_COUNT) {
       setStage("victory");
       return;
     }
     setIndex(nextIndex);
-    setQuestion(generateQuestion(operation, level, choiceCount));
+    setQuestion(generateQuestion(operation, level, choiceCount, question));
     setLocked(false);
     setHasCorrectAnswer(false);
     setSelectedIndex(null);
@@ -690,6 +753,7 @@ function MathRun({
   const HOTBAR_GAP_PX = 8; // gap-2
   const slotWidth = hotbarWidth > 0 ? (hotbarWidth - HOTBAR_GAP_PX * (columns - 1)) / columns : 0;
   const hotbarFontSize = slotWidth > 0 ? hotbarFontSizePx(slotWidth, maxDigits) : undefined;
+  const hintKeyNumber = showHint ? timesTableKeyNumber(question) : null;
 
   return (
     <div className="relative flex h-full w-full flex-1 flex-col items-center gap-2 overflow-hidden">
@@ -728,26 +792,45 @@ function MathRun({
             </div>
           </div>
 
-          <QuestionCloud>
-            {question.operation === "count" ? (
-              <div className="flex flex-col items-center gap-1">
-                <p className="text-xs font-bold text-gray-500 sm:text-sm">{t("countPrompt")}</p>
-                {question.a > 0 && (
-                  <div className="flex max-w-[260px] flex-wrap items-center justify-center gap-1 sm:max-w-[380px]">
-                    {Array.from({ length: question.a }, (_, i) => (
-                      <span key={i} className="text-6xl sm:text-7xl" aria-hidden="true">
-                        {question.emoji}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-4xl font-extrabold text-gray-800 sm:text-6xl">
-                {question.a} {OPERATOR_SYMBOL[question.operation]} {question.b} = ?
+          <div className="flex shrink-0 items-center justify-center gap-3">
+            <QuestionCloud>
+              {question.operation === "count" ? (
+                <div className="flex flex-col items-center gap-1">
+                  <p className="text-xs font-bold text-gray-500 sm:text-sm">{t("countPrompt")}</p>
+                  {question.a > 0 && (
+                    <div className="flex max-w-[280px] flex-wrap items-center justify-center gap-1 sm:max-w-[420px]">
+                      {Array.from({ length: question.a }, (_, i) => {
+                        // question.emojiSizes is only set from level 4 up
+                        // (see COUNT_LEVELS) — undefined below that, where
+                        // every animal renders at the same base size.
+                        const sizeMultiplier = question.emojiSizes?.[i] ?? 1;
+                        const fontSizeRem = countEmojiSizeRem(question.a) * sizeMultiplier;
+                        return (
+                          <span key={i} style={{ fontSize: `${fontSizeRem}rem` }} aria-hidden="true">
+                            {question.emoji}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-4xl font-extrabold text-gray-800 sm:text-6xl">
+                  {question.a} {OPERATOR_SYMBOL[question.operation]} {question.b} = ?
+                </p>
+              )}
+            </QuestionCloud>
+            {/* Only once a wrong choice is locked in (never for a correct
+                one, which already gets its own bridge/crossing feedback) —
+                stays up through the rushing/falling animations until
+                startNextRound resets `locked`, giving the child time to
+                actually read it before the next round appears. */}
+            {locked && !hasCorrectAnswer && (
+              <p className="max-w-[8rem] text-left text-sm font-bold text-rose-600 sm:max-w-[10rem] sm:text-lg">
+                {t("correctAnswerLabel", { answer: question.answer })}
               </p>
             )}
-          </QuestionCloud>
+          </div>
 
           <div className="relative min-h-[6rem] w-full flex-1 overflow-hidden bg-gradient-to-b from-sky-100 to-transparent">
             <div className="absolute inset-x-0 bottom-0 h-16 bg-[#8a5a34]" aria-hidden="true" />
@@ -833,7 +916,7 @@ function MathRun({
         <div className="relative flex flex-1 flex-col items-center justify-center gap-4 text-center">
           <VictoryConfetti />
           <div ref={victoryBadgeRef} className="relative z-10" style={{ animation: "score-pop 0.4s ease-out" }} aria-hidden="true">
-            <RunnerAvatar mood="happy" crop={false} className="h-40 w-40 sm:h-56 sm:w-56" />
+            <RunnerAvatar mood="happy" className="h-40 w-40 sm:h-56 sm:w-56" />
             <div className="absolute -right-2 -top-1 text-4xl">🏆</div>
           </div>
           <p className="relative z-10 text-2xl font-extrabold text-gray-800">{t("victoryTitle")}</p>
@@ -851,18 +934,37 @@ function MathRun({
       )}
 
       {paused && stage === "playing" && (
-        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-white/90 text-center">
-          <div className="text-6xl" aria-hidden="true">
-            ⏸️
-          </div>
-          <p className="text-2xl font-extrabold text-gray-800">{t("pausedTitle")}</p>
-          <button
-            type="button"
-            onClick={resumeGame}
-            className="rounded-full bg-emerald-500 px-8 py-3 text-lg font-bold text-white shadow-lg transition-transform active:scale-95"
+        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-gray-900/40 p-4 backdrop-blur-sm">
+          {/* Fits everything (title, up to a 2-column x5-row times table,
+              button) without ever needing to scroll — a 2-column grid lands
+              all TIMES_TABLE_MAX=10 lines in 5 short rows instead of one
+              tall list, which is what forced the old single-column version
+              to scroll inside its own small box. */}
+          <div
+            className="flex w-full max-w-sm flex-col items-center gap-4 rounded-3xl bg-white p-6 text-center shadow-2xl"
+            style={{ animation: "score-pop 0.25s ease-out" }}
           >
-            {t("resumeButton")}
-          </button>
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-sky-100 text-4xl" aria-hidden="true">
+              ⏸️
+            </div>
+            <p className="text-2xl font-extrabold text-gray-800">{t("pausedTitle")}</p>
+            {hintKeyNumber !== null && (
+              <div className="grid w-full grid-cols-2 gap-x-4 gap-y-2 rounded-2xl bg-gray-50 p-4 text-base font-bold text-gray-700">
+                {Array.from({ length: TIMES_TABLE_MAX }, (_, i) => i + 1).map((multiplier) => (
+                  <p key={multiplier} className="whitespace-nowrap">
+                    {hintKeyNumber} × {multiplier} = {hintKeyNumber * multiplier}
+                  </p>
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={resumeGame}
+              className="w-full rounded-full bg-emerald-500 px-8 py-3 text-lg font-bold text-white shadow-lg transition-transform active:scale-95"
+            >
+              {t("resumeButton")}
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -885,7 +987,11 @@ export function MathGame() {
   const setOperation = useMathGameStore((s) => s.setOperation);
   const level = useMathGameStore((s) => s.level);
   const setLevel = useMathGameStore((s) => s.setLevel);
+  const showHint = useMathGameStore((s) => s.showHint);
+  const setShowHint = useMathGameStore((s) => s.setShowHint);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsPanelRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const maxLevel = MAX_LEVEL_BY_OPERATION[operation];
   // Remounting MathRun on retry (rather than resetting its state
   // in place) resets useDiamondMilestoneReward's once-per-mount dedupe too
@@ -894,6 +1000,20 @@ export function MathGame() {
   const [playToken, setPlayToken] = useState(0);
   const [rootRef, fillHeight] = useViewportFillHeight<HTMLDivElement>();
 
+  // Closes the settings panel on a click/tap outside it — same pattern as
+  // balloon-pop-game.tsx/reading-game.tsx/cards-game.tsx/jumping-frogs-game.tsx.
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (settingsPanelRef.current?.contains(target)) return;
+      if (settingsButtonRef.current?.contains(target)) return;
+      setSettingsOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [settingsOpen]);
+
   return (
     <div
       ref={rootRef}
@@ -901,6 +1021,7 @@ export function MathGame() {
       className="relative flex flex-1 flex-col items-center overflow-hidden"
     >
       <button
+        ref={settingsButtonRef}
         type="button"
         aria-label={t("settingsButton")}
         onClick={() => setSettingsOpen((current) => !current)}
@@ -911,7 +1032,10 @@ export function MathGame() {
       <MusicToggleButton className="absolute left-32 top-4 z-10" />
 
       {settingsOpen && (
-        <div className="absolute left-20 top-16 z-10 flex w-64 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200">
+        <div
+          ref={settingsPanelRef}
+          className="absolute left-20 top-16 z-10 flex w-64 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200"
+        >
           <div className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("operationLabel")}</span>
             <div className="flex justify-between gap-1">
@@ -964,6 +1088,12 @@ export function MathGame() {
               onChange={(e) => setChoiceCount(Number(e.target.value))}
             />
           </label>
+          {(operation === "multiply" || operation === "divide") && (
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={showHint} onChange={(e) => setShowHint(e.target.checked)} />
+              <span className="font-medium text-gray-700">{t("showHintLabel")}</span>
+            </label>
+          )}
         </div>
       )}
 
@@ -973,6 +1103,7 @@ export function MathGame() {
         operation={operation}
         level={level}
         choiceCount={choiceCount}
+        showHint={showHint}
         onRetry={() => setPlayToken((token) => token + 1)}
         onPauseChange={setGamePaused}
       />

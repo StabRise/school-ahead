@@ -88,6 +88,44 @@ describe("generateQuestion", () => {
     expect(question.b).toBe(0);
   });
 
+  it("count level 1 alone can answer 0; every level above it always shows at least 1 animal", () => {
+    const level1Answers = new Set<number>();
+    for (let i = 0; i < 50; i++) level1Answers.add(generateQuestion("count", 1).answer);
+    expect(level1Answers.has(0)).toBe(true);
+
+    for (const level of allLevels("count").filter((l) => l > 1)) {
+      for (let i = 0; i < 30; i++) {
+        expect(generateQuestion("count", level).answer).toBeGreaterThanOrEqual(1);
+      }
+    }
+  });
+
+  it("count only varies animal size from level 4 up, one size per animal in the cluster", () => {
+    for (const level of [1, 2, 3]) {
+      for (let i = 0; i < 10; i++) {
+        expect(generateQuestion("count", level).emojiSizes).toBeUndefined();
+      }
+    }
+    for (const level of allLevels("count").filter((l) => l >= 4)) {
+      for (let i = 0; i < 10; i++) {
+        const question = generateQuestion("count", level);
+        expect(question.emojiSizes).toHaveLength(question.answer);
+        for (const size of question.emojiSizes ?? []) {
+          expect(size).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  it("never repeats the immediately previous count example (same answer and animal)", () => {
+    let previous = generateQuestion("count", 1);
+    for (let i = 0; i < 100; i++) {
+      const next = generateQuestion("count", 1, DEFAULT_CHOICE_COUNT, previous);
+      expect(next.answer === previous.answer && next.emoji === previous.emoji).toBe(false);
+      previous = next;
+    }
+  });
+
   it("add level 1 caps the largest number in the example at 3 (a notch easier than subtract's 4)", () => {
     for (let i = 0; i < 50; i++) {
       const question = generateQuestion("add", 1);

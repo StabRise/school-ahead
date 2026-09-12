@@ -160,6 +160,13 @@ def _tutor_student_out(
     — only worth the extra queries for get_student's single-object page, so
     every list endpoint sharing this builder leaves it off."""
     unlocked_ids = set(student.unlocked_items.values_list('id', flat=True)) if with_avatar else None
+    # Computed once (not once per slot) since stacking order is global
+    # across all three slots — see accounts.services.equipped_items_out.
+    equipped = (
+        accounts_services.equipped_items_out(student, request, unlocked_ids)
+        if with_avatar
+        else {'clothing': [], 'headwear': [], 'accessory': []}
+    )
     return TutorStudentOut(
         id=student.id,
         name=student.user.full_name or student.user.email,
@@ -170,21 +177,9 @@ def _tutor_student_out(
         equipped_avatar=accounts_services.avatar_out(student.equipped_avatar, request, unlocked_ids)
         if with_avatar
         else None,
-        equipped_clothing_items=accounts_services.equipped_items_out(
-            student, 'equipped_clothing_items', request, unlocked_ids
-        )
-        if with_avatar
-        else [],
-        equipped_headwear_items=accounts_services.equipped_items_out(
-            student, 'equipped_headwear_items', request, unlocked_ids
-        )
-        if with_avatar
-        else [],
-        equipped_accessory_items=accounts_services.equipped_items_out(
-            student, 'equipped_accessory_items', request, unlocked_ids
-        )
-        if with_avatar
-        else [],
+        equipped_clothing_items=equipped['clothing'],
+        equipped_headwear_items=equipped['headwear'],
+        equipped_accessory_items=equipped['accessory'],
     )
 
 

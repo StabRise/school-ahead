@@ -46,8 +46,12 @@ export interface EquippedAvatarItem {
   // no tutor-set counterpart, so it's 0 unless this student moved it.
   // Private to this student — see EquippedItemPlacement on the backend.
   rotation: number;
-  // Stacking order among simultaneously-equipped items in the same slot
-  // (lower draws first/closer to the body). See docs/core/avatar.md.
+  // For an equipped item, the student's effective stacking rank among
+  // EVERY currently-equipped item at once — global across all three slots,
+  // not just within this one (lower draws first/closer to the body) — see
+  // docs/core/avatar.md and useEquippedAvatarLayers, which merge-sorts all
+  // three equippedXxxItems lists by this field to get the true draw order.
+  // For a catalog item (EquippedAvatar.items), just the tutor-set default.
   layerOrder: number;
   // Diamond shop — see docs/core/avatar.md section 2.2. price=0 is free.
   // isUnlocked reflects the current student (always true for price=0);

@@ -545,7 +545,6 @@ export function BalloonPopGame() {
       return sequential;
     }
     return shuffle(unique).slice(0, count);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, cardCount, currentModeData.cards]);
 
   // `selectedCards` resolved to this language's actual display text (see

@@ -5,14 +5,40 @@ import { Maximize2, RotateCw, Undo2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { AvatarLayer, itemsToLayers, useEquippedAvatarLayers } from "@school-ahead/preschool-ui";
-import { getMeQueryKey, useResetAvatarItemPlacement, useUpdateAvatarItemPlacement } from "@school-ahead/api-client/browser/auth/auth";
+import {
+  getMeQueryKey,
+  useResetAvatarItemPlacement,
+  useUpdateAvatarItemPlacement,
+  useUpdateAvatarItems,
+} from "@school-ahead/api-client/browser/auth/auth";
 import { mapApiUserToAuthUser } from "@school-ahead/api-client";
 import { useAuthStore, type EquippedAvatarItem } from "@school-ahead/api-client";
 import { useAvatarTryOnStore } from "@/stores/avatar-tryon-store";
 import { ALPHA_HIT_THRESHOLD, getObjectContainBox, type HitTestLayer, normalizeRotation, pickTopLayerAt } from "@/lib/avatar-hit-test";
 
-const MOVE_RANGE = { min: -50, max: 50 };
 const SCALE_RANGE = { min: 0.3, max: 2.5 };
+
+// The container below is a fixed `w-100` (400px) square with `px-8 pb-8
+// pt-14` padding around `previewRef` (the `relative h-full w-full` div that
+// offsetX/offsetY percentages are actually measured against) — so
+// previewRef itself is inset from the true white-frame edge (where
+// `overflow-hidden` actually clips) by that padding. Expressed here as
+// extra percent-of-previewRef beyond its own 0-100 box, so drag/resize
+// bounds (computeMoveBounds) can let an item reach the *visible frame*, not
+// stop short of it at previewRef's own (padded-in) edge. Update these if
+// the padding below ever changes.
+const CONTAINER_SIZE_PX = 400; // w-100 aspect-square
+const PADDING_PX = { top: 56, bottom: 32, left: 32, right: 32 }; // pt-14 / pb-8 / px-8 px-8
+const PREVIEW_PX = {
+  width: CONTAINER_SIZE_PX - PADDING_PX.left - PADDING_PX.right,
+  height: CONTAINER_SIZE_PX - PADDING_PX.top - PADDING_PX.bottom,
+};
+const FRAME_EDGE = {
+  top: -(50 + (PADDING_PX.top / PREVIEW_PX.height) * 100),
+  bottom: 50 + (PADDING_PX.bottom / PREVIEW_PX.height) * 100,
+  left: -(50 + (PADDING_PX.left / PREVIEW_PX.width) * 100),
+  right: 50 + (PADDING_PX.right / PREVIEW_PX.width) * 100,
+};
 const CHANGE_EPSILON = { offset: 0.05, rotation: 0.1, scale: 0.01 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -153,6 +179,47 @@ function getSelectedItemLocalBox(loaded: LoadedLayerImage | undefined): { width:
   };
 }
 
+// The offsetX/offsetY range (percent of canvas) that keeps an item's actual
+// opaque artwork — not the full transparent canvas-sized layer it's drawn
+// inside of — fully inside the visible white frame at a given scale/
+// rotation, so a student can never drag or resize a headwear/accessory
+// piece far enough to have it cropped by the preview's overflow-hidden edge
+// (FRAME_EDGE above), while still letting it reach that actual edge rather
+// than stopping at the smaller, padded-in canvas box. `local` is the item's
+// own unscaled/unrotated box from getSelectedItemLocalBox.
+function computeMoveBounds(
+  local: { width: number; height: number; centerX: number; centerY: number },
+  scale: number,
+  rotationDeg: number,
+): { xMin: number; xMax: number; yMin: number; yMax: number } {
+  const rad = (rotationDeg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  // Where the item's own (opaque-pixel) center lands relative to its box's
+  // center once scaled and rotated — same composition as `selectedBox`
+  // above (scale first, then rotate).
+  const kx = (local.centerX * cos - local.centerY * sin) * scale;
+  const ky = (local.centerX * sin + local.centerY * cos) * scale;
+  // Axis-aligned half-extents of the scaled+rotated box.
+  const halfW = (local.width * scale) / 2;
+  const halfH = (local.height * scale) / 2;
+  const hx = halfW * Math.abs(cos) + halfH * Math.abs(sin);
+  const hy = halfW * Math.abs(sin) + halfH * Math.abs(cos);
+  const xLow = FRAME_EDGE.left - kx + hx;
+  const xHigh = FRAME_EDGE.right - kx - hx;
+  const yLow = FRAME_EDGE.top - ky + hy;
+  const yHigh = FRAME_EDGE.bottom - ky - hy;
+  // If the (scaled) item is simply too big to fit at all, xLow > xHigh —
+  // fall back to the tightest valid point (dead-centered on that axis)
+  // rather than leaving an inverted range for `clamp` to mishandle.
+  return {
+    xMin: Math.min(xLow, xHigh),
+    xMax: Math.max(xLow, xHigh),
+    yMin: Math.min(yLow, yHigh),
+    yMax: Math.max(yLow, yHigh),
+  };
+}
+
 // Full-size composited preview of the student's equipped avatar (body ->
 // clothing -> headwear -> accessory), plus a not-yet-purchased item being
 // tried on — see docs/core/avatar.md section 2. Also the interactive
@@ -175,6 +242,7 @@ export function AvatarPreview() {
   const queryClient = useQueryClient();
   const updatePlacement = useUpdateAvatarItemPlacement();
   const resetPlacement = useResetAvatarItemPlacement();
+  const updateItems = useUpdateAvatarItems();
 
   const equippedLayers = useEquippedAvatarLayers();
   const tryOnLayers = itemsToLayers(tryOnItem ? [tryOnItem] : undefined);
@@ -324,24 +392,33 @@ export function AvatarPreview() {
   const handleCanvasPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragStateRef.current;
     const rect = previewRef.current?.getBoundingClientRect();
-    if (!drag || drag.pointerId !== e.pointerId || !rect) return;
+    if (!drag || drag.pointerId !== e.pointerId || !rect || selectedItemId === null) return;
+    const local = getSelectedItemLocalBox(layerImages.get(selectedItemId));
 
     if (drag.mode === "move") {
       const dxPercent = ((e.clientX - drag.startClientX) / rect.width) * 100;
       const dyPercent = ((e.clientY - drag.startClientY) / rect.height) * 100;
+      // Bounds depend only on scale/rotation (fixed for this drag), not on
+      // the offset being computed — see computeMoveBounds.
+      const bounds = computeMoveBounds(local, drag.startScale, drag.startRotation);
       setDraft({
-        offsetX: clamp(drag.startOffsetX + dxPercent, MOVE_RANGE.min, MOVE_RANGE.max),
-        offsetY: clamp(drag.startOffsetY + dyPercent, MOVE_RANGE.min, MOVE_RANGE.max),
+        offsetX: clamp(drag.startOffsetX + dxPercent, bounds.xMin, bounds.xMax),
+        offsetY: clamp(drag.startOffsetY + dyPercent, bounds.yMin, bounds.yMax),
         rotation: drag.startRotation,
         scale: drag.startScale,
       });
     } else if (drag.mode === "rotate" && drag.centerX !== undefined && drag.centerY !== undefined && drag.startAngle !== undefined) {
       const angleNow = Math.atan2(e.clientY - drag.centerY, e.clientX - drag.centerX);
       const deltaDeg = ((angleNow - drag.startAngle) * 180) / Math.PI;
+      const rotation = normalizeRotation(drag.startRotation + deltaDeg);
+      // Rotating can push a previously-fine offset out of bounds (a wide
+      // item turned on its side, say) — nudge it back in rather than let it
+      // start clipping mid-rotation.
+      const bounds = computeMoveBounds(local, drag.startScale, rotation);
       setDraft({
-        offsetX: drag.startOffsetX,
-        offsetY: drag.startOffsetY,
-        rotation: normalizeRotation(drag.startRotation + deltaDeg),
+        offsetX: clamp(drag.startOffsetX, bounds.xMin, bounds.xMax),
+        offsetY: clamp(drag.startOffsetY, bounds.yMin, bounds.yMax),
+        rotation,
         scale: drag.startScale,
       });
     } else if (
@@ -351,11 +428,16 @@ export function AvatarPreview() {
       drag.startDistance !== undefined
     ) {
       const distanceNow = Math.hypot(e.clientX - drag.centerX, e.clientY - drag.centerY);
+      const scale = clamp((drag.startScale * distanceNow) / drag.startDistance, SCALE_RANGE.min, SCALE_RANGE.max);
+      // Same idea as rotate: growing the item can push its current offset
+      // out of bounds, so pull it back in for the new size instead of
+      // letting it hang off the edge.
+      const bounds = computeMoveBounds(local, scale, drag.startRotation);
       setDraft({
-        offsetX: drag.startOffsetX,
-        offsetY: drag.startOffsetY,
+        offsetX: clamp(drag.startOffsetX, bounds.xMin, bounds.xMax),
+        offsetY: clamp(drag.startOffsetY, bounds.yMin, bounds.yMax),
         rotation: drag.startRotation,
-        scale: clamp((drag.startScale * distanceNow) / drag.startDistance, SCALE_RANGE.min, SCALE_RANGE.max),
+        scale,
       });
     }
   };
@@ -442,10 +524,72 @@ export function AvatarPreview() {
     );
   };
 
+  // Unequips the selected item (Delete/Backspace — see the keydown effect
+  // below), same PATCH /me/avatar-items call AvatarWardrobe's own toggle
+  // uses, just computed from the currently-selected item instead of a
+  // wardrobe-grid click. Purely an equip-state change — the item stays
+  // unlocked/purchased (see docs/core/avatar.md section 2.2), just no
+  // longer worn, and it keeps its own EquippedItemPlacement/
+  // EquippedItemOrder rows for if it's ever re-equipped.
+  const handleUnequipSelected = () => {
+    if (selectedItemId === null || updateItems.isPending) return;
+    const item = equippedItemsById.get(selectedItemId);
+    if (!item) return;
+    const idsBySlot = {
+      clothing: (user?.equippedClothingItems ?? []).map((candidate) => candidate.id),
+      headwear: (user?.equippedHeadwearItems ?? []).map((candidate) => candidate.id),
+      accessory: (user?.equippedAccessoryItems ?? []).map((candidate) => candidate.id),
+    };
+    idsBySlot[item.slot] = idsBySlot[item.slot].filter((id) => id !== item.id);
+    updateItems.mutate(
+      {
+        data: {
+          clothing_item_ids: idsBySlot.clothing,
+          headwear_item_ids: idsBySlot.headwear,
+          accessory_item_ids: idsBySlot.accessory,
+        },
+      },
+      {
+        onSuccess: (response) => {
+          setUser(mapApiUserToAuthUser(response.user));
+          queryClient.invalidateQueries({ queryKey: getMeQueryKey() });
+          setSelectedItemId(null);
+          setDraft(null);
+        },
+      },
+    );
+  };
+
+  // Kept in a ref (rather than listed in the effect's deps below) so the
+  // keydown listener isn't torn down and re-attached on every render —
+  // only when selection actually toggles on/off — while still calling the
+  // latest closure (freshest equippedItemsById/user) when Delete fires.
+  const handleUnequipSelectedRef = useRef(handleUnequipSelected);
+  useEffect(() => {
+    handleUnequipSelectedRef.current = handleUnequipSelected;
+  });
+
+  // Delete/Backspace unequips whichever wardrobe item is currently
+  // selected — only wired up while something IS selected, so it can't
+  // steal Delete/Backspace from an unrelated focused input elsewhere on
+  // the page the rest of the time.
+  useEffect(() => {
+    if (selectedItemId === null) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      e.preventDefault();
+      handleUnequipSelectedRef.current();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [selectedItemId]);
+
   return (
     <div className="flex flex-col items-center gap-2">
       <div
-        className={`aspect-square w-100 shrink-0 overflow-hidden rounded-xl p-8 ${
+        className={`aspect-square w-100 shrink-0 overflow-hidden rounded-xl px-8 pb-8 pt-14 ${
           isPreschool ? "bg-gradient-to-br from-sky-100 via-emerald-50 to-lime-100 ring-4 ring-white shadow-lg" : "bg-gray-100"
         }`}
       >
