@@ -799,6 +799,13 @@
     "error": "Не вдалося завантажити досягнення. Спробуйте ще раз.",
     "empty": "Предметів ще немає."
   },
+  "AvatarPlacementEditor": {
+    "dragHint": "Перетягни, щоб перемістити, крутилку зверху — щоб повернути, а куточок знизу — щоб змінити розмір",
+    "dragHintNoRotate": "Перетягни, щоб перемістити, а куточок знизу — щоб змінити розмір",
+    "rotateItem": "Повернути",
+    "resizeItem": "Змінити розмір",
+    "resetPosition": "Скинути положення"
+  },
   "Profile": {
     "title": "Мій профіль",
     "preschoolTitle": "Твій персонаж",
@@ -818,10 +825,6 @@
     "wardrobeStackOrderLabel": "Порядок шарів",
     "wardrobeMoveUp": "Перемістити вище",
     "wardrobeMoveDown": "Перемістити нижче",
-    "wardrobeDragHint": "Перетягни, щоб перемістити, крутилку зверху — щоб повернути, а куточок знизу — щоб змінити розмір",
-    "wardrobeRotateItem": "Повернути",
-    "wardrobeResizeItem": "Змінити розмір",
-    "wardrobeResetPosition": "Скинути положення",
     "notEnoughDiamondsTitle": "Недостатньо діамантів",
     "notEnoughDiamondsTitleShort": "Ще замало!",
     "notEnoughDiamondsBody": "{item} коштує 💎{price}, а в тебе {balance}. Виконуй уроки, щоб заробити більше діамантів!",
@@ -1058,10 +1061,7 @@
     "error": "Не вдалося завантажити аватари. Спробуйте ще раз.",
     "bodySectionTitle": "Тіло персонажа",
     "scale": "Масштаб",
-    "offsetX": "Зміщення по X",
-    "offsetY": "Зміщення по Y",
     "save": "Зберегти",
-    "dragHint": "Перетягніть елемент мишкою, щоб змінити положення",
     "layerOrder": "Порядок шару",
     "price": "Ціна (💎)"
   },

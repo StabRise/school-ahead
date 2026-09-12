@@ -1,3 +1,5 @@
+export * from "./avatar-hit-test";
+export * from "./avatar-placement-editor";
 export * from "./backlog-section";
 export * from "./calendar-view";
 export * from "./celebration-scene";

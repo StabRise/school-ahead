@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useAuthStore, type EquippedAvatarItem } from "@school-ahead/api-client";
 
 export interface AvatarLayer {
@@ -103,5 +104,50 @@ export function EquippedAvatarLayers({
         />
       ))}
     </div>
+  );
+}
+
+// The one framed, non-interactive "show the dressed avatar" component every
+// plain display spot should use — header nav icon, preschool calendar/game-
+// map companion badges, the tutor's student-overview card, the math game's
+// runner sprite — instead of each hand-rolling its own outer frame around
+// EquippedAvatarLayers. Two frames cover every current need:
+//   - "card" (default): a rounded-rectangle badge with a background, cropped
+//     to its own edges — the standard look everywhere a badge-sized avatar
+//     is shown alongside other UI.
+//   - "ring": no crop (a tall headwear/accessory item is never clipped) with
+//     just a decorative border outline — `ring-*` is a box-shadow, not
+//     `overflow`, so it doesn't cut off content that overflows the box. Used
+//     during actual gameplay (the runner sprite), where an item calibrated
+//     for /profile's generous canvas can extend past a small badge.
+// `fallback` covers every caller's different "nothing equipped yet" state
+// (a mascot, a Google photo, initials, a plain icon) — rendered instead of
+// an empty frame when `layers` is empty.
+export function AvatarBadge({
+  layers,
+  frame = "card",
+  padding,
+  fallback = null,
+  className,
+}: {
+  layers: AvatarLayer[];
+  frame?: "card" | "ring";
+  padding?: string;
+  fallback?: ReactNode;
+  // Sizing (h-*/w-*), positioning, and any other extra classes — the same
+  // single-className convention as EquippedAvatarLayers itself, so this
+  // never has two props (e.g. a separate `size`) fighting over the same
+  // h-*/w-* utility.
+  className: string;
+}) {
+  if (layers.length === 0) return <>{fallback}</>;
+
+  const frameClassName = frame === "card" ? "overflow-hidden rounded-xl bg-gray-100" : "rounded-full ring-4 ring-white";
+  const paddingClassName = padding ?? (frame === "card" ? "p-1" : "");
+
+  return (
+    <span className={`relative flex items-center justify-center ${frameClassName} ${paddingClassName} ${className}`}>
+      <EquippedAvatarLayers layers={layers} crop={frame === "card"} />
+    </span>
   );
 }

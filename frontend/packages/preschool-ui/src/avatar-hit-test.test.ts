@@ -68,7 +68,7 @@ describe("pickTopLayerAt", () => {
       squareLayer({
         itemId: 1,
         scale: 2,
-        sampleAlpha: (u, v) => {
+        sampleAlpha: (u: number, v: number) => {
           sampledU = u;
           sampledV = v;
           return 255;
