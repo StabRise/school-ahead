@@ -1146,7 +1146,9 @@
     "noAssets": "Ще немає завантажених файлів.",
     "dragIntoText": "Перетягніть у текст казки",
     "usedInText": "використано в тексті",
-    "notUsedInText": "ще не використано"
+    "notUsedInText": "ще не використано",
+    "viewInGame": "Переглянути в грі",
+    "viewInGameRequiresPublish": "Спочатку опублікуйте казку, щоб переглянути її в грі"
   },
   "TaskDetail": {
     "loading": "Завантаження...",
