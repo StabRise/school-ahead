@@ -133,6 +133,21 @@ class LessonCreateIn(Schema):
     grading_type: str
 
 
+class LessonOrderIn(Schema):
+    id: int
+    topic_id: int
+    order_index: int
+
+
+class LessonsReorderIn(Schema):
+    """Bulk reorder/move payload for tutoring.api.reorder_lessons — the
+    complete, renumbered lesson list for every topic a drag touched (the
+    target topic, and the source topic too when a lesson moved across
+    topics), not the whole subject."""
+
+    items: list[LessonOrderIn]
+
+
 class UpdateSynopsisIn(Schema):
     """A student saving their own edited copy of Lesson.synopsis — see
     StudentLesson.synopsis_notes."""

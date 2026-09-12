@@ -16,7 +16,7 @@ import type { SubmissionDetailOut } from "@school-ahead/api-client/browser/schoo
 import { Link } from "@/i18n/navigation";
 import { StatusBadge } from "@/components/status-badge";
 import { PageContainer } from "@/components/page-container";
-import { Markdown } from "@/components/markdown";
+import { Markdown } from "@school-ahead/markdown-editor";
 import { SubmissionThread } from "@/components/submission-thread";
 import { FileDropzone } from "@/components/file-dropzone";
 import { AnnotatableImageLightbox } from "./annotatable-image-lightbox";

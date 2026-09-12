@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Eye, Pencil } from "lucide-react";
 import type { SpeechLanguage } from "@school-ahead/api-client";
-import { Markdown } from "@/components/markdown";
+import { Markdown, MarkdownEditor } from "@school-ahead/markdown-editor";
 import { TranslatableContent } from "@/components/translatable-content";
 import { LANGUAGE_OPTIONS } from "@/components/read-along-control-panel";
 import { useSynopsisLanguageStore } from "@/stores/synopsis-language-store";
@@ -85,12 +85,7 @@ export function SynopsisEditor({
           </TranslatableContent>
         </div>
       ) : (
-        <textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          rows={20}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-sm text-gray-900"
-        />
+        <MarkdownEditor value={value} onChange={onChange} rows={20} showPreviewToggle={false} />
       )}
     </div>
   );

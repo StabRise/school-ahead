@@ -45,6 +45,7 @@ from lessons.schemas import (
     LessonCreateIn,
     LessonOut,
     LessonsJsonOut,
+    LessonsReorderIn,
     LessonUpdateIn,
     ProcessLessonsJsonOut,
 )
@@ -376,6 +377,76 @@ def reorder_topics(request: HttpRequest, subject_id: int, payload: TopicsReorder
 
     Topic.objects.bulk_update(updated, ['order_index'])
     academics_services.assign_topics_to_blocks(subject)
+    return {'updated': len(updated)}
+
+
+@router.patch('/subjects/{subject_id}/lessons/reorder', operation_id='reorder_tutor_subject_lessons')
+def reorder_lessons(request: HttpRequest, subject_id: int, payload: LessonsReorderIn):
+    """Bulk-updates Lesson.topic/order_index for the given subject — powers
+    both drag-and-drop lesson reordering within a topic and moving a lesson
+    to a different topic on the tutor's Subject detail page. The frontend
+    always sends the complete, renumbered lesson list for every topic a drag
+    touched (the target topic, and the source topic too when it differs),
+    not the whole subject.
+
+    Unlike Topic (see reorder_topics above), Lesson has
+    unique_together = [('topic', 'order_index')] — a straight bulk_update to
+    final values can hit that constraint mid-batch when two rows' target
+    values collide with each other's current value. Phase 1 below moves
+    every touched lesson to a scratch order_index strictly above the
+    current max across all touched topics, so it can't collide with any
+    sibling; phase 2 then bulk_updates to the final topic/order_index."""
+    require_csrf(request)
+    services.ensure_is_tutor_for_subject(request, subject_id)
+
+    lessons_by_id = {
+        lesson.id: lesson
+        for lesson in Lesson.objects.filter(topic__subject_id=subject_id).select_related('topic__subject_block')
+    }
+    topics_by_id = {t.id: t for t in Topic.objects.filter(subject_id=subject_id).select_related('subject_block')}
+
+    updated: list[Lesson] = []
+    affected_blocks: dict[int, SubjectBlock] = {}
+    touched_topic_ids: set[int] = set()
+
+    for item in payload.items:
+        lesson = lessons_by_id.get(item.id)
+        if lesson is None:
+            raise HttpError(404, f'Lesson {item.id} not found in this subject')
+        topic = topics_by_id.get(item.topic_id)
+        if topic is None:
+            raise HttpError(404, f'Topic {item.topic_id} not found in this subject')
+
+        touched_topic_ids.add(lesson.topic_id)
+        touched_topic_ids.add(item.topic_id)
+        if lesson.topic_id != item.topic_id:
+            if lesson.topic.subject_block is not None:
+                affected_blocks[lesson.topic.subject_block_id] = lesson.topic.subject_block
+            if topic.subject_block is not None:
+                affected_blocks[topic.subject_block_id] = topic.subject_block
+            lesson.topic = topic
+        updated.append(lesson)
+
+    # Phase 1: scratch order_index, strictly above any current value in any
+    # touched topic, so no (topic, order_index) pair can collide mid-batch.
+    current_max = (
+        Lesson.objects.filter(topic_id__in=touched_topic_ids)
+        .order_by('-order_index')
+        .values_list('order_index', flat=True)
+        .first()
+    ) or 0
+    for offset, lesson in enumerate(updated, start=1):
+        lesson.order_index = current_max + offset
+    Lesson.objects.bulk_update(updated, ['order_index'])
+
+    # Phase 2: final topic + order_index.
+    for item, lesson in zip(payload.items, updated):
+        lesson.order_index = item.order_index
+    Lesson.objects.bulk_update(updated, ['topic', 'order_index'])
+
+    for block in affected_blocks.values():
+        academics_services.recompute_block_workload(block)
+
     return {'updated': len(updated)}
 
 

@@ -11,7 +11,7 @@ import {
   useUpdateTask,
 } from "@school-ahead/api-client/browser/tasks/tasks";
 import type { TaskOut, TopicOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
-import { MarkdownEditor } from "@/components/markdown-editor";
+import { MarkdownEditor } from "@school-ahead/markdown-editor";
 import { FileDropzone } from "@/components/file-dropzone";
 
 type TaskKindValue = "markdown" | "image";

@@ -3,11 +3,9 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { extractYoutubeVideo } from "@/lib/youtube";
 import { useGetStudentLesson } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import type { StudentLessonOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
-import { Markdown } from "@/components/markdown";
-import { YoutubeEmbed } from "@/components/youtube-embed";
+import { extractYoutubeVideo, Markdown, YoutubeEmbed } from "@school-ahead/markdown-editor";
 import { TaskStep } from "@/components/lesson-wizard/task-step";
 import { ResolveNeedHelpButton } from "@/components/lesson-wizard/resolve-need-help-button";
 import { Cloud, Sun, Raccoon, CelebrationScene, PreschoolTheoryCheck, ScreenFrame } from "@school-ahead/preschool-ui";

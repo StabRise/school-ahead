@@ -3,10 +3,10 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
-import { getYoutubeVideoId } from "@/lib/youtube";
-import { YoutubeEmbed } from "@/components/youtube-embed";
-import { PdfViewer } from "@/components/pdf-viewer";
-import { PdfIframeViewer } from "@/components/pdf-iframe-viewer";
+import { getYoutubeVideoId } from "./lib/youtube";
+import { YoutubeEmbed } from "./youtube-embed";
+import { PdfViewer } from "./pdf-viewer";
+import { PdfIframeViewer } from "./pdf-iframe-viewer";
 
 // Two flavors of PDF embed, both tutor-authored custom tags: <pdfviewer>
 // (pdfjs-dist, paginated canvas render) and <pdfiframe> (the browser's

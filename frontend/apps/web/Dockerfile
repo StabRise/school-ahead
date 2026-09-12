@@ -12,6 +12,7 @@ COPY apps/web/package.json apps/web/package.json
 COPY packages/api-client/package.json packages/api-client/package.json
 COPY packages/flashcards/package.json packages/flashcards/package.json
 COPY packages/house-3d/package.json packages/house-3d/package.json
+COPY packages/markdown-editor/package.json packages/markdown-editor/package.json
 COPY packages/preschool-ui/package.json packages/preschool-ui/package.json
 COPY packages/preschool-games/package.json packages/preschool-games/package.json
 RUN bun install --frozen-lockfile

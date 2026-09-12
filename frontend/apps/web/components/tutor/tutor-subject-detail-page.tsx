@@ -3,7 +3,19 @@
 import { forwardRef, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Copy, Monitor, Pencil, Plus, type LucideIcon, Trash2, UserPlus } from "lucide-react";
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  GripVertical,
+  Monitor,
+  Pencil,
+  Plus,
+  type LucideIcon,
+  Trash2,
+  UserPlus,
+} from "lucide-react";
 import { getGetSubjectQueryKey, getListSubjectTopicsQueryKey, useGetSubject, useListSubjectTopics } from "@school-ahead/api-client/browser/academics/academics";
 import {
   getListTutorSubjectLessonsQueryKey,
@@ -15,6 +27,8 @@ import {
   useGetTutorClass,
   useListTutorSubjectLessons,
   useListTutorSubjectLessonStudents,
+  useReorderTutorSubjectLessons,
+  useReorderTutorSubjectTopics,
   useSetSubjectFilled,
   useSetTopicBlock,
 } from "@school-ahead/api-client/browser/tutor/tutor";
@@ -307,12 +321,22 @@ function LessonRow({
   lesson,
   assignedStudents,
   selectedStudentId,
+  isDragging,
+  draggedLessonId,
+  onDragStart,
+  onDragEnd,
+  onDropOnThisLesson,
   onAssignmentChanged,
   onLessonListChanged,
 }: {
   lesson: LessonOut;
   assignedStudents: SubjectLessonStudentOut[];
   selectedStudentId: number | null;
+  isDragging: boolean;
+  draggedLessonId: number | null;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onDropOnThisLesson: () => void;
   onAssignmentChanged: () => void;
   onLessonListChanged: () => void;
 }) {
@@ -333,11 +357,34 @@ function LessonRow({
     : null;
 
   return (
-    <li>
+    <li className="flex items-center gap-0.5">
+      {/* Drag handle sits outside the Link — native drag-inside-anchor
+          semantics are unreliable, and this way the handle never fights
+          the Link's click/navigation or the row's own drop target below. */}
+      <span
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = "move";
+          onDragStart();
+        }}
+        onDragEnd={onDragEnd}
+        title={t("dragLessonHandleLabel")}
+        aria-label={t("dragLessonHandleLabel")}
+        className="shrink-0 cursor-grab rounded p-1 text-gray-300 hover:text-gray-500 active:cursor-grabbing"
+      >
+        <GripVertical className="size-3.5" aria-hidden="true" />
+      </span>
       <Link
         href={`/tutor/lessons/${lesson.id}`}
         title={lesson.task_content || undefined}
-        className="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-gray-50"
+        onDragOver={(e) => {
+          if (draggedLessonId !== null) e.preventDefault();
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          onDropOnThisLesson();
+        }}
+        className={`flex min-w-0 flex-1 items-center gap-2 rounded px-1.5 py-1 hover:bg-gray-50 ${isDragging ? "opacity-40" : ""}`}
       >
         <Icon className={`size-3.5 shrink-0 ${iconColorClass}`} aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate text-xs text-gray-700">{lesson.title}</span>
@@ -474,16 +521,28 @@ function IsFilledToggle({ subject, subjectId }: { subject: SubjectOut; subjectId
   );
 }
 
-// Flat topic section — no accordion, no drag handle: every topic's lessons
-// are always shown, same as the student's own Subject detail page. Topic
-// reordering/block-moving no longer happens by dragging (dropped along with
-// the accordion); TopicBlockSelect below is still the way to move a topic
-// to a different block.
+// Topic drag handle (topic reordering/block-moving) is separate from the
+// title button (collapse toggle) — grabbing one must never trigger the
+// other. The lesson-drop target lives on the header container itself
+// (not just the <ul>) so a collapsed topic — whose <ul> isn't mounted —
+// still accepts a dropped lesson, appending it last (see onLessonDrop's
+// null-targetLessonId case in the parent page).
 function TopicSection({
   topic,
   lessons,
   blocks,
   subjectId,
+  collapsed,
+  onToggleCollapsed,
+  isDraggingTopic,
+  onTopicDragStart,
+  onTopicDragEnd,
+  onTopicDragOver,
+  onTopicDrop,
+  draggedLessonId,
+  onLessonDragStart,
+  onLessonDragEnd,
+  onLessonDrop,
   lessonStudentsByLessonId,
   selectedStudentId,
   onAssignmentChanged,
@@ -493,6 +552,17 @@ function TopicSection({
   lessons: LessonOut[];
   blocks: SubjectBlockOut[];
   subjectId: number;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+  isDraggingTopic: boolean;
+  onTopicDragStart: (e: React.DragEvent) => void;
+  onTopicDragEnd: () => void;
+  onTopicDragOver: (e: React.DragEvent) => void;
+  onTopicDrop: (e: React.DragEvent) => void;
+  draggedLessonId: number | null;
+  onLessonDragStart: (lessonId: number) => void;
+  onLessonDragEnd: () => void;
+  onLessonDrop: (targetTopicId: number, targetLessonId: number | null) => void;
   lessonStudentsByLessonId: Map<number, SubjectLessonStudentOut[]>;
   selectedStudentId: number | null;
   onAssignmentChanged: () => void;
@@ -517,11 +587,54 @@ function TopicSection({
   };
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1.5">
-        <h3 id={subjectTopicAnchorId(topic.id)} className="m-0 scroll-mt-20 text-xs font-medium text-gray-500">
-          {topic.title}
-        </h3>
+    <div
+      onDragOver={onTopicDragOver}
+      onDrop={onTopicDrop}
+      className={`flex flex-col gap-1 transition-opacity ${isDraggingTopic ? "opacity-40" : ""}`}
+    >
+      <div
+        onDragOver={(e) => {
+          if (draggedLessonId !== null) e.preventDefault();
+        }}
+        onDrop={(e) => {
+          if (draggedLessonId === null) return;
+          e.preventDefault();
+          e.stopPropagation();
+          onLessonDrop(topic.id, null);
+        }}
+        className="flex flex-wrap items-center justify-between gap-2 px-1.5"
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          <span
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = "move";
+              onTopicDragStart(e);
+            }}
+            onDragEnd={onTopicDragEnd}
+            title={t("dragTopicHandleLabel")}
+            aria-label={t("dragTopicHandleLabel")}
+            className="shrink-0 cursor-grab rounded p-1 text-gray-300 hover:text-gray-500 active:cursor-grabbing"
+          >
+            <GripVertical className="size-3.5" aria-hidden="true" />
+          </span>
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            aria-expanded={!collapsed}
+            title={collapsed ? t("expandTopicButton") : t("collapseTopicButton")}
+            className="flex min-w-0 flex-1 items-center gap-1 rounded text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          >
+            {collapsed ? (
+              <ChevronRight className="size-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+            ) : (
+              <ChevronDown className="size-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+            )}
+            <h3 id={subjectTopicAnchorId(topic.id)} className="m-0 scroll-mt-20 truncate text-xs font-medium text-gray-500">
+              {topic.title}
+            </h3>
+          </button>
+        </div>
         <div className="flex shrink-0 items-center gap-2">
           {blocks.length > 1 && <TopicBlockSelect topic={topic} blocks={blocks} subjectId={subjectId} />}
           <LessonEditorDialog
@@ -548,22 +661,28 @@ function TopicSection({
         </div>
       </div>
       {deleteTopic.isError && <p className="px-1.5 text-xs text-red-600">{t("deleteTopicError")}</p>}
-      {lessons.length === 0 ? (
-        <p className="px-4 text-xs text-gray-400">{t("noLessonsInTopic")}</p>
-      ) : (
-        <ul className="flex flex-col divide-y divide-gray-50 pl-3">
-          {lessons.map((lesson) => (
-            <LessonRow
-              key={lesson.id}
-              lesson={lesson}
-              assignedStudents={lessonStudentsByLessonId.get(lesson.id) ?? []}
-              selectedStudentId={selectedStudentId}
-              onAssignmentChanged={onAssignmentChanged}
-              onLessonListChanged={onLessonListChanged}
-            />
-          ))}
-        </ul>
-      )}
+      {!collapsed &&
+        (lessons.length === 0 ? (
+          <p className="px-4 text-xs text-gray-400">{t("noLessonsInTopic")}</p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-gray-50 pl-3">
+            {lessons.map((lesson) => (
+              <LessonRow
+                key={lesson.id}
+                lesson={lesson}
+                assignedStudents={lessonStudentsByLessonId.get(lesson.id) ?? []}
+                selectedStudentId={selectedStudentId}
+                isDragging={draggedLessonId === lesson.id}
+                draggedLessonId={draggedLessonId}
+                onDragStart={() => onLessonDragStart(lesson.id)}
+                onDragEnd={onLessonDragEnd}
+                onDropOnThisLesson={() => onLessonDrop(topic.id, lesson.id)}
+                onAssignmentChanged={onAssignmentChanged}
+                onLessonListChanged={onLessonListChanged}
+              />
+            ))}
+          </ul>
+        ))}
     </div>
   );
 }
@@ -629,6 +748,132 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
 
   const blockGroups = useMemo(() => groupTopicsByBlock(topics, blocks), [topics, blocks]);
 
+  // Per-topic collapse — absent from the set means expanded. Default
+  // expanded (empty set) matches the page's previous always-shown
+  // behavior, so this is purely additive. Not persisted across subjects.
+  const [collapsedTopicIds, setCollapsedTopicIds] = useState<Set<number>>(new Set());
+  const toggleTopicCollapsed = (topicId: number) => {
+    setCollapsedTopicIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(topicId)) {
+        next.delete(topicId);
+      } else {
+        next.add(topicId);
+      }
+      return next;
+    });
+  };
+
+  const [draggedTopicId, setDraggedTopicId] = useState<number | null>(null);
+  const [draggedLessonId, setDraggedLessonId] = useState<number | null>(null);
+  const reorderTopics = useReorderTutorSubjectTopics();
+  const setTopicBlockForDrag = useSetTopicBlock();
+  const reorderLessons = useReorderTutorSubjectLessons();
+
+  const findGroupAndIndex = (topicId: number) => {
+    for (const group of blockGroups) {
+      const index = group.topics.findIndex((topic) => topic.id === topicId);
+      if (index !== -1) return { group, index };
+    }
+    return null;
+  };
+
+  // Drops a topic either onto another topic (inserted immediately before
+  // it, targetTopicId set) or onto a group's empty space (appended at the
+  // end, targetTopicId null). Recomputes order_index for every topic from
+  // the resulting flattened order, then — only when the topic actually
+  // changed block — pins it to the target block so the next
+  // assign_topics_to_blocks recompute can't silently move it back.
+  const handleTopicDrop = (targetGroup: (typeof blockGroups)[number], targetTopicId: number | null) => {
+    if (draggedTopicId === null) return;
+    const source = findGroupAndIndex(draggedTopicId);
+    setDraggedTopicId(null);
+    if (!source) return;
+    if (source.group.key === targetGroup.key && targetTopicId === draggedTopicId) return;
+
+    const newGroups = blockGroups.map((group) => ({ ...group, topics: [...group.topics] }));
+    const newSourceGroup = newGroups.find((group) => group.key === source.group.key)!;
+    const newTargetGroup = newGroups.find((group) => group.key === targetGroup.key)!;
+
+    const sourceIndex = newSourceGroup.topics.findIndex((topic) => topic.id === draggedTopicId);
+    const [draggedTopic] = newSourceGroup.topics.splice(sourceIndex, 1);
+
+    let insertIndex = newTargetGroup.topics.length;
+    if (targetTopicId !== null) {
+      const targetIndex = newTargetGroup.topics.findIndex((topic) => topic.id === targetTopicId);
+      if (targetIndex !== -1) insertIndex = targetIndex;
+    }
+    newTargetGroup.topics.splice(insertIndex, 0, draggedTopic);
+
+    const items = newGroups
+      .flatMap((group) => group.topics)
+      .map((topic, index) => ({ id: topic.id, order_index: index + 1 }));
+
+    reorderTopics.mutate(
+      { subjectId, data: { items } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListSubjectTopicsQueryKey(subjectId) });
+          queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsQueryKey(subjectId) });
+
+          if (targetGroup.blockId !== null && targetGroup.blockId !== source.group.blockId) {
+            setTopicBlockForDrag.mutate(
+              { topicId: draggedTopic.id, data: { subject_block_id: targetGroup.blockId } },
+              {
+                onSuccess: () => {
+                  queryClient.invalidateQueries({ queryKey: getListSubjectTopicsQueryKey(subjectId) });
+                },
+              },
+            );
+          }
+        },
+      },
+    );
+  };
+
+  // Drops a lesson either onto another lesson within a topic (inserted
+  // immediately before it) or onto a topic's header/empty space (appended
+  // last, targetLessonId null) — including a currently-collapsed topic,
+  // whose header stays a valid drop target even though its list isn't
+  // mounted. Renumbers the target topic's list (and the source topic's
+  // list too, when the lesson moved across topics) and sends both in one
+  // call.
+  const handleLessonDrop = (targetTopicId: number, targetLessonId: number | null) => {
+    if (draggedLessonId === null) return;
+    const draggedLesson = lessons.find((l) => l.id === draggedLessonId);
+    setDraggedLessonId(null);
+    if (!draggedLesson) return;
+
+    const sourceTopicId = draggedLesson.topic_id;
+    if (sourceTopicId === targetTopicId && targetLessonId === draggedLessonId) return;
+
+    const sourceList = (lessonsByTopicId.get(sourceTopicId) ?? []).filter((l) => l.id !== draggedLessonId);
+    const targetList = sourceTopicId === targetTopicId ? sourceList : [...(lessonsByTopicId.get(targetTopicId) ?? [])];
+
+    let insertIndex = targetList.length;
+    if (targetLessonId !== null) {
+      const idx = targetList.findIndex((l) => l.id === targetLessonId);
+      if (idx !== -1) insertIndex = idx;
+    }
+    targetList.splice(insertIndex, 0, draggedLesson);
+
+    const items = targetList.map((lesson, index) => ({ id: lesson.id, topic_id: targetTopicId, order_index: index + 1 }));
+    if (sourceTopicId !== targetTopicId) {
+      items.push(
+        ...sourceList.map((lesson, index) => ({ id: lesson.id, topic_id: sourceTopicId, order_index: index + 1 })),
+      );
+    }
+
+    reorderLessons.mutate(
+      { subjectId, data: { items } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsQueryKey(subjectId) });
+        },
+      },
+    );
+  };
+
   const isLoading = subjectQuery.isLoading || topicsQuery.isLoading || lessonsQuery.isLoading;
   const isError = subjectQuery.isError || topicsQuery.isError || lessonsQuery.isError;
 
@@ -691,6 +936,10 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                     <LoadLessonsJsonDialog subjectId={subjectId} />
                   </div>
 
+                  {(reorderTopics.isError || reorderLessons.isError) && (
+                    <p className="text-xs text-red-600">{t("lessonReorderError")}</p>
+                  )}
+
                   <form onSubmit={handleStudentFilterSubmit} className="flex flex-wrap items-end gap-2">
                     <div className="flex flex-col gap-1">
                       <label htmlFor="student-filter" className="text-xs font-medium text-gray-700">
@@ -723,42 +972,74 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                     <p className="text-sm text-gray-500">{t("noTopics")}</p>
                   ) : (
                     <div className="flex flex-col gap-6">
-                      {blockGroups.map((group) => (
-                        <div key={group.key} className="flex flex-col gap-4">
-                          {group.label && (
-                            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                              <h2
-                                id={subjectBlockAnchorId(group.label)}
-                                className="scroll-mt-20 text-base font-semibold text-gray-900"
-                              >
-                                {group.label}
-                              </h2>
-                              {group.workload !== null && (
-                                <span className="text-xs text-gray-500">
-                                  {t("workloadLabel", { value: group.workload.toFixed(2) })}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {group.topics.length === 0 ? (
-                            <p className="text-sm text-gray-400">{t("emptySemesterHint")}</p>
-                          ) : (
-                            group.topics.map((topic) => (
-                              <TopicSection
-                                key={topic.id}
-                                topic={topic}
-                                lessons={lessonsByTopicId.get(topic.id) ?? []}
-                                blocks={blocks}
-                                subjectId={subjectId}
-                                lessonStudentsByLessonId={lessonStudentsByLessonId}
-                                selectedStudentId={selectedStudentId}
-                                onAssignmentChanged={handleAssignmentChanged}
-                                onLessonListChanged={handleLessonListChanged}
-                              />
-                            ))
-                          )}
-                        </div>
-                      ))}
+                      {blockGroups.map((group) => {
+                        const isDropTarget = group.key !== "unassigned";
+                        return (
+                          <div
+                            key={group.key}
+                            onDragOver={(e) => {
+                              if (isDropTarget && draggedTopicId !== null) e.preventDefault();
+                            }}
+                            onDrop={(e) => {
+                              if (!isDropTarget) return;
+                              e.preventDefault();
+                              handleTopicDrop(group, null);
+                            }}
+                            className="flex flex-col gap-4"
+                          >
+                            {group.label && (
+                              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                                <h2
+                                  id={subjectBlockAnchorId(group.label)}
+                                  className="scroll-mt-20 text-base font-semibold text-gray-900"
+                                >
+                                  {group.label}
+                                </h2>
+                                {group.workload !== null && (
+                                  <span className="text-xs text-gray-500">
+                                    {t("workloadLabel", { value: group.workload.toFixed(2) })}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {group.topics.length === 0 ? (
+                              <p className="text-sm text-gray-400">{t("emptySemesterHint")}</p>
+                            ) : (
+                              group.topics.map((topic) => (
+                                <TopicSection
+                                  key={topic.id}
+                                  topic={topic}
+                                  lessons={lessonsByTopicId.get(topic.id) ?? []}
+                                  blocks={blocks}
+                                  subjectId={subjectId}
+                                  collapsed={collapsedTopicIds.has(topic.id)}
+                                  onToggleCollapsed={() => toggleTopicCollapsed(topic.id)}
+                                  isDraggingTopic={draggedTopicId === topic.id}
+                                  onTopicDragStart={() => setDraggedTopicId(topic.id)}
+                                  onTopicDragEnd={() => setDraggedTopicId(null)}
+                                  onTopicDragOver={(e) => {
+                                    if (isDropTarget && draggedTopicId !== null) e.preventDefault();
+                                  }}
+                                  onTopicDrop={(e) => {
+                                    if (!isDropTarget) return;
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleTopicDrop(group, topic.id);
+                                  }}
+                                  draggedLessonId={draggedLessonId}
+                                  onLessonDragStart={setDraggedLessonId}
+                                  onLessonDragEnd={() => setDraggedLessonId(null)}
+                                  onLessonDrop={handleLessonDrop}
+                                  lessonStudentsByLessonId={lessonStudentsByLessonId}
+                                  selectedStudentId={selectedStudentId}
+                                  onAssignmentChanged={handleAssignmentChanged}
+                                  onLessonListChanged={handleLessonListChanged}
+                                />
+                              ))
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

@@ -17,7 +17,7 @@ import type { TaskOut } from "@school-ahead/api-client/browser/schoolAheadAPI.sc
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { subjectTopicAnchorId } from "@/components/subjects/subject-anchors";
 import { SimplePageContainer } from "@/components/simple/page-container";
-import { Markdown } from "@/components/markdown";
+import { Markdown } from "@school-ahead/markdown-editor";
 import { FileDropzone } from "@/components/file-dropzone";
 
 // The answer form's local draft state only ever needs to be initialized

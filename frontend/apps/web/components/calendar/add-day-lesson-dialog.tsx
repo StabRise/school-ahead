@@ -10,7 +10,7 @@ import {
   useListStudentAssignableLessons,
   useListStudentSubjects,
 } from "@school-ahead/api-client/browser/tutor/tutor";
-import { MarkdownEditor } from "@/components/markdown-editor";
+import { MarkdownEditor } from "@school-ahead/markdown-editor";
 
 // The "+" popup opened from a day column on the tutor's "View calendar" page
 // for a student (WeeklyCalendar, studentId set) — assigns a lesson to that

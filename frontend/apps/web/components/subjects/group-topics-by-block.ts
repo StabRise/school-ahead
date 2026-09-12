@@ -3,6 +3,11 @@ import type { SubjectBlockOut, TopicOut } from "@school-ahead/api-client/browser
 export interface BlockGroup {
   key: string;
   label: string | null;
+  // The real SubjectBlock id for a block-backed group, null for the
+  // no-blocks "all" group and the trailing "unassigned" group — lets a
+  // consumer pin a topic dropped into a different group to that block (see
+  // tutor-subject-detail-page.tsx's topic drag-and-drop).
+  blockId: number | null;
   topics: TopicOut[];
   // Lessons/week for this block (lesson_count / weeks_count), null until
   // both the block's dates and weeks_count are set. See
@@ -20,7 +25,7 @@ export interface BlockGroup {
 // out) so an empty semester still shows up.
 export function groupTopicsByBlock(topics: TopicOut[], blocks: SubjectBlockOut[]): BlockGroup[] {
   if (blocks.length === 0) {
-    return topics.length > 0 ? [{ key: "all", label: null, topics, workload: null }] : [];
+    return topics.length > 0 ? [{ key: "all", label: null, blockId: null, topics, workload: null }] : [];
   }
 
   const blockIds = new Set(blocks.map((block) => block.id));
@@ -40,12 +45,13 @@ export function groupTopicsByBlock(topics: TopicOut[], blocks: SubjectBlockOut[]
   const groups: BlockGroup[] = blocks.map((block) => ({
     key: `block-${block.id}`,
     label: block.label,
+    blockId: block.id,
     topics: topicsByBlockId.get(block.id) ?? [],
     workload: block.workload,
   }));
 
   if (unassigned.length > 0) {
-    groups.push({ key: "unassigned", label: null, topics: unassigned, workload: null });
+    groups.push({ key: "unassigned", label: null, blockId: null, topics: unassigned, workload: null });
   }
 
   return groups;

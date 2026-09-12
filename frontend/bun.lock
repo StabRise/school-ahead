@@ -15,6 +15,7 @@
         "@school-ahead/api-client": "workspace:*",
         "@school-ahead/flashcards": "workspace:*",
         "@school-ahead/house-3d": "workspace:*",
+        "@school-ahead/markdown-editor": "workspace:*",
         "@school-ahead/preschool-games": "workspace:*",
         "@school-ahead/preschool-ui": "workspace:*",
         "@tanstack/react-query": "^5.101.4",
@@ -145,6 +146,36 @@
       },
       "peerDependencies": {
         "next": "16.3.1-canary.24",
+        "react": "19.2.8",
+        "react-dom": "19.2.8",
+      },
+    },
+    "packages/markdown-editor": {
+      "name": "@school-ahead/markdown-editor",
+      "version": "0.0.0",
+      "dependencies": {
+        "@school-ahead/preschool-games": "workspace:*",
+        "lucide-react": "^1.34.0",
+        "pdfjs-dist": "^6.2.108",
+        "react-markdown": "^10.1.0",
+        "rehype-raw": "^7.0.0",
+        "rehype-sanitize": "^6.0.0",
+        "remark-gfm": "^4.0.1",
+      },
+      "devDependencies": {
+        "@types/node": "^20",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "@vitejs/plugin-react": "^6.1.0",
+        "eslint": "^9",
+        "eslint-config-next": "16.3.1-canary.24",
+        "jsdom": "^30.0.1",
+        "typescript": "^5",
+        "vitest": "^4.1.11",
+      },
+      "peerDependencies": {
+        "next": "16.3.1-canary.24",
+        "next-intl": "^4.13.7",
         "react": "19.2.8",
         "react-dom": "19.2.8",
       },
@@ -687,6 +718,8 @@
     "@school-ahead/flashcards": ["@school-ahead/flashcards@workspace:packages/flashcards"],
 
     "@school-ahead/house-3d": ["@school-ahead/house-3d@workspace:packages/house-3d"],
+
+    "@school-ahead/markdown-editor": ["@school-ahead/markdown-editor@workspace:packages/markdown-editor"],
 
     "@school-ahead/preschool-games": ["@school-ahead/preschool-games@workspace:packages/preschool-games"],
 

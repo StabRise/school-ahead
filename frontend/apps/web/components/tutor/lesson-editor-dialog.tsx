@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useCreateTutorLesson } from "@school-ahead/api-client/browser/tutor/tutor";
-import { MarkdownEditor } from "@/components/markdown-editor";
+import { MarkdownEditor } from "@school-ahead/markdown-editor";
 
 type LessonTypeValue = "theory" | "with_task";
 type GradingTypeValue = "points" | "binary";
