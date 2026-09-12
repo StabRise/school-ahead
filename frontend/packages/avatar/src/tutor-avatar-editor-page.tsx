@@ -11,7 +11,7 @@ import {
   useUpdateTutorAvatarTransform,
 } from "@school-ahead/api-client/browser/tutor/tutor";
 import { AvatarPlacementEditor, type AvatarTransform } from "./avatar-placement-editor";
-import type { AvatarLayer } from "./equipped-avatar";
+import { AvatarBadge, type AvatarLayer } from "./equipped-avatar";
 import { AvatarEditorSlider } from "./avatar-editor-slider";
 
 const SLOTS = ["clothing", "headwear", "accessory"] as const;
@@ -30,14 +30,15 @@ interface ItemDraft {
   price: number;
 }
 
+// AvatarBadge's shared "card" frame, not a hand-rolled rounded-full circle —
+// a circular mask clips a square/contain-fitted image's corners (ears,
+// edges), same bug AvatarPicker had (see its own comment on this).
 function AvatarThumb({ avatar }: { avatar: AvatarOut }) {
   return (
-    <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100">
-      {avatar.image ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={avatar.image} alt="" className="h-full w-full object-contain" />
-      ) : null}
-    </span>
+    <AvatarBadge
+      layers={avatar.image ? [{ itemId: null, image: avatar.image, scale: 1, offsetX: 0, offsetY: 0, rotation: 0 }] : []}
+      className="h-12 w-12 shrink-0"
+    />
   );
 }
 

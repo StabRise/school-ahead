@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getMeQueryKey, useListAvatars, useUpdateAvatar } from "@school-ahead/api-client/browser/auth/auth";
 import { mapApiUserToAuthUser } from "@school-ahead/api-client";
 import { useAuthStore } from "@school-ahead/api-client";
+import { AvatarBadge } from "./equipped-avatar";
 
 // Character-companion picker — docs/core/avatar.md section 2.1 ("Initial
 // Selection"). The wardrobe (clothing/headwear/accessory — see
@@ -49,9 +50,12 @@ export function AvatarPicker({ onSelected }: { onSelected?: () => void } = {}) {
     );
   };
 
-  const tileClassName = isPreschool
-    ? "flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-gray-100 sm:h-24 sm:w-24"
-    : "flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-gray-100";
+  // Sizing only — AvatarBadge's "card" frame supplies the shared shape
+  // (rounded-square, not a circle: object-contain-fitted square artwork
+  // gets clipped at the ears/edges by a circular mask, see AvatarThumb in
+  // tutor-avatar-editor-page.tsx, which had the same bug from the same
+  // hand-rolled rounded-full+overflow-hidden pattern this used to duplicate).
+  const tileSizeClassName = isPreschool ? "h-20 w-20 sm:h-24 sm:w-24" : "h-14 w-14";
   const labelClassName = `font-medium text-gray-700 ${isPreschool ? "text-base" : "text-xs"}`;
 
   return (
@@ -82,7 +86,7 @@ export function AvatarPicker({ onSelected }: { onSelected?: () => void } = {}) {
                 header.tsx already falls back to the Google account picture,
                 or generated initials if there isn't one, once
                 equippedAvatar is cleared. */}
-            <span className={`${tileClassName} text-2xl text-gray-400`}>🚫</span>
+            <AvatarBadge layers={[]} className={tileSizeClassName} fallback={<span className="text-2xl text-gray-400">🚫</span>} />
             <span className={labelClassName}>{t("avatarNoneLabel")}</span>
           </button>
           {avatars.map((avatar) => {
@@ -104,12 +108,10 @@ export function AvatarPicker({ onSelected }: { onSelected?: () => void } = {}) {
                       : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                 }`}
               >
-                <span className={tileClassName}>
-                  {avatar.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={avatar.image} alt="" className="h-full w-full object-contain" />
-                  ) : null}
-                </span>
+                <AvatarBadge
+                  layers={avatar.image ? [{ itemId: null, image: avatar.image, scale: 1, offsetX: 0, offsetY: 0, rotation: 0 }] : []}
+                  className={tileSizeClassName}
+                />
                 <span className={labelClassName}>{avatar.name}</span>
               </button>
             );
