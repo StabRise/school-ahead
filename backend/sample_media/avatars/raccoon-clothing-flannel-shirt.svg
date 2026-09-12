@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 896 1216" width="896" height="1216">
+  <defs>
+    <linearGradient id="flannelBase" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#B23A2E"/>
+      <stop offset="100%" stop-color="#8A2A20"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#flannelBase)" d="M448,590 C540,590 620,610 650,650 C670,700 668,900 655,1080 C640,1130 550,1140 448,1140 C346,1140 256,1130 241,1080 C228,900 226,700 246,650 C276,610 356,590 448,590 Z"/>
+  <path d="M300,590 L650,1140" stroke="#5E1C15" stroke-width="16" opacity="0.55"/>
+  <path d="M596,590 L246,1140" stroke="#5E1C15" stroke-width="16" opacity="0.55"/>
+  <path d="M300,650 L300,1120" stroke="#2C1410" stroke-width="10" opacity="0.5"/>
+  <path d="M448,610 L448,1140" stroke="#2C1410" stroke-width="10" opacity="0.5"/>
+  <path d="M596,650 L596,1120" stroke="#2C1410" stroke-width="10" opacity="0.5"/>
+  <path d="M241,760 L655,760" stroke="#2C1410" stroke-width="10" opacity="0.5"/>
+  <path d="M235,930 L650,930" stroke="#2C1410" stroke-width="10" opacity="0.5"/>
+  <path fill="#8A2A20" d="M330,600 C300,610 280,630 275,655 L330,660 Z"/>
+  <path fill="#8A2A20" d="M566,600 C596,610 616,630 621,655 L566,660 Z"/>
+  <path d="M448,595 L448,650" stroke="#5E1C15" stroke-width="6"/>
+  <circle cx="448" cy="670" r="7" fill="#EAD7BB"/>
+  <circle cx="448" cy="730" r="7" fill="#EAD7BB"/>
+  <circle cx="448" cy="790" r="7" fill="#EAD7BB"/>
+</svg>

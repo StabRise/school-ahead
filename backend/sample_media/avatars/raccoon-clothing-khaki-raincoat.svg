@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 896 1216" width="896" height="1216">
+  <defs>
+    <linearGradient id="raincoat" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#9CA66B"/>
+      <stop offset="100%" stop-color="#767F4C"/>
+    </linearGradient>
+    <linearGradient id="raincoatDark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5F6A3B"/>
+      <stop offset="100%" stop-color="#4A522C"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#raincoat)" d="M448,470 C560,470 660,520 700,600 C740,700 745,950 720,1120 C700,1170 600,1180 448,1180 C296,1180 196,1170 176,1120 C151,950 156,700 196,600 C236,520 336,470 448,470 Z"/>
+  <path fill="url(#raincoatDark)" d="M448,470 C500,470 548,485 585,510 C560,560 500,590 448,590 C396,590 336,560 311,510 C348,485 396,470 448,470 Z"/>
+  <path fill="url(#raincoat)" d="M330,480 C300,540 285,610 300,660 L360,650 C350,590 355,530 375,485 Z"/>
+  <path fill="url(#raincoat)" d="M566,480 C596,540 611,610 596,660 L536,650 C546,590 541,530 521,485 Z"/>
+  <path d="M448,590 L448,1150" stroke="#4A522C" stroke-width="10" opacity="0.6"/>
+  <circle cx="448" cy="680" r="9" fill="#4A522C"/>
+  <circle cx="448" cy="760" r="9" fill="#4A522C"/>
+  <circle cx="448" cy="840" r="9" fill="#4A522C"/>
+  <circle cx="448" cy="920" r="9" fill="#4A522C"/>
+  <path d="M280,700 Q220,900 260,1080" stroke="#4A522C" stroke-width="8" fill="none" opacity="0.5"/>
+  <path d="M616,700 Q676,900 636,1080" stroke="#4A522C" stroke-width="8" fill="none" opacity="0.5"/>
+  <path d="M400,505 L360,560" stroke="#4A522C" stroke-width="6" stroke-linecap="round"/>
+  <path d="M496,505 L536,560" stroke="#4A522C" stroke-width="6" stroke-linecap="round"/>
+</svg>

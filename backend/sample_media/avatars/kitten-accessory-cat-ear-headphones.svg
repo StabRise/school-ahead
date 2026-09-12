@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kCatCup" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F591B2"/>
+      <stop offset="100%" stop-color="#D9457F"/>
+    </linearGradient>
+  </defs>
+  <path d="M18,72 C18,30 60,2 116,2 C172,2 214,30 214,72" stroke="#3A3E45" stroke-width="9" fill="none" stroke-linecap="round"/>
+  <polygon points="66,24 78,2 90,22" fill="url(#kCatCup)" stroke="#2B2621" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="142,22 154,2 166,24" fill="url(#kCatCup)" stroke="#2B2621" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="70,20 78,8 85,18" fill="#FFD8E6"/>
+  <polygon points="147,18 154,8 162,20" fill="#FFD8E6"/>
+  <rect x="4" y="66" width="24" height="42" rx="9" fill="url(#kCatCup)"/>
+  <rect x="204" y="66" width="24" height="42" rx="9" fill="url(#kCatCup)"/>
+  <circle cx="16" cy="86" r="7" fill="#FFD8E6" opacity="0.8"/>
+  <circle cx="216" cy="86" r="7" fill="#FFD8E6" opacity="0.8"/>
+</svg>

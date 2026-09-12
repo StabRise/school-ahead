@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kDeckGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#B04FE0"/>
+      <stop offset="100%" stop-color="#3E7BD9"/>
+    </linearGradient>
+  </defs>
+  <g transform="rotate(-6,90,270)">
+    <rect x="30" y="260" width="120" height="16" rx="8" fill="url(#kDeckGrad)"/>
+    <rect x="42" y="276" width="14" height="8" rx="3" fill="#2B2E34"/>
+    <rect x="124" y="276" width="14" height="8" rx="3" fill="#2B2E34"/>
+    <circle cx="49" cy="288" r="6" fill="#8A8F98"/>
+    <circle cx="131" cy="288" r="6" fill="#8A8F98"/>
+    <g fill="#FFFFFF" opacity="0.85">
+      <polygon points="60,264 61,267 64,268 61,269 60,272 59,269 56,268 59,267"/>
+      <polygon points="90,262 91,265 94,266 91,267 90,270 89,267 86,266 89,265"/>
+      <polygon points="120,264 121,267 124,268 121,269 120,272 119,269 116,268 119,267"/>
+    </g>
+  </g>
+</svg>

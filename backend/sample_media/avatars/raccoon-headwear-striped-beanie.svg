@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 896 1216" width="896" height="1216">
+  <defs>
+    <clipPath id="beanieClip">
+      <path d="M448,60 C540,60 610,110 620,190 L276,190 C286,110 356,60 448,60 Z"/>
+    </clipPath>
+  </defs>
+  <path fill="#D9432E" d="M448,60 C540,60 610,110 620,190 L276,190 C286,110 356,60 448,60 Z"/>
+  <g clip-path="url(#beanieClip)">
+    <rect x="270" y="60" width="360" height="26" fill="#F4EFE9"/>
+    <rect x="270" y="112" width="360" height="26" fill="#F4EFE9"/>
+    <rect x="270" y="164" width="360" height="26" fill="#F4EFE9"/>
+  </g>
+  <path d="M276,190 L620,190 L626,250 L270,250 Z" fill="#B0301E"/>
+  <circle cx="448" cy="65" r="18" fill="#F4EFE9"/>
+</svg>

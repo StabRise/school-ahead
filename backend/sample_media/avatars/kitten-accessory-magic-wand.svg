@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kWandStick" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F4EFE9"/>
+      <stop offset="100%" stop-color="#D8D2C8"/>
+    </linearGradient>
+  </defs>
+  <rect x="150" y="180" width="8" height="90" rx="4" fill="url(#kWandStick)" transform="rotate(24,154,225)"/>
+  <polygon points="196,160 200,172 212,172 202,180 206,192 196,184 186,192 190,180 180,172 192,172" fill="#F2C233" stroke="#C99A0E" stroke-width="1.6" stroke-linejoin="round"/>
+  <g fill="#F2C233" opacity="0.8">
+    <circle cx="176" cy="196" r="2.4"/>
+    <circle cx="166" cy="214" r="2"/>
+    <circle cx="184" cy="212" r="1.8"/>
+  </g>
+</svg>

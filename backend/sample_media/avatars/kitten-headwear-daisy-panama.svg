@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kPanamaCrown" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F3DDA0"/>
+      <stop offset="100%" stop-color="#DCB86A"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="116" cy="58" rx="100" ry="16" fill="#C99A4E"/>
+  <path d="M64,58 C64,26 86,4 116,4 C146,4 168,26 168,58 Z" fill="url(#kPanamaCrown)"/>
+  <path d="M64,50 Q116,64 168,50" stroke="#C99A4E" stroke-width="4" fill="none" opacity="0.6"/>
+  <g>
+    <g transform="translate(46,56)">
+      <g fill="#FFFFFF"><ellipse rx="5" ry="8"/><ellipse rx="5" ry="8" transform="rotate(72)"/><ellipse rx="5" ry="8" transform="rotate(144)"/><ellipse rx="5" ry="8" transform="rotate(216)"/><ellipse rx="5" ry="8" transform="rotate(288)"/></g>
+      <circle r="4" fill="#F2C233"/>
+    </g>
+    <g transform="translate(116,14)">
+      <g fill="#FFFFFF"><ellipse rx="5" ry="8"/><ellipse rx="5" ry="8" transform="rotate(72)"/><ellipse rx="5" ry="8" transform="rotate(144)"/><ellipse rx="5" ry="8" transform="rotate(216)"/><ellipse rx="5" ry="8" transform="rotate(288)"/></g>
+      <circle r="4" fill="#F2C233"/>
+    </g>
+    <g transform="translate(186,56)">
+      <g fill="#FFFFFF"><ellipse rx="5" ry="8"/><ellipse rx="5" ry="8" transform="rotate(72)"/><ellipse rx="5" ry="8" transform="rotate(144)"/><ellipse rx="5" ry="8" transform="rotate(216)"/><ellipse rx="5" ry="8" transform="rotate(288)"/></g>
+      <circle r="4" fill="#F2C233"/>
+    </g>
+  </g>
+</svg>

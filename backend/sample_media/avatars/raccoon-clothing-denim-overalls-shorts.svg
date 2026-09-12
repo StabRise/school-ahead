@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 896 1216" width="896" height="1216">
+  <defs>
+    <linearGradient id="denim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4E6E9C"/>
+      <stop offset="100%" stop-color="#324B6E"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#denim)" d="M330,780 L566,780 L580,1000 L470,1000 L448,900 L426,1000 L316,1000 Z"/>
+  <path fill="url(#denim)" d="M400,650 L432,650 L432,790 L400,790 Z"/>
+  <path fill="url(#denim)" d="M464,650 L496,650 L496,790 L464,790 Z"/>
+  <rect x="404" y="640" width="24" height="20" rx="4" fill="#324B6E"/>
+  <rect x="468" y="640" width="24" height="20" rx="4" fill="#324B6E"/>
+  <circle cx="416" cy="650" r="6" fill="#D9C7A8"/>
+  <circle cx="480" cy="650" r="6" fill="#D9C7A8"/>
+  <path d="M330,780 L566,780" stroke="#22344E" stroke-width="8"/>
+  <rect x="340" y="850" width="60" height="50" rx="6" fill="#324B6E"/>
+  <path d="M340,850 L400,850" stroke="#22344E" stroke-width="4"/>
+</svg>

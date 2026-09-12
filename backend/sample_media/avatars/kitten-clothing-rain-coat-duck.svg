@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kRainBase" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFE066"/>
+      <stop offset="100%" stop-color="#F2B705"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#kRainBase)" d="M116,150 C150,150 176,161 187,181 C198,201 199,240 192,270 C186,290 168,294 116,294 C64,294 46,290 40,270 C33,240 34,201 45,181 C56,161 82,150 116,150 Z"/>
+  <path d="M97,160 C90,168 86,178 88,188 C94,181 102,176 111,173 C107,168 102,163 97,160 Z" fill="#D99A03"/>
+  <path d="M135,160 C142,168 146,178 144,188 C138,181 130,176 121,173 C125,168 130,163 135,160 Z" fill="#D99A03"/>
+  <path d="M78,152 C90,146 142,146 154,152 C158,162 150,170 116,170 C82,170 74,162 78,152 Z" fill="#D99A03"/>
+  <path d="M100,163 L116,178 L132,163" stroke="#B87F00" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <g fill="#D99A03">
+    <circle cx="116" cy="196" r="3"/>
+    <circle cx="116" cy="222" r="3"/>
+    <circle cx="116" cy="248" r="3"/>
+    <circle cx="116" cy="274" r="3"/>
+  </g>
+  <g>
+    <g transform="translate(80,215)">
+      <ellipse cx="0" cy="0" rx="9" ry="6" fill="#FFFFFF"/>
+      <polygon points="9,-1 16,0 9,3" fill="#F2932B"/>
+      <circle cx="-4" cy="-3" r="1.2" fill="#2B2621"/>
+    </g>
+    <g transform="translate(150,245)">
+      <ellipse cx="0" cy="0" rx="9" ry="6" fill="#FFFFFF"/>
+      <polygon points="9,-1 16,0 9,3" fill="#F2932B"/>
+      <circle cx="-4" cy="-3" r="1.2" fill="#2B2621"/>
+    </g>
+    <g transform="translate(108,262)">
+      <ellipse cx="0" cy="0" rx="8" ry="5.5" fill="#FFFFFF"/>
+      <polygon points="8,-1 14,0 8,3" fill="#F2932B"/>
+      <circle cx="-3.5" cy="-2.5" r="1" fill="#2B2621"/>
+    </g>
+  </g>
+</svg>

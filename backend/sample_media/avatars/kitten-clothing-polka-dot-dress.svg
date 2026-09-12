@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kPolkaBase" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F26D9D"/>
+      <stop offset="100%" stop-color="#D94582"/>
+    </linearGradient>
+    <clipPath id="kPolkaClip">
+      <path d="M116,150 C150,150 176,161 187,181 C198,201 199,240 192,270 C186,290 168,294 116,294 C64,294 46,290 40,270 C33,240 34,201 45,181 C56,161 82,150 116,150 Z"/>
+    </clipPath>
+  </defs>
+  <path fill="url(#kPolkaBase)" d="M116,150 C150,150 176,161 187,181 C198,201 199,240 192,270 C186,290 168,294 116,294 C64,294 46,290 40,270 C33,240 34,201 45,181 C56,161 82,150 116,150 Z"/>
+  <path d="M97,160 C90,168 86,178 88,188 C94,181 102,176 111,173 C107,168 102,163 97,160 Z" fill="#C13B70"/>
+  <path d="M135,160 C142,168 146,178 144,188 C138,181 130,176 121,173 C125,168 130,163 135,160 Z" fill="#C13B70"/>
+  <g clip-path="url(#kPolkaClip)" fill="#FFFFFF">
+    <circle cx="65" cy="190" r="6"/>
+    <circle cx="100" cy="205" r="5"/>
+    <circle cx="140" cy="195" r="6"/>
+    <circle cx="175" cy="212" r="5"/>
+    <circle cx="55" cy="230" r="5"/>
+    <circle cx="90" cy="245" r="6"/>
+    <circle cx="130" cy="235" r="5"/>
+    <circle cx="165" cy="250" r="6"/>
+    <circle cx="75" cy="270" r="5"/>
+    <circle cx="115" cy="278" r="6"/>
+    <circle cx="155" cy="272" r="5"/>
+  </g>
+  <path d="M99,166 Q116,178 133,166" stroke="#FFFFFF" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.8"/>
+  <polygon points="103,172 116,166 116,182" fill="#FFFFFF"/>
+  <polygon points="129,172 116,166 116,182" fill="#FFFFFF"/>
+  <circle cx="116" cy="174" r="4" fill="#F26D9D" stroke="#FFFFFF" stroke-width="1.2"/>
+</svg>

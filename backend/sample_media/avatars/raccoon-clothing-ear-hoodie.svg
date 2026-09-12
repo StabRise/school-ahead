@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 896 1216" width="896" height="1216">
+  <defs>
+    <linearGradient id="hoodieBase" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4E7C8C"/>
+      <stop offset="100%" stop-color="#345662"/>
+    </linearGradient>
+    <linearGradient id="hoodieDark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#25404A"/>
+      <stop offset="100%" stop-color="#182930"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#hoodieBase)" d="M448,540 C560,540 650,580 680,650 C710,750 705,970 685,1110 C665,1160 570,1170 448,1170 C326,1170 231,1160 211,1110 C191,970 186,750 216,650 C246,580 336,540 448,540 Z"/>
+  <path fill="url(#hoodieDark)" d="M310,555 C280,600 270,650 285,690 L340,675 C332,630 336,590 355,558 Z"/>
+  <path fill="url(#hoodieDark)" d="M586,555 C616,600 626,650 611,690 L556,675 C564,630 560,590 541,558 Z"/>
+  <path d="M448,600 L448,1160" stroke="#182930" stroke-width="6" opacity="0.6"/>
+  <path fill="#28444E" d="M410,300 C395,240 415,190 460,180 C440,220 435,260 448,300 Z"/>
+  <path fill="#28444E" d="M486,300 C501,240 481,190 436,180 C456,220 461,260 448,300 Z"/>
+  <path fill="#345662" d="M418,205 C420,235 428,265 448,295 C468,265 476,235 478,205 C462,190 434,190 418,205 Z"/>
+  <circle cx="448" cy="670" r="8" fill="#182930"/>
+  <circle cx="448" cy="720" r="8" fill="#182930"/>
+</svg>

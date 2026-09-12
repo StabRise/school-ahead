@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 246.54726 294.0701" width="246.54726" height="294.0701">
+  <defs>
+    <linearGradient id="kCarrotBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F5924A"/>
+      <stop offset="100%" stop-color="#D9691F"/>
+    </linearGradient>
+  </defs>
+  <path d="M99,158 Q80,150 70,140" stroke="#8A6B4A" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M133,158 Q152,150 162,140" stroke="#8A6B4A" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M96,168 C80,168 66,182 68,206 C70,232 90,254 116,262 C142,254 162,232 164,206 C166,182 152,168 136,168 C128,180 108,180 96,168 Z" fill="url(#kCarrotBody)" stroke="#B84F14" stroke-width="2"/>
+  <g fill="#3FA34D">
+    <path d="M116,168 L108,144 L116,152 L124,144 Z"/>
+    <path d="M104,170 L92,150 L102,156 Z"/>
+    <path d="M128,170 L140,150 L130,156 Z"/>
+  </g>
+  <g stroke="#B84F14" stroke-width="2" opacity="0.6">
+    <path d="M90,196 Q116,204 142,196"/>
+    <path d="M86,220 Q116,230 146,220"/>
+  </g>
+</svg>

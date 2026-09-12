@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 896 1216" width="896" height="1216">
+  <defs>
+    <linearGradient id="vestBase" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8A6C4A"/>
+      <stop offset="100%" stop-color="#6A5236"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#vestBase)" d="M320,600 L376,600 L400,1060 L300,1060 Z"/>
+  <path fill="url(#vestBase)" d="M576,600 L520,600 L496,1060 L596,1060 Z"/>
+  <path fill="url(#vestBase)" d="M376,600 L520,600 L510,700 L448,730 L386,700 Z"/>
+  <path d="M320,600 L376,600 L370,650 L322,650 Z" fill="#5A4530"/>
+  <path d="M576,600 L520,600 L526,650 L574,650 Z" fill="#5A4530"/>
+  <rect x="330" y="760" width="60" height="70" rx="6" fill="#5A4530"/>
+  <rect x="330" y="760" width="60" height="18" fill="#4A3826"/>
+  <rect x="506" y="760" width="60" height="70" rx="6" fill="#5A4530"/>
+  <rect x="506" y="760" width="60" height="18" fill="#4A3826"/>
+  <rect x="410" y="880" width="76" height="60" rx="6" fill="#5A4530"/>
+  <rect x="410" y="880" width="76" height="16" fill="#4A3826"/>
+  <circle cx="360" cy="650" r="6" fill="#D9C7A8"/>
+  <circle cx="536" cy="650" r="6" fill="#D9C7A8"/>
+</svg>
