@@ -11,5 +11,6 @@ export * from "./change-character-dialog";
 export * from "./confirm-purchase-dialog";
 export * from "./equipped-avatar";
 export * from "./not-enough-diamonds-dialog";
+export * from "./preschool-avatar-wardrobe";
 export * from "./svg-artwork-editor";
 export * from "./tutor-avatar-editor-page";
