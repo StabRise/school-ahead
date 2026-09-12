@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { BookOpen, User } from "lucide-react";
 import { useGetTutorStudent, useListTutorStudentAchievements } from "@school-ahead/api-client/browser/tutor/tutor";
 import { useGetTutorStudentBacklog, useGetTutorStudentCalendar } from "@school-ahead/api-client/browser/schedule/schedule";
-import { AvatarBadge, type AvatarLayer } from "@school-ahead/preschool-ui";
+import { AvatarBadge, type AvatarLayer } from "@school-ahead/avatar";
 import type { TutorStudentOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
@@ -27,7 +27,7 @@ function startOfWeek(date: Date): Date {
 
 // Same body -> clothing -> headwear -> accessory stack useEquippedAvatarLayers
 // builds from the signed-in user's own auth-store fields (see
-// @school-ahead/preschool-ui's equipped-avatar.tsx) — sourced here from the
+// @school-ahead/avatar's equipped-avatar.tsx) — sourced here from the
 // viewed student's TutorStudentOut instead, since this student isn't the
 // signed-in tutor.
 function equippedLayersFromStudent(student: TutorStudentOut): AvatarLayer[] {

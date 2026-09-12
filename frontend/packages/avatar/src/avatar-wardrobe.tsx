@@ -8,9 +8,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getMeQueryKey, usePurchaseAvatarItem, useUpdateAvatarItems } from "@school-ahead/api-client/browser/auth/auth";
 import { mapApiUserToAuthUser } from "@school-ahead/api-client";
 import { useAuthStore, type EquippedAvatarItem } from "@school-ahead/api-client";
-import { useAvatarTryOnStore } from "@/stores/avatar-tryon-store";
-import { ConfirmPurchaseDialog } from "@/components/profile/confirm-purchase-dialog";
-import { NotEnoughDiamondsDialog } from "@/components/profile/not-enough-diamonds-dialog";
+import { useAvatarTryOnStore } from "./avatar-tryon-store";
+import { ConfirmPurchaseDialog } from "./confirm-purchase-dialog";
+import { NotEnoughDiamondsDialog } from "./not-enough-diamonds-dialog";
 
 const SLOTS = ["clothing", "headwear", "accessory"] as const;
 type Slot = (typeof SLOTS)[number];

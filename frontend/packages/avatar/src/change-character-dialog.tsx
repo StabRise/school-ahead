@@ -2,7 +2,7 @@
 
 import * as Dialog from "@radix-ui/react-dialog";
 import { useTranslations } from "next-intl";
-import { AvatarPicker } from "@/components/profile/avatar-picker";
+import { AvatarPicker } from "./avatar-picker";
 
 // The preschool profile's "змінити персонажа" button opens this instead of
 // showing AvatarPicker inline on the page (see

@@ -19,6 +19,7 @@ from accounts.models import Avatar, AvatarItem, StudentProfile
 from accounts.schemas import (
     AvatarItemOut,
     AvatarOut,
+    UpdateAvatarItemArtworkIn,
     UpdateAvatarItemTransformIn,
     UpdateAvatarTransformIn,
 )
@@ -1149,6 +1150,22 @@ def update_tutor_avatar_item_transform(request: HttpRequest, item_id: int, paylo
     item.layer_order = payload.layer_order
     item.price = payload.price
     item.save(update_fields=['scale', 'offset_x', 'offset_y', 'layer_order', 'price'])
+    return _tutor_avatar_item_out(item, request)
+
+
+@router.patch('/avatar-items/{item_id}/artwork', response=AvatarItemOut, operation_id='update_tutor_avatar_item_artwork')
+def update_tutor_avatar_item_artwork(request: HttpRequest, item_id: int, payload: UpdateAvatarItemArtworkIn):
+    """Overwrites a wardrobe item's SVG artwork file outright — the tutor's
+    graphical SVG-Edit-based touch-up editor, not the scale/offset/rotation
+    fine-tuning update_tutor_avatar_item_transform does. AvatarItem.image has
+    no format validators of its own (see the model), so this is the only
+    guard against saving something that isn't actually SVG."""
+    require_csrf(request)
+    ensure_is_tutor(request)
+    item = get_object_or_404(AvatarItem, id=item_id)
+    if not payload.svg.lstrip().startswith(('<svg', '<?xml')):
+        raise HttpError(400, 'Not an SVG document')
+    item.image.save(f'{item.key}.svg', ContentFile(payload.svg.encode('utf-8')), save=True)
     return _tutor_avatar_item_out(item, request)
 
 

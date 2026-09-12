@@ -3,9 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Cloud, Sun } from "@school-ahead/preschool-ui";
-import { AvatarPreview } from "@/components/profile/avatar-preview";
-import { AvatarWardrobe } from "@/components/profile/avatar-wardrobe";
-import { ChangeCharacterDialog } from "@/components/profile/change-character-dialog";
+import { AvatarPreview, AvatarWardrobe, ChangeCharacterDialog } from "@school-ahead/avatar";
 
 // Preschool-mode variant of /profile — same convention as
 // components/preschool/lesson-view.tsx (PreschoolLessonView) and

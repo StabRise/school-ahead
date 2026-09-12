@@ -3,10 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useAuthStore } from "@school-ahead/api-client";
 import { PageContainer } from "@/components/page-container";
-import { AvatarPicker } from "@/components/profile/avatar-picker";
-import { AvatarPreview } from "@/components/profile/avatar-preview";
-import { AvatarLayerOrder } from "@/components/profile/avatar-layer-order";
-import { AvatarWardrobe } from "@/components/profile/avatar-wardrobe";
+import { AvatarPicker, AvatarPreview, AvatarLayerOrder, AvatarWardrobe } from "@school-ahead/avatar";
 import { PreschoolProfileView } from "@/components/preschool/profile-view";
 
 // Student Profile page — docs/core/avatar.md. Character selection (2.1) plus

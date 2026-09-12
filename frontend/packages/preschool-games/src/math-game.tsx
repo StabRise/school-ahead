@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject, type TransitionEvent } from "react";
 import { useTranslations } from "next-intl";
 import { useRewardMultiplicationGame } from "@school-ahead/api-client/browser/auth/auth";
-import { Raccoon, AvatarBadge, useEquippedAvatarLayers, type RaccoonMood } from "@school-ahead/preschool-ui";
+import { Raccoon, type RaccoonMood } from "@school-ahead/preschool-ui";
+import { AvatarBadge, useEquippedAvatarLayers } from "@school-ahead/avatar";
 import {
   generateQuestion,
   MAX_CHOICE_COUNT,

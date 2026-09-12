@@ -18,11 +18,11 @@ import {
 } from "./decorations";
 import { pseudoRandom } from "./random";
 import { Raccoon } from "./raccoon";
-import { AvatarBadge, useEquippedAvatarLayers } from "./equipped-avatar";
+import { AvatarBadge, useEquippedAvatarLayers } from "@school-ahead/avatar";
 
 // The student's chosen companion, fully dressed (body + equipped clothing/
 // headwear/accessory — see docs/core/avatar.md section 2 and
-// equipped-avatar.tsx's AvatarBadge), if they've picked one — falls back to
+// @school-ahead/avatar's AvatarBadge), if they've picked one — falls back to
 // the raccoon mascot otherwise. Stands next to the current node, the next
 // lesson the child needs to do. `className` is positioning/sizing only —
 // the rounded-rectangle "card" frame (same as apps/web's header Avatar and

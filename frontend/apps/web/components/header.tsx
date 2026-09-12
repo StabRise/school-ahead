@@ -9,7 +9,7 @@ import { useLogout, getMeQueryKey } from "@school-ahead/api-client/browser/auth/
 import { MainMenu } from "@/components/main-menu";
 import { TutorMainMenu } from "@/components/tutor-main-menu";
 import { PreschoolModeToggle } from "@/components/preschool-mode-toggle";
-import { AvatarBadge, useEquippedAvatarLayers } from "@school-ahead/preschool-ui";
+import { AvatarBadge, useEquippedAvatarLayers } from "@school-ahead/avatar";
 
 function getInitials(name: string, email: string): string {
   const source = name.trim() || email;

@@ -156,6 +156,14 @@ class UpdateAvatarItemTransformIn(Schema):
     price: int
 
 
+class UpdateAvatarItemArtworkIn(Schema):
+    """Tutor's graphical SVG-Edit-based artwork touch-up editor — see
+    docs/core/avatar.md. Overwrites AvatarItem.image outright rather than
+    tuning scale/offset/layer_order like UpdateAvatarItemTransformIn above."""
+
+    svg: str
+
+
 class UpdateAvatarItemPlacementIn(Schema):
     """A student moving/rotating/resizing one of their own equipped
     wardrobe items directly on their avatar preview — see

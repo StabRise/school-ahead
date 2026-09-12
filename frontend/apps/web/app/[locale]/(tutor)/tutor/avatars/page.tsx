@@ -1,4 +1,4 @@
-import { TutorAvatarEditorPage } from "@/components/tutor/tutor-avatar-editor-page";
+import { TutorAvatarEditorPage } from "@school-ahead/avatar";
 
 export default function AvatarsPage() {
   return <TutorAvatarEditorPage />;

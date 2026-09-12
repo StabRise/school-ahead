@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { AvatarPlacementEditor, itemsToLayers, useEquippedAvatarLayers, type AvatarTransform } from "@school-ahead/preschool-ui";
+import { AvatarPlacementEditor, type AvatarTransform } from "./avatar-placement-editor";
+import { itemsToLayers, useEquippedAvatarLayers } from "./equipped-avatar";
 import {
   getMeQueryKey,
   useResetAvatarItemPlacement,
@@ -11,19 +12,19 @@ import {
 } from "@school-ahead/api-client/browser/auth/auth";
 import { mapApiUserToAuthUser } from "@school-ahead/api-client";
 import { useAuthStore, type EquippedAvatarItem } from "@school-ahead/api-client";
-import { useAvatarTryOnStore } from "@/stores/avatar-tryon-store";
+import { useAvatarTryOnStore } from "./avatar-tryon-store";
 
 // Full-size composited preview of the student's equipped avatar (body ->
 // clothing -> headwear -> accessory), plus a not-yet-purchased item being
 // tried on — see docs/core/avatar.md section 2. The actual click-to-select/
-// drag/rotate/resize canvas is @school-ahead/preschool-ui's
-// AvatarPlacementEditor — the same component the tutor's avatar-item catalog
-// editor (components/tutor/tutor-avatar-editor-page.tsx) uses to edit an
-// item's default placement. This wrapper only supplies what's specific to
-// "the signed-in student editing their own equipped items": the layer data,
-// the per-item placement PATCH (EquippedItemPlacement on the backend,
-// private to this student — never applied to any other viewer of their
-// avatar), reset-to-default, and unequip-via-Delete-key.
+// drag/rotate/resize canvas is this package's own AvatarPlacementEditor —
+// the same component the tutor's avatar-item catalog editor
+// (tutor-avatar-editor-page.tsx) uses to edit an item's default placement.
+// This wrapper only supplies what's specific to "the signed-in student
+// editing their own equipped items": the layer data, the per-item placement
+// PATCH (EquippedItemPlacement on the backend, private to this student —
+// never applied to any other viewer of their avatar), reset-to-default, and
+// unequip-via-Delete-key.
 export function AvatarPreview() {
   const user = useAuthStore((state) => state.user);
   const isPreschool = user?.interfaceMode === "preschool";

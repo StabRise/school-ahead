@@ -21,7 +21,7 @@ const AUTOSAVE_DELAY_MS = 1000;
 // draggable divider, and the autosave debounce. No split-pane library
 // exists anywhere in this repo, and none is warranted for a single
 // draggable divider — the divider is hand-rolled via pointer capture, the
-// same technique components/profile/avatar-preview.tsx's own drag-resize
+// same technique @school-ahead/avatar's avatar-preview.tsx's own drag-resize
 // handle uses.
 export function LessonSynopsisSplit({
   studentLessonId,

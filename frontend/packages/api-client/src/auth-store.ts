@@ -41,7 +41,7 @@ export interface EquippedAvatarItem {
   offsetY: number;
   // A student's own move/rotate override of this item's position, set by
   // dragging/rotating it directly on their own avatar preview — see
-  // components/profile/avatar-preview.tsx. offsetX/offsetY above already
+  // @school-ahead/avatar's avatar-preview.tsx. offsetX/offsetY above already
   // reflect the override when one exists; rotation (degrees, clockwise) has
   // no tutor-set counterpart, so it's 0 unless this student moved it.
   // Private to this student — see EquippedItemPlacement on the backend.

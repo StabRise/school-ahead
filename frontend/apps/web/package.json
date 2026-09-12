@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "svgedit-assets:copy": "node scripts/copy-svgedit-assets.mjs",
+    "predev": "bun run svgedit-assets:copy",
     "dev": "next dev",
+    "prebuild": "bun run svgedit-assets:copy",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -14,6 +17,7 @@
     "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-dropdown-menu": "^2.1.24",
     "@school-ahead/api-client": "workspace:*",
+    "@school-ahead/avatar": "workspace:*",
     "@school-ahead/flashcards": "workspace:*",
     "@school-ahead/house-3d": "workspace:*",
     "@school-ahead/markdown-editor": "workspace:*",
@@ -55,6 +59,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.1-canary.24",
     "jsdom": "^30.0.1",
+    "svgedit": "^7.4.2",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.11"

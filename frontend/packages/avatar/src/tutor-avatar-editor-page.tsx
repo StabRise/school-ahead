@@ -10,9 +10,9 @@ import {
   useUpdateTutorAvatarItemTransform,
   useUpdateTutorAvatarTransform,
 } from "@school-ahead/api-client/browser/tutor/tutor";
-import { AvatarPlacementEditor, type AvatarLayer, type AvatarTransform } from "@school-ahead/preschool-ui";
-import { PageContainer } from "@/components/page-container";
-import { AvatarEditorSlider } from "@/components/tutor/avatar-editor-slider";
+import { AvatarPlacementEditor, type AvatarTransform } from "./avatar-placement-editor";
+import type { AvatarLayer } from "./equipped-avatar";
+import { AvatarEditorSlider } from "./avatar-editor-slider";
 
 const SLOTS = ["clothing", "headwear", "accessory"] as const;
 
@@ -42,7 +42,7 @@ function AvatarThumb({ avatar }: { avatar: AvatarOut }) {
 }
 
 // Same interactive placement editor the student's own profile page uses
-// (@school-ahead/preschool-ui's AvatarPlacementEditor) — click/drag/resize
+// (this package's own AvatarPlacementEditor) — click/drag/resize
 // here edits an item's *default* placement (what a student gets before they
 // customize it themselves), not any particular student's personal override.
 // No rotate handle: UpdateAvatarItemTransformIn has no rotation field —
@@ -147,7 +147,12 @@ export function TutorAvatarEditorPage() {
   ];
 
   return (
-    <PageContainer title={t("title")}>
+    // Same shell markup as apps/web's shared PageContainer (title +
+    // full-width-until-xl, capped-and-centered-after shell) — duplicated
+    // inline rather than imported, since that component lives in apps/web
+    // and this page now lives in a portable package.
+    <div className="w-full px-4 py-6 sm:px-6 lg:px-8 xl:mx-auto xl:max-w-8xl">
+      <h2 className="mb-4 text-xl font-semibold">{t("title")}</h2>
       {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
       {isError && <p className="text-sm text-red-600">{t("error")}</p>}
 
@@ -240,7 +245,21 @@ export function TutorAvatarEditorPage() {
 
                 {item && (
                   <div className="flex flex-col gap-3 rounded-lg border border-gray-200 p-4">
-                    <h3 className="text-sm font-semibold text-gray-900">{item.name}</h3>
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm font-semibold text-gray-900">{item.name}</h3>
+                      {/* Plain <a>, not a Next.js Link — this package has no
+                          dependency on apps/web's locale-aware routing
+                          helper. A path missing its locale prefix still
+                          resolves correctly (next-intl's middleware
+                          redirects to the localized route), just via one
+                          extra round-trip. */}
+                      <a
+                        href={`/tutor/avatars/items/${item.id}/edit`}
+                        className="shrink-0 text-xs font-medium text-blue-700 hover:underline"
+                      >
+                        {t("editArtwork")}
+                      </a>
+                    </div>
                     <AvatarEditorSlider
                       label={t("layerOrder")}
                       value={itemDraft.layerOrder}
@@ -270,6 +289,6 @@ export function TutorAvatarEditorPage() {
           )}
         </div>
       )}
-    </PageContainer>
+    </div>
   );
 }

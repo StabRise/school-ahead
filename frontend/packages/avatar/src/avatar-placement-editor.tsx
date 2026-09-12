@@ -24,6 +24,13 @@ export interface AvatarTransform {
   scale: number;
 }
 
+interface FrameEdge {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
 interface DragState {
   pointerId: number;
   mode: "move" | "rotate" | "resize";
@@ -33,6 +40,11 @@ interface DragState {
   startOffsetY: number;
   startRotation: number;
   startScale: number;
+  // How far beyond the canvas's own 0-100 box (percent of the canvas) an
+  // item may still travel before hitting the *visible* frame edge — see
+  // computeFrameEdge. Captured once per gesture (frame padding doesn't
+  // change mid-drag) rather than recomputed on every pointermove.
+  frameEdge: FrameEdge;
   // Only set for mode "rotate"/"resize" — the item's screen-space center at
   // drag start, plus (depending on mode) the pointer's starting angle from
   // it or its starting distance to it.
@@ -40,6 +52,25 @@ interface DragState {
   centerY?: number;
   startAngle?: number;
   startDistance?: number;
+}
+
+// `previewRef`'s own box (the 0-100 canvas AvatarLayer offsets are measured
+// against) sits inset from the actual visible frame by that frame's own
+// padding — computeMoveBounds should let a dragged item reach that visible
+// edge, not stop short of it at previewRef's own (padded-in) edge. Measured
+// live off the DOM (previewRef's rect vs. its parent's — the `frameClassName`
+// div — rect) instead of a hardcoded pixel constant, since this component is
+// shared by callers with different padding (the student's profile editor vs.
+// the tutor's catalog editor).
+function computeFrameEdge(previewEl: HTMLElement): FrameEdge {
+  const previewRect = previewEl.getBoundingClientRect();
+  const frameRect = previewEl.parentElement?.getBoundingClientRect() ?? previewRect;
+  return {
+    left: -(50 + ((previewRect.left - frameRect.left) / previewRect.width) * 100),
+    right: 50 + ((frameRect.right - previewRect.right) / previewRect.width) * 100,
+    top: -(50 + ((previewRect.top - frameRect.top) / previewRect.height) * 100),
+    bottom: 50 + ((frameRect.bottom - previewRect.bottom) / previewRect.height) * 100,
+  };
 }
 
 // Opaque-pixel bounds within an image, as a fraction (0-1) of its own
@@ -147,18 +178,17 @@ function getSelectedItemLocalBox(loaded: LoadedLayerImage | undefined): { width:
 
 // The offsetX/offsetY range (percent of canvas) that keeps an item's actual
 // opaque artwork — not the full transparent canvas-sized layer it's drawn
-// inside of — fully inside the canvas at a given scale/rotation, so it can
-// never be dragged or resized far enough to be cropped by the frame's own
-// `overflow-hidden` edge. Unlike the single-caller version this replaces,
-// this only guarantees "stays inside the canvas box itself" (0-100), not
-// "may reach into a caller's own padding around that box" — callers with
-// generous padding (like /profile's) trade a little unused margin for this
-// working the same regardless of how much padding they use. `local` is the
-// item's own unscaled/unrotated box from getSelectedItemLocalBox.
+// inside of — fully inside the *visible frame* (frameEdge, see
+// computeFrameEdge — not just previewRef's own 0-100 box) at a given scale/
+// rotation, so it can never be dragged or resized far enough to be cropped
+// by the frame's own `overflow-hidden` edge, while still letting it use the
+// full padded area a caller's frame actually shows. `local` is the item's
+// own unscaled/unrotated box from getSelectedItemLocalBox.
 function computeMoveBounds(
   local: { width: number; height: number; centerX: number; centerY: number },
   scale: number,
   rotationDeg: number,
+  frameEdge: FrameEdge,
 ): { xMin: number; xMax: number; yMin: number; yMax: number } {
   const rad = (rotationDeg * Math.PI) / 180;
   const cos = Math.cos(rad);
@@ -169,10 +199,10 @@ function computeMoveBounds(
   const halfH = (local.height * scale) / 2;
   const hx = halfW * Math.abs(cos) + halfH * Math.abs(sin);
   const hy = halfW * Math.abs(sin) + halfH * Math.abs(cos);
-  const xLow = -50 - kx + hx;
-  const xHigh = 50 - kx - hx;
-  const yLow = -50 - ky + hy;
-  const yHigh = 50 - ky - hy;
+  const xLow = frameEdge.left - kx + hx;
+  const xHigh = frameEdge.right - kx - hx;
+  const yLow = frameEdge.top - ky + hy;
+  const yHigh = frameEdge.bottom - ky - hy;
   // If the (scaled) item is simply too big to fit at all, xLow > xHigh —
   // fall back to the tightest valid point (dead-centered on that axis)
   // rather than leaving an inverted range for `clamp` to mishandle.
@@ -367,6 +397,7 @@ export function AvatarPlacementEditor({
       startOffsetY: layer.offsetY,
       startRotation: layer.rotation,
       startScale: layer.scale,
+      frameEdge: computeFrameEdge(previewRef.current!),
     };
   };
 
@@ -379,7 +410,7 @@ export function AvatarPlacementEditor({
     if (drag.mode === "move") {
       const dxPercent = ((e.clientX - drag.startClientX) / rect.width) * 100;
       const dyPercent = ((e.clientY - drag.startClientY) / rect.height) * 100;
-      const bounds = computeMoveBounds(local, drag.startScale, drag.startRotation);
+      const bounds = computeMoveBounds(local, drag.startScale, drag.startRotation, drag.frameEdge);
       setDraft({
         offsetX: clamp(drag.startOffsetX + dxPercent, bounds.xMin, bounds.xMax),
         offsetY: clamp(drag.startOffsetY + dyPercent, bounds.yMin, bounds.yMax),
@@ -390,7 +421,7 @@ export function AvatarPlacementEditor({
       const angleNow = Math.atan2(e.clientY - drag.centerY, e.clientX - drag.centerX);
       const deltaDeg = ((angleNow - drag.startAngle) * 180) / Math.PI;
       const rotation = normalizeRotation(drag.startRotation + deltaDeg);
-      const bounds = computeMoveBounds(local, drag.startScale, rotation);
+      const bounds = computeMoveBounds(local, drag.startScale, rotation, drag.frameEdge);
       setDraft({
         offsetX: clamp(drag.startOffsetX, bounds.xMin, bounds.xMax),
         offsetY: clamp(drag.startOffsetY, bounds.yMin, bounds.yMax),
@@ -400,7 +431,7 @@ export function AvatarPlacementEditor({
     } else if (drag.mode === "resize" && drag.centerX !== undefined && drag.centerY !== undefined && drag.startDistance !== undefined) {
       const distanceNow = Math.hypot(e.clientX - drag.centerX, e.clientY - drag.centerY);
       const scale = clamp((drag.startScale * distanceNow) / drag.startDistance, SCALE_RANGE.min, SCALE_RANGE.max);
-      const bounds = computeMoveBounds(local, scale, drag.startRotation);
+      const bounds = computeMoveBounds(local, scale, drag.startRotation, drag.frameEdge);
       setDraft({
         offsetX: clamp(drag.startOffsetX, bounds.xMin, bounds.xMax),
         offsetY: clamp(drag.startOffsetY, bounds.yMin, bounds.yMax),
@@ -451,6 +482,7 @@ export function AvatarPlacementEditor({
       startOffsetY: effective.offsetY,
       startRotation: effective.rotation,
       startScale: effective.scale,
+      frameEdge: computeFrameEdge(previewRef.current!),
       centerX,
       centerY,
       startAngle: Math.atan2(e.clientY - centerY, e.clientX - centerX),
@@ -475,6 +507,7 @@ export function AvatarPlacementEditor({
       startOffsetY: effective.offsetY,
       startRotation: effective.rotation,
       startScale: effective.scale,
+      frameEdge: computeFrameEdge(previewRef.current!),
       centerX,
       centerY,
       // Guard against a zero-length start distance (pointer exactly on
@@ -567,7 +600,6 @@ export function AvatarPlacementEditor({
           )}
         </div>
       </div>
-      {activeItemId !== null && enableRotate && <p className="text-xs text-gray-500">{t("dragHint")}</p>}
     </div>
   );
 }

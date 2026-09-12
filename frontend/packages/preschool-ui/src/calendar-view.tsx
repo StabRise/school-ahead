@@ -12,7 +12,7 @@ import { Cloud } from "./decorations";
 import { Raccoon } from "./raccoon";
 import { LessonBubble } from "./lesson-bubble";
 import { PreschoolBacklogSection } from "./backlog-section";
-import { AvatarBadge, useEquippedAvatarLayers } from "./equipped-avatar";
+import { AvatarBadge, useEquippedAvatarLayers } from "@school-ahead/avatar";
 
 // Cloud/Sun from decorations.tsx are hard-coded `position: absolute` (meant
 // for background decoration) — these are plain in-flow versions for use
@@ -134,7 +134,7 @@ function DayCard({ date, isToday, items }: { date: Date; isToday: boolean; items
 }
 
 // The student's chosen companion, fully dressed (body + equipped clothing/
-// headwear/accessory — see equipped-avatar.tsx's AvatarBadge), if they've
+// headwear/accessory — see @school-ahead/avatar's AvatarBadge), if they've
 // picked one — falls back to the raccoon mascot otherwise. Same
 // rounded-rectangle "card" framing as apps/web's header Avatar and the
 // tutor's student-overview card, so the companion reads the same everywhere

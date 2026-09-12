@@ -34,7 +34,7 @@ interface HouseSceneState {
 
 // Mostly ephemeral, client-only scene UI state — whether Editor Mode is on,
 // which item's gizmo is showing (and in which mode), whether the shop panel
-// is open — same minimal shape as apps/web/stores/avatar-tryon-store.ts.
+// is open — same minimal shape as @school-ahead/avatar's avatar-tryon-store.ts.
 // showGizmoArrows is the one exception, persisted to localStorage via
 // zustand's `persist` (partialize'd to just that field, so editor mode/
 // selection/shop-open state still resets every visit as before). The

@@ -16,7 +16,7 @@ import {
 import type { TutorFurnitureItemOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { FurniturePreview, type FurnitureSurface } from "@school-ahead/house-3d";
 import { PageContainer } from "@/components/page-container";
-import { AvatarEditorSlider } from "@/components/tutor/avatar-editor-slider";
+import { AvatarEditorSlider } from "@school-ahead/avatar";
 
 const SCALE_RANGE = { min: 0.1, max: 5, step: 0.05 };
 const ROTATION_RANGE = { min: -Math.PI, max: Math.PI, step: 0.01 };
