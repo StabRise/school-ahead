@@ -1378,6 +1378,193 @@ class TestReorderTopics:
         assert response.status_code == 404
 
 
+class TestReorderLessons:
+    def test_reorder_lessons_within_topic(self, api_client, auth_header, tutor, subject):
+        # Swapping two lessons' order_index in one call is the case that
+        # would hit Lesson's unique_together = [('topic', 'order_index')]
+        # if the endpoint bulk_updated straight to final values.
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        l1 = Lesson.objects.create(
+            topic=topic, order_index=1, title='A', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+        l2 = Lesson.objects.create(
+            topic=topic, order_index=2, title='B', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}/lessons/reorder',
+            json={
+                'items': [
+                    {'id': l1.id, 'topic_id': topic.id, 'order_index': 2},
+                    {'id': l2.id, 'topic_id': topic.id, 'order_index': 1},
+                ]
+            },
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        l1.refresh_from_db()
+        l2.refresh_from_db()
+        assert l1.order_index == 2
+        assert l2.order_index == 1
+
+    def test_reorder_lessons_swaps_three_lessons_in_a_cycle(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        l1 = Lesson.objects.create(
+            topic=topic, order_index=1, title='A', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+        l2 = Lesson.objects.create(
+            topic=topic, order_index=2, title='B', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+        l3 = Lesson.objects.create(
+            topic=topic, order_index=3, title='C', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}/lessons/reorder',
+            json={
+                'items': [
+                    {'id': l1.id, 'topic_id': topic.id, 'order_index': 2},
+                    {'id': l2.id, 'topic_id': topic.id, 'order_index': 3},
+                    {'id': l3.id, 'topic_id': topic.id, 'order_index': 1},
+                ]
+            },
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        l1.refresh_from_db()
+        l2.refresh_from_db()
+        l3.refresh_from_db()
+        assert (l1.order_index, l2.order_index, l3.order_index) == (2, 3, 1)
+
+    def test_move_lesson_to_another_topic(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic_a = Topic.objects.create(subject=subject, title='A', order_index=1)
+        topic_b = Topic.objects.create(subject=subject, title='B', order_index=2)
+        moved = Lesson.objects.create(
+            topic=topic_a, order_index=1, title='Moved', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+        stays_in_a = Lesson.objects.create(
+            topic=topic_a, order_index=2, title='StaysA', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+        already_in_b = Lesson.objects.create(
+            topic=topic_b, order_index=1, title='InB', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}/lessons/reorder',
+            json={
+                'items': [
+                    {'id': stays_in_a.id, 'topic_id': topic_a.id, 'order_index': 1},
+                    {'id': already_in_b.id, 'topic_id': topic_b.id, 'order_index': 1},
+                    {'id': moved.id, 'topic_id': topic_b.id, 'order_index': 2},
+                ]
+            },
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        moved.refresh_from_db()
+        stays_in_a.refresh_from_db()
+        already_in_b.refresh_from_db()
+        assert moved.topic_id == topic_b.id
+        assert moved.order_index == 2
+        assert stays_in_a.topic_id == topic_a.id
+        assert stays_in_a.order_index == 1
+        assert already_in_b.order_index == 1
+
+    def test_move_lesson_recomputes_workload_for_both_blocks(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        subject.block_count = 2
+        subject.save()
+        academics_services.ensure_subject_blocks(subject)
+        block1 = subject.blocks.get(index=1)
+        block2 = subject.blocks.get(index=2)
+        block1.starts_on = datetime.date(2025, 9, 1)
+        block1.ends_on = datetime.date(2025, 12, 1)
+        block2.starts_on = datetime.date(2026, 1, 10)
+        block2.ends_on = datetime.date(2026, 4, 10)
+        block1.save()
+        block2.save()
+
+        topic_a = Topic.objects.create(subject=subject, title='A', order_index=1, subject_block=block1)
+        topic_b = Topic.objects.create(subject=subject, title='B', order_index=2, subject_block=block2)
+        moved = Lesson.objects.create(
+            topic=topic_a, order_index=1, title='Moved', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+        academics_services.recompute_block_workload(block1)
+        academics_services.recompute_block_workload(block2)
+        block1.refresh_from_db()
+        block2.refresh_from_db()
+        assert block1.workload == pytest.approx(1 / block1.weeks_count)
+        assert block2.workload == 0
+
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}/lessons/reorder',
+            json={'items': [{'id': moved.id, 'topic_id': topic_b.id, 'order_index': 1}]},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        block1.refresh_from_db()
+        block2.refresh_from_db()
+        assert block1.workload == 0
+        assert block2.workload == pytest.approx(1 / block2.weeks_count)
+
+    def test_reorder_lessons_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        topic = Topic.objects.create(subject=subject, title='A', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='A', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}/lessons/reorder',
+            json={'items': [{'id': lesson.id, 'topic_id': topic.id, 'order_index': 1}]},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 403
+
+    def test_reorder_lessons_rejected_for_lesson_from_other_subject(
+        self, api_client, auth_header, tutor, subject, other_subject
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='A', order_index=1)
+        foreign_topic = Topic.objects.create(subject=other_subject, title='Foreign', order_index=1)
+        foreign_lesson = Lesson.objects.create(
+            topic=foreign_topic, order_index=1, title='Foreign', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}/lessons/reorder',
+            json={'items': [{'id': foreign_lesson.id, 'topic_id': topic.id, 'order_index': 1}]},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 404
+
+    def test_reorder_lessons_rejected_for_topic_from_other_subject(
+        self, api_client, auth_header, tutor, subject, other_subject
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='A', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='A', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+        foreign_topic = Topic.objects.create(subject=other_subject, title='Foreign', order_index=1)
+
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}/lessons/reorder',
+            json={'items': [{'id': lesson.id, 'topic_id': foreign_topic.id, 'order_index': 1}]},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 404
+
+
 class TestDeleteTopic:
     def test_delete_topic_deletes_its_lessons(self, api_client, auth_header, tutor, subject):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
