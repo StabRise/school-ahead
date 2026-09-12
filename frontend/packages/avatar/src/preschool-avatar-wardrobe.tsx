@@ -37,7 +37,7 @@ function Shelf({ label, children }: { label: string; children: ReactNode }) {
     <div className="flex flex-col gap-1.5">
       <span className="px-1 text-sm font-bold uppercase tracking-wide text-amber-900/70">{label}</span>
       <div className="relative pb-3">
-        <div className="flex min-h-20 flex-wrap items-end gap-1 px-1 sm:min-h-24">{children}</div>
+        <div className="flex min-h-16 flex-wrap items-end gap-1 px-1 sm:min-h-20">{children}</div>
         <div className="absolute inset-x-0 bottom-0 h-2.5 rounded-full bg-gradient-to-b from-amber-700 to-amber-900 shadow-[0_3px_4px_rgba(120,53,15,0.45)]" />
       </div>
     </div>
@@ -65,7 +65,7 @@ function MyItemButton({
       disabled={disabled}
       aria-pressed={isEquipped}
       title={item.name}
-      className="relative flex h-20 w-20 shrink-0 items-center justify-center transition-transform hover:scale-110 disabled:cursor-default disabled:opacity-60 sm:h-24 sm:w-24"
+      className="relative flex h-16 w-16 shrink-0 items-center justify-center transition-transform hover:scale-110 disabled:cursor-default disabled:opacity-60 sm:h-20 sm:w-20"
     >
       {item.image ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -78,7 +78,7 @@ function MyItemButton({
         />
       ) : null}
       {isEquipped && (
-        <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-xs text-white shadow">
+        <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-xs text-white shadow">
           ✓
         </span>
       )}
@@ -104,7 +104,7 @@ function ShopItemButton({
       onClick={onClick}
       disabled={disabled}
       title={`${item.name} — 💎 ${item.price}`}
-      className="relative flex h-20 w-20 shrink-0 items-center justify-center transition-transform hover:scale-110 disabled:cursor-default disabled:opacity-60 sm:h-24 sm:w-24"
+      className="relative flex h-16 w-16 shrink-0 items-center justify-center transition-transform hover:scale-110 disabled:cursor-default disabled:opacity-60 sm:h-20 sm:w-20"
     >
       {item.image ? (
         // eslint-disable-next-line @next/next/no-img-element

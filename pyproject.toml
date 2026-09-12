@@ -23,6 +23,7 @@ dependencies = [
     "pillow>=12.3.0",
     "psycopg[binary]>=3.3.4",
     "requests>=2.34.2",
+    "svgelements>=1.9.6",
     "whitenoise>=6.12.0",
 ]
 
