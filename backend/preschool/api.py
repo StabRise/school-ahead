@@ -34,9 +34,9 @@ def list_stories(request: HttpRequest):
     return Story.objects.filter(is_published=True)
 
 
-@router.get('/stories/{story_id}', response=StoryDetailOut, auth=None, operation_id='get_preschool_story')
-def get_story(request: HttpRequest, story_id: int):
-    return get_object_or_404(Story, id=story_id, is_published=True)
+@router.get('/stories/{story_slug}', response=StoryDetailOut, auth=None, operation_id='get_preschool_story')
+def get_story(request: HttpRequest, story_slug: str):
+    return get_object_or_404(Story, slug=story_slug, is_published=True)
 
 
 @router.get('/tutor/stories', response=list[StoryOut], operation_id='list_tutor_preschool_stories')
@@ -82,16 +82,30 @@ def get_tutor_story(request: HttpRequest, story_id: int):
 
 
 @router.post('/tutor/stories', response=StoryDetailOut, operation_id='create_tutor_preschool_story')
-def create_tutor_story(request: HttpRequest, title: str = Form(...)):
+def create_tutor_story(
+    request: HttpRequest,
+    title: str = Form(...),
+    subtitle: str = Form(''),
+    content: str = Form(''),
+    cover_image: UploadedFile | None = File(None),
+):
     """Creates a new, unpublished story — the tutor stories list's "Add
-    story" action immediately creates this (see frontend's
-    app/[locale]/(tutor)/tutor/stories/new/page.tsx) so a real story id
-    exists right away for asset uploads, before the tutor has written
-    anything else. Never visible to the public/game endpoints above until
-    explicitly published (see update_tutor_story's is_published)."""
+    story" action navigates straight to the editor (see frontend's
+    app/[locale]/(tutor)/tutor/stories/new/page.tsx) with no story row yet;
+    this is what the editor's first autosave tick calls instead of
+    update_tutor_story below, once the tutor has typed anything. Accepts
+    the same optional fields as update_tutor_story (not just title) so that
+    first save can't lose whatever subtitle/content was typed in the few
+    seconds before it fires. Never visible to the public/game endpoints
+    above until explicitly published (see update_tutor_story's
+    is_published)."""
     require_csrf(request)
     ensure_is_tutor(request)
-    return Story.objects.create(title=title, created_by=request.auth.tutor_profile)
+    story = Story(title=title, subtitle=subtitle, content=content, created_by=request.auth.tutor_profile)
+    if cover_image is not None:
+        story.cover_image.save(cover_image.name, cover_image, save=False)
+    story.save()
+    return story
 
 
 @router.patch('/tutor/stories/{story_id}', response=StoryDetailOut, operation_id='update_tutor_preschool_story')

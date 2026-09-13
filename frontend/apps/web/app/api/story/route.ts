@@ -14,31 +14,35 @@ import { getPreschool } from "@school-ahead/api-client/server/preschool/preschoo
 // (excluded from the locale/auth middleware by its "/api" matcher, see
 // middleware.ts).
 //
-// A `story-<id>` slug (see /api/stories's DB_SLUG_PREFIX) is a DB-backed
-// Story instead — fetched from the backend's preschool app (auth=None, same
-// reason) rather than the filesystem, with its title/subtitle re-assembled
+// Tries the DB first (backend/preschool/api.py's get_story, auth=None, same
+// reason — looked up by its own real `slug` field, see /api/stories) since
+// that's a single indexed lookup; a 404/unreachable backend falls through
+// to the filesystem. DB content is re-assembled with its title/subtitle
 // into the same leading-"#"-heading-line(s) shape parseStory expects, so it
-// parses identically to a static story.md. Its content already embeds any
-// inserted image as an absolute URL (see stories-game.tsx's storyAssetUrl),
-// not a bare filename, so no further path resolution is needed here.
+// parses identically to a static story.md, and already embeds any inserted
+// image as an absolute URL (see stories-game.tsx's storyAssetUrl), not a
+// bare filename, so no further path resolution is needed for it here. Not
+// prefixed/namespaced against static folder names (see /api/stories's note
+// on the same trade-off) — a DB slug that happens to match a static folder
+// name would resolve to the DB story, since that's checked first.
 //
-// `slug` is a bare folder name — it's interpolated straight into a
-// filesystem path below, so anything that could escape STORIES_DIR (path
-// separators, "..", a leading ".") is rejected outright. Otherwise
-// deliberately permissive (a slug is just whatever a story's folder is
-// named, e.g. "Ріпка" — see /api/stories), not restricted to ASCII.
+// `slug` is also used as a bare folder name for the filesystem fallback —
+// it's interpolated straight into a filesystem path below, so anything
+// that could escape STORIES_DIR (path separators, "..", a leading ".") is
+// rejected outright. Otherwise deliberately permissive (a static slug is
+// just whatever a story's folder is named, e.g. "Ріпка" — see
+// /api/stories), not restricted to ASCII.
 const INVALID_SLUG_RE = /[/\\]/;
 const STORIES_DIR = path.join(process.cwd(), "public", "static", "stories");
 const STORY_FILE = "story.md";
-const DB_SLUG_RE = /^story-(\d+)$/;
 
 function isValidSlug(slug: string): boolean {
   return slug.length > 0 && slug.length <= 200 && !INVALID_SLUG_RE.test(slug) && slug !== "." && slug !== "..";
 }
 
-async function fetchDbStoryContent(storyId: number): Promise<string | null> {
+async function fetchDbStoryContent(slug: string): Promise<string | null> {
   try {
-    const story = await getPreschool().getPreschoolStory(storyId);
+    const story = await getPreschool().getPreschoolStory(slug);
     const headingLines = [`# ${story.title}`, ...(story.subtitle ? [`### ${story.subtitle}`] : [])];
     return `${headingLines.join("\n\n")}\n\n${story.content}`;
   } catch {
@@ -50,9 +54,7 @@ export async function GET(request: NextRequest) {
   const slug = request.nextUrl.searchParams.get("slug");
   if (!slug || !isValidSlug(slug)) return NextResponse.json({ content: null });
 
-  const dbMatch = slug.match(DB_SLUG_RE);
-  const content = dbMatch
-    ? await fetchDbStoryContent(Number(dbMatch[1]))
-    : await readFile(path.join(STORIES_DIR, slug, STORY_FILE), "utf-8").catch(() => null);
+  const dbContent = await fetchDbStoryContent(slug);
+  const content = dbContent ?? (await readFile(path.join(STORIES_DIR, slug, STORY_FILE), "utf-8").catch(() => null));
   return NextResponse.json({ content });
 }

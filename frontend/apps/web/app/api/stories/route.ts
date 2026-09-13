@@ -11,22 +11,26 @@ import { parseStoryTitle, type StorySummary } from "@school-ahead/preschool-game
 // filename) lives right alongside story.md in that same folder, so
 // dropping a new <name>/story.md in is enough, no code change needed — and
 // every tutor-authored Story row from the backend's preschool app (see
-// backend/preschool/api.py), reachable here as a synthetic `story-<id>`
-// slug (same "prefixed so it can never collide with a static folder name"
-// convention as cards/api.py's `subject-{id}`/`topic-{id}` slugs).
+// backend/preschool/api.py), reachable here by its own real `slug` field
+// (backend/preschool/models.py auto-generates it from the title via
+// transliteration, e.g. "Колобок" -> "kolobok"). Not prefixed/namespaced
+// against the static folder names — the backend has no visibility into
+// this directory to cross-check against, so a DB slug that happens to
+// exactly match a static folder name would collide; see /api/story's
+// same note. Considered unlikely in practice (auto-generated tutor slugs
+// vs. the fixed, curated static folk-tale set) and not solved here.
 // Excluded from the locale/auth middleware by its "/api" matcher (see
 // middleware.ts), so this is reachable without a session — the backend
 // list endpoint is auth=None for the same reason.
 const STORIES_DIR = path.join(process.cwd(), "public", "static", "stories");
 const STORY_FILE = "story.md";
 const COVER_EXTENSIONS = ["png", "jpg", "jpeg", "webp"];
-const DB_SLUG_PREFIX = "story-";
 
 async function listDbStories(): Promise<StorySummary[]> {
   try {
     const rows = await getPreschool().listPreschoolStories();
     return rows.map((row) => ({
-      slug: `${DB_SLUG_PREFIX}${row.id}`,
+      slug: row.slug,
       title: row.title,
       cover: row.cover_image,
     }));
