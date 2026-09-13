@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { GripVertical, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronRight, GripVertical, RefreshCw } from "lucide-react";
 import type { AssignmentOut, TutorStudentOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import {
   getGetTutorClassQueryKey,
@@ -147,6 +147,19 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
   const groupsQuery = useListSubjectGroups();
   const reorderSubjects = useReorderTutorClassSubjects();
   const [draggedSubjectId, setDraggedSubjectId] = useState<number | null>(null);
+  const [collapsedSectionKeys, setCollapsedSectionKeys] = useState<Set<string>>(new Set());
+
+  const toggleSectionCollapsed = (key: string) => {
+    setCollapsedSectionKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
 
   // One section per global SubjectGroup (in its own order_index order) plus
   // a trailing "ungrouped" section for subjects with no group set yet —
@@ -270,39 +283,59 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
             <div className="flex flex-col gap-5">
               {sections
                 .filter((section) => section.subjects.length > 0 || section.groupId !== null)
-                .map((section) => (
-                  <div
-                    key={section.groupId ?? "ungrouped"}
-                    onDragOver={(e) => {
-                      if (draggedSubjectId !== null) e.preventDefault();
-                    }}
-                    onDrop={(e) => {
-                      if (draggedSubjectId === null) return;
-                      e.preventDefault();
-                      handleSubjectDrop(section.groupId, null);
-                    }}
-                    className="flex flex-col gap-1"
-                  >
-                    {section.label && <h3 className="px-2 text-xs font-semibold text-gray-500">{section.label}</h3>}
-                    {section.subjects.length === 0 ? (
-                      <p className="px-2 text-xs text-gray-400">{t("emptyGroupHint")}</p>
-                    ) : (
-                      <ul className="divide-y divide-gray-100">
-                        {section.subjects.map((subject) => (
-                          <SubjectRow
-                            key={subject.subject_id}
-                            subject={subject}
-                            isDragging={draggedSubjectId === subject.subject_id}
-                            draggedSubjectId={draggedSubjectId}
-                            onDragStart={() => setDraggedSubjectId(subject.subject_id)}
-                            onDragEnd={() => setDraggedSubjectId(null)}
-                            onDropOnThisSubject={() => handleSubjectDrop(section.groupId, subject.subject_id)}
-                          />
+                .map((section) => {
+                  const sectionKey = String(section.groupId ?? "ungrouped");
+                  const collapsed = collapsedSectionKeys.has(sectionKey);
+                  return (
+                    <div
+                      key={sectionKey}
+                      onDragOver={(e) => {
+                        if (draggedSubjectId !== null) e.preventDefault();
+                      }}
+                      onDrop={(e) => {
+                        if (draggedSubjectId === null) return;
+                        e.preventDefault();
+                        handleSubjectDrop(section.groupId, null);
+                      }}
+                      className="flex flex-col gap-1"
+                    >
+                      {section.label && (
+                        <button
+                          type="button"
+                          onClick={() => toggleSectionCollapsed(sectionKey)}
+                          aria-expanded={!collapsed}
+                          title={collapsed ? t("expandGroupButton") : t("collapseGroupButton")}
+                          className="flex items-center gap-1 rounded px-1.5 py-1 text-left hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                        >
+                          {collapsed ? (
+                            <ChevronRight className="size-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+                          ) : (
+                            <ChevronDown className="size-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+                          )}
+                          <h3 className="text-xs font-semibold text-gray-500">{section.label}</h3>
+                        </button>
+                      )}
+                      {!collapsed &&
+                        (section.subjects.length === 0 ? (
+                          <p className="px-2 text-xs text-gray-400">{t("emptyGroupHint")}</p>
+                        ) : (
+                          <ul className="divide-y divide-gray-100">
+                            {section.subjects.map((subject) => (
+                              <SubjectRow
+                                key={subject.subject_id}
+                                subject={subject}
+                                isDragging={draggedSubjectId === subject.subject_id}
+                                draggedSubjectId={draggedSubjectId}
+                                onDragStart={() => setDraggedSubjectId(subject.subject_id)}
+                                onDragEnd={() => setDraggedSubjectId(null)}
+                                onDropOnThisSubject={() => handleSubjectDrop(section.groupId, subject.subject_id)}
+                              />
+                            ))}
+                          </ul>
                         ))}
-                      </ul>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
             </div>
           )}
         </div>
