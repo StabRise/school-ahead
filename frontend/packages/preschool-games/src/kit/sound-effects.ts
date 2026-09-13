@@ -211,3 +211,26 @@ export function playVictoryFanfare() {
     gain: 0.28,
   }); // C5, E5, G5, C6, G5, E6
 }
+
+// A soft downward "plop" for Magic Cocktail's ingredient landing in the
+// glass — fires for every accepted piece in both modes (hint mode only
+// after the ingredient's confirmed correct; free mode for anything tapped,
+// since nothing's validated until the shaker button).
+export function playCocktailSplashSound() {
+  playTone(500, { type: "sine", duration: 0.22, gain: 0.22, glideTo: 280 });
+}
+
+// A bouncy little "boing" for hint mode rejecting a wrong/extra tap — the
+// brief's own "кумедний звук" (funny sound), paired with the piece and
+// glass both playing the raccoon-shake wobble.
+export function playCocktailBounceSound() {
+  playChime([392, 311.13], { type: "square", noteGap: 0.05, noteDuration: 0.1, gain: 0.16 }); // G4, D#4
+}
+
+// A comic descending "womp" for free mode's shaker button revealing a
+// wrong recipe — everything's about to fly back out, so this needs to read
+// as "that didn't work" without being an actual harsh error buzzer for a
+// young child.
+export function playCocktailFailSound() {
+  playTone(300, { type: "sawtooth", duration: 0.45, gain: 0.18, glideTo: 90 });
+}

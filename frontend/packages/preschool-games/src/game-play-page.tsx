@@ -7,6 +7,7 @@ import { CardsGame } from "./cards-game";
 import { StoriesGamePage } from "./stories-game";
 import { MathGame } from "./math-game";
 import { JumpingFrogsGame } from "./jumping-frogs-game";
+import { CocktailGame } from "./cocktail-game";
 import type { PreschoolGameId } from "./game-choice";
 import { usePreschoolGamesGuard } from "./game-shell";
 import { GamePageContainer } from "./kit/game-page-container";
@@ -54,6 +55,10 @@ export function GamePlayPage({ game, storySlug }: { game: PreschoolGameId; story
       ) : game === "jumping-frogs" ? (
         <div className="mx-auto flex w-full flex-1 flex-col p-2 xl:max-w-5xl sm:p-4">
           <JumpingFrogsGame />
+        </div>
+      ) : game === "cocktail" ? (
+        <div className="mx-auto flex w-full flex-1 flex-col p-2 xl:max-w-5xl sm:p-4">
+          <CocktailGame />
         </div>
       ) : (
         <TrainsGame />
