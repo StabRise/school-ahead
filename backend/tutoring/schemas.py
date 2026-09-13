@@ -20,6 +20,14 @@ class AssignmentOut(Schema):
     # — null for a block whose workload hasn't been computed (see
     # academics.services.recompute_block_workload).
     block_workloads: list[float | None]
+    # Optional curriculum track (academics.Subject.group) and this
+    # subject's order within its class, relative to that group — powers the
+    # grouped, drag-and-drop-orderable subject list on the tutor's Class
+    # detail page.
+    group_id: int | None
+    group_name: str | None
+    order_index: int
+    attestation_type: str
 
 
 class LessonStudentOut(Schema):
@@ -166,6 +174,10 @@ class SetTopicBlockIn(Schema):
 
 class SetSubjectFilledIn(Schema):
     is_filled: bool
+
+
+class SetSubjectAttestationTypeIn(Schema):
+    attestation_type: str
 
 
 class PlanOut(Schema):

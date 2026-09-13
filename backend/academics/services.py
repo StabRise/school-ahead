@@ -22,6 +22,12 @@ def assign_subject_color(subject: Subject) -> str:
     return SUBJECT_COLOR_PALETTE[count % len(SUBJECT_COLOR_PALETTE)]
 
 
+def assign_subject_order_index(subject: Subject) -> int:
+    """Appends the subject to the end of its class's current subject order
+    — called right after creation, mirroring assign_subject_color."""
+    return Subject.objects.filter(school_class_id=subject.school_class_id).exclude(pk=subject.pk).count()
+
+
 def ensure_subject_blocks(subject: Subject) -> None:
     """Makes the subject's SubjectBlock rows match its current block_count
     (1..N, default 'Semester N' labels). See docs/core/data.md and
@@ -213,7 +219,8 @@ def import_class_plan(school_class: Class, sections: list[PlanSection]) -> PlanI
         if subject is None:
             subject = Subject.objects.create(school_class=school_class, name=section.subject_name)
             subject.color = assign_subject_color(subject)
-            subject.save(update_fields=['color'])
+            subject.order_index = assign_subject_order_index(subject)
+            subject.save(update_fields=['color', 'order_index'])
             summary.subjects_added.append(subject.name)
         else:
             summary.subjects_found.append(subject.name)

@@ -25,6 +25,7 @@ import { subjectBlockAnchorId, subjectTopicAnchorId } from "@/components/subject
 import { SemesterPlan } from "@/components/subjects/semester-plan";
 import { SubjectMaterials } from "@/components/subjects/subject-materials";
 import { groupTasksByTopicId, TaskListSection } from "@/components/subjects/task-list";
+import { AttestationTypeBadge } from "@/components/subjects/attestation-type-badge";
 import { LESSON_TYPE_ICON, LESSON_TYPE_ICON_COLOR } from "@/components/simple/lesson-type-icon";
 import { formatGradeLabel, formatShortDate, resolveStatusLabel } from "@/components/simple/format";
 import { SimplePageContainer } from "@/components/simple/page-container";
@@ -451,6 +452,11 @@ export function SimpleSubjectDetailPage({ subjectId, colorful }: { subjectId: nu
           {subject.teacher_name && (
             <p className="text-xs text-gray-500">
               {t("teacherLabel")}: {subject.teacher_name}
+            </p>
+          )}
+          {subject.attestation_type !== "none" && (
+            <p className="text-xs text-gray-500">
+              {t("attestationTypeLabel")}: <AttestationTypeBadge attestationType={subject.attestation_type} />
             </p>
           )}
         </div>

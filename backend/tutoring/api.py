@@ -13,7 +13,7 @@ from ninja.pagination import paginate
 
 from academics import services as academics_services
 from academics.models import Class, Plan, Subject, SubjectBlock, Topic
-from academics.schemas import SubjectOut, TopicOut, TopicsReorderIn
+from academics.schemas import SubjectOut, SubjectsReorderIn, TopicOut, TopicsReorderIn
 from accounts import services as accounts_services
 from accounts.models import Avatar, AvatarItem, StudentProfile
 from accounts.schemas import (
@@ -64,6 +64,7 @@ from .schemas import (
     LessonStudentOut,
     PlanOut,
     ResolveNeedHelpIn,
+    SetSubjectAttestationTypeIn,
     SetSubjectFilledIn,
     SetTopicBlockIn,
     SubjectLessonStudentOut,
@@ -131,7 +132,7 @@ def _scoped_queryset(
 def _tutor_assignments_with_counts(request: HttpRequest, **filters):
     return (
         TutorSubjectAssignment.objects.filter(tutor__user=request.auth, is_active=True, **filters)
-        .select_related('subject__school_class')
+        .select_related('subject__school_class', 'subject__group')
         # subject__blocks: for _assignment_out's block_workloads — avoids an
         # N+1 per assignment (SubjectBlock.Meta.ordering already gives index
         # order, so no explicit Prefetch queryset needed).
@@ -195,6 +196,10 @@ def _assignment_out(assignment: TutorSubjectAssignment, request: HttpRequest) ->
         lesson_count=assignment.lesson_count,
         is_filled=assignment.subject.is_filled,
         block_workloads=[block.workload for block in assignment.subject.blocks.all()],
+        group_id=assignment.subject.group_id,
+        group_name=assignment.subject.group.name if assignment.subject.group_id else None,
+        order_index=assignment.subject.order_index,
+        attestation_type=assignment.subject.attestation_type,
     )
 
 
@@ -227,6 +232,21 @@ def set_subject_filled(request: HttpRequest, subject_id: int, payload: SetSubjec
     subject = get_object_or_404(Subject, id=subject_id)
     subject.is_filled = payload.is_filled
     subject.save(update_fields=['is_filled'])
+    return subject
+
+
+@router.patch(
+    '/subjects/{subject_id}/attestation-type', response=SubjectOut, operation_id='set_subject_attestation_type'
+)
+def set_subject_attestation_type(request: HttpRequest, subject_id: int, payload: SetSubjectAttestationTypeIn):
+    """Tutor-set flag for how a subject is formally assessed at the end of
+    the year — purely informational, doesn't gate anything. See
+    Subject.attestation_type."""
+    require_csrf(request)
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    subject = get_object_or_404(Subject, id=subject_id)
+    subject.attestation_type = payload.attestation_type
+    subject.save(update_fields=['attestation_type'])
     return subject
 
 
@@ -843,6 +863,36 @@ def get_tutor_class(request: HttpRequest, class_id: int):
         ],
         subjects=[_assignment_out(a, request) for a in assignments],
     )
+
+
+@router.patch('/classes/{class_id}/subjects/reorder', operation_id='reorder_tutor_class_subjects')
+def reorder_class_subjects(request: HttpRequest, class_id: int, payload: SubjectsReorderIn):
+    """Bulk-updates Subject.order_index (and, for a dragged-across-group
+    move, Subject.group) for the subjects *this* tutor teaches in the
+    class — powers drag-and-drop subject reordering/grouping on the tutor's
+    Class detail page. Scoped to the tutor's own assignments in this class,
+    same as every other subject the page shows or lets them drag."""
+    require_csrf(request)
+    services.ensure_is_tutor_for_class(request, class_id)
+    subjects_by_id = {
+        s.id: s
+        for s in Subject.objects.filter(
+            school_class_id=class_id, id__in=services.get_tutor_subject_ids(request.auth)
+        )
+    }
+
+    updated = []
+    for item in payload.items:
+        subject = subjects_by_id.get(item.id)
+        if subject is None:
+            raise HttpError(404, f'Subject {item.id} not found among your subjects in this class')
+        subject.order_index = item.order_index
+        if item.group_id is not None:
+            subject.group_id = item.group_id
+        updated.append(subject)
+
+    Subject.objects.bulk_update(updated, ['order_index', 'group'])
+    return {'updated': len(updated)}
 
 
 @router.post('/classes/{class_id}/recalculate-workload', operation_id='recalculate_class_workload')

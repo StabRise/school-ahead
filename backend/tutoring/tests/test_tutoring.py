@@ -1228,6 +1228,34 @@ class TestSetSubjectFilled:
         assert subject.is_filled is False
 
 
+class TestSetSubjectAttestationType:
+    def test_set_subject_attestation_type(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        assert subject.attestation_type == 'none'
+
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}/attestation-type',
+            json={'attestation_type': 'exam'},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['attestation_type'] == 'exam'
+        subject.refresh_from_db()
+        assert subject.attestation_type == 'exam'
+
+    def test_set_subject_attestation_type_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}/attestation-type',
+            json={'attestation_type': 'exam'},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 403
+        subject.refresh_from_db()
+        assert subject.attestation_type == 'none'
+
+
 class TestSetTopicBlock:
     def test_set_topic_block(self, api_client, auth_header, tutor, subject):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
@@ -1372,6 +1400,65 @@ class TestReorderTopics:
         response = api_client.patch(
             f'/tutor/subjects/{subject.id}/topics/reorder',
             json={'items': [{'id': foreign_topic.id, 'order_index': 1}]},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 404
+
+
+class TestReorderClassSubjects:
+    def test_reorder_subjects_within_class(self, api_client, auth_header, tutor, subject, other_subject, school_class):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=other_subject)
+
+        response = api_client.patch(
+            f'/tutor/classes/{school_class.id}/subjects/reorder',
+            json={'items': [{'id': subject.id, 'order_index': 1}, {'id': other_subject.id, 'order_index': 0}]},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        subject.refresh_from_db()
+        other_subject.refresh_from_db()
+        assert subject.order_index == 1
+        assert other_subject.order_index == 0
+
+    def test_reorder_subjects_moves_subject_into_group(self, api_client, auth_header, tutor, subject, school_class):
+        from academics.models import SubjectGroup
+
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        group = SubjectGroup.objects.create(name='Українська школа', order_index=1)
+
+        response = api_client.patch(
+            f'/tutor/classes/{school_class.id}/subjects/reorder',
+            json={'items': [{'id': subject.id, 'order_index': 0, 'group_id': group.id}]},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        subject.refresh_from_db()
+        assert subject.group_id == group.id
+
+    def test_reorder_subjects_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject, school_class):
+        response = api_client.patch(
+            f'/tutor/classes/{school_class.id}/subjects/reorder',
+            json={'items': [{'id': subject.id, 'order_index': 1}]},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 403
+
+    def test_reorder_subjects_rejected_for_subject_from_other_class(self, api_client, auth_header, tutor, subject, school_class):
+        other_class = Class.objects.create(
+            school=school_class.school, name='8', order_index=8, academic_year='2025/2026'
+        )
+        foreign_subject = Subject.objects.create(school_class=other_class, name='Foreign')
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=foreign_subject)
+
+        response = api_client.patch(
+            f'/tutor/classes/{school_class.id}/subjects/reorder',
+            json={'items': [{'id': foreign_subject.id, 'order_index': 0}]},
             headers=auth_header(tutor.user),
         )
 

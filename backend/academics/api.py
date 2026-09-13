@@ -10,12 +10,13 @@ from common.permissions import get_own_student_profile
 from tutoring.services import ensure_is_tutor_for_subject
 
 from . import services
-from .models import Class, School, Subject, SubjectMaterial, Topic
+from .models import Class, School, Subject, SubjectGroup, SubjectMaterial, Topic
 from .schemas import (
     ClassIn,
     ClassOut,
     SchoolIn,
     SchoolOut,
+    SubjectGroupOut,
     SubjectIn,
     SubjectMaterialOut,
     SubjectOut,
@@ -41,9 +42,17 @@ def list_classes(request: HttpRequest):
     return Class.objects.select_related('class_teacher__user').all()
 
 
+@router.get('/subject-groups', response=list[SubjectGroupOut], operation_id='list_subject_groups')
+def list_subject_groups(request: HttpRequest):
+    """Global curriculum-track groups a subject can optionally belong to
+    (Subject.group) — e.g. "Українська школа" / "Польська школа". Not
+    scoped to a class or school. Every role can read this."""
+    return SubjectGroup.objects.all()
+
+
 @router.get('/classes/{class_id}/subjects', response=list[SubjectOut])
 def list_class_subjects(request: HttpRequest, class_id: int):
-    return Subject.objects.filter(school_class_id=class_id).select_related('school_class')
+    return Subject.objects.filter(school_class_id=class_id).select_related('school_class', 'group')
 
 
 @router.get('/my-subjects', response=list[SubjectOut], operation_id='get_my_subjects')
@@ -53,12 +62,12 @@ def my_subjects(request: HttpRequest):
     student = get_own_student_profile(request)
     if student.school_class_id is None:
         return []
-    return Subject.objects.filter(school_class_id=student.school_class_id).select_related('school_class')
+    return Subject.objects.filter(school_class_id=student.school_class_id).select_related('school_class', 'group')
 
 
 @router.get('/subjects/{subject_id}', response=SubjectOut, operation_id='get_subject')
 def get_subject(request: HttpRequest, subject_id: int):
-    return get_object_or_404(Subject.objects.select_related('school_class'), id=subject_id)
+    return get_object_or_404(Subject.objects.select_related('school_class', 'group'), id=subject_id)
 
 
 @router.get('/subjects/{subject_id}/topics', response=list[TopicOut], operation_id='list_subject_topics')
@@ -118,6 +127,12 @@ def patch_subject(request: HttpRequest, subject_id: int, payload: SubjectPatchIn
         subject.due_date = payload.due_date
     if payload.block_count is not None:
         subject.block_count = payload.block_count
+    if payload.group_id is not None:
+        subject.group_id = payload.group_id
+    if payload.order_index is not None:
+        subject.order_index = payload.order_index
+    if payload.attestation_type is not None:
+        subject.attestation_type = payload.attestation_type
 
     subject.save()
     services.ensure_subject_blocks(subject)
@@ -196,9 +211,15 @@ def delete_class(request: HttpRequest, class_id: int, response: HttpResponse):
 def create_subject(request: HttpRequest, payload: SubjectIn):
     _ensure_staff(request)
     subject = Subject.objects.create(**payload.dict())
+    update_fields = []
     if not subject.color:
         subject.color = services.assign_subject_color(subject)
-        subject.save(update_fields=['color'])
+        update_fields.append('color')
+    if not subject.order_index:
+        subject.order_index = services.assign_subject_order_index(subject)
+        update_fields.append('order_index')
+    if update_fields:
+        subject.save(update_fields=update_fields)
     services.ensure_subject_blocks(subject)
     services.assign_topics_to_blocks(subject)
     return subject

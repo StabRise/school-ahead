@@ -40,7 +40,29 @@ class Class(models.Model):
         return f'{self.name} ({self.academic_year})'
 
 
+class SubjectGroup(models.Model):
+    """A curriculum track a subject can optionally belong to — e.g. a
+    home-schooled student may need separate attestation under a Ukrainian
+    school and a Polish school, each with its own subject set. Global
+    (not per-class or per-school): the same group can be used across every
+    class. See Subject.group."""
+    name = models.CharField(max_length=255)
+    order_index = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order_index', 'name']
+
+    def __str__(self):
+        return self.name
+
+
 class Subject(TimeStampedModel):
+    class AttestationType(models.TextChoices):
+        NONE = 'none', 'Немає атестації'
+        TEST = 'test', 'Тест'
+        EXAM = 'exam', 'Екзамен'
+        PROJECT = 'project', 'Проект'
+
     school_class = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='subjects')
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -48,6 +70,18 @@ class Subject(TimeStampedModel):
     block_count = models.PositiveSmallIntegerField(default=2)
     start_date = models.DateField()
     due_date = models.DateField()
+    # Optional curriculum track (see SubjectGroup) — null until a tutor/admin
+    # assigns one, e.g. via drag-and-drop on the tutor's Class detail page.
+    group = models.ForeignKey(SubjectGroup, on_delete=models.SET_NULL, null=True, blank=True, related_name='subjects')
+    # Order within school_class, relative to `group` — set on creation by
+    # academics.services.assign_subject_order_index (mirrors color
+    # assignment) and reorderable via drag-and-drop
+    # (tutoring.api.reorder_tutor_class_subjects).
+    order_index = models.PositiveSmallIntegerField(default=0)
+    # How this subject is formally assessed at the end of the year — purely
+    # informational, doesn't gate anything. Tutor-editable via
+    # tutoring.api.set_subject_attestation_type.
+    attestation_type = models.CharField(max_length=10, choices=AttestationType.choices, default=AttestationType.NONE)
     # Tutor-set flag: "this subject's curriculum is fully populated with
     # lessons" — purely informational (doesn't gate anything), toggled from
     # the tutor's Subject detail page.

@@ -8,6 +8,7 @@ import { useGetMySubjects } from "@school-ahead/api-client/browser/academics/aca
 import { getGetSubjectProgressQueryOptions } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { ProgressBar } from "@/components/progress-bar";
+import { AttestationTypeBadge } from "@/components/subjects/attestation-type-badge";
 import { SimpleEntityIcon } from "@/components/simple/entity-icon";
 import { SortableHeader, useSortState } from "@/components/simple/sortable-header";
 import type { SubjectOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
@@ -38,6 +39,11 @@ function SimpleSubjectRow({
           {colorful && activeBlock && (
             <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700">
               {activeBlock.label}
+            </span>
+          )}
+          {colorful && subject.attestation_type !== "none" && (
+            <span className="ml-2">
+              <AttestationTypeBadge attestationType={subject.attestation_type} />
             </span>
           )}
         </span>
