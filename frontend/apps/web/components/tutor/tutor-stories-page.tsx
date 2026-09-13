@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Download, Plus, Trash2, Upload } from "lucide-react";
+import { BookOpen, Download, ExternalLink, Plus, Trash2, Upload } from "lucide-react";
 import {
   getListTutorPreschoolStoriesQueryKey,
   useDeleteTutorPreschoolStory,
@@ -22,7 +22,7 @@ import { SimpleEntityIcon } from "@/components/simple/entity-icon";
 // Uses the tutor-only list endpoint (not the public one the game reads),
 // since drafts must be visible here for editing even before they're
 // published.
-const ROW_GRID = "grid grid-cols-[1.5rem_minmax(0,1fr)_4rem_2.5rem_2.5rem] items-center gap-3";
+const ROW_GRID = "grid grid-cols-[1.5rem_minmax(0,1fr)_4rem_2.5rem_2.5rem_2.5rem] items-center gap-3";
 
 function downloadUrl(storyId: number): string {
   return `${process.env.NEXT_PUBLIC_API_URL}/api/preschool/tutor/stories/${storyId}/export`;
@@ -53,6 +53,37 @@ function DownloadStoryButton({ story }: { story: StoryOut }) {
       className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
     >
       <Download className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
+// Same "plain <button>, not a nested <a>" reasoning as DownloadStoryButton
+// above — StoryRow already wraps the row in a Link. Opens in a new tab via
+// window.open rather than the i18n-aware Link component, since that can't
+// be nested here either; /games/stories/<slug> is a public, locale-prefix-
+// optional path (see middleware.ts's PUBLIC_PATHS handling of "/games"),
+// same route the story editor's own "View in game" link points at. The
+// public game route only serves published stories (backend's get_story),
+// so this is disabled for drafts rather than opening onto a 404.
+function ViewInGameButton({ story }: { story: StoryOut }) {
+  const t = useTranslations("TutorStories");
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.open(`/games/stories/${story.slug}`, "_blank", "noopener,noreferrer");
+  };
+
+  return (
+    <button
+      type="button"
+      title={story.is_published ? t("viewInGame") : t("viewInGameRequiresPublish")}
+      aria-label={t("viewInGame")}
+      onClick={handleClick}
+      disabled={!story.is_published}
+      className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:pointer-events-none disabled:opacity-40"
+    >
+      <ExternalLink className="h-3.5 w-3.5" />
     </button>
   );
 }
@@ -113,6 +144,7 @@ function StoryRow({ story }: { story: StoryOut }) {
             </span>
           )}
         </span>
+        <ViewInGameButton story={story} />
         <DownloadStoryButton story={story} />
         <DeleteStoryButton story={story} />
       </Link>
@@ -177,6 +209,15 @@ export function TutorStoriesPage() {
   return (
     <SimplePageContainer title={t("title")}>
       <div className="mb-3 flex items-center justify-end gap-2">
+        <Link
+          href="/games/stories"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex shrink-0 items-center gap-1 rounded-md border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          {t("openGameButton")}
+        </Link>
         <ImportStoryButton />
         <Link
           href="/tutor/stories/new"
