@@ -65,18 +65,42 @@ class TestPublicStories:
         assert response.data[0]['is_published'] is True
 
     def test_get_published_story_includes_content_and_assets(self, api_client, published_story):
-        response = api_client.get(f'/preschool/stories/{published_story.id}')
+        response = api_client.get(f'/preschool/stories/{published_story.slug}')
         assert response.status_code == 200
         assert response.data['content'] == 'Жив-був {дід} і {баба}.'
         assert response.data['assets'] == []
 
     def test_get_draft_story_is_404_publicly(self, api_client, draft_story):
-        response = api_client.get(f'/preschool/stories/{draft_story.id}')
+        response = api_client.get(f'/preschool/stories/{draft_story.slug}')
         assert response.status_code == 404
 
     def test_get_unknown_story_404(self, api_client):
-        response = api_client.get('/preschool/stories/999999')
+        response = api_client.get('/preschool/stories/unknown-slug')
         assert response.status_code == 404
+
+
+class TestStorySlug:
+    def test_slug_transliterates_cyrillic_title(self, tutor):
+        story = Story.objects.create(title='Колобок', created_by=tutor)
+        assert story.slug == 'kolobok'
+
+    def test_duplicate_titles_get_disambiguated_slugs(self, tutor):
+        first = Story.objects.create(title='Нова казка', created_by=tutor)
+        second = Story.objects.create(title='Нова казка', created_by=tutor)
+        assert first.slug == 'nova-kazka'
+        assert second.slug == 'nova-kazka-2'
+
+    def test_slug_stays_stable_after_title_edit(self, tutor):
+        story = Story.objects.create(title='Колобок', created_by=tutor)
+        story.title = 'Колобок (нова версія)'
+        story.save()
+        assert story.slug == 'kolobok'
+
+    def test_create_endpoint_returns_slug(self, api_client, auth_header, tutor):
+        response = api_client.post(
+            '/preschool/tutor/stories', data={'title': 'Ріпка'}, headers=auth_header(tutor.user),
+        )
+        assert response.data['slug'] == 'ripka'
 
 
 class TestTutorStoriesList:
@@ -138,7 +162,7 @@ class TestUpdateStory:
         draft_story.refresh_from_db()
         assert draft_story.is_published is True
         # Now visible on the public endpoints too.
-        public_response = api_client.get(f'/preschool/stories/{draft_story.id}')
+        public_response = api_client.get(f'/preschool/stories/{draft_story.slug}')
         assert public_response.status_code == 200
 
     def test_tutor_unpublishes_story(self, api_client, auth_header, tutor, published_story):
@@ -148,7 +172,7 @@ class TestUpdateStory:
             headers=auth_header(tutor.user),
         )
         assert response.status_code == 200
-        public_response = api_client.get(f'/preschool/stories/{published_story.id}')
+        public_response = api_client.get(f'/preschool/stories/{published_story.slug}')
         assert public_response.status_code == 404
 
     def test_forbidden_for_non_tutor(self, api_client, auth_header, student, draft_story):

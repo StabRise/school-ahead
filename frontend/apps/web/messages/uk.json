@@ -414,6 +414,8 @@
     "dragSubjectHandleLabel": "Перетягнути предмет",
     "ungroupedLabel": "Без групи",
     "emptyGroupHint": "Перетягніть сюди предмет",
+    "expandGroupButton": "Розгорнути групу",
+    "collapseGroupButton": "Згорнути групу",
     "subjectReorderError": "Не вдалося змінити порядок предметів. Спробуйте ще раз."
   },
   "TutorStudentOverview": {
@@ -1173,6 +1175,8 @@
     "saveError": "Не вдалося зберегти казку. Спробуйте ще раз.",
     "savingStatus": "Збереження...",
     "unsavedStatus": "Незбережені зміни (автозбереження кожні 20 с)",
+    "notCreatedYetStatus": "Ще не збережено — з'явиться автоматично за кілька секунд",
+    "assetsAvailableAfterSaveHint": "Малюнки, звуки й відео можна буде додати після першого збереження казки.",
     "savedAtStatus": "Збережено о {time}",
     "saveButton": "Зберегти",
     "publishButton": "Опублікувати",

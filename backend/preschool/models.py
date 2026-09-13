@@ -5,6 +5,8 @@ from accounts.models import TutorProfile
 from common.models import TimeStampedModel
 from common.storage import story_asset_upload_to, story_cover_upload_to
 
+from .slugs import slugify_title
+
 # Matches the frontend's IMAGE_FILENAME_RE/AUDIO_FILENAME_RE/VIDEO_FILENAME_RE
 # (lib/story-parser.ts) — the only extensions a "{...}" card group in
 # Story.content can resolve as an illustration, clip, or read-aloud button.
@@ -39,12 +41,38 @@ class Story(TimeStampedModel):
     content = models.TextField(blank=True)
     is_published = models.BooleanField(default=False)
     created_by = models.ForeignKey(TutorProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name='stories')
+    # Auto-generated from `title` once, at creation, and left untouched by
+    # later title edits (see save() below) — the public game route
+    # (frontend's /games/stories/<slug>) is keyed on this, and letting it
+    # keep shifting on every autosave would break that link. Transliterated
+    # via slugs.slugify_title, not django's slugify() directly, since that
+    # has no Cyrillic decomposition and would otherwise drop the whole title.
+    slug = models.SlugField(max_length=255, unique=True, blank=True)
 
     class Meta:
         ordering = ['-created_at']
 
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = unique_story_slug(self.title)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.title
+
+
+def unique_story_slug(title: str, exclude_pk: int | None = None) -> str:
+    """First `slugify_title(title)` not already taken by another Story
+    (excluding `exclude_pk`, e.g. the row being saved) — falls back to
+    "story" as the base when the title transliterates to nothing (e.g. an
+    all-punctuation title), then disambiguates with -2, -3, ... suffixes."""
+    base = slugify_title(title) or 'story'
+    candidate = base
+    suffix = 2
+    while Story.objects.filter(slug=candidate).exclude(pk=exclude_pk).exists():
+        candidate = f'{base}-{suffix}'
+        suffix += 1
+    return candidate
 
 
 class StoryAsset(TimeStampedModel):
