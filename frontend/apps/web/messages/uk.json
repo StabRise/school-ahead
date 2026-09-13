@@ -171,6 +171,8 @@
     "mathSubtitle": "Розв'язуй приклади, встигай збудувати місток",
     "jumpingFrogsTitle": "Жабки-Стрибунці",
     "jumpingFrogsSubtitle": "Стрибай по кувшинках, читай слова",
+    "cocktailTitle": "Чарівний коктейль",
+    "cocktailSubtitle": "Приготуй коктейль за рецептом",
     "switchGame": "Обрати іншу гру"
   },
   "ReadingGame": {
@@ -250,6 +252,20 @@
     "levelsClearedLabel": "Рівнів пройдено: {count}",
     "celebrationTitle": "Ура! Жабка перестрибнула річку!",
     "noWordsMessage": "Для цієї букви поки що немає слів"
+  },
+  "CocktailGame": {
+    "equationLabel": "Rozwiąż przykład.",
+    "nextButton": "Dalej",
+    "recipeLabel": "PRZEPIS",
+    "ingredientsLabel": "SKŁADNIKI",
+    "hintModeLabel": "Tryb z podpowiedzią",
+    "freeModeLabel": "Tryb swobodny",
+    "narrationOnLabel": "Wyłącz narrację",
+    "narrationOffLabel": "Włącz narrację",
+    "shakeButton": "Wstrząśnij shakerem",
+    "wrongRecipeMessage": "O nie! To nie jest właściwy przepis. Spróbuj ponownie.",
+    "celebrationTitle": "Nasz koktajl jest gotowy! Magiczny koktajl!",
+    "playAgainButton": "Jeszcze raz"
   },
   "FlashcardsGame": {
     "groupsTitle": "Картки для навчання",
@@ -394,7 +410,11 @@
     "lessonsCount": "{count, plural, one {# урок} few {# уроки} many {# уроків} other {# уроку}}",
     "workloadLabel": "Навантаження: {value} уроків/тиж",
     "recalculateWorkloadButton": "Перерахувати навантаження",
-    "recalculateWorkloadError": "Не вдалося перерахувати навантаження. Спробуйте ще раз."
+    "recalculateWorkloadError": "Не вдалося перерахувати навантаження. Спробуйте ще раз.",
+    "dragSubjectHandleLabel": "Перетягнути предмет",
+    "ungroupedLabel": "Без групи",
+    "emptyGroupHint": "Перетягніть сюди предмет",
+    "subjectReorderError": "Не вдалося змінити порядок предметів. Спробуйте ще раз."
   },
   "TutorStudentOverview": {
     "loading": "Завантаження...",
@@ -497,6 +517,12 @@
     "viewSubjectButton": "Перейти до предмета",
     "isFilledLabel": "Предмет повністю наповнений уроками",
     "isFilledError": "Не вдалося зберегти. Спробуйте ще раз.",
+    "attestationTypeLabel": "Атестація",
+    "attestationTypeError": "Не вдалося зберегти. Спробуйте ще раз.",
+    "attestationNone": "Немає атестації",
+    "attestationTest": "Тест",
+    "attestationExam": "Екзамен",
+    "attestationProject": "Проект",
     "lessonsTab": "Уроки",
     "planTab": "План",
     "materialsTab": "Матеріали",
@@ -791,13 +817,25 @@
     "empty": "Предметів ще немає.",
     "blocksCount": "{count, plural, one {# семестр} few {# семестри} many {# семестрів} other {# семестра}}",
     "progressLabel": "Прогрес",
-    "columnSubject": "Предмет"
+    "columnSubject": "Предмет",
+    "columnGroup": "Група",
+    "columnAttestation": "Атестація",
+    "noGroupValue": "—",
+    "groupedViewLabel": "Групувати предмети",
+    "ungroupedViewLabel": "Показати всі предмети списком",
+    "ungroupedTabLabel": "Без групи",
+    "emptyGroupTab": "У цій групі ще немає предметів."
   },
   "MyAchievements": {
     "title": "Мої досягнення",
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити досягнення. Спробуйте ще раз.",
     "empty": "Предметів ще немає."
+  },
+  "AvatarPlacementEditor": {
+    "rotateItem": "Повернути",
+    "resizeItem": "Змінити розмір",
+    "resetPosition": "Скинути положення"
   },
   "Profile": {
     "title": "Мій профіль",
@@ -810,6 +848,7 @@
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити персонажів. Спробуйте ще раз.",
     "wardrobeNone": "Немає",
+    "shopTitle": "Магазин",
     "wardrobeSlot": {
       "clothing": "Одяг",
       "headwear": "Головний убір",
@@ -818,10 +857,6 @@
     "wardrobeStackOrderLabel": "Порядок шарів",
     "wardrobeMoveUp": "Перемістити вище",
     "wardrobeMoveDown": "Перемістити нижче",
-    "wardrobeDragHint": "Перетягни, щоб перемістити, крутилку зверху — щоб повернути, а куточок знизу — щоб змінити розмір",
-    "wardrobeRotateItem": "Повернути",
-    "wardrobeResizeItem": "Змінити розмір",
-    "wardrobeResetPosition": "Скинути положення",
     "notEnoughDiamondsTitle": "Недостатньо діамантів",
     "notEnoughDiamondsTitleShort": "Ще замало!",
     "notEnoughDiamondsBody": "{item} коштує 💎{price}, а в тебе {balance}. Виконуй уроки, щоб заробити більше діамантів!",
@@ -909,6 +944,7 @@
     "error": "Не вдалося завантажити предмет. Спробуйте ще раз.",
     "breadcrumbMySubjects": "Мої предмети",
     "teacherLabel": "Вчитель",
+    "attestationTypeLabel": "Атестація",
     "courseProgressLabel": "Прогрес курсу",
     "aboutSubject": "Про предмет",
     "recommendedResources": "Рекомендовані матеріали",
@@ -921,6 +957,9 @@
     "contentQuiz": "Квіз",
     "contentTask": "Завдання",
     "isFilledBadge": "Наповнено",
+    "attestationTest": "Тест",
+    "attestationExam": "Екзамен",
+    "attestationProject": "Проект",
     "lessonsTab": "Уроки",
     "planTab": "План",
     "materialsTab": "Матеріали",
@@ -1058,12 +1097,11 @@
     "error": "Не вдалося завантажити аватари. Спробуйте ще раз.",
     "bodySectionTitle": "Тіло персонажа",
     "scale": "Масштаб",
-    "offsetX": "Зміщення по X",
-    "offsetY": "Зміщення по Y",
     "save": "Зберегти",
-    "dragHint": "Перетягніть елемент мишкою, щоб змінити положення",
     "layerOrder": "Порядок шару",
-    "price": "Ціна (💎)"
+    "price": "Ціна (💎)",
+    "editArtwork": "Редагувати малюнок",
+    "backToAvatars": "← До редактора аватарів"
   },
   "TutorFurnitureEditor": {
     "title": "Редактор фурнітури",
@@ -1146,7 +1184,9 @@
     "noAssets": "Ще немає завантажених файлів.",
     "dragIntoText": "Перетягніть у текст казки",
     "usedInText": "використано в тексті",
-    "notUsedInText": "ще не використано"
+    "notUsedInText": "ще не використано",
+    "viewInGame": "Переглянути в грі",
+    "viewInGameRequiresPublish": "Спочатку опублікуйте казку, щоб переглянути її в грі"
   },
   "TaskDetail": {
     "loading": "Завантаження...",

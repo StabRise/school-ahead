@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@school-ahead/api-client": "workspace:*",
+    "@school-ahead/avatar": "workspace:*",
     "@school-ahead/preschool-ui": "workspace:*",
     "@tanstack/react-query": "^5.101.4",
     "next-intl": "^4.13.7",

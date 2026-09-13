@@ -11,6 +11,7 @@
 @source "../../../packages/preschool-ui/src";
 @source "../../../packages/house-3d/src";
 @source "../../../packages/flashcards/src";
+@source "../../../packages/avatar/src";
 
 :root {
   --background: #ffffff;

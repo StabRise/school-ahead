@@ -18,31 +18,21 @@ import {
 } from "./decorations";
 import { pseudoRandom } from "./random";
 import { Raccoon } from "./raccoon";
-import { EquippedAvatarLayers, useEquippedAvatarLayers } from "./equipped-avatar";
+import { AvatarBadge, useEquippedAvatarLayers } from "@school-ahead/avatar";
 
 // The student's chosen companion, fully dressed (body + equipped clothing/
 // headwear/accessory — see docs/core/avatar.md section 2 and
-// components/equipped-avatar.tsx), if they've picked one — falls back to
+// @school-ahead/avatar's AvatarBadge), if they've picked one — falls back to
 // the raccoon mascot otherwise. Stands next to the current node, the next
 // lesson the child needs to do. `className` is positioning/sizing only —
-// the circular frame only makes sense around a photo, not around the
-// raccoon's own shape. Companion artwork (e.g. the raccoon avatar) is
-// portrait, not square — padding the frame and using object-contain shows
-// it in full instead of object-cover cropping its top/bottom to fill a
-// square frame. Reads the equipped layers itself (rather than taking them
-// as a prop) so the two callers below don't have to thread them through.
+// the rounded-rectangle "card" frame (same as apps/web's header Avatar and
+// the tutor's student-overview card) only makes sense around a photo, not
+// around the raccoon's own shape. Reads the equipped layers itself (rather
+// than taking them as a prop) so the two callers below don't have to thread
+// them through.
 function CompanionAvatar({ className }: { className: string }) {
   const layers = useEquippedAvatarLayers();
-  if (layers.length > 0) {
-    return (
-      <span
-        className={`flex items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-white/70 p-1.5 shadow-md ${className}`}
-      >
-        <EquippedAvatarLayers layers={layers} />
-      </span>
-    );
-  }
-  return <Raccoon mood="idle" className={className} />;
+  return <AvatarBadge layers={layers} className={className} fallback={<Raccoon mood="idle" className={className} />} />;
 }
 
 // "Fairy-tale adventure path" design concept — see docs/interfaces/

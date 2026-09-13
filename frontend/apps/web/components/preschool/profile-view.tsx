@@ -3,9 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Cloud, Sun } from "@school-ahead/preschool-ui";
-import { AvatarPreview } from "@/components/profile/avatar-preview";
-import { AvatarWardrobe } from "@/components/profile/avatar-wardrobe";
-import { ChangeCharacterDialog } from "@/components/profile/change-character-dialog";
+import { AvatarPreview, ChangeCharacterDialog, PreschoolAvatarShop, PreschoolMyItems } from "@school-ahead/avatar";
 
 // Preschool-mode variant of /profile — same convention as
 // components/preschool/lesson-view.tsx (PreschoolLessonView) and
@@ -17,10 +15,14 @@ import { ChangeCharacterDialog } from "@/components/profile/change-character-dia
 // right) rather than a new one — AvatarPicker moved out of the flow
 // entirely into a popup (ChangeCharacterDialog) opened by the button under
 // the character, so this column stays just the character + one button.
-// AvatarPreview/AvatarWardrobe are reused as-is — they read interfaceMode
-// themselves and already render their bigger, colorful variant when it's
-// "preschool" (see docs/core/avatar.md section 2 for the underlying
-// avatar/wardrobe model these implement).
+// AvatarPreview is reused as-is — it reads interfaceMode itself and already
+// renders its bigger, colorful variant when it's "preschool" (see
+// docs/core/avatar.md section 2 for the underlying avatar/wardrobe model).
+// PreschoolMyItems/PreschoolAvatarShop replace AvatarWardrobe here (the
+// adult profile page still uses that) — a closet of owned items beside the
+// avatar and a separate shop below it, per this feature's own request,
+// instead of AvatarWardrobe's single accordion mixing owned and
+// purchasable items together per slot.
 export function PreschoolProfileView() {
   const t = useTranslations("Profile");
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -51,9 +53,11 @@ export function PreschoolProfileView() {
           </div>
 
           <div className="flex flex-1 flex-col">
-            <AvatarWardrobe />
+            <PreschoolMyItems />
           </div>
         </div>
+
+        <PreschoolAvatarShop />
       </div>
 
       <ChangeCharacterDialog open={pickerOpen} onOpenChange={setPickerOpen} />

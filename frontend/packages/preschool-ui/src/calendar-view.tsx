@@ -12,7 +12,7 @@ import { Cloud } from "./decorations";
 import { Raccoon } from "./raccoon";
 import { LessonBubble } from "./lesson-bubble";
 import { PreschoolBacklogSection } from "./backlog-section";
-import { EquippedAvatarLayers, useEquippedAvatarLayers } from "./equipped-avatar";
+import { AvatarBadge, useEquippedAvatarLayers } from "@school-ahead/avatar";
 
 // Cloud/Sun from decorations.tsx are hard-coded `position: absolute` (meant
 // for background decoration) — these are plain in-flow versions for use
@@ -134,23 +134,13 @@ function DayCard({ date, isToday, items }: { date: Date; isToday: boolean; items
 }
 
 // The student's chosen companion, fully dressed (body + equipped clothing/
-// headwear/accessory — see components/equipped-avatar.tsx), if they've
-// picked one — falls back to the raccoon mascot otherwise. Companion
-// artwork (e.g. the raccoon avatar) is portrait, not square —
-// object-contain inside a padded circle (same proportions as
-// components/header.tsx's Avatar) shows it in full instead of object-cover
-// cropping its top/bottom to fill a square box.
+// headwear/accessory — see @school-ahead/avatar's AvatarBadge), if they've
+// picked one — falls back to the raccoon mascot otherwise. Same
+// rounded-rectangle "card" framing as apps/web's header Avatar and the
+// tutor's student-overview card, so the companion reads the same everywhere
+// it's shown.
 function HeaderAvatar({ layers }: { layers: ReturnType<typeof useEquippedAvatarLayers> }) {
-  if (layers.length > 0) {
-    return (
-      <span className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-white/70">
-        <span className="h-12 w-12">
-          <EquippedAvatarLayers layers={layers} />
-        </span>
-      </span>
-    );
-  }
-  return <Raccoon mood="idle" className="h-16 w-16" />;
+  return <AvatarBadge layers={layers} className="h-16 w-16" fallback={<Raccoon mood="idle" className="h-16 w-16" />} />;
 }
 
 function NavButton({ onClick, label, children }: { onClick: () => void; label: string; children: React.ReactNode }) {

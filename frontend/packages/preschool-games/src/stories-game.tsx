@@ -640,14 +640,20 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
 
   // Only a logged-in student earns stars/Diamonds here — the public /games
   // route renders this same StoryPage with no session, so `user` stays null
-  // there and this whole feature no-ops (see handleCardOpen below).
-  const user = useAuthStore((s) => s.user);
+  // there and this whole feature no-ops (see handleCardOpen below). A tutor
+  // previewing their own story (usePreschoolGamesGuard lets that role
+  // through too) has a session but no student_profile — the reward endpoint
+  // 403s for them server-side (see backend's get_own_student_profile), so
+  // this is gated on the role itself rather than just "is someone logged
+  // in", to avoid a spurious network error and a misleading star/diamond
+  // animation during a preview.
+  const isStudent = useAuthStore((s) => s.user?.role === "student");
   const rewardStoriesGame = useRewardStoriesGame();
 
   // Every DIAMOND_MILESTONE_STARS stars awards 1 Diamond for a signed-in
   // student — see useDiamondMilestoneReward. `stars` itself only ever
   // increments for a signed-in student (handleCardOpen below), so this is
-  // already a no-op for an anonymous visitor.
+  // already a no-op for anyone else.
   useDiamondMilestoneReward({
     mode: "count",
     count: stars,
@@ -660,7 +666,7 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
     // A plain illustration, video, or YouTube embed isn't a "word" (see
     // DIAMOND_MILESTONE_STARS above) — only a syllable/letter breakdown
     // earns a star.
-    if (user && !isIllustration(segments) && !isVideo(segments) && !isYouTube(segments)) {
+    if (isStudent && !isIllustration(segments) && !isVideo(segments) && !isYouTube(segments)) {
       setStars((current) => current + 1);
       setStarBump((current) => current + 1);
     }
@@ -715,7 +721,7 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
         />
       )}
 
-      {user && (
+      {isStudent && (
         <div
           ref={starBadgeRef}
           key={starBump}

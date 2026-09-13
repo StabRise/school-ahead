@@ -1017,7 +1017,8 @@ def import_subject_markdown(school_class, plan: SubjectMarkdownPlan) -> SubjectM
                 due_date=datetime.date(year + 1, 5, 1),
             )
             subject.color = academics_services.assign_subject_color(subject)
-            subject.save(update_fields=['color'])
+            subject.order_index = academics_services.assign_subject_order_index(subject)
+            subject.save(update_fields=['color', 'order_index'])
 
         subject.description = plan.description
         subject.block_count = plan.block_count

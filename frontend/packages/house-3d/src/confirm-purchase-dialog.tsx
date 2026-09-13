@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 
 // Shown before spending Diamonds on a furniture item — see
 // furniture-shop.tsx's purchase flow. Duplicated (not shared) from
-// apps/web/components/profile/confirm-purchase-dialog.tsx: small, and
+// @school-ahead/avatar's confirm-purchase-dialog.tsx: small, and
 // tightly coupled to its own copy/keys, not worth promoting for two
 // call sites.
 export function ConfirmPurchaseDialog({

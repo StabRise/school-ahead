@@ -2,7 +2,7 @@ import datetime
 
 import pytest
 
-from academics.models import Class, School, Subject, SubjectBlock, Topic
+from academics.models import Class, School, Subject, SubjectBlock, SubjectGroup, Topic
 from accounts.models import Role, StudentProfile, User
 
 pytestmark = pytest.mark.django_db
@@ -31,6 +31,25 @@ def admin_user():
 @pytest.fixture
 def student_user():
     return User.objects.create_user(email='student@example.com', role=Role.STUDENT)
+
+
+def test_list_subject_groups_orders_by_order_index(api_client, auth_header, student_user):
+    # The seed migration (0017) already creates the two real groups, so
+    # start from a clean slate to keep this test independent of that data.
+    SubjectGroup.objects.all().delete()
+    SubjectGroup.objects.create(name='Польська школа', order_index=2)
+    SubjectGroup.objects.create(name='Українська школа', order_index=1)
+
+    response = api_client.get('/academics/subject-groups', headers=auth_header(student_user))
+
+    assert response.status_code == 200
+    assert [g['name'] for g in response.data] == ['Українська школа', 'Польська школа']
+
+
+def test_subject_defaults_group_to_none_and_has_order_index(subject):
+    assert subject.group_id is None
+    assert subject.order_index == 0
+    assert subject.attestation_type == 'none'
 
 
 def test_subject_defaults_dates_and_creates_blocks(subject):

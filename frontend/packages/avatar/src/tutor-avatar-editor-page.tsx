@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import type { AvatarOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
@@ -10,47 +10,47 @@ import {
   useUpdateTutorAvatarItemTransform,
   useUpdateTutorAvatarTransform,
 } from "@school-ahead/api-client/browser/tutor/tutor";
-import { PageContainer } from "@/components/page-container";
-import { AvatarEditorSlider } from "@/components/tutor/avatar-editor-slider";
+import { AvatarPlacementEditor, type AvatarTransform } from "./avatar-placement-editor";
+import { AvatarBadge, type AvatarLayer } from "./equipped-avatar";
+import { AvatarEditorSlider } from "./avatar-editor-slider";
 
 const SLOTS = ["clothing", "headwear", "accessory"] as const;
 
 const SCALE_RANGE = { min: 0.3, max: 2.5, step: 0.01 };
-const OFFSET_RANGE = { min: -50, max: 50, step: 0.5 };
 const LAYER_ORDER_RANGE = { min: 0, max: 6, step: 1 };
 const PRICE_RANGE = { min: 0, max: 500, step: 5 };
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
+// Only layerOrder/price remain here — scale/offsetX/offsetY are edited by
+// dragging/resizing directly on the canvas (see AvatarPlacementEditor
+// below), auto-saving on release, the same as the student's own avatar
+// editor. layerOrder and price aren't spatial and have no drag-handle
+// equivalent, so they keep their sliders + an explicit Save button.
 interface ItemDraft {
-  scale: number;
-  offsetX: number;
-  offsetY: number;
   layerOrder: number;
   price: number;
 }
 
-interface DragState {
-  pointerId: number;
-  startClientX: number;
-  startClientY: number;
-  startOffsetX: number;
-  startOffsetY: number;
-}
-
+// AvatarBadge's shared "card" frame, not a hand-rolled rounded-full circle —
+// a circular mask clips a square/contain-fitted image's corners (ears,
+// edges), same bug AvatarPicker had (see its own comment on this).
 function AvatarThumb({ avatar }: { avatar: AvatarOut }) {
   return (
-    <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100">
-      {avatar.image ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={avatar.image} alt="" className="h-full w-full object-contain" />
-      ) : null}
-    </span>
+    <AvatarBadge
+      layers={avatar.image ? [{ itemId: null, image: avatar.image, scale: 1, offsetX: 0, offsetY: 0, rotation: 0 }] : []}
+      className="h-12 w-12 shrink-0"
+    />
   );
 }
 
+// Same interactive placement editor the student's own profile page uses
+// (this package's own AvatarPlacementEditor) — click/drag/resize
+// here edits an item's *default* placement (what a student gets before they
+// customize it themselves), not any particular student's personal override.
+// No rotate handle: UpdateAvatarItemTransformIn has no rotation field —
+// templates have no rotation concept, only a student's own placement
+// override does (see avatar-preview.tsx). No click-to-select either: only
+// one item is ever mounted here at a time (the one picked from the slot
+// list below), so there's nothing to hit-test against.
 export function TutorAvatarEditorPage() {
   const t = useTranslations("TutorAvatarEditor");
   const tSlot = useTranslations("Profile");
@@ -62,9 +62,7 @@ export function TutorAvatarEditorPage() {
   const [selectedAvatarId, setSelectedAvatarId] = useState<number | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [avatarScale, setAvatarScale] = useState(1);
-  const [itemDraft, setItemDraft] = useState<ItemDraft>({ scale: 1, offsetX: 0, offsetY: 0, layerOrder: 0, price: 0 });
-  const previewRef = useRef<HTMLDivElement>(null);
-  const dragStateRef = useRef<DragState | null>(null);
+  const [itemDraft, setItemDraft] = useState<ItemDraft>({ layerOrder: 0, price: 0 });
 
   const resolvedAvatarId = selectedAvatarId ?? avatars?.[0]?.id ?? null;
   const avatar = avatars?.find((a) => a.id === resolvedAvatarId) ?? null;
@@ -84,13 +82,7 @@ export function TutorAvatarEditorPage() {
   const [lastItemId, setLastItemId] = useState<number | null>(null);
   if ((item?.id ?? null) !== lastItemId) {
     setLastItemId(item?.id ?? null);
-    setItemDraft({
-      scale: item?.scale ?? 1,
-      offsetX: item?.offset_x ?? 0,
-      offsetY: item?.offset_y ?? 0,
-      layerOrder: item?.layer_order ?? 0,
-      price: item?.price ?? 0,
-    });
+    setItemDraft({ layerOrder: item?.layer_order ?? 0, price: item?.price ?? 0 });
   }
 
   const handleSelectAvatar = (id: number) => {
@@ -106,15 +98,14 @@ export function TutorAvatarEditorPage() {
     );
   };
 
-  const handleSaveItem = () => {
-    if (!item) return;
+  const handleCommitTransform = (itemId: number, next: AvatarTransform) => {
     updateItem.mutate(
       {
-        itemId: item.id,
+        itemId,
         data: {
-          scale: itemDraft.scale,
-          offset_x: itemDraft.offsetX,
-          offset_y: itemDraft.offsetY,
+          scale: next.scale,
+          offset_x: next.offsetX,
+          offset_y: next.offsetY,
           layer_order: itemDraft.layerOrder,
           price: itemDraft.price,
         },
@@ -123,44 +114,46 @@ export function TutorAvatarEditorPage() {
     );
   };
 
-  // Dragging moves the selected item by translating pointer-movement pixels
-  // into percentages of the preview box — offsetX/offsetY are stored as
-  // percentages of the avatar canvas (see AvatarPreview), and since the
-  // item's own layer is sized to exactly fill that box, "percent of the
-  // element" and "percent of the box" are the same number.
-  const handleItemPointerDown = (e: React.PointerEvent<HTMLImageElement>) => {
-    e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragStateRef.current = {
-      pointerId: e.pointerId,
-      startClientX: e.clientX,
-      startClientY: e.clientY,
-      startOffsetX: itemDraft.offsetX,
-      startOffsetY: itemDraft.offsetY,
-    };
+  const handleSaveItemMeta = () => {
+    if (!item) return;
+    updateItem.mutate(
+      {
+        itemId: item.id,
+        data: {
+          scale: item.scale ?? 1,
+          offset_x: item.offset_x ?? 0,
+          offset_y: item.offset_y ?? 0,
+          layer_order: itemDraft.layerOrder,
+          price: itemDraft.price,
+        },
+      },
+      { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListTutorAvatarsQueryKey() }) },
+    );
   };
 
-  const handleItemPointerMove = (e: React.PointerEvent<HTMLImageElement>) => {
-    const drag = dragStateRef.current;
-    const rect = previewRef.current?.getBoundingClientRect();
-    if (!drag || drag.pointerId !== e.pointerId || !rect) return;
-    const deltaXPercent = ((e.clientX - drag.startClientX) / rect.width) * 100;
-    const deltaYPercent = ((e.clientY - drag.startClientY) / rect.height) * 100;
-    setItemDraft((d) => ({
-      ...d,
-      offsetX: clamp(drag.startOffsetX + deltaXPercent, OFFSET_RANGE.min, OFFSET_RANGE.max),
-      offsetY: clamp(drag.startOffsetY + deltaYPercent, OFFSET_RANGE.min, OFFSET_RANGE.max),
-    }));
-  };
-
-  const handleItemPointerUp = (e: React.PointerEvent<HTMLImageElement>) => {
-    if (dragStateRef.current?.pointerId === e.pointerId) {
-      dragStateRef.current = null;
-    }
-  };
+  const previewLayers: AvatarLayer[] = [
+    ...(avatar?.image ? [{ itemId: null, image: avatar.image, scale: avatarScale, offsetX: 0, offsetY: 0, rotation: 0 }] : []),
+    ...(item?.image
+      ? [
+          {
+            itemId: item.id,
+            image: item.image,
+            scale: item.scale ?? 1,
+            offsetX: item.offset_x ?? 0,
+            offsetY: item.offset_y ?? 0,
+            rotation: item.rotation ?? 0,
+          },
+        ]
+      : []),
+  ];
 
   return (
-    <PageContainer title={t("title")}>
+    // Same shell markup as apps/web's shared PageContainer (title +
+    // full-width-until-xl, capped-and-centered-after shell) — duplicated
+    // inline rather than imported, since that component lives in apps/web
+    // and this page now lives in a portable package.
+    <div className="w-full px-4 py-6 sm:px-6 lg:px-8 xl:mx-auto xl:max-w-8xl">
+      <h2 className="mb-4 text-xl font-semibold">{t("title")}</h2>
       {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
       {isError && <p className="text-sm text-red-600">{t("error")}</p>}
 
@@ -188,35 +181,15 @@ export function TutorAvatarEditorPage() {
           {avatar && (
             <div className="flex flex-1 flex-col gap-6 sm:flex-row sm:items-start">
               <div className="flex shrink-0 flex-col gap-2">
-                <div className="aspect-square w-64 shrink-0 rounded-xl bg-gray-100 p-8">
-                  <div ref={previewRef} className="relative h-full w-full overflow-hidden">
-                    {avatar.image && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={avatar.image}
-                        alt=""
-                        className="absolute inset-0 h-full w-full object-contain"
-                        style={{ transform: `scale(${avatarScale})` }}
-                      />
-                    )}
-                    {/* Only the item being edited is shown, so the tutor sees exactly
-                        what they're positioning instead of the whole stacked outfit. */}
-                    {item?.image && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={item.image}
-                        alt=""
-                        draggable={false}
-                        onPointerDown={handleItemPointerDown}
-                        onPointerMove={handleItemPointerMove}
-                        onPointerUp={handleItemPointerUp}
-                        className="absolute inset-0 h-full w-full cursor-grab touch-none object-contain active:cursor-grabbing"
-                        style={{ transform: `translate(${itemDraft.offsetX}%, ${itemDraft.offsetY}%) scale(${itemDraft.scale})` }}
-                      />
-                    )}
-                  </div>
-                </div>
-                {item && <p className="text-xs text-gray-500">{t("dragHint")}</p>}
+                <AvatarPlacementEditor
+                  layers={previewLayers}
+                  activeItemId={item?.id ?? null}
+                  enableClickSelect={false}
+                  enableRotate={false}
+                  isPending={updateItem.isPending}
+                  onCommit={handleCommitTransform}
+                  frameClassName="aspect-square w-64 shrink-0 overflow-hidden rounded-xl bg-gray-100 p-8"
+                />
               </div>
 
               <div className="flex flex-1 flex-col gap-6">
@@ -273,25 +246,21 @@ export function TutorAvatarEditorPage() {
 
                 {item && (
                   <div className="flex flex-col gap-3 rounded-lg border border-gray-200 p-4">
-                    <h3 className="text-sm font-semibold text-gray-900">{item.name}</h3>
-                    <AvatarEditorSlider
-                      label={t("scale")}
-                      value={itemDraft.scale}
-                      {...SCALE_RANGE}
-                      onChange={(scale) => setItemDraft((d) => ({ ...d, scale }))}
-                    />
-                    <AvatarEditorSlider
-                      label={t("offsetX")}
-                      value={itemDraft.offsetX}
-                      {...OFFSET_RANGE}
-                      onChange={(offsetX) => setItemDraft((d) => ({ ...d, offsetX }))}
-                    />
-                    <AvatarEditorSlider
-                      label={t("offsetY")}
-                      value={itemDraft.offsetY}
-                      {...OFFSET_RANGE}
-                      onChange={(offsetY) => setItemDraft((d) => ({ ...d, offsetY }))}
-                    />
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm font-semibold text-gray-900">{item.name}</h3>
+                      {/* Plain <a>, not a Next.js Link — this package has no
+                          dependency on apps/web's locale-aware routing
+                          helper. A path missing its locale prefix still
+                          resolves correctly (next-intl's middleware
+                          redirects to the localized route), just via one
+                          extra round-trip. */}
+                      <a
+                        href={`/tutor/avatars/items/${item.id}/edit`}
+                        className="shrink-0 text-xs font-medium text-blue-700 hover:underline"
+                      >
+                        {t("editArtwork")}
+                      </a>
+                    </div>
                     <AvatarEditorSlider
                       label={t("layerOrder")}
                       value={itemDraft.layerOrder}
@@ -308,7 +277,7 @@ export function TutorAvatarEditorPage() {
                     />
                     <button
                       type="button"
-                      onClick={handleSaveItem}
+                      onClick={handleSaveItemMeta}
                       disabled={updateItem.isPending}
                       className="self-start rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
                     >
@@ -321,6 +290,6 @@ export function TutorAvatarEditorPage() {
           )}
         </div>
       )}
-    </PageContainer>
+    </div>
   );
 }

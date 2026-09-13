@@ -1,13 +1,13 @@
 // Picking which equipped wardrobe item a click landed on, on the avatar
-// canvas — see components/profile/avatar-preview.tsx's interactive editor
+// canvas — see avatar-placement-editor.tsx's interactive editor
 // (docs/core/avatar.md section 2.2: "click clothing to select it, like in a
 // graphic editor"). Every layer is a full-canvas transparent PNG stacked on
-// top of each other (see @school-ahead/preschool-ui's EquippedAvatarLayers),
-// so a naive topmost-DOM-element hit test would always pick whichever item
-// draws last regardless of where its actual (opaque) pixels are — this
-// instead walks layers top-down and, for each, undoes its CSS transform to
-// find the point in the item's own unrotated/unscaled box, then (once pixel
-// data has loaded — see the sampleAlpha callback) skips it if that pixel is
+// top of each other (see equipped-avatar.tsx's EquippedAvatarLayers), so a
+// naive topmost-DOM-element hit test would always pick whichever item draws
+// last regardless of where its actual (opaque) pixels are — this instead
+// walks layers top-down and, for each, undoes its CSS transform to find the
+// point in the item's own unrotated/unscaled box, then (once pixel data has
+// loaded — see the sampleAlpha callback) skips it if that pixel is
 // transparent, falling through to whatever's underneath. Exactly the
 // click-through-transparency behavior a graphic editor gives you.
 
@@ -35,8 +35,8 @@ export const ALPHA_HIT_THRESHOLD = 24;
 // object-contain sizing of a naturalWidth x naturalHeight source image within
 // a boxSize x boxSize (percent) square box, matching the CSS `object-contain`
 // every equipped-item <img> uses. Shared by the hit test below and by
-// avatar-preview.tsx's selection-box sizing, so both agree on where a given
-// layer's image actually draws.
+// avatar-placement-editor.tsx's selection-box sizing, so both agree on where
+// a given layer's image actually draws.
 export function getObjectContainBox(naturalWidth: number, naturalHeight: number, boxSize = 100): { width: number; height: number } {
   const imgAspect = naturalWidth / naturalHeight;
   return imgAspect >= 1

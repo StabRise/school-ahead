@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@school-ahead/api-client": "workspace:*",
+    "@school-ahead/avatar": "workspace:*",
     "next-intl": "^4.13.7",
     "zustand": "^5.0.15"
   },

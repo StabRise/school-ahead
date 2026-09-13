@@ -4,7 +4,6 @@ export * from "./celebration-scene";
 export * from "./decorations";
 export * from "./diamond-reward-overlay";
 export * from "./diamond-reward-store";
-export * from "./equipped-avatar";
 export * from "./flying-diamond";
 export * from "./game-map";
 export * from "./lesson-bubble";

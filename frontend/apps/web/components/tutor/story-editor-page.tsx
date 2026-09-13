@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { ExternalLink } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetTutorPreschoolStoryQueryKey,
@@ -11,7 +12,7 @@ import {
   useUpdateTutorPreschoolStory,
 } from "@school-ahead/api-client/browser/preschool/preschool";
 import type { StoryDetailOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
-import { useRouter } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { FileDropzone } from "@/components/file-dropzone";
@@ -219,6 +220,26 @@ function StoryForm({ story, onDeleted }: { story: StoryDetailOut; onDeleted: () 
           >
             {t("remove")}
           </button>
+          {/* The public game route only serves published stories (see
+              backend/preschool/api.py's get_preschool_story) — an
+              unpublished one 404s there, so the link is disabled rather than
+              opening onto an empty/broken preview. story-${id} is the
+              synthetic slug apps/web/app/api/story/route.ts recognizes as a
+              DB-backed story (vs. a hand-authored public/static/stories
+              folder name). */}
+          <Link
+            href={`/games/stories/story-${story.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-disabled={!story.is_published}
+            title={story.is_published ? undefined : t("viewInGameRequiresPublish")}
+            className={`flex items-center gap-1.5 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 ${
+              story.is_published ? "" : "pointer-events-none opacity-50"
+            }`}
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            {t("viewInGame")}
+          </Link>
         </div>
       </form>
 

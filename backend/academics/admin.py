@@ -1,7 +1,16 @@
 from django.contrib import admin
 
 from . import services
-from .models import Class, Plan, School, Subject, SubjectBlock, SubjectMaterial, Topic
+from .models import Class, Plan, School, Subject, SubjectBlock, SubjectGroup, SubjectMaterial, Topic
+
+
+@admin.register(SubjectGroup)
+class SubjectGroupAdmin(admin.ModelAdmin):
+    """Admin configuration for the global subject-group list (e.g.
+    "Українська школа" / "Польська школа") — see Subject.group."""
+    list_display = ("name", "order_index")
+    search_fields = ("name",)
+    ordering = ("order_index",)
 
 
 @admin.register(School)
@@ -60,6 +69,9 @@ class SubjectAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "school_class",
+        "group",
+        "order_index",
+        "attestation_type",
         "created_at",
         "is_filled",
         "block_count",
@@ -71,6 +83,8 @@ class SubjectAdmin(admin.ModelAdmin):
     list_filter = (
         ("school_class__school", admin.RelatedOnlyFieldListFilter),
         "school_class",
+        ("group", admin.RelatedOnlyFieldListFilter),
+        "attestation_type",
         "is_filled",
         "start_date",
         # Blank only for subjects created before the color field existed
@@ -79,8 +93,8 @@ class SubjectAdmin(admin.ModelAdmin):
         ("color", admin.EmptyFieldListFilter),
     )
     search_fields = ("name", "school_class__name", "description")
-    ordering = ("school_class", "name")
-    list_select_related = ("school_class", "school_class__school")
+    ordering = ("school_class", "order_index", "name")
+    list_select_related = ("school_class", "school_class__school", "group")
     date_hierarchy = "start_date"
 
     # Embed blocks, topics, and materials directly inside the subject detail view

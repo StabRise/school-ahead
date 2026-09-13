@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 
 // Shown when a purchase attempt's balance check fails (backend returns
 // 402) — see furniture-shop.tsx. Duplicated (not shared) from
-// apps/web/components/profile/not-enough-diamonds-dialog.tsx, same
+// @school-ahead/avatar's not-enough-diamonds-dialog.tsx, same
 // reasoning as ConfirmPurchaseDialog above.
 export function NotEnoughDiamondsDialog({
   open,

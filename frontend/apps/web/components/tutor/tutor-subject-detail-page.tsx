@@ -29,6 +29,7 @@ import {
   useListTutorSubjectLessonStudents,
   useReorderTutorSubjectLessons,
   useReorderTutorSubjectTopics,
+  useSetSubjectAttestationType,
   useSetSubjectFilled,
   useSetTopicBlock,
 } from "@school-ahead/api-client/browser/tutor/tutor";
@@ -521,6 +522,46 @@ function IsFilledToggle({ subject, subjectId }: { subject: SubjectOut; subjectId
   );
 }
 
+// Tutor-editable dropdown for how the subject is formally assessed at the
+// end of the year (Subject.attestation_type) — purely informational, same
+// pattern as IsFilledToggle above.
+function AttestationTypeSelect({ subject, subjectId }: { subject: SubjectOut; subjectId: number }) {
+  const t = useTranslations("TutorSubjectDetail");
+  const queryClient = useQueryClient();
+  const setAttestationType = useSetSubjectAttestationType();
+
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setAttestationType.mutate(
+      { subjectId, data: { attestation_type: e.target.value } },
+      {
+        onSuccess: (data) => {
+          queryClient.setQueryData(getGetSubjectQueryKey(subjectId), data);
+        },
+      },
+    );
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <label className="flex items-center gap-2 text-sm text-gray-700">
+        {t("attestationTypeLabel")}:
+        <select
+          value={subject.attestation_type}
+          onChange={handleChange}
+          disabled={setAttestationType.isPending}
+          className="rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-700"
+        >
+          <option value="none">{t("attestationNone")}</option>
+          <option value="test">{t("attestationTest")}</option>
+          <option value="exam">{t("attestationExam")}</option>
+          <option value="project">{t("attestationProject")}</option>
+        </select>
+      </label>
+      {setAttestationType.isError && <span className="text-sm text-red-600">{t("attestationTypeError")}</span>}
+    </div>
+  );
+}
+
 // Topic drag handle (topic reordering/block-moving) is separate from the
 // title button (collapse toggle) — grabbing one must never trigger the
 // other. The lesson-drop target lives on the header container itself
@@ -898,7 +939,10 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
           <Breadcrumbs items={breadcrumbItems} />
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-xl font-semibold text-gray-900">{subject.name}</h1>
-            <IsFilledToggle subject={subject} subjectId={subjectId} />
+            <div className="flex flex-wrap items-center gap-4">
+              <AttestationTypeSelect subject={subject} subjectId={subjectId} />
+              <IsFilledToggle subject={subject} subjectId={subjectId} />
+            </div>
           </div>
           <p className="text-xs text-gray-500">
             {t("classLabel")}: {subject.class_name}

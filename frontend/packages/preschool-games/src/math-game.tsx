@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject, type TransitionEvent } from "react";
 import { useTranslations } from "next-intl";
 import { useRewardMultiplicationGame } from "@school-ahead/api-client/browser/auth/auth";
-import { Raccoon, EquippedAvatarLayers, useEquippedAvatarLayers, type RaccoonMood } from "@school-ahead/preschool-ui";
+import { Raccoon, type RaccoonMood } from "@school-ahead/preschool-ui";
+import { AvatarBadge, useEquippedAvatarLayers } from "@school-ahead/avatar";
 import {
   generateQuestion,
   MAX_CHOICE_COUNT,
@@ -319,21 +320,14 @@ function VictoryConfetti() {
 // The student's own equipped avatar (wardrobe outfit + all), same
 // fallback-to-mascot pattern as preschool-ui/game-map.tsx's CompanionAvatar
 // — an anonymous visitor (or a student who never picked an avatar) has no
-// equipped layers, so the raccoon mascot runs instead. Deliberately not
-// cropped into a circular badge (unlike game-map.tsx's CompanionAvatar) —
-// a round frame clipped tall headwear/accessories no matter how it was
-// sized, so this just shows the full costume plainly, uncropped, both
-// while running and on the victory screen.
+// equipped layers, so the raccoon mascot runs instead. Uses AvatarBadge's
+// "ring" frame rather than the "card" frame every other badge uses — a
+// cropped frame clipped tall headwear/accessories no matter how it was
+// sized, so this shows the full costume uncropped, with just a decorative
+// border outline, both while running and on the victory screen.
 function RunnerAvatar({ mood, className }: { mood: RaccoonMood; className: string }) {
   const layers = useEquippedAvatarLayers();
-  if (layers.length > 0) {
-    return (
-      <span className={`flex items-center justify-center ${className}`}>
-        <EquippedAvatarLayers layers={layers} crop={false} />
-      </span>
-    );
-  }
-  return <Raccoon mood={mood} className={className} />;
+  return <AvatarBadge layers={layers} frame="ring" className={className} fallback={<Raccoon mood={mood} className={className} />} />;
 }
 
 function lerp(from: number, to: number, fraction: number): number {

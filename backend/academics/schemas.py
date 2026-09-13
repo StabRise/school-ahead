@@ -36,6 +36,12 @@ class ClassOut(Schema):
         return teacher_user.full_name or teacher_user.email
 
 
+class SubjectGroupOut(Schema):
+    id: int
+    name: str
+    order_index: int
+
+
 class SubjectBlockOut(Schema):
     id: int
     index: int
@@ -63,10 +69,18 @@ class SubjectOut(Schema):
     icon: str | None
     color: str
     teacher_name: str | None
+    group_id: int | None
+    group_name: str | None
+    order_index: int
+    attestation_type: str
 
     @staticmethod
     def resolve_class_name(obj):
         return obj.school_class.name
+
+    @staticmethod
+    def resolve_group_name(obj):
+        return obj.group.name if obj.group_id else None
 
     @staticmethod
     def resolve_blocks(obj):
@@ -122,6 +136,9 @@ class SubjectPatchIn(Schema):
     start_date: datetime.date | None = None
     due_date: datetime.date | None = None
     block_count: int | None = None
+    group_id: int | None = None
+    order_index: int | None = None
+    attestation_type: str | None = None
 
 
 class TopicOrderIn(Schema):
@@ -131,6 +148,16 @@ class TopicOrderIn(Schema):
 
 class TopicsReorderIn(Schema):
     items: list[TopicOrderIn]
+
+
+class SubjectOrderIn(Schema):
+    id: int
+    order_index: int
+    group_id: int | None = None
+
+
+class SubjectsReorderIn(Schema):
+    items: list[SubjectOrderIn]
 
 
 class SchoolIn(Schema):
@@ -156,6 +183,9 @@ class SubjectIn(Schema):
     start_date: datetime.date | None = None
     due_date: datetime.date | None = None
     color: str = ''
+    group_id: int | None = None
+    order_index: int = 0
+    attestation_type: str = 'none'
 
 
 class TopicIn(Schema):

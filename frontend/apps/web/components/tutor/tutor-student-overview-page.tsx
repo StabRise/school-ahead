@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { BookOpen, User } from "lucide-react";
 import { useGetTutorStudent, useListTutorStudentAchievements } from "@school-ahead/api-client/browser/tutor/tutor";
 import { useGetTutorStudentBacklog, useGetTutorStudentCalendar } from "@school-ahead/api-client/browser/schedule/schedule";
-import { EquippedAvatarLayers, type AvatarLayer } from "@school-ahead/preschool-ui";
+import { AvatarBadge, type AvatarLayer } from "@school-ahead/avatar";
 import type { TutorStudentOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
@@ -27,7 +27,7 @@ function startOfWeek(date: Date): Date {
 
 // Same body -> clothing -> headwear -> accessory stack useEquippedAvatarLayers
 // builds from the signed-in user's own auth-store fields (see
-// @school-ahead/preschool-ui's equipped-avatar.tsx) — sourced here from the
+// @school-ahead/avatar's equipped-avatar.tsx) — sourced here from the
 // viewed student's TutorStudentOut instead, since this student isn't the
 // signed-in tutor.
 function equippedLayersFromStudent(student: TutorStudentOut): AvatarLayer[] {
@@ -168,18 +168,21 @@ export function TutorStudentOverviewPage({
         <Breadcrumbs items={breadcrumbItems} />
 
         <div className="flex flex-wrap items-center gap-6">
-          <div className="h-28 w-28 shrink-0 overflow-hidden rounded-xl bg-gray-100 p-3">
-            {layers.length > 0 ? (
-              <EquippedAvatarLayers layers={layers} />
-            ) : student.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={student.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-gray-300">
-                <User className="h-10 w-10" aria-hidden="true" />
-              </div>
-            )}
-          </div>
+          <AvatarBadge
+            layers={layers}
+            className="h-28 w-28 shrink-0"
+            padding="p-3"
+            fallback={
+              student.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={student.avatar_url} alt="" className="h-28 w-28 shrink-0 rounded-full object-cover" />
+              ) : (
+                <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-300">
+                  <User className="h-10 w-10" aria-hidden="true" />
+                </div>
+              )
+            }
+          />
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <h1 className="text-xl font-semibold text-gray-900">{student.name}</h1>
             <p className="text-sm text-gray-500">{student.class_name}</p>

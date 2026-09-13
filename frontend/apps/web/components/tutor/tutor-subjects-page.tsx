@@ -6,12 +6,13 @@ import { useTutoringApiListAssignments } from "@school-ahead/api-client/browser/
 import { Link } from "@/i18n/navigation";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { IsFilledBadge } from "@/components/subjects/is-filled-badge";
+import { AttestationTypeBadge } from "@/components/subjects/attestation-type-badge";
 import { SimpleEntityIcon } from "@/components/simple/entity-icon";
 import { SortableHeader, useSortState } from "@/components/simple/sortable-header";
 
 // Shared by the header row and every body row so columns line up like a
-// real table: icon / subject (flexible) / topics+lessons meta / filled.
-const ROW_GRID = "grid grid-cols-[1.5rem_minmax(0,1fr)_10rem_5rem] items-center gap-3";
+// real table: icon / subject (flexible) / topics+lessons meta / attestation / filled.
+const ROW_GRID = "grid grid-cols-[1.5rem_minmax(0,1fr)_10rem_6rem_5rem] items-center gap-3";
 
 type SortKey = "name";
 
@@ -30,6 +31,7 @@ function SubjectRow({ assignment }: { assignment: AssignmentOut }) {
           {t("topicsCount", { count: assignment.topic_count })} ·{" "}
           {t("lessonsCount", { count: assignment.lesson_count })}
         </span>
+        <AttestationTypeBadge attestationType={assignment.attestation_type} />
         <IsFilledBadge isFilled={assignment.is_filled} />
       </Link>
     </li>
@@ -103,6 +105,7 @@ export function TutorSubjectsPage() {
                     direction={sort.direction}
                     onClick={() => toggleSort("name")}
                   />
+                  <span aria-hidden="true" />
                   <span aria-hidden="true" />
                   <span aria-hidden="true" />
                 </div>

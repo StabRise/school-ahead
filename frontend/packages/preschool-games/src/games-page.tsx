@@ -27,6 +27,7 @@ const GAME_PATH_SEGMENT: Record<PreschoolGameId, string> = {
   stories: "stories",
   math: "math",
   "jumping-frogs": "jumping-frogs",
+  cocktail: "cocktail",
 };
 
 export function PreschoolGamesPage() {
