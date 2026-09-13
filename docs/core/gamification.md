@@ -23,6 +23,7 @@ topic/semester earning and now links back here).
 | Opening a syllable/word card inside a story in the "Казки" minigame | 1 star; every 5 stars → +1 | `frontend/packages/preschool-games/src/stories-game.tsx`, `POST /auth/me/stories-game-reward` — logged-in students only |
 | Tapping the falling card matching the target syllable in the "Картки" minigame | 1 star; every 10 stars → +1 | `frontend/packages/preschool-games/src/cards-game.tsx`, `POST /auth/me/cards-game-reward` |
 | Completing every question of the multiplication-table minigame's 15-question session with at least 1 heart left | +1 | `frontend/packages/preschool-games/src/multiplication-game.tsx`, `POST /auth/me/multiplication-game-reward` |
+| Mixing a cocktail correctly in the "Magic Cocktail" minigame | +1, once per round | `frontend/packages/preschool-games/src/cocktail-game.tsx`, `POST /auth/me/cocktail-game-reward` |
 
 The four lesson-level rows all route through the single
 `lessons.services.mark_completed` — auto-graded quiz pass, theory
