@@ -1,23 +1,31 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
+import { Group, Ungroup } from "lucide-react";
 import { Link } from "@/i18n/navigation";
-import { useGetMySubjects } from "@school-ahead/api-client/browser/academics/academics";
+import { useGetMySubjects, useListSubjectGroups } from "@school-ahead/api-client/browser/academics/academics";
 import { getGetSubjectProgressQueryOptions } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { ProgressBar } from "@/components/progress-bar";
 import { AttestationTypeBadge } from "@/components/subjects/attestation-type-badge";
 import { SimpleEntityIcon } from "@/components/simple/entity-icon";
 import { SortableHeader, useSortState } from "@/components/simple/sortable-header";
+import { useSubjectsGroupedViewStore } from "@/stores/subjects-grouped-view-store";
 import type { SubjectOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 
 // Shared by the header row and every body row so columns line up like a
-// real table: icon / subject name (flexible) / progress bar / percent.
-const ROW_GRID = "grid grid-cols-[1.5rem_minmax(0,1fr)_8rem_2.5rem] items-center gap-3";
+// real table: icon / subject name (flexible) / group / attestation type /
+// progress / percent.
+const ROW_GRID = "grid grid-cols-[1.5rem_minmax(0,1fr)_8rem_6rem_8rem_2.5rem] items-center gap-3";
 
 type SortKey = "name" | "progress";
+
+// Not a real SubjectGroup id — selects the bucket of subjects with
+// group_id === null, always offered as a tab alongside real groups so
+// nothing disappears from view while most subjects are still ungrouped.
+const UNGROUPED_TAB_KEY = "ungrouped";
 
 function SimpleSubjectRow({
   subject,
@@ -28,6 +36,7 @@ function SimpleSubjectRow({
   percent: number;
   colorful?: boolean;
 }) {
+  const t = useTranslations("MySubjects");
   const activeBlock = subject.blocks.find((block) => block.status === "active");
 
   return (
@@ -41,12 +50,9 @@ function SimpleSubjectRow({
               {activeBlock.label}
             </span>
           )}
-          {colorful && subject.attestation_type !== "none" && (
-            <span className="ml-2">
-              <AttestationTypeBadge attestationType={subject.attestation_type} />
-            </span>
-          )}
         </span>
+        <span className="truncate text-xs text-gray-500">{subject.group_name ?? t("noGroupValue")}</span>
+        <AttestationTypeBadge attestationType={subject.attestation_type} />
         <ProgressBar percent={percent} compact colorful={colorful} />
         <span className="text-right text-xs text-gray-500">{percent}%</span>
       </Link>
@@ -60,12 +66,23 @@ function SimpleSubjectRow({
 // per-subject colored icon and active-semester pill; Simple mode keeps
 // them monochrome/absent. See the Settings page's "Вигляд" section
 // (components/settings/view-settings.tsx).
+//
+// Independent of that interface-mode setting is the grouped/flat toggle
+// below (persisted client-side via useSubjectsGroupedViewStore, not
+// server-synced like interfaceMode is): flat mode is the existing one
+// sortable table; grouped mode splits it into per-SubjectGroup tabs (plus
+// an always-present "Без групи" tab) the student switches between.
 export function SimpleSubjectsPage({ colorful }: { colorful?: boolean } = {}) {
   const t = useTranslations("MySubjects");
   const { data, isLoading, isError } = useGetMySubjects();
+  const { data: subjectGroups } = useListSubjectGroups();
   const { sort, toggleSort } = useSortState<SortKey>("name");
+  const grouped = useSubjectsGroupedViewStore((state) => state.grouped);
+  const setGrouped = useSubjectsGroupedViewStore((state) => state.setGrouped);
+  const [activeTabKey, setActiveTabKey] = useState<string>(UNGROUPED_TAB_KEY);
 
   const subjects = useMemo(() => data ?? [], [data]);
+  const groups = useMemo(() => subjectGroups ?? [], [subjectGroups]);
 
   // Progress is fetched once here (rather than per-row, like SubjectCard
   // does) so every subject's percent is available up front to sort by —
@@ -93,41 +110,121 @@ export function SimpleSubjectsPage({ colorful }: { colorful?: boolean } = {}) {
     });
   }, [subjects, sort, percentBySubjectId]);
 
+  // Tabs are keyed by group id (as a string) plus the always-present
+  // "ungrouped" bucket — falls back to the first available tab whenever
+  // the current selection no longer exists (e.g. right after groups load).
+  const tabKeys = useMemo(() => [...groups.map((g) => String(g.id)), UNGROUPED_TAB_KEY], [groups]);
+  const effectiveTabKey = tabKeys.includes(activeTabKey) ? activeTabKey : tabKeys[0];
+  const visibleSubjects = grouped
+    ? sortedSubjects.filter((subject) =>
+        effectiveTabKey === UNGROUPED_TAB_KEY
+          ? subject.group_id === null
+          : String(subject.group_id) === effectiveTabKey,
+      )
+    : sortedSubjects;
+
   return (
     <SimplePageContainer title={t("title")}>
+      <div className="flex flex-wrap items-center justify-end gap-2 pb-2">
+        <div className="inline-flex overflow-hidden rounded-lg border border-gray-300">
+          <button
+            type="button"
+            onClick={() => setGrouped(false)}
+            aria-pressed={!grouped}
+            title={t("ungroupedViewLabel")}
+            className={`flex items-center px-2 py-1.5 ${!grouped ? "bg-gray-900 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}
+          >
+            <Ungroup className="size-4" aria-hidden="true" />
+            <span className="sr-only">{t("ungroupedViewLabel")}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setGrouped(true)}
+            aria-pressed={grouped}
+            title={t("groupedViewLabel")}
+            className={`flex items-center border-l border-gray-300 px-2 py-1.5 ${grouped ? "bg-gray-900 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}
+          >
+            <Group className="size-4" aria-hidden="true" />
+            <span className="sr-only">{t("groupedViewLabel")}</span>
+          </button>
+        </div>
+      </div>
+
       {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
       {isError && <p className="text-sm text-red-600">{t("error")}</p>}
 
       {!isLoading && !isError && subjects.length === 0 && <p className="text-sm text-gray-500">{t("empty")}</p>}
 
       {subjects.length > 0 && (
-        <div className="overflow-x-auto">
-          <div className={`${ROW_GRID} min-w-[28rem] px-2 pb-2`}>
-            <span aria-hidden="true" />
-            <SortableHeader
-              label={t("columnSubject")}
-              active={sort.key === "name"}
-              direction={sort.direction}
-              onClick={() => toggleSort("name")}
-            />
-            <SortableHeader
-              label={t("progressLabel")}
-              active={sort.key === "progress"}
-              direction={sort.direction}
-              onClick={() => toggleSort("progress")}
-            />
-            <span aria-hidden="true" />
-          </div>
-          <ul className="min-w-[28rem] divide-y divide-gray-100">
-            {sortedSubjects.map((subject) => (
-              <SimpleSubjectRow
-                key={subject.id}
-                subject={subject}
-                percent={percentBySubjectId.get(subject.id) ?? 0}
-                colorful={colorful}
+        <div className="flex flex-col gap-2">
+          {grouped && (
+            <div role="tablist" className="flex flex-wrap gap-1 border-b border-gray-200">
+              {groups.map((group) => (
+                <button
+                  key={group.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={effectiveTabKey === String(group.id)}
+                  onClick={() => setActiveTabKey(String(group.id))}
+                  className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${
+                    effectiveTabKey === String(group.id)
+                      ? "border-gray-900 text-gray-900"
+                      : "border-transparent text-gray-500 hover:text-gray-900"
+                  }`}
+                >
+                  {group.name}
+                </button>
+              ))}
+              <button
+                type="button"
+                role="tab"
+                aria-selected={effectiveTabKey === UNGROUPED_TAB_KEY}
+                onClick={() => setActiveTabKey(UNGROUPED_TAB_KEY)}
+                className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${
+                  effectiveTabKey === UNGROUPED_TAB_KEY
+                    ? "border-gray-900 text-gray-900"
+                    : "border-transparent text-gray-500 hover:text-gray-900"
+                }`}
+              >
+                {t("ungroupedTabLabel")}
+              </button>
+            </div>
+          )}
+
+          <div className="overflow-x-auto">
+            <div className={`${ROW_GRID} min-w-[34rem] px-2 pb-2`}>
+              <span aria-hidden="true" />
+              <SortableHeader
+                label={t("columnSubject")}
+                active={sort.key === "name"}
+                direction={sort.direction}
+                onClick={() => toggleSort("name")}
               />
-            ))}
-          </ul>
+              <span className="text-xs font-medium text-gray-500">{t("columnGroup")}</span>
+              <span className="text-xs font-medium text-gray-500">{t("columnAttestation")}</span>
+              <SortableHeader
+                label={t("progressLabel")}
+                active={sort.key === "progress"}
+                direction={sort.direction}
+                onClick={() => toggleSort("progress")}
+              />
+              <span aria-hidden="true" />
+            </div>
+            {visibleSubjects.length === 0 ? (
+              <p className="px-2 text-sm text-gray-500">{t("emptyGroupTab")}</p>
+            ) : (
+              <ul className="min-w-[34rem] divide-y divide-gray-100">
+                {visibleSubjects.map((subject) => (
+                  <SimpleSubjectRow
+                    key={subject.id}
+                    subject={subject}
+                    percent={percentBySubjectId.get(subject.id) ?? 0}
+                    colorful={colorful}
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
     </SimplePageContainer>

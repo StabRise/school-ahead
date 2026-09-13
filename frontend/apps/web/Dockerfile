@@ -10,6 +10,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/api-client/package.json packages/api-client/package.json
+COPY packages/avatar/package.json packages/avatar/package.json
 COPY packages/flashcards/package.json packages/flashcards/package.json
 COPY packages/house-3d/package.json packages/house-3d/package.json
 COPY packages/markdown-editor/package.json packages/markdown-editor/package.json
