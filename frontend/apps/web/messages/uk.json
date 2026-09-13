@@ -254,6 +254,7 @@
     "noWordsMessage": "Для цієї букви поки що немає слів"
   },
   "CocktailGame": {
+    "equationLabel": "Приклад:",
     "recipeLabel": "Рецепт:",
     "hintModeLabel": "З підказкою",
     "freeModeLabel": "Без підказки",

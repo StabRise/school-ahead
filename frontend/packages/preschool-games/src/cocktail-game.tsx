@@ -3,13 +3,15 @@
 import { useState, type CSSProperties } from "react";
 import { useTranslations } from "next-intl";
 import {
+  buildEquationChoices,
   buildTable,
   COCKTAIL_INGREDIENTS,
+  equationFor,
   generateRecipe,
   isIngredientNeeded,
   isRecipeExactlyMet,
-  remainingNeeded,
   type CocktailRecipe,
+  type CocktailRecipeItem,
   type CocktailTablePiece,
 } from "./lib/cocktail-game";
 import { useBackgroundMusic } from "./lib/use-background-music";
@@ -18,12 +20,16 @@ import { MusicToggleButton } from "./kit/music-toggle-button";
 import { useCocktailGameStore, type CocktailMode } from "./stores/cocktail-game-store";
 
 // "Magic Cocktail" preschool minigame — see docs/preschool/games/cocktail.md
-// for the design brief. A recipe card names 2-3 ingredients with small
-// counts; the child taps the right scattered pieces into the glass. Two
-// modes (see stores/cocktail-game-store.ts): "hint" validates every tap
-// immediately (a wrong one bounces back, the glass wobbles); "free" accepts
-// anything until the shaker button is pressed, which either celebrates or
-// sends everything flying back out for a retry.
+// for the design brief. A round opens with an addition-equation gate (see
+// CocktailEquationGate) built from the recipe's own two ingredient counts —
+// only once that's solved does the shaker/recipe/table actually mount. From
+// there, a recipe card names 2 ingredients with small counts (shown as that
+// many repeated icons, see IngredientCountRow, not "🍌×2" text); the child
+// taps the right scattered pieces into the glass. Two modes (see
+// stores/cocktail-game-store.ts): "hint" validates every tap immediately (a
+// wrong one bounces back, the glass wobbles); "free" accepts anything until
+// the shaker button is pressed, which either celebrates or sends everything
+// flying back out for a retry.
 //
 // Tap-to-move rather than real drag-and-drop, same interaction model as
 // every other preschool game here (cards-game.tsx's falling-card taps,
@@ -73,25 +79,112 @@ function randomTablePosition(): { left: number; top: number } {
   return { left: 10, top: 10 };
 }
 
+// One ingredient's own count spelled out as that many repeated icons (not
+// "🍌×2" text) plus a small number tile — per this feature's own request,
+// so a preschooler can count the pictures directly instead of reading a
+// digit-times-digit notation. `strikeCount` (0 in the equation gate, where
+// nothing's collected yet) crosses out that many icons left-to-right,
+// independent of *which* physical table piece they came from — the recipe
+// card only ever cares how many of this key have gone in, not which ones.
+function IngredientCountRow({ item, strikeCount }: { item: CocktailRecipeItem; strikeCount: number }) {
+  return (
+    <div className="flex items-center gap-1">
+      {Array.from({ length: item.count }, (_, i) => (
+        <span
+          key={i}
+          aria-hidden="true"
+          className={`text-2xl transition sm:text-3xl ${
+            i < strikeCount ? "text-gray-300 line-through decoration-4 decoration-rose-400" : ""
+          }`}
+        >
+          {emojiFor(item.key)}
+        </span>
+      ))}
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-4 border-gray-400 bg-gray-200 text-base font-extrabold text-gray-800 shadow-inner sm:h-10 sm:w-10 sm:text-xl">
+        {item.count}
+      </span>
+    </div>
+  );
+}
+
 function CocktailRecipeCard({ recipe, dropped }: { recipe: CocktailRecipe; dropped: string[] }) {
   const t = useTranslations("CocktailGame");
   return (
-    <div className="z-10 flex flex-wrap items-center justify-center gap-3 rounded-3xl bg-white/90 px-5 py-3 shadow-lg ring-4 ring-white">
+    <div className="z-10 flex flex-wrap items-center justify-center gap-4 rounded-3xl bg-white/90 px-5 py-3 shadow-lg ring-4 ring-white">
       <span className="text-sm font-bold text-gray-500 sm:text-base">{t("recipeLabel")}</span>
-      {recipe.map((item) => {
-        const remaining = remainingNeeded(recipe, dropped, item.key);
-        const done = remaining === 0;
-        return (
-          <span
-            key={item.key}
-            className={`flex items-center gap-1 rounded-full px-3 py-1 text-lg font-extrabold transition sm:text-2xl ${
-              done ? "bg-emerald-100 text-emerald-400 line-through decoration-4" : "bg-amber-50 text-amber-700"
-            }`}
-          >
-            <span aria-hidden="true">{emojiFor(item.key)}</span>×{item.count}
-          </span>
-        );
-      })}
+      {recipe.map((item) => (
+        <IngredientCountRow key={item.key} item={item} strikeCount={dropped.filter((key) => key === item.key).length} />
+      ))}
+    </div>
+  );
+}
+
+// Same square-tile look as math-game.tsx's HotbarSlot (border-4, rounded-md,
+// shadow-inner) — this game's own version is simpler since it never needs
+// that one's font-size-measuring machinery (only ever 3-4 single/double-
+// digit sums) or a "dimmed" status (nothing here ever locks after a pick,
+// see CocktailEquationGate — a wrong answer is just try-again, not final).
+function EquationAnswerSlot({
+  value,
+  wrong,
+  onClick,
+}: {
+  value: number;
+  wrong: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex h-14 w-14 items-center justify-center rounded-md border-4 text-xl font-extrabold text-gray-800 shadow-inner transition sm:h-16 sm:w-16 sm:text-2xl ${
+        wrong ? "border-red-400 bg-red-100 ring-4 ring-red-300" : "border-gray-400 bg-gray-200 hover:bg-gray-300"
+      }`}
+    >
+      {value}
+    </button>
+  );
+}
+
+// The round's opening gate — "how many pieces does this recipe need in
+// total," derived straight from the two recipe counts (equationFor), which
+// doubles as a preview of the recipe before it's shown for real. A wrong
+// pick just flashes red and clears (see EquationAnswerSlot) — there's no
+// fail state here, only "not yet"; the shaker/recipe/table only mount once
+// `onSolved` fires.
+function CocktailEquationGate({ recipe, onSolved }: { recipe: CocktailRecipe; onSolved: () => void }) {
+  const t = useTranslations("CocktailGame");
+  const equation = equationFor(recipe);
+  const [{ choices }] = useState(() => buildEquationChoices(equation.sum));
+  const [wrongIndex, setWrongIndex] = useState<number | null>(null);
+
+  const handlePick = (index: number, value: number) => {
+    if (value === equation.sum) {
+      onSolved();
+      return;
+    }
+    playCocktailBounceSound();
+    setWrongIndex(index);
+    setTimeout(() => setWrongIndex((current) => (current === index ? null : current)), 500);
+  };
+
+  return (
+    <div className="flex w-full flex-1 flex-col items-center justify-center gap-6">
+      <div className="flex flex-wrap items-center justify-center gap-3 rounded-3xl bg-white/90 px-6 py-5 shadow-lg ring-4 ring-white sm:gap-4">
+        <span className="text-sm font-bold text-gray-500 sm:text-base">{t("equationLabel")}</span>
+        <IngredientCountRow item={recipe[0]} strikeCount={0} />
+        <span className="text-2xl font-extrabold text-gray-400 sm:text-3xl">+</span>
+        <IngredientCountRow item={recipe[1]} strikeCount={0} />
+        <span className="text-2xl font-extrabold text-gray-400 sm:text-3xl">=</span>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-4 border-dashed border-gray-300 text-base font-extrabold text-gray-300 sm:h-10 sm:w-10 sm:text-xl">
+          ?
+        </span>
+      </div>
+      <div className="flex gap-3">
+        {choices.map((value, index) => (
+          <EquationAnswerSlot key={index} value={value} wrong={wrongIndex === index} onClick={() => handlePick(index, value)} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -224,6 +317,11 @@ function CocktailRound({ mode, onWin }: { mode: CocktailMode; onWin: () => void 
   const [shaking, setShaking] = useState(false);
   const [showFailMessage, setShowFailMessage] = useState(false);
   const [won, setWon] = useState(false);
+  // Gates the shaker/recipe/table behind the addition equation below —
+  // false until CocktailEquationGate's onSolved fires, once per round (a
+  // fresh recipe/equation comes with every remount, same as everything
+  // else here).
+  const [equationSolved, setEquationSolved] = useState(false);
 
   const glassKeys = glassIds.map((id) => table.find((piece) => piece.id === id)!.key);
   const tablePieces = table.filter((piece) => !glassIds.includes(piece.id));
@@ -282,6 +380,10 @@ function CocktailRound({ mode, onWin }: { mode: CocktailMode; onWin: () => void 
       }
     }, 900);
   };
+
+  if (!equationSolved) {
+    return <CocktailEquationGate recipe={recipe} onSolved={() => setEquationSolved(true)} />;
+  }
 
   return (
     <div className="relative flex w-full flex-1 flex-col items-center gap-4 py-2">
