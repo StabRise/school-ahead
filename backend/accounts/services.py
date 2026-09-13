@@ -282,6 +282,23 @@ def award_jumping_frogs_diamond(student: StudentProfile) -> None:
     student.refresh_from_db(fields=['diamond_balance_cache'])
 
 
+# Diamond reward for the "Magic Cocktail" minigame (see
+# frontend/packages/preschool-games/src/cocktail-game.tsx) — awarded once per
+# cocktail successfully mixed, repeatable all game long (same "level" milestone
+# shape as READING_GAME_LEVEL_REWARD_DIAMONDS above: once per round, not a
+# running count). Same trust model as every other minigame reward: no
+# server-side tracking of the round, the frontend calls this once per win.
+COCKTAIL_GAME_MILESTONE_DIAMONDS = 1
+
+
+def award_cocktail_game_diamond(student: StudentProfile) -> None:
+    """Same atomic F() update as award_balloon_pop_diamond."""
+    StudentProfile.objects.filter(pk=student.pk).update(
+        diamond_balance_cache=F('diamond_balance_cache') + COCKTAIL_GAME_MILESTONE_DIAMONDS
+    )
+    student.refresh_from_db(fields=['diamond_balance_cache'])
+
+
 def is_item_unlocked(student: StudentProfile, item: AvatarItem) -> bool:
     """Free items are unlocked for everyone; priced ones need a purchase
     record. See docs/core/avatar.md section 2.2."""
