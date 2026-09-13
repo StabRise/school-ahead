@@ -1151,6 +1151,7 @@
     "error": "Не вдалося завантажити казки. Спробуйте ще раз.",
     "empty": "Ще немає жодної казки.",
     "addStoryButton": "Додати казку",
+    "openGameButton": "Відкрити гру «Казки»",
     "downloadButton": "Завантажити ZIP",
     "importButton": "Імпортувати ZIP",
     "importingStatus": "Імпортування...",
