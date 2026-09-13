@@ -255,6 +255,7 @@
   },
   "CocktailGame": {
     "equationLabel": "Приклад:",
+    "nextButton": "Далі",
     "recipeLabel": "Рецепт:",
     "hintModeLabel": "З підказкою",
     "freeModeLabel": "Без підказки",

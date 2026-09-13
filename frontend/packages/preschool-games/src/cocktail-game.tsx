@@ -107,10 +107,14 @@ function IngredientCountRow({ item, strikeCount }: { item: CocktailRecipeItem; s
   );
 }
 
+// Stacked one-per-line rather than the earlier wrapping row — a 2-item
+// recipe wrapping onto its own line only when the row happened to run out
+// of width read as arbitrary; a fixed vertical list reads the same way at
+// every viewport size and every recipe.
 function CocktailRecipeCard({ recipe, dropped }: { recipe: CocktailRecipe; dropped: string[] }) {
   const t = useTranslations("CocktailGame");
   return (
-    <div className="z-10 flex flex-wrap items-center justify-center gap-4 rounded-3xl bg-white/90 px-5 py-3 shadow-lg ring-4 ring-white">
+    <div className="z-10 flex flex-col items-center gap-2 rounded-3xl bg-white/90 px-5 py-3 shadow-lg ring-4 ring-white">
       <span className="text-sm font-bold text-gray-500 sm:text-base">{t("recipeLabel")}</span>
       {recipe.map((item) => (
         <IngredientCountRow key={item.key} item={item} strikeCount={dropped.filter((key) => key === item.key).length} />
@@ -122,23 +126,31 @@ function CocktailRecipeCard({ recipe, dropped }: { recipe: CocktailRecipe; dropp
 // Same square-tile look as math-game.tsx's HotbarSlot (border-4, rounded-md,
 // shadow-inner) — this game's own version is simpler since it never needs
 // that one's font-size-measuring machinery (only ever 3-4 single/double-
-// digit sums) or a "dimmed" status (nothing here ever locks after a pick,
-// see CocktailEquationGate — a wrong answer is just try-again, not final).
+// digit sums). `selected` marks the one already-confirmed-correct square
+// once the gate has moved past picking (see CocktailEquationGate) — styled
+// like a locked-in right answer, not like `wrong`'s "try again" flash.
 function EquationAnswerSlot({
   value,
   wrong,
+  selected,
   onClick,
 }: {
   value: number;
   wrong: boolean;
+  selected?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={selected}
       className={`flex h-14 w-14 items-center justify-center rounded-md border-4 text-xl font-extrabold text-gray-800 shadow-inner transition sm:h-16 sm:w-16 sm:text-2xl ${
-        wrong ? "border-red-400 bg-red-100 ring-4 ring-red-300" : "border-gray-400 bg-gray-200 hover:bg-gray-300"
+        wrong
+          ? "border-red-400 bg-red-100 ring-4 ring-red-300"
+          : selected
+            ? "border-emerald-400 bg-emerald-100 ring-4 ring-emerald-300"
+            : "border-gray-400 bg-gray-200 hover:bg-gray-300"
       }`}
     >
       {value}
@@ -146,21 +158,49 @@ function EquationAnswerSlot({
   );
 }
 
+// One equation operand as a children's-workbook column: the digit on top,
+// that many of its own ingredient's icon drawn underneath — per this
+// feature's own request ("під числами намальовані ті фрукти"), distinct
+// from IngredientCountRow's number-tile-beside-icons layout used by the
+// recipe card itself.
+function EquationOperandColumn({ item }: { item: CocktailRecipeItem }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <span className="text-3xl font-extrabold text-gray-800 sm:text-4xl">{item.count}</span>
+      <div className="flex gap-1">
+        {Array.from({ length: item.count }, (_, i) => (
+          <span key={i} aria-hidden="true" className="text-xl sm:text-2xl">
+            {emojiFor(item.key)}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // The round's opening gate — "how many pieces does this recipe need in
-// total," derived straight from the two recipe counts (equationFor), which
-// doubles as a preview of the recipe before it's shown for real. A wrong
-// pick just flashes red and clears (see EquationAnswerSlot) — there's no
-// fail state here, only "not yet"; the shaker/recipe/table only mount once
-// `onSolved` fires.
+// total," derived straight from the two recipe counts (equationFor). A
+// wrong pick just flashes red and clears (see EquationAnswerSlot) — there's
+// no fail state here, only "not yet". A CORRECT pick doesn't advance
+// straight away: it locks in that square, reveals the recipe's full set of
+// icons underneath it (2 + 3 pictures next to each other, "як в дитячих
+// зошитах" — the same picture-proof workbooks use to confirm a sum), and
+// only a "Далі" tap actually mounts the shaker/recipe/table — giving the
+// count-the-pictures payoff a beat to land before the game moves on.
 function CocktailEquationGate({ recipe, onSolved }: { recipe: CocktailRecipe; onSolved: () => void }) {
   const t = useTranslations("CocktailGame");
   const equation = equationFor(recipe);
   const [{ choices }] = useState(() => buildEquationChoices(equation.sum));
   const [wrongIndex, setWrongIndex] = useState<number | null>(null);
+  const [solved, setSolved] = useState(false);
+  const combinedIcons = [
+    ...Array.from({ length: recipe[0].count }, () => recipe[0].key),
+    ...Array.from({ length: recipe[1].count }, () => recipe[1].key),
+  ];
 
   const handlePick = (index: number, value: number) => {
     if (value === equation.sum) {
-      onSolved();
+      setSolved(true);
       return;
     }
     playCocktailBounceSound();
@@ -170,21 +210,47 @@ function CocktailEquationGate({ recipe, onSolved }: { recipe: CocktailRecipe; on
 
   return (
     <div className="flex w-full flex-1 flex-col items-center justify-center gap-6">
-      <div className="flex flex-wrap items-center justify-center gap-3 rounded-3xl bg-white/90 px-6 py-5 shadow-lg ring-4 ring-white sm:gap-4">
+      <div className="flex flex-col items-center gap-3 rounded-3xl bg-white/90 px-6 py-5 shadow-lg ring-4 ring-white">
         <span className="text-sm font-bold text-gray-500 sm:text-base">{t("equationLabel")}</span>
-        <IngredientCountRow item={recipe[0]} strikeCount={0} />
-        <span className="text-2xl font-extrabold text-gray-400 sm:text-3xl">+</span>
-        <IngredientCountRow item={recipe[1]} strikeCount={0} />
-        <span className="text-2xl font-extrabold text-gray-400 sm:text-3xl">=</span>
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-4 border-dashed border-gray-300 text-base font-extrabold text-gray-300 sm:h-10 sm:w-10 sm:text-xl">
-          ?
-        </span>
+        <div className="flex items-start justify-center gap-3 sm:gap-4">
+          <EquationOperandColumn item={recipe[0]} />
+          <span className="pt-1 text-3xl font-extrabold text-gray-400 sm:pt-1.5 sm:text-4xl">+</span>
+          <EquationOperandColumn item={recipe[1]} />
+          <span className="pt-1 text-3xl font-extrabold text-gray-400 sm:pt-1.5 sm:text-4xl">=</span>
+          <span className={`pt-1 text-3xl font-extrabold sm:pt-1.5 sm:text-4xl ${solved ? "text-emerald-600" : "text-gray-300"}`}>
+            {solved ? equation.sum : "?"}
+          </span>
+        </div>
       </div>
-      <div className="flex gap-3">
-        {choices.map((value, index) => (
-          <EquationAnswerSlot key={index} value={value} wrong={wrongIndex === index} onClick={() => handlePick(index, value)} />
-        ))}
-      </div>
+
+      {!solved ? (
+        <div className="flex gap-3">
+          {choices.map((value, index) => (
+            <EquationAnswerSlot key={index} value={value} wrong={wrongIndex === index} onClick={() => handlePick(index, value)} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-3">
+          <EquationAnswerSlot value={equation.sum} wrong={false} selected onClick={() => {}} />
+          <div className="flex max-w-64 flex-wrap items-center justify-center gap-1 rounded-2xl bg-emerald-50 px-3 py-2 ring-2 ring-emerald-200 sm:max-w-80">
+            {combinedIcons.map((key, i) => (
+              <span key={i} aria-hidden="true" className="text-xl sm:text-2xl">
+                {emojiFor(key)}
+              </span>
+            ))}
+          </div>
+          {/* Glass emoji rather than a bare arrow — previews what's coming
+              next (the shaker) instead of just meaning "continue" in the
+              abstract, per the brief's own "стакана чи стрілкою" either/or. */}
+          <button
+            type="button"
+            onClick={onSolved}
+            className="preschool-button z-10 flex items-center gap-2 rounded-full bg-emerald-500 px-6 py-2.5 text-lg font-extrabold text-white shadow-lg ring-4 ring-emerald-300 transition hover:scale-105"
+          >
+            {t("nextButton")} 🥤
+          </button>
+        </div>
+      )}
     </div>
   );
 }
