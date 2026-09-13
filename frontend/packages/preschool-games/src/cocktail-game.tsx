@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useTranslations } from "next-intl";
+import { prefetchVoice, speak, speakSequence } from "@school-ahead/api-client";
 import {
   buildEquationChoices,
   buildTable,
@@ -14,10 +15,42 @@ import {
   type CocktailRecipeItem,
   type CocktailTablePiece,
 } from "./lib/cocktail-game";
+import { describeRecipeForSpeech } from "./lib/cocktail-speech-pl";
 import { useBackgroundMusic } from "./lib/use-background-music";
 import { playCocktailBounceSound, playCocktailFailSound, playCocktailSplashSound, playVictoryFanfare } from "./kit/sound-effects";
 import { MusicToggleButton } from "./kit/music-toggle-button";
 import { useCocktailGameStore, type CocktailMode } from "./stores/cocktail-game-store";
+
+// This game is narrated and labeled entirely in Polish (a specific request,
+// independent of the rest of the app's Ukrainian UI — see CocktailGame's
+// translation keys in uk.json, which hold Polish text for this namespace
+// only) — "pl" is one of piper-tts's supported SpeechLanguage voices.
+const SPEECH_LANGUAGE = "pl";
+
+// A few feedback moments reuse the same short set of interchangeable
+// phrases (see the design request's own "деякі ми можемо використовувати
+// рандомну фразу") rather than always saying the exact same word — picks
+// one at random each time so repeated praise/retry prompts don't feel
+// robotic over a long play session.
+function pickPhrase(phrases: string[]): string {
+  return phrases[Math.floor(Math.random() * phrases.length)];
+}
+
+const PRAISE_PHRASES = ["Brawo!", "Świetnie!"];
+const REJECT_PHRASES = ["Ups! To nie ten składnik!", "Tego nie potrzebujemy.", "Spróbuj jeszcze raz."];
+const WIN_PHRASES = ["Gotowe!", "Udało się!", "Nasz koktajl jest gotowy!", "Magiczny koktajl!", "Brawo! Udało się!"];
+
+// Every speak()/speakSequence() call in this file goes through these two
+// instead of calling piper-tts directly, so `muted` (stores/
+// cocktail-game-store.ts, persisted client-side same as every other
+// narrated game's own mute setting) only has to be checked in one place.
+function sayPl(text: string, muted: boolean): void {
+  if (!muted) speak(text, SPEECH_LANGUAGE);
+}
+
+function saySequencePl(texts: string[], muted: boolean): void {
+  if (!muted) void speakSequence(texts, SPEECH_LANGUAGE);
+}
 
 // "Magic Cocktail" preschool minigame — see docs/preschool/games/cocktail.md
 // for the design brief. A round opens with an addition-equation gate (see
@@ -126,31 +159,24 @@ function CocktailRecipeCard({ recipe, dropped }: { recipe: CocktailRecipe; dropp
 // Same square-tile look as math-game.tsx's HotbarSlot (border-4, rounded-md,
 // shadow-inner) — this game's own version is simpler since it never needs
 // that one's font-size-measuring machinery (only ever 3-4 single/double-
-// digit sums). `selected` marks the one already-confirmed-correct square
-// once the gate has moved past picking (see CocktailEquationGate) — styled
-// like a locked-in right answer, not like `wrong`'s "try again" flash.
+// digit sums) or a "locked in" status — once picked correctly, the answer
+// moves into the equation itself (see CocktailEquationGate's own square
+// there) rather than staying selected in this choices row.
 function EquationAnswerSlot({
   value,
   wrong,
-  selected,
   onClick,
 }: {
   value: number;
   wrong: boolean;
-  selected?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={selected}
       className={`flex h-14 w-14 items-center justify-center rounded-md border-4 text-xl font-extrabold text-gray-800 shadow-inner transition sm:h-16 sm:w-16 sm:text-2xl ${
-        wrong
-          ? "border-red-400 bg-red-100 ring-4 ring-red-300"
-          : selected
-            ? "border-emerald-400 bg-emerald-100 ring-4 ring-emerald-300"
-            : "border-gray-400 bg-gray-200 hover:bg-gray-300"
+        wrong ? "border-red-400 bg-red-100 ring-4 ring-red-300" : "border-gray-400 bg-gray-200 hover:bg-gray-300"
       }`}
     >
       {value}
@@ -187,7 +213,7 @@ function EquationOperandColumn({ item }: { item: CocktailRecipeItem }) {
 // зошитах" — the same picture-proof workbooks use to confirm a sum), and
 // only a "Далі" tap actually mounts the shaker/recipe/table — giving the
 // count-the-pictures payoff a beat to land before the game moves on.
-function CocktailEquationGate({ recipe, onSolved }: { recipe: CocktailRecipe; onSolved: () => void }) {
+function CocktailEquationGate({ recipe, muted, onSolved }: { recipe: CocktailRecipe; muted: boolean; onSolved: () => void }) {
   const t = useTranslations("CocktailGame");
   const equation = equationFor(recipe);
   const [{ choices }] = useState(() => buildEquationChoices(equation.sum));
@@ -198,14 +224,26 @@ function CocktailEquationGate({ recipe, onSolved }: { recipe: CocktailRecipe; on
     ...Array.from({ length: recipe[1].count }, () => recipe[1].key),
   ];
 
+  // Every round's opening line — greets, then narrates the two instructions
+  // the equation card and choices row already show visually. Mount-once by
+  // design (a later mute toggle shouldn't replay it) — `muted` is read at
+  // whatever value it has the instant this fires, same as everywhere else
+  // in this file.
+  useEffect(() => {
+    saySequencePl(["Zróbmy razem nowy koktajl!", "Rozwiąż przykład.", "Wybierz właściwą liczbę."], muted);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handlePick = (index: number, value: number) => {
     if (value === equation.sum) {
       setSolved(true);
+      sayPl(pickPhrase(PRAISE_PHRASES), muted);
       return;
     }
     playCocktailBounceSound();
     setWrongIndex(index);
     setTimeout(() => setWrongIndex((current) => (current === index ? null : current)), 500);
+    sayPl("Spróbuj jeszcze raz.", muted);
   };
 
   return (
@@ -217,9 +255,30 @@ function CocktailEquationGate({ recipe, onSolved }: { recipe: CocktailRecipe; on
           <span className="pt-1 text-3xl font-extrabold text-gray-400 sm:pt-1.5 sm:text-4xl">+</span>
           <EquationOperandColumn item={recipe[1]} />
           <span className="pt-1 text-3xl font-extrabold text-gray-400 sm:pt-1.5 sm:text-4xl">=</span>
-          <span className={`pt-1 text-3xl font-extrabold sm:pt-1.5 sm:text-4xl ${solved ? "text-emerald-600" : "text-gray-300"}`}>
-            {solved ? equation.sum : "?"}
-          </span>
+          {/* The answer's own square lives right here in the equation now,
+              as its own column matching EquationOperandColumn's shape — an
+              empty dashed placeholder until solved, then filled with the
+              picked answer plus (per this feature's own request) the
+              recipe's combined icon set underneath it, same "number on top,
+              its pictures below" layout the operand columns already use. */}
+          <div className="flex flex-col items-center gap-1.5">
+            <span
+              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-md border-4 text-xl font-extrabold shadow-inner transition sm:h-16 sm:w-16 sm:text-2xl ${
+                solved ? "border-emerald-400 bg-emerald-100 text-emerald-700 ring-4 ring-emerald-300" : "border-dashed border-gray-300 text-gray-300"
+              }`}
+            >
+              {solved ? equation.sum : "?"}
+            </span>
+            {solved && (
+              <div className="flex flex-wrap items-center justify-center gap-0.5">
+                {combinedIcons.map((key, i) => (
+                  <span key={i} aria-hidden="true" className="text-lg sm:text-xl">
+                    {emojiFor(key)}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -230,26 +289,16 @@ function CocktailEquationGate({ recipe, onSolved }: { recipe: CocktailRecipe; on
           ))}
         </div>
       ) : (
-        <div className="flex flex-col items-center gap-3">
-          <EquationAnswerSlot value={equation.sum} wrong={false} selected onClick={() => {}} />
-          <div className="flex max-w-64 flex-wrap items-center justify-center gap-1 rounded-2xl bg-emerald-50 px-3 py-2 ring-2 ring-emerald-200 sm:max-w-80">
-            {combinedIcons.map((key, i) => (
-              <span key={i} aria-hidden="true" className="text-xl sm:text-2xl">
-                {emojiFor(key)}
-              </span>
-            ))}
-          </div>
-          {/* Glass emoji rather than a bare arrow — previews what's coming
-              next (the shaker) instead of just meaning "continue" in the
-              abstract, per the brief's own "стакана чи стрілкою" either/or. */}
-          <button
-            type="button"
-            onClick={onSolved}
-            className="preschool-button z-10 flex items-center gap-2 rounded-full bg-emerald-500 px-6 py-2.5 text-lg font-extrabold text-white shadow-lg ring-4 ring-emerald-300 transition hover:scale-105"
-          >
-            {t("nextButton")} 🥤
-          </button>
-        </div>
+        // Glass emoji rather than a bare arrow — previews what's coming
+        // next (the shaker) instead of just meaning "continue" in the
+        // abstract, per the brief's own "стакана чи стрілкою" either/or.
+        <button
+          type="button"
+          onClick={onSolved}
+          className="preschool-button z-10 flex items-center gap-2 rounded-full bg-emerald-500 px-6 py-2.5 text-lg font-extrabold text-white shadow-lg ring-4 ring-emerald-300 transition hover:scale-105"
+        >
+          {t("nextButton")} 🥤
+        </button>
       )}
     </div>
   );
@@ -370,7 +419,7 @@ function CocktailConfetti() {
 // `key` change (see CocktailGame below) on mode switch or "play again" —
 // simplest way to reset every bit of round state at once, same idiom
 // math-game.tsx's own doc comment credits for its runner legs.
-function CocktailRound({ mode, onWin }: { mode: CocktailMode; onWin: () => void }) {
+function CocktailRound({ mode, muted, onWin }: { mode: CocktailMode; muted: boolean; onWin: () => void }) {
   const t = useTranslations("CocktailGame");
   const [recipe] = useState<CocktailRecipe>(generateRecipe);
   const [table] = useState<CocktailTablePiece[]>(() => buildTable(recipe));
@@ -399,11 +448,16 @@ function CocktailRound({ mode, onWin }: { mode: CocktailMode; onWin: () => void 
   // exactly once, the instant the last correct piece goes in.
   const dropPiece = (piece: CocktailTablePiece) => {
     playCocktailSplashSound();
+    // Only hint mode's drops are actually validated as correct — free mode
+    // accepts anything, so praising every tap there would praise mistakes
+    // too (its own feedback only comes from the shake button, below).
+    if (mode === "hint") sayPl(pickPhrase(PRAISE_PHRASES), muted);
     setGlassIds((ids) => {
       const next = [...ids, piece.id];
       if (mode === "hint" && recipeTotal > 0 && next.length === recipeTotal) {
         setWon(true);
         playVictoryFanfare();
+        sayPl(pickPhrase(WIN_PHRASES), muted);
       }
       return next;
     });
@@ -414,6 +468,7 @@ function CocktailRound({ mode, onWin }: { mode: CocktailMode; onWin: () => void 
     setBounceId(piece.id);
     setWobbleToken((n) => n + 1);
     setTimeout(() => setBounceId((current) => (current === piece.id ? null : current)), 450);
+    sayPl(pickPhrase(REJECT_PHRASES), muted);
   };
 
   const handleTap = (piece: CocktailTablePiece) => {
@@ -432,28 +487,51 @@ function CocktailRound({ mode, onWin }: { mode: CocktailMode; onWin: () => void 
   const handleShake = () => {
     if (won || shaking || glassIds.length === 0) return;
     setShaking(true);
+    sayPl("Zaczynamy mieszać!", muted);
     setTimeout(() => {
       setShaking(false);
       if (isRecipeExactlyMet(recipe, glassKeys)) {
         setWon(true);
         playVictoryFanfare();
+        sayPl(pickPhrase(WIN_PHRASES), muted);
       } else {
         playCocktailFailSound();
         setWobbleToken((n) => n + 1);
         setGlassIds([]);
         setShowFailMessage(true);
         setTimeout(() => setShowFailMessage(false), 1800);
+        saySequencePl(["O nie! To nie jest właściwy przepis.", "Spróbuj ponownie.", "Wstrząśnij jeszcze raz!"], muted);
       }
     }, 900);
   };
 
+  // The round's second narration beat, once the equation's solved and the
+  // recipe/table/shaker actually mount — see CocktailEquationGate's own
+  // opening lines for the first. Names the actual recipe ("dodaj 2 kiwi i
+  // jedną łyżkę miodu do shakera!") rather than a generic "dodaj składniki"
+  // per this feature's own request.
+  const handleEquationSolved = () => {
+    setEquationSolved(true);
+    saySequencePl(
+      [
+        "Oto nasz przepis!",
+        "Przyjrzyj się składnikom.",
+        "Znajdź właściwe składniki.",
+        `Dodaj ${describeRecipeForSpeech(recipe)} do shakera!`,
+      ],
+      muted,
+    );
+  };
+
   if (!equationSolved) {
-    return <CocktailEquationGate recipe={recipe} onSolved={() => setEquationSolved(true)} />;
+    return <CocktailEquationGate recipe={recipe} muted={muted} onSolved={handleEquationSolved} />;
   }
 
   return (
     <div className="relative flex w-full flex-1 flex-col items-center gap-4 py-2">
       <CocktailRecipeCard recipe={recipe} dropped={glassKeys} />
+
+      <span className="z-10 text-sm font-bold text-emerald-800/70 sm:text-base">{t("ingredientsLabel")}</span>
 
       <div className="relative w-full flex-1">
         {tablePieces.map((piece) => (
@@ -523,8 +601,17 @@ export function CocktailGame() {
   const t = useTranslations("CocktailGame");
   const mode = useCocktailGameStore((s) => s.mode);
   const setMode = useCocktailGameStore((s) => s.setMode);
+  const muted = useCocktailGameStore((s) => s.muted);
+  const setMuted = useCocktailGameStore((s) => s.setMuted);
   const [roundToken, setRoundToken] = useState(0);
   useBackgroundMusic();
+
+  // Warms up the Polish voice model once up front so the round's opening
+  // narration (CocktailEquationGate) doesn't stall on a multi-megabyte
+  // download the first time this game is ever played.
+  useEffect(() => {
+    void prefetchVoice(SPEECH_LANGUAGE, "sentence");
+  }, []);
 
   return (
     <div className="relative flex min-h-[32rem] flex-1 flex-col overflow-hidden rounded-3xl bg-gradient-to-b from-sky-100 via-emerald-50 to-lime-100 p-2 ring-4 ring-inset ring-white/90 shadow-lg sm:p-4">
@@ -551,9 +638,24 @@ export function CocktailGame() {
         </button>
       </div>
 
+      {/* Narration mute — same small-icon-corner-toggle pattern as
+          MusicToggleButton (h-9 w-9, white circle, ring-2), but its own
+          per-game persisted setting rather than that shared cross-game
+          store, matching every other narrated game's own muted/setMuted
+          (see stores/cocktail-game-store.ts) since this game's Polish
+          speech is independent of background music. */}
+      <button
+        type="button"
+        aria-label={muted ? t("narrationOffLabel") : t("narrationOnLabel")}
+        onClick={() => setMuted(!muted)}
+        className="absolute right-14 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+      >
+        {muted ? "🔇" : "🗣️"}
+      </button>
+
       <MusicToggleButton className="absolute right-4 top-4 z-10" />
 
-      <CocktailRound key={`${mode}-${roundToken}`} mode={mode} onWin={() => setRoundToken((n) => n + 1)} />
+      <CocktailRound key={`${mode}-${roundToken}`} mode={mode} muted={muted} onWin={() => setRoundToken((n) => n + 1)} />
     </div>
   );
 }

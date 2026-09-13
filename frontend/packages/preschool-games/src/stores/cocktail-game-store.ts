@@ -16,6 +16,15 @@ const DEFAULT_MODE: CocktailMode = "hint";
 interface CocktailGameState {
   mode: CocktailMode;
   setMode: (mode: CocktailMode) => void;
+  // Mutes this game's own Polish narration (see cocktail-game.tsx's speak()/
+  // speakSequence() calls) — persisted client-side, same muted/setMuted
+  // convention every other narrated game here already uses (see e.g.
+  // stores/jumping-frogs-store.ts), not shared across games (each game's
+  // own narration is muted independently, matching that same precedent —
+  // only background music, via stores/game-music-store.ts, is a single
+  // cross-game toggle).
+  muted: boolean;
+  setMuted: (muted: boolean) => void;
 }
 
 export const useCocktailGameStore = create<CocktailGameState>()(
@@ -23,6 +32,8 @@ export const useCocktailGameStore = create<CocktailGameState>()(
     (set) => ({
       mode: DEFAULT_MODE,
       setMode: (mode) => set({ mode }),
+      muted: false,
+      setMuted: (muted) => set({ muted }),
     }),
     { name: "cocktail-game-store" },
   ),

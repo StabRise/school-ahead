@@ -254,15 +254,18 @@
     "noWordsMessage": "Для цієї букви поки що немає слів"
   },
   "CocktailGame": {
-    "equationLabel": "Приклад:",
-    "nextButton": "Далі",
-    "recipeLabel": "Рецепт:",
-    "hintModeLabel": "З підказкою",
-    "freeModeLabel": "Без підказки",
-    "shakeButton": "Увімкнути шейкер",
-    "wrongRecipeMessage": "Рецепт не вірний, спробуй ще раз!",
-    "celebrationTitle": "Ура! Чарівний коктейль готовий!",
-    "playAgainButton": "Ще раз"
+    "equationLabel": "Rozwiąż przykład.",
+    "nextButton": "Dalej",
+    "recipeLabel": "PRZEPIS",
+    "ingredientsLabel": "SKŁADNIKI",
+    "hintModeLabel": "Tryb z podpowiedzią",
+    "freeModeLabel": "Tryb swobodny",
+    "narrationOnLabel": "Wyłącz narrację",
+    "narrationOffLabel": "Włącz narrację",
+    "shakeButton": "Wstrząśnij shakerem",
+    "wrongRecipeMessage": "O nie! To nie jest właściwy przepis. Spróbuj ponownie.",
+    "celebrationTitle": "Nasz koktajl jest gotowy! Magiczny koktajl!",
+    "playAgainButton": "Jeszcze raz"
   },
   "FlashcardsGame": {
     "groupsTitle": "Картки для навчання",
