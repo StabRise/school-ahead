@@ -481,3 +481,19 @@ def reward_cocktail_game(request: HttpRequest):
     student = get_own_student_profile(request)
     services.award_cocktail_game_diamond(student)
     return MeOut(user=_user_out(request, request.auth))
+
+
+@router.post(
+    '/me/cars-game-reward',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='reward_cars_game',
+)
+def reward_cars_game(request: HttpRequest):
+    """Awards a Diamond for clearing one round of the "Машинки" (Cars)
+    minigame (frontend/packages/preschool-games/src/cars-game.tsx). See
+    accounts.services.award_cars_game_diamond for the trust model."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    services.award_cars_game_diamond(student)
+    return MeOut(user=_user_out(request, request.auth))

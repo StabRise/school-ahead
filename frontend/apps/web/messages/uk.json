@@ -173,6 +173,8 @@
     "jumpingFrogsSubtitle": "Стрибай по кувшинках, читай слова",
     "cocktailTitle": "Чарівний коктейль",
     "cocktailSubtitle": "Приготуй коктейль за рецептом",
+    "carsTitle": "Машинки",
+    "carsSubtitle": "Розв'яжи приклад і довези машинки до міста",
     "switchGame": "Обрати іншу гру"
   },
   "ReadingGame": {
@@ -266,6 +268,18 @@
     "wrongRecipeMessage": "O nie! To nie jest właściwy przepis. Spróbuj ponownie.",
     "celebrationTitle": "Nasz koktajl jest gotowy! Magiczny koktajl!",
     "playAgainButton": "Jeszcze raz"
+  },
+  "CarsGame": {
+    "equationLabel": "Розв'яжи приклад",
+    "departButton": "Поїхали",
+    "destinationLabel": "Куди їдемо:",
+    "turnLeftLabel": "Поверни наліво",
+    "driveStraightLabel": "Їдь прямо",
+    "turnRightLabel": "Поверни направо",
+    "celebrationTitle": "Приїхали!",
+    "nextButton": "Далі",
+    "settingsButton": "Налаштування",
+    "mutedLabel": "Без озвучення"
   },
   "FlashcardsGame": {
     "groupsTitle": "Картки для навчання",

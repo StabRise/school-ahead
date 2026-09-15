@@ -21,7 +21,7 @@ import { HomeButton } from "./kit/home-button";
 // own — contrast the standalone /games entry point (games-page.tsx,
 // game-play-page.tsx), which reuses this file's GamePicker/GameCard but
 // navigates to /games/{game} instead so each game has its own URL.
-export type PreschoolGameId = "balloons" | "trains" | "reading" | "cards" | "stories" | "math" | "jumping-frogs" | "cocktail";
+export type PreschoolGameId = "balloons" | "trains" | "reading" | "cards" | "stories" | "math" | "jumping-frogs" | "cocktail" | "cars";
 
 function BalloonIcon() {
   return (
@@ -119,6 +119,20 @@ function CocktailIcon() {
   );
 }
 
+function CarIcon() {
+  return (
+    <svg viewBox="0 0 56 56" className="h-16 w-16 drop-shadow" aria-hidden="true">
+      <path d="M8 34 L12 22 Q14 18 19 18 H37 Q42 18 44 22 L48 34 Z" fill="#0891b2" stroke="#0e7490" strokeWidth="2" />
+      <rect x="6" y="32" width="44" height="10" rx="4" fill="#0891b2" stroke="#0e7490" strokeWidth="2" />
+      <path d="M16 20 L20 28 H36 L40 20 Z" fill="#bae6fd" opacity="0.85" />
+      <circle cx="17" cy="42" r="5" fill="#1e293b" />
+      <circle cx="17" cy="42" r="2" fill="#94a3b8" />
+      <circle cx="39" cy="42" r="5" fill="#1e293b" />
+      <circle cx="39" cy="42" r="2" fill="#94a3b8" />
+    </svg>
+  );
+}
+
 // Each game's own accent color — the thick colored ring around its card
 // (see GameCard) and the "Play" pill's background, so the cards read as
 // distinct at a glance instead of all being the same gray box.
@@ -131,6 +145,7 @@ const GAME_ACCENTS: Record<PreschoolGameId, { ring: string; play: string }> = {
   math: { ring: "ring-lime-300", play: "bg-lime-600" },
   "jumping-frogs": { ring: "ring-emerald-300", play: "bg-emerald-500" },
   cocktail: { ring: "ring-amber-300", play: "bg-amber-500" },
+  cars: { ring: "ring-cyan-300", play: "bg-cyan-600" },
 };
 
 function GameCard({
@@ -245,6 +260,13 @@ export function GamePicker({
           subtitle={t("cocktailSubtitle")}
           icon={<CocktailIcon />}
           onSelect={() => onSelect("cocktail")}
+        />
+        <GameCard
+          game="cars"
+          title={t("carsTitle")}
+          subtitle={t("carsSubtitle")}
+          icon={<CarIcon />}
+          onSelect={() => onSelect("cars")}
         />
       </div>
     </div>
