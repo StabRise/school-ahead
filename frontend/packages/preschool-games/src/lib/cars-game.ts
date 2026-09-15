@@ -76,7 +76,29 @@ export interface CarsPoint {
   y: number;
 }
 
-export type TurnDirection = "left" | "right" | "straight";
+// A screen-absolute cardinal direction, NOT relative to the car's own
+// current heading ("turn left/right like a steering wheel" was the
+// original design — see git history — but it meant the same physical pad
+// button could stop being the visually-obvious choice once the car had
+// already turned once, which read as "the wrong button gets accepted/
+// rejected" to anyone driving from the map rather than mentally tracking
+// their own relative orientation; preschoolers definitely can't do that
+// mental tracking, so every direction here — the sign, the pad, and the
+// required input, both mid-block and at a turn — is always just "which
+// way does the road visibly go", full stop).
+export type TurnDirection = "up" | "right" | "down" | "left";
+
+// headingToCardinal converts a heading in radians (always an exact
+// multiple of 90° by construction — see buildRoad) to the absolute
+// direction it points on screen.
+export function headingToCardinal(headingRad: number): TurnDirection {
+  const deg = Math.round((headingRad * 180) / Math.PI);
+  const normalized = ((deg % 360) + 360) % 360;
+  if (normalized === 270) return "up";
+  if (normalized === 90) return "down";
+  if (normalized === 180) return "left";
+  return "right";
+}
 
 // Maps a route-wide progress value (0 at the parking lot, 1 at the
 // destination) onto a specific straight segment + local t, so the driving
@@ -132,26 +154,33 @@ const SEGMENT_LENGTH = 130;
 // straight, turning only sometimes, not zig-zagging at every block.
 const TURN_PROBABILITY = 0.55;
 
-function randomTurnDirection(): TurnDirection {
+// Internal-only: which way to rotate the CURRENT heading when generating
+// the road (avoiding a 180° reversal keeps every corner a clean, sensible
+// right angle rather than the road doubling back on itself) — this is
+// deliberately not the exported TurnDirection; only the RESULTING absolute
+// cardinal (see headingToCardinal) is ever exposed to the rest of the game.
+type RelativeTurn = "left" | "right" | "straight";
+
+function randomRelativeTurn(): RelativeTurn {
   if (Math.random() >= TURN_PROBABILITY) return "straight";
   return Math.random() < 0.5 ? "left" : "right";
 }
 
-// A clean quarter turn either way — matches the on-screen chevron sign and
-// gives the road a real right-angle street corner instead of a gentle bend.
-function applyTurn(headingRad: number, direction: TurnDirection): number {
-  if (direction === "left") return headingRad - Math.PI / 2;
-  if (direction === "right") return headingRad + Math.PI / 2;
+// A clean quarter turn either way — gives the road a real right-angle
+// street corner instead of a gentle bend.
+function applyRelativeTurn(headingRad: number, turn: RelativeTurn): number {
+  if (turn === "left") return headingRad - Math.PI / 2;
+  if (turn === "right") return headingRad + Math.PI / 2;
   return headingRad;
 }
 
 // A city-block road: mostly straight SEGMENT_LENGTH runs, with a sharp
-// ~90° corner wherever a turn is rolled. The direction is decided first and
-// the geometry built to match it exactly (rather than derived from a
-// wiggly curve afterward), so a turn prompt can never disagree with what's
-// actually drawn. Starts heading "up" the map. Returns turnCount+2
-// waypoints (start + one per intersection + the final destination) and
-// exactly turnCount directions, one per intersection.
+// ~90° corner wherever a turn is rolled. Starts heading "up" the map.
+// Returns turnCount+2 waypoints (start + one per intersection + the final
+// destination) and exactly turnCount directions, one per intersection —
+// each the absolute cardinal (see headingToCardinal) the road actually
+// points along immediately after that waypoint, so a sign/prompt can never
+// disagree with what's actually drawn.
 function buildRoad(turnCount: number): { waypoints: CarsPoint[]; directions: TurnDirection[] } {
   const waypoints: CarsPoint[] = [{ x: 0, y: 0 }];
   let heading = -Math.PI / 2;
@@ -165,22 +194,39 @@ function buildRoad(turnCount: number): { waypoints: CarsPoint[]; directions: Tur
 
   const directions: TurnDirection[] = [];
   for (let i = 0; i < turnCount; i++) {
-    const direction = randomTurnDirection();
-    directions.push(direction);
-    heading = applyTurn(heading, direction);
+    heading = applyRelativeTurn(heading, randomRelativeTurn());
+    directions.push(headingToCardinal(heading));
     point = { x: point.x + Math.cos(heading) * SEGMENT_LENGTH, y: point.y + Math.sin(heading) * SEGMENT_LENGTH };
     waypoints.push(point);
   }
   return { waypoints, directions };
 }
 
+// The turn walk is symmetric (left/right equally likely), so a route can
+// occasionally net sideways or even backward instead of toward the
+// destination — fine for the turns themselves, but the destination marker
+// should always read as "up ahead", not beside or behind the start. Reroll
+// (bounded) until the start-to-destination vertical rise clears this floor;
+// see cars-game.tsx's own per-round scale, which uses this rise to make the
+// destination land at a specific screen height.
+const MIN_NET_RISE = SEGMENT_LENGTH * 2;
+const MAX_ROUTE_ATTEMPTS = 30;
+
 // One random round's road — see docs/preschool/games/cars.md §7 for why
 // this is one single generated path per round rather than a real branching
 // road network.
 export function generateCarsRoute(destinations: readonly CarsDestination[] = DESTINATIONS): CarsRoute {
   const destination = destinations[Math.floor(Math.random() * destinations.length)];
-  const turnCount = randomInt(...TURN_COUNT_RANGE);
-  const { waypoints, directions } = buildRoad(turnCount);
+  let waypoints: CarsPoint[] = [];
+  let directions: TurnDirection[] = [];
+  for (let attempt = 0; attempt < MAX_ROUTE_ATTEMPTS; attempt++) {
+    const turnCount = randomInt(...TURN_COUNT_RANGE);
+    const built = buildRoad(turnCount);
+    waypoints = built.waypoints;
+    directions = built.directions;
+    const netRise = waypoints[0].y - waypoints[waypoints.length - 1].y;
+    if (netRise >= MIN_NET_RISE) break;
+  }
   const turns: CarsRouteTurn[] = directions.map((direction, i) => ({ t: (i + 1) / (waypoints.length - 1), direction }));
   return { destination, waypoints, turns };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCarsAnswerChoices, DESTINATIONS, generateCarsEquation, generateCarsRoute } from "./cars-game";
+import { buildCarsAnswerChoices, DESTINATIONS, generateCarsEquation, generateCarsRoute, headingToCardinal } from "./cars-game";
 
 describe("generateCarsEquation", () => {
   it("keeps total in [3,8] and subtract in [1,total-1]", () => {
@@ -66,8 +66,17 @@ describe("generateCarsRoute", () => {
         expect(turn.t).toBeLessThanOrEqual(1);
         expect(turn.t).toBeGreaterThan(previousT);
         previousT = turn.t;
-        expect(["left", "right", "straight"]).toContain(turn.direction);
+        expect(["up", "right", "down", "left"]).toContain(turn.direction);
       }
+    }
+  });
+
+  it("always nets a meaningful rise from start to destination (never sideways or backward)", () => {
+    for (let i = 0; i < 30; i++) {
+      const route = generateCarsRoute();
+      const netRise = route.waypoints[0].y - route.waypoints[route.waypoints.length - 1].y;
+      // Matches lib/cars-game.ts's own MIN_NET_RISE = SEGMENT_LENGTH * 2.
+      expect(netRise).toBeGreaterThanOrEqual(260);
     }
   });
 
@@ -79,26 +88,33 @@ describe("generateCarsRoute", () => {
     }
   });
 
-  it("keeps consecutive segments collinear for a 'straight' turn and perpendicular for a real turn", () => {
+  it("stores the exact absolute direction the road actually heads after each turn", () => {
+    // This is the core promise the whole sign/pad/input system depends on
+    // (see TurnDirection's own comment): a stored direction must always
+    // match what's actually drawn, with no relative-to-heading indirection
+    // for anything to disagree through.
     for (let i = 0; i < 30; i++) {
       const route = generateCarsRoute();
       for (let k = 0; k < route.turns.length; k++) {
-        // Segment k runs waypoints[k] -> waypoints[k+1]; segment k+1 runs
-        // waypoints[k+1] -> waypoints[k+2] — the turn at turns[k] is the
-        // heading change between those two segments.
+        const after = segmentVector(route.waypoints[k + 1], route.waypoints[k + 2]);
+        const afterHeading = Math.atan2(after.y, after.x);
+        expect(headingToCardinal(afterHeading)).toBe(route.turns[k].direction);
+      }
+    }
+  });
+
+  it("keeps consecutive segments collinear when the direction repeats and perpendicular when it changes", () => {
+    for (let i = 0; i < 30; i++) {
+      const route = generateCarsRoute();
+      for (let k = 0; k < route.turns.length; k++) {
         const before = segmentVector(route.waypoints[k], route.waypoints[k + 1]);
         const after = segmentVector(route.waypoints[k + 1], route.waypoints[k + 2]);
         const dot = before.x * after.x + before.y * after.y;
-        const cross = before.x * after.y - before.y * after.x;
-        if (route.turns[k].direction === "straight") {
+        const beforeCardinal = headingToCardinal(Math.atan2(before.y, before.x));
+        if (beforeCardinal === route.turns[k].direction) {
           expect(dot).toBeCloseTo(130 * 130, 3);
         } else {
           expect(dot).toBeCloseTo(0, 3);
-          // Screen coords (y-down): heading += 90° ("right") rotates
-          // (cosθ,sinθ) to (-sinθ,cosθ), giving a positive cross product;
-          // heading -= 90° ("left") gives a negative one.
-          if (route.turns[k].direction === "right") expect(cross).toBeGreaterThan(0);
-          else expect(cross).toBeLessThan(0);
         }
       }
     }

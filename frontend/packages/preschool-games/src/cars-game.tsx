@@ -12,6 +12,7 @@ import {
   type CarsRoute,
   generateCarsEquation,
   generateCarsRoute,
+  headingToCardinal,
   pointAtT,
   tangentAngleAtT,
   type TurnDirection,
@@ -41,9 +42,10 @@ import { useCarsGameStore } from "./stores/cars-game-store";
 // same as cocktail-game.tsx's own PRAISE_PHRASES/REJECT_PHRASES — speech
 // content is independent of the on-screen labels in uk.json.
 const TURN_PHRASES: Record<TurnDirection, string> = {
-  left: "Поверни наліво!",
+  up: "Проїдь прямо!",
   right: "Поверни направо!",
-  straight: "Проїдь прямо!",
+  down: "Їдь вниз!",
+  left: "Поверни наліво!",
 };
 const ARRIVAL_PHRASES = ["Ура! Приїхали!", "Молодець! Доїхали!"];
 
@@ -98,7 +100,7 @@ function CarsParkingStage({
 }: {
   equation: CarsEquation;
   muted: boolean;
-  onSolved: (departingCars: string[]) => void;
+  onSolved: () => void;
 }) {
   const t = useTranslations("CarsGame");
   const [parkedCars] = useState(() => Array.from({ length: equation.total }, randomCarEmoji));
@@ -214,7 +216,7 @@ function CarsParkingStage({
       ) : (
         <button
           type="button"
-          onClick={() => onSolved(departingIndices.map((i) => parkedCars[i]))}
+          onClick={() => onSolved()}
           className="preschool-button z-10 flex items-center gap-2 rounded-full bg-emerald-500 px-6 py-2.5 text-lg font-extrabold text-white shadow-lg ring-4 ring-emerald-300 transition hover:scale-105"
         >
           {t("departButton")} 🚗
@@ -229,11 +231,12 @@ function CarsParkingStage({
 // World coordinates (see lib/cars-game.ts's generateCarsRoute) are centered
 // on (0,0) — a road with up to 5 turns has 6 straight 130px blocks, so a
 // run that never turns can drift up to 780px from the start in a single
-// direction. Shifting by this much before drawing keeps everything
-// comfortably positive so a plain absolutely-positioned <svg> (no viewBox
-// scaling trickery) can hold the whole route.
-const WORLD_SHIFT = 900;
-const WORLD_CANVAS_SIZE = 1800;
+// direction, and the per-round scale below (see routeScale) can stretch
+// that up to MAX_ROUTE_SCALE more. Shifting by this much before drawing
+// keeps everything comfortably positive so a plain absolutely-positioned
+// <svg> (no viewBox scaling trickery) can hold the whole route.
+const WORLD_SHIFT = 1300;
+const WORLD_CANVAS_SIZE = 2600;
 
 function toCanvasPoint(p: CarsPoint): CarsPoint {
   return { x: p.x + WORLD_SHIFT, y: p.y + WORLD_SHIFT };
@@ -243,27 +246,64 @@ function shiftWaypoints(waypoints: CarsPoint[]): CarsPoint[] {
   return waypoints.map(toCanvasPoint);
 }
 
-// Fraction of the viewport's own width/height where the car sits — near
-// the bottom-left rather than dead-center, so the road has room to reveal
-// itself ahead of (above/right of) the car as it drives.
-const CAMERA_ANCHOR_X = 0.25;
-const CAMERA_ANCHOR_Y = 0.8;
+// Horizontal fraction of the viewport where the road's start point (the
+// parking-lot exit) sits — dead center, per this feature's own request.
+// Fixed for the whole stage (computed from route.waypoints[0], not the
+// car's current position) — the camera itself never pans; only the car
+// sprite moves.
+const CAMERA_ANCHOR_X = 0.5;
 
-// The road is a strict grid (every segment is exactly axis-aligned — see
-// lib/cars-game.ts's buildRoad), so the car only ever needs to face one of
-// 4 cardinal headings. Car emoji (🚗🚕🚓...) render as a side-view sprite
-// facing LEFT by default on most platforms, which is NOT rotationally
-// symmetric: a plain 180°-rotation to face right would also flip the car
-// upside-down (wheels on top), since rotating a side-view image by a half
-// turn inverts its own up/down axis along with its left/right one — as
-// reported from a live screenshot. Facing right is therefore a horizontal
-// mirror (no rotation, wheels stay down); the other 3 directions are each
-// only a quarter-turn from neutral, which just tilts the glyph rather than
-// inverting it.
+// The car's own fixed rendered size (see its className below — no
+// responsive sm: variant, specifically so this stays exact) and how far
+// above the viewport's bottom edge its bottom edge should sit at the very
+// start of the journey — per this feature's own request: "виїджає зовсім
+// трохи - щоб її стало видно, але нижній край був рівний низу екрана + 5
+// пікселів". `left`/`top` position the sprite's CENTER (see its
+// translate(-50%,-50%)), so the target center-Y is back-computed from the
+// desired bottom-edge position.
+const CAR_HEIGHT_PX = 56;
+const CAR_BOTTOM_MARGIN_PX = 5;
+
+// The destination should always read as "way up there" — comfortably
+// inside the top 30% of the screen, per this feature's own request — while
+// the X position is left to fall wherever the route's own turns take it
+// (no separate horizontal targeting needed). Since a randomly generated
+// route's actual vertical rise varies round to round, the whole route is
+// uniformly scaled (never distorting its right-angle corners) so the
+// destination lands at this exact screen-height fraction regardless.
+const TARGET_DESTINATION_Y = 0.10;
+const MIN_ROUTE_SCALE = 0.35;
+const MAX_ROUTE_SCALE = 1.6;
+
+// CarTopDownSprite (below) is drawn nose-up (heading -90° in our own
+// atan2(dy,dx) convention), so a plain rotation aligns it with any desired
+// heading — unlike a side-view car emoji (see this function's own git
+// history), a top-down sprite is fully rotationally symmetric: no
+// mirroring or per-direction special-casing needed for any of the 4
+// cardinal headings this grid road ever asks for.
 function carDirectionTransform(headingRad: number): string {
-  const headingDeg = (((headingRad * 180) / Math.PI) % 360 + 360) % 360;
-  if (headingDeg < 1 || headingDeg > 359) return "scaleX(-1)";
-  return `rotate(${headingDeg - 180}deg)`;
+  return `rotate(${(headingRad * 180) / Math.PI + 90}deg)`;
+}
+
+// A small original top-down car — nose pointing up, drawn from scratch
+// (not the emoji catalog, which is side-view and only used for the static
+// parked-cars illustration) so it can rotate cleanly to any of the road's
+// 4 headings. Matches this codebase's existing convention of small inline
+// SVG icons (e.g. game-choice.tsx's CarIcon) rather than an image asset.
+function CarTopDownSprite({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 40 70" className={className} aria-hidden="true">
+      <rect x="2" y="12" width="6" height="16" rx="3" fill="#1f2937" />
+      <rect x="32" y="12" width="6" height="16" rx="3" fill="#1f2937" />
+      <rect x="2" y="42" width="6" height="16" rx="3" fill="#1f2937" />
+      <rect x="32" y="42" width="6" height="16" rx="3" fill="#1f2937" />
+      <rect x="6" y="2" width="28" height="66" rx="12" fill="#ef4444" stroke="#b91c1c" strokeWidth="2" />
+      <rect x="11" y="10" width="18" height="14" rx="4" fill="#bae6fd" />
+      <rect x="11" y="47" width="18" height="10" rx="4" fill="#bae6fd" opacity="0.8" />
+      <circle cx="12" cy="7" r="2" fill="#fef08a" />
+      <circle cx="28" cy="7" r="2" fill="#fef08a" />
+    </svg>
+  );
 }
 
 interface ViewportSize {
@@ -296,8 +336,13 @@ function useViewportSize(): [(el: HTMLDivElement | null) => void, ViewportSize] 
   return [setRef, size];
 }
 
+// Rotation for an up-pointing chevron — direction is an absolute screen
+// cardinal (see TurnDirection's own comment), so this is a plain fixed
+// lookup, not anything derived from the car's current heading.
+const CARDINAL_ROTATION: Record<TurnDirection, number> = { up: 0, right: 90, down: 180, left: -90 };
+
 function DirectionArrowIcon({ direction }: { direction: TurnDirection }) {
-  const rotation = direction === "left" ? -90 : direction === "right" ? 90 : 0;
+  const rotation = CARDINAL_ROTATION[direction];
   return (
     <svg viewBox="0 0 24 24" className="h-8 w-8 text-amber-600" style={{ transform: `rotate(${rotation}deg)` }} aria-hidden="true">
       <path d="M12 2 L20 12 L14 12 L14 22 L10 22 L10 12 L4 12 Z" fill="currentColor" />
@@ -320,21 +365,66 @@ function CarsRoadSign({ direction, shakeToken }: { direction: TurnDirection; sha
   );
 }
 
-function CarsDirectionPad({ onPick, disabled }: { onPick: (direction: TurnDirection) => void; disabled: boolean }) {
+// Hold-to-drive, not tap-to-advance — per this feature's own request, the
+// car only moves while a direction is actively held and stops the instant
+// it's released. Pointer (not click) events so a held-down finger/mouse
+// button is tracked continuously; leaving/cancelling counts as a release
+// too, so a finger sliding off the button doesn't leave it "stuck" held.
+// Laid out as a proper 4-way cross (up/down centered, left/right either
+// side) rather than one row — with directions now absolute screen
+// cardinals (see TurnDirection's own comment), a cross matches the actual
+// screen layout the child is looking at, same as the sign's own arrow.
+function CarsDirectionPad({ heldDirection, onHold }: { heldDirection: TurnDirection | null; onHold: (direction: TurnDirection | null) => void }) {
   const t = useTranslations("CarsGame");
-  const buttonClass =
-    "preschool-button flex h-14 w-14 items-center justify-center rounded-full bg-white text-2xl shadow-lg ring-4 ring-gray-200 transition hover:scale-105 disabled:cursor-default disabled:opacity-50 disabled:hover:scale-100";
+  const buttonLabel: Record<TurnDirection, string> = {
+    up: t("driveUpLabel"),
+    right: t("turnRightLabel"),
+    down: t("driveDownLabel"),
+    left: t("turnLeftLabel"),
+  };
+  const buttonEmoji: Record<TurnDirection, string> = { up: "⬆️", right: "➡️", down: "⬇️", left: "⬅️" };
+  const buttonClass = (direction: TurnDirection) =>
+    `preschool-button flex h-14 w-14 items-center justify-center rounded-full text-2xl shadow-lg ring-4 transition ${
+      heldDirection === direction ? "scale-110 bg-emerald-200 ring-emerald-400" : "bg-white ring-gray-200 hover:scale-105"
+    }`;
+  const holdHandlers = (direction: TurnDirection) => ({
+    onPointerDown: () => onHold(direction),
+    onPointerUp: () => onHold(null),
+    onPointerLeave: () => onHold(null),
+    onPointerCancel: () => onHold(null),
+  });
+  // Inlined 4x rather than a small local <Button> component — defining a
+  // component inside another component's render body resets its state
+  // every render (this codebase's react-hooks/static-components lint rule
+  // catches it), and there's no state to share here worth the extra
+  // component anyway.
   return (
-    <div className="flex gap-3">
-      <button type="button" aria-label={t("turnLeftLabel")} disabled={disabled} onClick={() => onPick("left")} className={buttonClass}>
-        ⬅️
-      </button>
-      <button type="button" aria-label={t("driveStraightLabel")} disabled={disabled} onClick={() => onPick("straight")} className={buttonClass}>
-        ⬆️
-      </button>
-      <button type="button" aria-label={t("turnRightLabel")} disabled={disabled} onClick={() => onPick("right")} className={buttonClass}>
-        ➡️
-      </button>
+    <div className="grid grid-cols-3 grid-rows-3 place-items-center gap-2">
+      <div />
+      <div className="col-start-2 row-start-1">
+        <button type="button" aria-label={buttonLabel.up} className={buttonClass("up")} {...holdHandlers("up")}>
+          {buttonEmoji.up}
+        </button>
+      </div>
+      <div />
+      <div className="col-start-1 row-start-2">
+        <button type="button" aria-label={buttonLabel.left} className={buttonClass("left")} {...holdHandlers("left")}>
+          {buttonEmoji.left}
+        </button>
+      </div>
+      <div />
+      <div className="col-start-3 row-start-2">
+        <button type="button" aria-label={buttonLabel.right} className={buttonClass("right")} {...holdHandlers("right")}>
+          {buttonEmoji.right}
+        </button>
+      </div>
+      <div />
+      <div className="col-start-2 row-start-3">
+        <button type="button" aria-label={buttonLabel.down} className={buttonClass("down")} {...holdHandlers("down")}>
+          {buttonEmoji.down}
+        </button>
+      </div>
+      <div />
     </div>
   );
 }
@@ -366,15 +456,22 @@ function CarsConfetti() {
   );
 }
 
-type DrivePhase = "advancing" | "waiting" | "arrived";
+// How fast the car covers route-progress (0-1) per second while a
+// validated direction is held — per-leg t-span is roughly 0.17-0.25 (4-6
+// segments), so this paces each block at a bit over a second, holdable
+// comfortably by a preschooler.
+const DRIVE_SPEED_T_PER_SEC = 0.15;
+
+// How close to a turn's own t counts as "at" that intersection — the zone
+// where the held direction has to match the upcoming turn rather than just
+// whatever the car is already driving (see requiredDirection below).
+const TURN_EPSILON = 0.02;
 
 function CarsDrivingStage({
-  cars,
   route,
   muted,
   onDone,
 }: {
-  cars: string[];
   route: CarsRoute;
   muted: boolean;
   onDone: () => void;
@@ -382,91 +479,161 @@ function CarsDrivingStage({
   const t = useTranslations("CarsGame");
   const [setViewportRef, viewportSize] = useViewportSize();
   const viewportReady = viewportSize.width > 0 && viewportSize.height > 0;
-  const [journeyStarted, setJourneyStarted] = useState(false);
-  const [turnIndex, setTurnIndex] = useState(0);
-  const [phase, setPhase] = useState<DrivePhase>("advancing");
+  const [progressT, setProgressT] = useState(0);
+  // Hold-to-drive, not tap-to-advance — per this feature's own request, the
+  // car only advances while this is set to whatever's currently required
+  // (see requiredDirection below), and freezes in place the instant it's
+  // cleared (key/button released).
+  const [heldDirection, setHeldDirection] = useState<TurnDirection | null>(null);
   const [shakeToken, setShakeToken] = useState(0);
   const celebrationRef = useRef<HTMLParagraphElement>(null);
   const rewardCarsGame = useRewardCarsGame();
 
-  // Starts the drive from the parking-lot end of the route once the
-  // viewport's real size is known (not on a fixed timer) — the very first
-  // render or two happen before ResizeObserver's first measurement, when
-  // viewportSize is still {0,0}; computing worldX/worldY against that would
-  // park the camera in a corner instead of centered, and the *next* render
-  // (once the real size arrives) would then wrongly CSS-transition away
-  // from that bad position instead of just starting there cleanly.
-  useEffect(() => {
-    if (!viewportReady) return;
-    const raf = requestAnimationFrame(() => setJourneyStarted(true));
-    return () => cancelAnimationFrame(raf);
-  }, [viewportReady]);
+  // turnIndex/arrived are pure derivations of progressT (which only ever
+  // increases) and route.turns' own thresholds — not separate state, so
+  // there's no "commit" effect needed to keep them in sync with it (that
+  // pattern trips this codebase's react-hooks/set-state-in-effect lint
+  // rule, and the derivation is trivial anyway).
+  const turnIndex = route.turns.filter((turn) => progressT >= turn.t).length;
+
+  // Uniform per-round scale so the destination (the route's last waypoint)
+  // lands at TARGET_DESTINATION_Y regardless of how far this particular
+  // route's random turns happened to rise — start.y is always 0 (see
+  // lib/cars-game.ts's buildRoad), so this scales everything relative to
+  // the fixed start point without needing a separate offset. Waits for a
+  // real viewport size rather than computing against {0,0}.
+  // The car's center-Y at the very start of the journey (t=0) — see
+  // CAR_BOTTOM_MARGIN_PX's own comment.
+  const startCenterY = viewportSize.height - CAR_BOTTOM_MARGIN_PX - CAR_HEIGHT_PX / 2;
+  const netRise = route.waypoints[0].y - route.waypoints[route.waypoints.length - 1].y;
+  const routeScale = viewportReady
+    ? Math.min(MAX_ROUTE_SCALE, Math.max(MIN_ROUTE_SCALE, (startCenterY - viewportSize.height * TARGET_DESTINATION_Y) / netRise))
+    : 1;
+  const scaledWaypoints = route.waypoints.map((p) => ({ x: p.x * routeScale, y: p.y * routeScale }));
 
   const pendingTurn = turnIndex < route.turns.length ? route.turns[turnIndex] : null;
-  const targetT = !journeyStarted ? 0 : pendingTurn ? pendingTurn.t : 1;
-  const targetPoint = toCanvasPoint(pointAtT(route.waypoints, targetT));
-  // Anchors the car near the bottom-left of the viewport (not centered) —
-  // per this feature's own request, so the road (heading up/right from the
-  // parking lot) has room to reveal itself ahead of the car as it drives,
-  // the same corner it exits from throughout the whole journey rather than
-  // only at the very start.
-  const worldX = viewportSize.width * CAMERA_ANCHOR_X - targetPoint.x;
-  const worldY = viewportSize.height * CAMERA_ANCHOR_Y - targetPoint.y;
-  const headingRad = tangentAngleAtT(route.waypoints, targetT);
+  const legTargetT = pendingTurn ? pendingTurn.t : 1;
+  const arrived = progressT >= 1;
+  const targetPoint = toCanvasPoint(pointAtT(scaledWaypoints, progressT));
+  const headingRad = tangentAngleAtT(scaledWaypoints, progressT);
+  // Within this leg's final stretch (or already past it, clamped), the
+  // held direction has to match the actual turn to keep moving — anywhere
+  // earlier in the leg, holding whichever absolute direction the car is
+  // already driving (headingToCardinal of its current heading) is all
+  // that's needed, same as any other stretch of road.
+  const atDecisionPoint = pendingTurn !== null && progressT >= pendingTurn.t - TURN_EPSILON;
+  const requiredDirection: TurnDirection = atDecisionPoint && pendingTurn ? pendingTurn.direction : headingToCardinal(headingRad);
+
+  // Mirrors this render's requiredDirection into a ref (outside render, per
+  // React's rules-of-refs) so the stable (empty-deps) key/pointer handlers
+  // below can read the current requirement at press-time without needing
+  // to resubscribe on every progressT tick.
+  const requiredDirectionRef = useRef(requiredDirection);
+  useEffect(() => {
+    requiredDirectionRef.current = requiredDirection;
+  });
+
+  // A fixed placement for the whole stage (the route's own start point
+  // pinned so the car's bottom edge sits CAR_BOTTOM_MARGIN_PX above the
+  // viewport's bottom edge at t=0) — the world/road never pans; only the
+  // car sprite itself moves within it (see its own left/top/transform
+  // below).
+  const startPoint = toCanvasPoint(scaledWaypoints[0]);
+  const worldX = viewportSize.width * CAMERA_ANCHOR_X - startPoint.x;
+  const worldY = startCenterY - startPoint.y;
 
   useDiamondMilestoneReward({
     mode: "level",
-    complete: phase === "arrived",
+    complete: arrived,
     rewardMutation: rewardCarsGame,
     originRef: celebrationRef,
   });
 
-  // Speaks the current turn's instruction once whenever a fresh prompt
-  // appears — not on every render, so a re-render from an unrelated state
-  // change (e.g. the shake animation clearing) doesn't repeat it.
+  // Drives progressT forward each frame, but only while the held direction
+  // actually matches what's currently required — releasing (heldDirection
+  // becomes null) or holding the wrong one at an intersection simply stops
+  // this from advancing, it doesn't reset anything.
   useEffect(() => {
-    if (phase === "waiting" && pendingTurn) sayUk(TURN_PHRASES[pendingTurn.direction], muted);
+    if (arrived) return;
+    let raf = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = (now - last) / 1000;
+      last = now;
+      if (heldDirection && heldDirection === requiredDirection) {
+        setProgressT((current) => Math.min(legTargetT, current + DRIVE_SPEED_T_PER_SEC * dt));
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [heldDirection, requiredDirection, legTargetT, arrived]);
+
+  // Honks once each time turnIndex (itself just derived from progressT
+  // crossing a turn's t — see above) actually advances — a ref comparison,
+  // not state, so this is a plain "react to a derived value changing" side
+  // effect rather than the setState-in-effect pattern the commit-style
+  // version above used to trip.
+  const previousTurnIndexRef = useRef(turnIndex);
+  useEffect(() => {
+    if (turnIndex > previousTurnIndexRef.current) playCarHonkSound();
+    previousTurnIndexRef.current = turnIndex;
+  }, [turnIndex]);
+
+  // Speaks a turn's instruction once as its decision zone is first entered
+  // — not on every render, so a re-render from an unrelated state change
+  // (e.g. the shake animation clearing) doesn't repeat it.
+  useEffect(() => {
+    if (atDecisionPoint && pendingTurn) sayUk(TURN_PHRASES[pendingTurn.direction], muted);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, turnIndex]);
+  }, [atDecisionPoint, turnIndex]);
 
   useEffect(() => {
-    if (phase === "arrived") {
+    if (arrived) {
       playVictoryFanfare();
       sayUk(pickPhrase(ARRIVAL_PHRASES), muted);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
+  }, [arrived]);
 
-  const handleWorldTransitionEnd = () => {
-    if (phase !== "advancing") return;
-    setPhase(pendingTurn ? "waiting" : "arrived");
-  };
-
-  const handleDirectionInput = (direction: TurnDirection) => {
-    if (phase !== "waiting" || !pendingTurn) return;
-    if (direction === pendingTurn.direction) {
-      playCarHonkSound();
-      setTurnIndex((i) => i + 1);
-      setPhase("advancing");
-    } else {
+  // Starts holding a direction — checked synchronously right here (via the
+  // requiredDirectionRef mirror above) rather than reactively in a
+  // useEffect watching heldDirection, both because it's a direct
+  // consequence of this user event (not state syncing from other state)
+  // and because it needs the freshest possible read of the requirement,
+  // not whatever it was on the last render. Bounces on ANY mismatch now
+  // (not just "at a decision point") — mid-block the requirement is
+  // whichever absolute direction the car is already driving, so pressing
+  // something else is just as genuinely wrong as picking the wrong turn.
+  const handleHoldStart = (direction: TurnDirection) => {
+    setHeldDirection(direction);
+    if (direction !== requiredDirectionRef.current) {
       playCocktailBounceSound();
       setShakeToken((n) => n + 1);
-      setTimeout(() => sayUk(TURN_PHRASES[pendingTurn.direction], muted), 500);
     }
   };
 
   useEffect(() => {
-    if (phase !== "waiting") return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (event.key === "ArrowLeft") handleDirectionInput("left");
-      else if (event.key === "ArrowRight") handleDirectionInput("right");
-      else if (event.key === "ArrowUp") handleDirectionInput("straight");
+      if (event.metaKey || event.ctrlKey || event.altKey || event.repeat) return;
+      if (event.key === "ArrowLeft") handleHoldStart("left");
+      else if (event.key === "ArrowRight") handleHoldStart("right");
+      else if (event.key === "ArrowUp") handleHoldStart("up");
+      else if (event.key === "ArrowDown") handleHoldStart("down");
+    };
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "ArrowLeft") setHeldDirection((current) => (current === "left" ? null : current));
+      else if (event.key === "ArrowRight") setHeldDirection((current) => (current === "right" ? null : current));
+      else if (event.key === "ArrowDown") setHeldDirection((current) => (current === "down" ? null : current));
+      else if (event.key === "ArrowUp") setHeldDirection((current) => (current === "up" ? null : current));
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, turnIndex]);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
 
   return (
     <div className="relative flex w-full flex-1 flex-col items-center gap-4 py-2">
@@ -479,13 +646,12 @@ function CarsDrivingStage({
           <>
             <div
               className="absolute left-0 top-0"
-              style={{ width: WORLD_CANVAS_SIZE, height: WORLD_CANVAS_SIZE, transform: `translate(${worldX}px, ${worldY}px)`, transition: "transform 900ms ease-in-out" }}
-              onTransitionEnd={handleWorldTransitionEnd}
+              style={{ width: WORLD_CANVAS_SIZE, height: WORLD_CANVAS_SIZE, transform: `translate(${worldX}px, ${worldY}px)` }}
             >
               <svg width={WORLD_CANVAS_SIZE} height={WORLD_CANVAS_SIZE} className="absolute left-0 top-0" aria-hidden="true">
-                <path d={waypointsToPathD(shiftWaypoints(route.waypoints))} stroke="#94a3b8" strokeWidth={22} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                <path d={waypointsToPathD(shiftWaypoints(scaledWaypoints))} stroke="#94a3b8" strokeWidth={22} fill="none" strokeLinecap="round" strokeLinejoin="round" />
                 <path
-                  d={waypointsToPathD(shiftWaypoints(route.waypoints))}
+                  d={waypointsToPathD(shiftWaypoints(scaledWaypoints))}
                   stroke="#f8fafc"
                   strokeWidth={14}
                   fill="none"
@@ -495,7 +661,7 @@ function CarsDrivingStage({
                 />
               </svg>
               {(() => {
-                const destinationPoint = toCanvasPoint(route.waypoints[route.waypoints.length - 1]);
+                const destinationPoint = toCanvasPoint(scaledWaypoints[scaledWaypoints.length - 1]);
                 return (
                   <span
                     aria-hidden="true"
@@ -510,26 +676,30 @@ function CarsDrivingStage({
               {/* Only one car is driven/controlled, regardless of how many
                   were marked as departing in the parking stage — per this
                   feature's own request, simpler for the child to track than
-                  a whole convoy. Sits inside the same translating world
-                  wrapper as the road itself, so panning the camera
-                  naturally carries it along. */}
-              <span
-                aria-hidden="true"
-                className="absolute text-4xl transition-all duration-500 ease-in-out sm:text-5xl"
+                  a whole convoy. The world/road itself is static (see
+                  worldX/worldY above); position updates every rAF frame (no
+                  CSS transition — it would fight the continuous updates),
+                  only the rotation eases so turning in place looks smooth. */}
+              <div
+                // No responsive sm: size variant here — fixed at h-14 (56px)
+                // to match CAR_HEIGHT_PX exactly, which the bottom-margin
+                // anchor above depends on.
+                className="absolute h-14 w-8 transition-transform duration-300 ease-out"
                 style={{ left: targetPoint.x, top: targetPoint.y, transform: `translate(-50%, -50%) ${carDirectionTransform(headingRad)}` }}
               >
-                {cars[0] ?? randomCarEmoji()}
-              </span>
+                <CarTopDownSprite className="h-full w-full drop-shadow" />
+              </div>
             </div>
 
-            {phase === "waiting" && pendingTurn && (
-              <div className="absolute inset-x-0 top-4 z-10 flex flex-col items-center gap-3">
-                <CarsRoadSign direction={pendingTurn.direction} shakeToken={shakeToken} />
-                <CarsDirectionPad onPick={handleDirectionInput} disabled={false} />
-              </div>
-            )}
+            <div className="absolute inset-x-0 top-4 z-10 flex flex-col items-center gap-3">
+              {atDecisionPoint && pendingTurn && <CarsRoadSign direction={pendingTurn.direction} shakeToken={shakeToken} />}
+              <CarsDirectionPad
+                heldDirection={heldDirection}
+                onHold={(direction) => (direction ? handleHoldStart(direction) : setHeldDirection(null))}
+              />
+            </div>
 
-            {phase === "arrived" && (
+            {arrived && (
               <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 overflow-hidden bg-white/80 text-center">
                 <CarsConfetti />
                 <p ref={celebrationRef} className="z-10 text-2xl font-extrabold text-emerald-700 sm:text-3xl">
@@ -563,21 +733,11 @@ function CarsRound({ muted, onWin }: { muted: boolean; onWin: () => void }) {
   const [equation] = useState<CarsEquation>(generateCarsEquation);
   const [route] = useState<CarsRoute>(generateCarsRoute);
   const [roundPhase, setRoundPhase] = useState<RoundPhase>("parking");
-  const [departingCars, setDepartingCars] = useState<string[]>([]);
 
   if (roundPhase === "parking") {
-    return (
-      <CarsParkingStage
-        equation={equation}
-        muted={muted}
-        onSolved={(cars) => {
-          setDepartingCars(cars);
-          setRoundPhase("driving");
-        }}
-      />
-    );
+    return <CarsParkingStage equation={equation} muted={muted} onSolved={() => setRoundPhase("driving")} />;
   }
-  return <CarsDrivingStage cars={departingCars} route={route} muted={muted} onDone={onWin} />;
+  return <CarsDrivingStage route={route} muted={muted} onDone={onWin} />;
 }
 
 export function CarsGame() {
