@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useTranslations } from "next-intl";
+import { useRewardCocktailGame } from "@school-ahead/api-client/browser/auth/auth";
 import { prefetchVoice, speak, speakSequence } from "@school-ahead/api-client";
 import {
   buildEquationChoices,
@@ -19,6 +20,7 @@ import { describeRecipeForSpeech } from "./lib/cocktail-speech-pl";
 import { useBackgroundMusic } from "./lib/use-background-music";
 import { playCocktailBounceSound, playCocktailFailSound, playCocktailSplashSound, playVictoryFanfare } from "./kit/sound-effects";
 import { MusicToggleButton } from "./kit/music-toggle-button";
+import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { useCocktailGameStore, type CocktailMode } from "./stores/cocktail-game-store";
 
 // This game is narrated and labeled entirely in Polish (a specific request,
@@ -437,6 +439,21 @@ function CocktailRound({ mode, muted, onWin }: { mode: CocktailMode; muted: bool
   // fresh recipe/equation comes with every remount, same as everything
   // else here).
   const [equationSolved, setEquationSolved] = useState(false);
+  const celebrationRef = useRef<HTMLParagraphElement>(null);
+  const rewardCocktailGame = useRewardCocktailGame();
+
+  // Mixing a cocktail awards 1 Diamond for a signed-in student — "level"
+  // mode (see useDiamondMilestoneReward) since CocktailRound remounts fresh
+  // every round (key={`${mode}-${roundToken}`} below), so `won` only ever
+  // reaches true once per mount, same as reading-game.tsx's own level
+  // completion. No onMilestone chime here since `won` already triggers its
+  // own playVictoryFanfare() above.
+  useDiamondMilestoneReward({
+    mode: "level",
+    complete: won,
+    rewardMutation: rewardCocktailGame,
+    originRef: celebrationRef,
+  });
 
   const glassKeys = glassIds.map((id) => table.find((piece) => piece.id === id)!.key);
   const tablePieces = table.filter((piece) => !glassIds.includes(piece.id));
@@ -583,7 +600,9 @@ function CocktailRound({ mode, muted, onWin }: { mode: CocktailMode; muted: bool
       {won && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 overflow-hidden bg-white/80 text-center">
           <CocktailConfetti />
-          <p className="z-10 text-2xl font-extrabold text-emerald-700 sm:text-3xl">{t("celebrationTitle")}</p>
+          <p ref={celebrationRef} className="z-10 text-2xl font-extrabold text-emerald-700 sm:text-3xl">
+            {t("celebrationTitle")}
+          </p>
           <button
             type="button"
             onClick={onWin}

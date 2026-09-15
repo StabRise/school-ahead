@@ -6,7 +6,7 @@ import { persist } from "zustand/middleware";
 // Independent of each game's own text-to-speech: letters/values are always
 // read aloud regardless of this setting.
 
-const DEFAULT_VOLUME = 0.175;
+const DEFAULT_VOLUME = 0.4;
 
 interface GameMusicState {
   musicEnabled: boolean;

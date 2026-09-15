@@ -6,6 +6,7 @@ export * from "./stories-game";
 export * from "./math-game";
 export * from "./jumping-frogs-game";
 export * from "./cocktail-game";
+export * from "./cars-game";
 export * from "./game-choice";
 export * from "./games-page";
 export * from "./game-play-page";

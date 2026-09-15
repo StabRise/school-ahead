@@ -961,3 +961,67 @@ def test_reward_jumping_frogs_can_be_awarded_repeatedly(api_client, auth_header)
     assert response.data['user']['diamond_balance'] == 2
     student.refresh_from_db()
     assert student.diamond_balance_cache == 2
+
+
+def test_reward_cocktail_game_awards_one_diamond(api_client, auth_header):
+    user, student, _avatar = _make_student_with_avatar(diamonds=5)
+
+    response = api_client.post('/auth/me/cocktail-game-reward', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['diamond_balance'] == 6
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 6
+
+
+def test_reward_cocktail_game_requires_auth(api_client):
+    response = api_client.post('/auth/me/cocktail-game-reward')
+
+    assert response.status_code == 401
+
+
+def test_reward_cocktail_game_can_be_awarded_repeatedly(api_client, auth_header):
+    """No server-side tracking of cocktails mixed (see accounts.services.
+    award_cocktail_game_diamond) — every call adds another Diamond, trusting
+    the frontend to only call this once per round won."""
+    user, student, _avatar = _make_student_with_avatar(diamonds=0)
+
+    api_client.post('/auth/me/cocktail-game-reward', headers=auth_header(user))
+    response = api_client.post('/auth/me/cocktail-game-reward', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['diamond_balance'] == 2
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 2
+
+
+def test_reward_cars_game_awards_one_diamond(api_client, auth_header):
+    user, student, _avatar = _make_student_with_avatar(diamonds=5)
+
+    response = api_client.post('/auth/me/cars-game-reward', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['diamond_balance'] == 6
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 6
+
+
+def test_reward_cars_game_requires_auth(api_client):
+    response = api_client.post('/auth/me/cars-game-reward')
+
+    assert response.status_code == 401
+
+
+def test_reward_cars_game_can_be_awarded_repeatedly(api_client, auth_header):
+    """No server-side tracking of rounds won (see accounts.services.
+    award_cars_game_diamond) — every call adds another Diamond, trusting
+    the frontend to only call this once per round won."""
+    user, student, _avatar = _make_student_with_avatar(diamonds=0)
+
+    api_client.post('/auth/me/cars-game-reward', headers=auth_header(user))
+    response = api_client.post('/auth/me/cars-game-reward', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['diamond_balance'] == 2
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 2
