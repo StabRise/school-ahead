@@ -234,11 +234,3 @@ export function playCocktailBounceSound() {
 export function playCocktailFailSound() {
   playTone(300, { type: "sawtooth", duration: 0.45, gain: 0.18, glideTo: 90 });
 }
-
-// A short ascending 2-note toot for the "Машинки" driving stage's correct
-// turn — reads as a friendly car horn rather than a generic success chime,
-// distinct from playCocktailBounceSound's "boing" used for a wrong turn in
-// the same game.
-export function playCarHonkSound() {
-  playChime([440, 587.33], { type: "square", noteGap: 0.04, noteDuration: 0.12, gain: 0.22 }); // A4, D5
-}

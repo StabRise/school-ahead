@@ -43,7 +43,7 @@ export function StoryBook({
           )}
         </div>
 
-        <div className="px-2 py-2">
+        <div className="flex h-14 items-center justify-center px-2 py-2">
           <span className="line-clamp-2 text-center text-sm font-bold leading-tight text-gray-700">{title}</span>
         </div>
       </div>

@@ -19,7 +19,7 @@ import {
   waypointsToPathD,
 } from "./lib/cars-game";
 import { useBackgroundMusic } from "./lib/use-background-music";
-import { playCarHonkSound, playCocktailBounceSound, playVictoryFanfare } from "./kit/sound-effects";
+import { playCocktailBounceSound, playVictoryFanfare } from "./kit/sound-effects";
 import { MusicToggleButton } from "./kit/music-toggle-button";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { useCarsGameStore } from "./stores/cars-game-store";
@@ -568,17 +568,6 @@ function CarsDrivingStage({
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [heldDirection, requiredDirection, legTargetT, arrived]);
-
-  // Honks once each time turnIndex (itself just derived from progressT
-  // crossing a turn's t — see above) actually advances — a ref comparison,
-  // not state, so this is a plain "react to a derived value changing" side
-  // effect rather than the setState-in-effect pattern the commit-style
-  // version above used to trip.
-  const previousTurnIndexRef = useRef(turnIndex);
-  useEffect(() => {
-    if (turnIndex > previousTurnIndexRef.current) playCarHonkSound();
-    previousTurnIndexRef.current = turnIndex;
-  }, [turnIndex]);
 
   // Speaks a turn's instruction once as its decision zone is first entered
   // — not on every render, so a re-render from an unrelated state change

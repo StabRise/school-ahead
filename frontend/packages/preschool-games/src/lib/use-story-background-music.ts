@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // the same number as stores/game-music-store.ts's DEFAULT_VOLUME, then
 // quieted further (÷1.5) since a story is read, not played like the other
 // minigames, and the text needs to stay the clear focus.
-const VOLUME = 0.175 / 1.5;
+const VOLUME = 0.4 / 1.5;
 
 // Loops <slug>/background.mp3 behind a story's own page — a fixed,
 // story-specific track, unlike lib/use-background-music.ts's shared random
