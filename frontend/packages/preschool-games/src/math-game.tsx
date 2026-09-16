@@ -20,6 +20,7 @@ import { useBackgroundMusic } from "./lib/use-background-music";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { playBuildSound, playCelebrationChime, playFallSound, playMissSound, playVictoryFanfare } from "./kit/sound-effects";
 import { MusicToggleButton } from "./kit/music-toggle-button";
+import { NumberTileButton, type NumberTileStatus } from "./kit/number-tile";
 import { useMathGameStore } from "./stores/math-game-store";
 
 // Math-runner minigame (multiplication, division, addition, subtraction,
@@ -85,7 +86,7 @@ function useViewportFillHeight<T extends HTMLElement>(): [RefObject<T | null>, n
 
 // Measures an element's own rendered width live (ResizeObserver, not just
 // on mount) — used to size the hotbar's answer squares' font to however big
-// those squares actually rendered (see HotbarSlot's fontSize prop), which
+// those squares actually rendered (see NumberTileButton's fontSizePx prop), which
 // changes with both the viewport and the current question's choiceCount.
 function useElementWidth<T extends HTMLElement>(): [RefObject<T | null>, number] {
   const ref = useRef<T | null>(null);
@@ -129,7 +130,7 @@ function usePausableClock(paused: boolean): () => number {
 
 // The answer square's font should read as big as the square comfortably
 // allows, but shrink for longer numbers (e.g. add/subtract level 5's up to
-// 3-digit answers) so they still fit on one line — see HotbarSlot.
+// 3-digit answers) so they still fit on one line — see NumberTileButton.
 // Bounded to a sane [16px, 64px] range regardless of how big/small the
 // measured square turns out to be.
 function hotbarFontSizePx(slotWidthPx: number, maxDigits: number): number {
@@ -231,10 +232,6 @@ type Stage = "playing" | "gameOver" | "victory";
 // "rushing" is the short, fixed-speed dash to the pit cut in when a wrong
 // answer is picked before the avatar would otherwise have gotten there.
 type Phase = "running" | "rushing" | "crossing" | "falling";
-// No "correct" status — a right answer isn't highlighted at all, only a
-// wrong pick is (see HotbarSlot below); the avatar building/crossing the
-// bridge is feedback enough for a correct one.
-type SlotStatus = "default" | "incorrect" | "dimmed";
 
 function HeartIcon({ filled }: { filled: boolean }) {
   return (
@@ -432,41 +429,11 @@ function AvatarRunner({
 // lib/math-game.ts's buildChoiceSet), so their left-to-right
 // order is already the hint, and a shortcut digit would just be visual
 // noise. Pressing 1-8 still selects by position (see the keydown handler
-// below) as an unlabeled bonus, same as before.
-function HotbarSlot({
-  value,
-  status,
-  disabled,
-  fontSize,
-  onClick,
-}: {
-  value: number;
-  status: SlotStatus;
-  disabled: boolean;
-  // Measured from the square's own rendered width (see useElementWidth +
-  // hotbarFontSizePx) — undefined only for the very first paint before that
-  // measurement lands, when the text-xl/sm:text-3xl fallback classes apply.
-  fontSize: number | undefined;
-  onClick: () => void;
-}) {
-  const statusClass =
-    status === "incorrect"
-      ? "border-red-400 bg-red-100 ring-4 ring-red-300"
-      : status === "dimmed"
-        ? "border-gray-300 bg-gray-100 opacity-50"
-        : "border-gray-400 bg-gray-200 hover:bg-gray-300";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      style={fontSize ? { fontSize } : undefined}
-      className={`flex aspect-square flex-col items-center justify-center rounded-md border-4 font-extrabold text-gray-800 shadow-inner transition ${fontSize ? "" : "text-xl sm:text-3xl"} ${statusClass}`}
-    >
-      {value}
-    </button>
-  );
-}
+// below) as an unlabeled bonus, same as before. The tile itself is
+// kit/number-tile.tsx's shared NumberTileButton (fillParent: sized by its
+// grid cell, not the tile's own default fixed width — see its own doc
+// comment), same square/status look cars-game.tsx and cocktail-game.tsx use
+// for their own equation answer choices.
 
 function MathRun({
   speed,
@@ -869,18 +836,22 @@ function MathRun({
             className={`mx-auto grid w-full shrink-0 gap-2 px-4 pb-4 ${HOTBAR_GRID_COLS[columns] ?? "grid-cols-8"}`}
           >
             {question.choices.map((choice, i) => {
-              const status: SlotStatus = locked
-                ? i === selectedIndex && !hasCorrectAnswer
-                  ? "incorrect"
-                  : "dimmed"
-                : "default";
+              const status: NumberTileStatus =
+                locked && i === selectedIndex
+                  ? hasCorrectAnswer
+                    ? "correct"
+                    : "incorrect"
+                  : locked
+                    ? "dimmed"
+                    : "default";
               return (
-                <HotbarSlot
+                <NumberTileButton
                   key={`${choice}-${i}`}
                   value={choice}
                   status={status}
                   disabled={locked || paused}
-                  fontSize={hotbarFontSize}
+                  fontSizePx={hotbarFontSize}
+                  fillParent
                   onClick={() => handleSelect(i)}
                 />
               );

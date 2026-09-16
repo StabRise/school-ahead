@@ -257,7 +257,6 @@
   },
   "CocktailGame": {
     "equationLabel": "Rozwiąż przykład.",
-    "nextButton": "Dalej",
     "recipeLabel": "PRZEPIS",
     "ingredientsLabel": "SKŁADNIKI",
     "hintModeLabel": "Tryb z podpowiedzią",
@@ -271,7 +270,6 @@
   },
   "CarsGame": {
     "equationLabel": "Розв'яжи приклад",
-    "departButton": "Поїхали",
     "destinationLabel": "Куди їдемо:",
     "turnLeftLabel": "Поверни наліво",
     "driveUpLabel": "Їдь прямо",

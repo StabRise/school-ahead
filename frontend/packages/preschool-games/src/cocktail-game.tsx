@@ -21,6 +21,13 @@ import { useBackgroundMusic } from "./lib/use-background-music";
 import { playCocktailBounceSound, playCocktailFailSound, playCocktailSplashSound, playVictoryFanfare } from "./kit/sound-effects";
 import { MusicToggleButton } from "./kit/music-toggle-button";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
+import {
+  NUMBER_TILE_CLASS,
+  NumberTileButton,
+  equationFontSizeStyle,
+  equationOperatorFontSizeStyle,
+  numberTileSizeStyle,
+} from "./kit/number-tile";
 import { useCocktailGameStore, type CocktailMode } from "./stores/cocktail-game-store";
 
 // This game is narrated and labeled entirely in Polish (a specific request,
@@ -158,33 +165,19 @@ function CocktailRecipeCard({ recipe, dropped }: { recipe: CocktailRecipe; dropp
   );
 }
 
-// Same square-tile look as math-game.tsx's HotbarSlot (border-4, rounded-md,
-// shadow-inner) — this game's own version is simpler since it never needs
-// that one's font-size-measuring machinery (only ever 3-4 single/double-
-// digit sums) or a "locked in" status — once picked correctly, the answer
-// moves into the equation itself (see CocktailEquationGate's own square
-// there) rather than staying selected in this choices row.
-function EquationAnswerSlot({
-  value,
-  wrong,
-  onClick,
-}: {
-  value: number;
-  wrong: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex h-14 w-14 items-center justify-center rounded-md border-4 text-xl font-extrabold text-gray-800 shadow-inner transition sm:h-16 sm:w-16 sm:text-2xl ${
-        wrong ? "border-red-400 bg-red-100 ring-4 ring-red-300" : "border-gray-400 bg-gray-200 hover:bg-gray-300"
-      }`}
-    >
-      {value}
-    </button>
-  );
-}
+// The fruit icons drawn under an operand's digit — at most 3 per column
+// (RECIPE_ITEM_COUNT_RANGE in lib/cocktail-game.ts), so they can stay large
+// enough to actually count at a glance and still fit two columns plus the
+// answer tile across a phone.
+const EQUATION_ICON_FONT_SIZE: CSSProperties = { fontSize: "clamp(1.25rem, 6vw, 3rem)" };
+
+// The same icons repeated under the SOLVED answer tile as counting proof —
+// there are up to twice as many of them as in either operand column, and
+// they have to wrap inside the tile's own width, so they're drawn smaller.
+const ANSWER_PROOF_ICON_STYLE: CSSProperties = {
+  fontSize: "clamp(1rem, 4vw, 2rem)",
+  width: numberTileSizeStyle.width,
+};
 
 // One equation operand as a children's-workbook column: the digit on top,
 // that many of its own ingredient's icon drawn underneath — per this
@@ -193,11 +186,13 @@ function EquationAnswerSlot({
 // recipe card itself.
 function EquationOperandColumn({ item }: { item: CocktailRecipeItem }) {
   return (
-    <div className="flex flex-col items-center gap-1.5">
-      <span className="text-3xl font-extrabold text-gray-800 sm:text-4xl">{item.count}</span>
-      <div className="flex gap-1">
+    <div className="flex flex-col items-center gap-2">
+      <span className="font-extrabold text-gray-800" style={equationFontSizeStyle}>
+        {item.count}
+      </span>
+      <div className="flex gap-1" style={EQUATION_ICON_FONT_SIZE}>
         {Array.from({ length: item.count }, (_, i) => (
-          <span key={i} aria-hidden="true" className="text-xl sm:text-2xl">
+          <span key={i} aria-hidden="true">
             {emojiFor(item.key)}
           </span>
         ))}
@@ -206,20 +201,35 @@ function EquationOperandColumn({ item }: { item: CocktailRecipeItem }) {
   );
 }
 
+// How long a correctly-picked tile flashes green (see NumberTileButton's
+// "correct" status) before the equation reveals its full answer — same
+// duration as a wrong pick's own red flash below, for a matched beat.
+const CORRECT_PICK_DELAY_MS = 500;
+
+// How long the solved equation (filled-in answer + its combined icons)
+// stays on screen before auto-advancing to the shaker/recipe/table — no
+// "Далі" button to tap any more, per this feature's own request; just
+// enough of a pause for the count-the-pictures payoff to land.
+const NEXT_STAGE_DELAY_MS = 1500;
+
 // The round's opening gate — "how many pieces does this recipe need in
 // total," derived straight from the two recipe counts (equationFor). A
-// wrong pick just flashes red and clears (see EquationAnswerSlot) — there's
-// no fail state here, only "not yet". A CORRECT pick doesn't advance
-// straight away: it locks in that square, reveals the recipe's full set of
-// icons underneath it (2 + 3 pictures next to each other, "як в дитячих
-// зошитах" — the same picture-proof workbooks use to confirm a sum), and
-// only a "Далі" tap actually mounts the shaker/recipe/table — giving the
+// wrong pick just flashes red and clears (see kit/number-tile.tsx's
+// NumberTileButton) — there's no fail state here, only "not yet". A CORRECT
+// pick flashes green first (CORRECT_PICK_DELAY_MS), then locks in that
+// square, reveals the recipe's full set of icons underneath it (2 + 3
+// pictures next to each other, "як в дитячих зошитах" — the same
+// picture-proof workbooks use to confirm a sum), and auto-advances to the
+// shaker/recipe/table after NEXT_STAGE_DELAY_MS — giving the
 // count-the-pictures payoff a beat to land before the game moves on.
 function CocktailEquationGate({ recipe, muted, onSolved }: { recipe: CocktailRecipe; muted: boolean; onSolved: () => void }) {
   const t = useTranslations("CocktailGame");
   const equation = equationFor(recipe);
   const [{ choices }] = useState(() => buildEquationChoices(equation.sum));
   const [wrongIndex, setWrongIndex] = useState<number | null>(null);
+  // Set the instant the right tile is picked, then `solved` follows
+  // CORRECT_PICK_DELAY_MS later — see the function's own doc comment.
+  const [correctIndex, setCorrectIndex] = useState<number | null>(null);
   const [solved, setSolved] = useState(false);
   const combinedIcons = [
     ...Array.from({ length: recipe[0].count }, () => recipe[0].key),
@@ -236,10 +246,20 @@ function CocktailEquationGate({ recipe, muted, onSolved }: { recipe: CocktailRec
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auto-advances to the shaker/recipe/table once solved — see
+  // NEXT_STAGE_DELAY_MS.
+  useEffect(() => {
+    if (!solved) return;
+    const timeout = setTimeout(onSolved, NEXT_STAGE_DELAY_MS);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [solved]);
+
   const handlePick = (index: number, value: number) => {
     if (value === equation.sum) {
-      setSolved(true);
+      setCorrectIndex(index);
       sayPl(pickPhrase(PRAISE_PHRASES), muted);
+      setTimeout(() => setSolved(true), CORRECT_PICK_DELAY_MS);
       return;
     }
     playCocktailBounceSound();
@@ -249,32 +269,37 @@ function CocktailEquationGate({ recipe, muted, onSolved }: { recipe: CocktailRec
   };
 
   return (
-    <div className="flex w-full flex-1 flex-col items-center justify-center gap-6">
-      <div className="flex flex-col items-center gap-3 rounded-3xl bg-white/90 px-6 py-5 shadow-lg ring-4 ring-white">
+    <div className="flex w-full flex-1 flex-col items-center justify-center gap-6 sm:gap-8">
+      <div className="flex w-full flex-col items-center gap-4 rounded-3xl bg-white/90 px-2 py-5 shadow-lg ring-4 ring-white sm:gap-6 sm:px-8 sm:py-7">
         <span className="text-sm font-bold text-gray-500 sm:text-base">{t("equationLabel")}</span>
-        <div className="flex items-start justify-center gap-3 sm:gap-4">
+        <div className="flex items-start justify-center gap-1 sm:gap-4">
           <EquationOperandColumn item={recipe[0]} />
-          <span className="pt-1 text-3xl font-extrabold text-gray-400 sm:pt-1.5 sm:text-4xl">+</span>
+          <span className="font-extrabold text-gray-400" style={equationOperatorFontSizeStyle}>
+            +
+          </span>
           <EquationOperandColumn item={recipe[1]} />
-          <span className="pt-1 text-3xl font-extrabold text-gray-400 sm:pt-1.5 sm:text-4xl">=</span>
+          <span className="font-extrabold text-gray-400" style={equationOperatorFontSizeStyle}>
+            =
+          </span>
           {/* The answer's own square lives right here in the equation now,
               as its own column matching EquationOperandColumn's shape — an
               empty dashed placeholder until solved, then filled with the
               picked answer plus (per this feature's own request) the
               recipe's combined icon set underneath it, same "number on top,
               its pictures below" layout the operand columns already use. */}
-          <div className="flex flex-col items-center gap-1.5">
+          <div className="flex flex-col items-center gap-2">
             <span
-              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-md border-4 text-xl font-extrabold shadow-inner transition sm:h-16 sm:w-16 sm:text-2xl ${
+              style={numberTileSizeStyle}
+              className={`${NUMBER_TILE_CLASS} ${
                 solved ? "border-emerald-400 bg-emerald-100 text-emerald-700 ring-4 ring-emerald-300" : "border-dashed border-gray-300 text-gray-300"
               }`}
             >
               {solved ? equation.sum : "?"}
             </span>
             {solved && (
-              <div className="flex flex-wrap items-center justify-center gap-0.5">
+              <div className="flex flex-wrap items-center justify-center gap-0.5" style={ANSWER_PROOF_ICON_STYLE}>
                 {combinedIcons.map((key, i) => (
-                  <span key={i} aria-hidden="true" className="text-lg sm:text-xl">
+                  <span key={i} aria-hidden="true">
                     {emojiFor(key)}
                   </span>
                 ))}
@@ -284,23 +309,18 @@ function CocktailEquationGate({ recipe, muted, onSolved }: { recipe: CocktailRec
         </div>
       </div>
 
-      {!solved ? (
-        <div className="flex gap-3">
+      {!solved && (
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
           {choices.map((value, index) => (
-            <EquationAnswerSlot key={index} value={value} wrong={wrongIndex === index} onClick={() => handlePick(index, value)} />
+            <NumberTileButton
+              key={index}
+              value={value}
+              status={wrongIndex === index ? "incorrect" : correctIndex === index ? "correct" : "default"}
+              disabled={correctIndex !== null}
+              onClick={() => handlePick(index, value)}
+            />
           ))}
         </div>
-      ) : (
-        // Glass emoji rather than a bare arrow — previews what's coming
-        // next (the shaker) instead of just meaning "continue" in the
-        // abstract, per the brief's own "стакана чи стрілкою" either/or.
-        <button
-          type="button"
-          onClick={onSolved}
-          className="preschool-button z-10 flex items-center gap-2 rounded-full bg-emerald-500 px-6 py-2.5 text-lg font-extrabold text-white shadow-lg ring-4 ring-emerald-300 transition hover:scale-105"
-        >
-          {t("nextButton")} 🥤
-        </button>
       )}
     </div>
   );

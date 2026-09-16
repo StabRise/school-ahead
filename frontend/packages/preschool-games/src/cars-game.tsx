@@ -22,6 +22,13 @@ import { useBackgroundMusic } from "./lib/use-background-music";
 import { playCocktailBounceSound, playVictoryFanfare } from "./kit/sound-effects";
 import { MusicToggleButton } from "./kit/music-toggle-button";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
+import {
+  NUMBER_TILE_CLASS,
+  NumberTileButton,
+  equationFontSizeStyle,
+  equationOperatorFontSizeStyle,
+  numberTileSizeStyle,
+} from "./kit/number-tile";
 import { useCarsGameStore } from "./stores/cars-game-store";
 
 // "Машинки" (Parking Math) preschool minigame — see docs/preschool/games/
@@ -34,9 +41,12 @@ import { useCarsGameStore } from "./stores/cars-game-store";
 // the remaining parked ones if the child didn't mark enough — drive a
 // single generated winding road to a random destination, one after another
 // in a queue, pausing at each intersection for a voice-narrated turn the
-// child answers with arrow keys or on-screen taps). See lib/cars-game.ts's
-// own header comment for why each round generates exactly one path rather
-// than a real branching road network.
+// child answers by holding the matching arrow key — no on-screen driving
+// buttons any more, keyboard only). At each intersection the upcoming turn
+// also shows as a small arrow + label at the top of the screen, right after
+// the destination line (see CarsTurnInfo), replacing the old floating road
+// sign. See lib/cars-game.ts's own header comment for why each round
+// generates exactly one path rather than a real branching road network.
 
 // Spoken instructions are hardcoded Ukrainian phrases (not next-intl keys)
 // same as cocktail-game.tsx's own PRAISE_PHRASES/REJECT_PHRASES — speech
@@ -76,22 +86,25 @@ function pickRandomIndices(indices: number[], count: number): number[] {
 
 // --- Parking stage -----------------------------------------------------
 
-// Same square-tile look as cocktail-game.tsx's EquationAnswerSlot — every
-// preschool game re-implements this locally (no shared NumberCard/tile
-// component exists in the codebase).
-function CarsAnswerSlot({ value, wrong, onClick }: { value: number; wrong: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex h-14 w-14 items-center justify-center rounded-md border-4 text-xl font-extrabold text-gray-800 shadow-inner transition sm:h-16 sm:w-16 sm:text-2xl ${
-        wrong ? "border-red-400 bg-red-100 ring-4 ring-red-300" : "border-gray-400 bg-gray-200 hover:bg-gray-300"
-      }`}
-    >
-      {value}
-    </button>
-  );
+// The parked cars are what the child actually counts, so they're drawn as
+// large as a single row of `total` of them fits — the per-car share of the
+// viewport shrinks as the count grows (3-8, see TOTAL_RANGE in
+// lib/cars-game.ts), with a fixed floor and ceiling either side.
+function parkedCarFontSize(total: number): string {
+  return `clamp(2rem, ${(64 / total).toFixed(1)}vw, 5rem)`;
 }
+
+// How long a correctly-picked tile flashes green (see NumberTileButton's
+// "correct" status) before the choices row is swapped out for the solved
+// equation — same duration as a wrong pick's own red flash below, for a
+// matched beat.
+const CORRECT_PICK_DELAY_MS = 500;
+
+// How long the solved equation (crossed-out cars, filled-in answer) stays on
+// screen before auto-advancing to the driving stage — no "Поїхали" button
+// to tap any more, per this feature's own request; just enough of a pause
+// for the child to see the equation actually got solved.
+const NEXT_STAGE_DELAY_MS = 1500;
 
 function CarsParkingStage({
   equation,
@@ -106,6 +119,10 @@ function CarsParkingStage({
   const [parkedCars] = useState(() => Array.from({ length: equation.total }, randomCarEmoji));
   const [{ choices }] = useState(() => buildCarsAnswerChoices(equation.answer));
   const [wrongIndex, setWrongIndex] = useState<number | null>(null);
+  // Set the instant the right tile is picked, then `solved` follows CORRECT_PICK_DELAY_MS
+  // later — gives the tile a beat to flash green (see its own NumberTileButton
+  // status below) before the choices row is swapped out for the depart button.
+  const [correctIndex, setCorrectIndex] = useState<number | null>(null);
   const [markedIndices, setMarkedIndices] = useState<Set<number>>(new Set());
   const [solved, setSolved] = useState(false);
   const [departingIndices, setDepartingIndices] = useState<number[]>([]);
@@ -114,6 +131,14 @@ function CarsParkingStage({
     sayUk("Розв'яжи приклад!", muted);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-advances to the driving stage once solved — see NEXT_STAGE_DELAY_MS.
+  useEffect(() => {
+    if (!solved) return;
+    const timeout = setTimeout(onSolved, NEXT_STAGE_DELAY_MS);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [solved]);
 
   // Lets the child mark, before answering, exactly which `subtract`-many
   // parked cars will be the ones to depart — tapping one crosses it out;
@@ -144,8 +169,11 @@ function CarsParkingStage({
         stillNeeded > 0
           ? [...marked, ...pickRandomIndices(parkedCars.map((_, i) => i).filter((i) => !markedIndices.has(i)), stillNeeded)]
           : marked.slice(0, equation.subtract);
-      setDepartingIndices(finalDeparting);
-      setSolved(true);
+      setCorrectIndex(index);
+      setTimeout(() => {
+        setDepartingIndices(finalDeparting);
+        setSolved(true);
+      }, CORRECT_PICK_DELAY_MS);
       return;
     }
     playCocktailBounceSound();
@@ -156,23 +184,31 @@ function CarsParkingStage({
   const crossedOut = solved ? new Set(departingIndices) : markedIndices;
 
   return (
-    <div className="flex w-full flex-1 flex-col items-center justify-center gap-6">
-      <div className="flex flex-col items-center gap-3 rounded-3xl bg-white/90 px-6 py-5 shadow-lg ring-4 ring-white">
+    <div className="flex w-full flex-1 flex-col items-center justify-center gap-6 sm:gap-8">
+      <div className="flex w-full flex-col items-center gap-4 rounded-3xl bg-white/90 px-3 py-5 shadow-lg ring-4 ring-white sm:gap-6 sm:px-8 sm:py-7">
         <span className="text-sm font-bold text-gray-500 sm:text-base">{t("equationLabel")}</span>
-        <div className="flex items-center justify-center gap-3 text-3xl font-extrabold text-gray-800 sm:gap-4 sm:text-4xl">
+        <div className="flex items-center justify-center gap-2 font-extrabold text-gray-800 sm:gap-5" style={equationFontSizeStyle}>
           <span>{equation.total}</span>
-          <span className="text-gray-400">−</span>
+          <span className="text-gray-400" style={equationOperatorFontSizeStyle}>
+            −
+          </span>
           <span>{equation.subtract}</span>
-          <span className="text-gray-400">=</span>
+          <span className="text-gray-400" style={equationOperatorFontSizeStyle}>
+            =
+          </span>
           <span
-            className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-md border-4 text-xl shadow-inner transition sm:h-16 sm:w-16 sm:text-2xl ${
+            style={numberTileSizeStyle}
+            className={`${NUMBER_TILE_CLASS} ${
               solved ? "border-emerald-400 bg-emerald-100 text-emerald-700 ring-4 ring-emerald-300" : "border-dashed border-gray-300 text-gray-300"
             }`}
           >
             {solved ? equation.answer : "?"}
           </span>
         </div>
-        <div className="flex flex-wrap items-center justify-center gap-1">
+        <div
+          className="flex flex-wrap items-center justify-center gap-1"
+          style={{ fontSize: parkedCarFontSize(equation.total) }}
+        >
           {parkedCars.map((emoji, i) => (
             <button
               key={i}
@@ -186,7 +222,7 @@ function CarsParkingStage({
               // shift the emoji's visual center away from the button's own
               // geometric center that the strikethrough bar below is
               // centered on, throwing the bar visibly off the car.
-              className={`relative inline-flex items-center justify-center p-0 text-2xl leading-none transition sm:text-3xl ${
+              className={`relative inline-flex items-center justify-center p-0 leading-none transition ${
                 solved ? "cursor-default" : "cursor-pointer hover:scale-110"
               } ${crossedOut.has(i) ? "opacity-70" : ""}`}
             >
@@ -198,7 +234,7 @@ function CarsParkingStage({
                 // нижнього кута до правого верхнього".
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute left-1/2 top-1/2 h-1 w-[120%] rounded-full bg-rose-500"
+                  className="pointer-events-none absolute left-1/2 top-1/2 h-[0.1em] w-[120%] rounded-full bg-rose-500"
                   style={{ transform: "translate(-50%, -50%) rotate(-45deg)" }}
                 />
               )}
@@ -207,20 +243,18 @@ function CarsParkingStage({
         </div>
       </div>
 
-      {!solved ? (
-        <div className="flex gap-3">
+      {!solved && (
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
           {choices.map((value, index) => (
-            <CarsAnswerSlot key={index} value={value} wrong={wrongIndex === index} onClick={() => handlePick(index, value)} />
+            <NumberTileButton
+              key={index}
+              value={value}
+              status={wrongIndex === index ? "incorrect" : correctIndex === index ? "correct" : "default"}
+              disabled={correctIndex !== null}
+              onClick={() => handlePick(index, value)}
+            />
           ))}
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => onSolved()}
-          className="preschool-button z-10 flex items-center gap-2 rounded-full bg-emerald-500 px-6 py-2.5 text-lg font-extrabold text-white shadow-lg ring-4 ring-emerald-300 transition hover:scale-105"
-        >
-          {t("departButton")} 🚗
-        </button>
       )}
     </div>
   );
@@ -341,91 +375,41 @@ function useViewportSize(): [(el: HTMLDivElement | null) => void, ViewportSize] 
 // lookup, not anything derived from the car's current heading.
 const CARDINAL_ROTATION: Record<TurnDirection, number> = { up: 0, right: 90, down: 180, left: -90 };
 
-function DirectionArrowIcon({ direction }: { direction: TurnDirection }) {
+function DirectionArrowIcon({ direction, className = "h-6 w-6" }: { direction: TurnDirection; className?: string }) {
   const rotation = CARDINAL_ROTATION[direction];
   return (
-    <svg viewBox="0 0 24 24" className="h-8 w-8 text-amber-600" style={{ transform: `rotate(${rotation}deg)` }} aria-hidden="true">
+    <svg viewBox="0 0 24 24" className={`${className} text-amber-600`} style={{ transform: `rotate(${rotation}deg)` }} aria-hidden="true">
       <path d="M12 2 L20 12 L14 12 L14 22 L10 22 L10 12 L4 12 Z" fill="currentColor" />
     </svg>
   );
 }
 
-function CarsRoadSign({ direction, shakeToken }: { direction: TurnDirection; shakeToken: number }) {
-  return (
-    <div
-      // Re-adding the exact same animation string wouldn't restart it — a
-      // per-token no-op timing tweak, same idiom as cocktail-game.tsx's
-      // CocktailGlass wobbleToken.
-      data-shake={shakeToken}
-      style={{ animation: shakeToken > 0 ? "raccoon-shake 0.4s ease-in-out" : undefined }}
-      className="flex flex-col items-center gap-2 rounded-2xl bg-white/95 px-6 py-4 shadow-lg ring-4 ring-amber-300"
-    >
-      <DirectionArrowIcon direction={direction} />
-    </div>
-  );
-}
-
-// Hold-to-drive, not tap-to-advance — per this feature's own request, the
-// car only moves while a direction is actively held and stops the instant
-// it's released. Pointer (not click) events so a held-down finger/mouse
-// button is tracked continuously; leaving/cancelling counts as a release
-// too, so a finger sliding off the button doesn't leave it "stuck" held.
-// Laid out as a proper 4-way cross (up/down centered, left/right either
-// side) rather than one row — with directions now absolute screen
-// cardinals (see TurnDirection's own comment), a cross matches the actual
-// screen layout the child is looking at, same as the sign's own arrow.
-function CarsDirectionPad({ heldDirection, onHold }: { heldDirection: TurnDirection | null; onHold: (direction: TurnDirection | null) => void }) {
+// Shown right after the destination line at the top of the driving viewport
+// (see CarsDrivingStage) whenever the car is nearing a turn — an arrow plus
+// the same direction phrase TURN_PHRASES narrates aloud, telling the child
+// which arrow key to hold. Replaces the old floating road-sign card;
+// `shakeToken` still shakes it on a wrong key press (see handleHoldStart),
+// same as that card used to.
+function CarsTurnInfo({ direction, shakeToken }: { direction: TurnDirection; shakeToken: number }) {
   const t = useTranslations("CarsGame");
-  const buttonLabel: Record<TurnDirection, string> = {
+  const label: Record<TurnDirection, string> = {
     up: t("driveUpLabel"),
     right: t("turnRightLabel"),
     down: t("driveDownLabel"),
     left: t("turnLeftLabel"),
   };
-  const buttonEmoji: Record<TurnDirection, string> = { up: "⬆️", right: "➡️", down: "⬇️", left: "⬅️" };
-  const buttonClass = (direction: TurnDirection) =>
-    `preschool-button flex h-14 w-14 items-center justify-center rounded-full text-2xl shadow-lg ring-4 transition ${
-      heldDirection === direction ? "scale-110 bg-emerald-200 ring-emerald-400" : "bg-white ring-gray-200 hover:scale-105"
-    }`;
-  const holdHandlers = (direction: TurnDirection) => ({
-    onPointerDown: () => onHold(direction),
-    onPointerUp: () => onHold(null),
-    onPointerLeave: () => onHold(null),
-    onPointerCancel: () => onHold(null),
-  });
-  // Inlined 4x rather than a small local <Button> component — defining a
-  // component inside another component's render body resets its state
-  // every render (this codebase's react-hooks/static-components lint rule
-  // catches it), and there's no state to share here worth the extra
-  // component anyway.
   return (
-    <div className="grid grid-cols-3 grid-rows-3 place-items-center gap-2">
-      <div />
-      <div className="col-start-2 row-start-1">
-        <button type="button" aria-label={buttonLabel.up} className={buttonClass("up")} {...holdHandlers("up")}>
-          {buttonEmoji.up}
-        </button>
-      </div>
-      <div />
-      <div className="col-start-1 row-start-2">
-        <button type="button" aria-label={buttonLabel.left} className={buttonClass("left")} {...holdHandlers("left")}>
-          {buttonEmoji.left}
-        </button>
-      </div>
-      <div />
-      <div className="col-start-3 row-start-2">
-        <button type="button" aria-label={buttonLabel.right} className={buttonClass("right")} {...holdHandlers("right")}>
-          {buttonEmoji.right}
-        </button>
-      </div>
-      <div />
-      <div className="col-start-2 row-start-3">
-        <button type="button" aria-label={buttonLabel.down} className={buttonClass("down")} {...holdHandlers("down")}>
-          {buttonEmoji.down}
-        </button>
-      </div>
-      <div />
-    </div>
+    <span
+      // Re-adding the exact same animation string wouldn't restart it — a
+      // per-token no-op timing tweak, same idiom as cocktail-game.tsx's
+      // CocktailGlass wobbleToken.
+      data-shake={shakeToken}
+      style={{ animation: shakeToken > 0 ? "raccoon-shake 0.4s ease-in-out" : "score-pop 0.3s ease-out" }}
+      className="flex items-center gap-1 rounded-full bg-white/95 px-3 py-1 text-amber-700 shadow ring-2 ring-amber-300"
+    >
+      <DirectionArrowIcon direction={direction} />
+      {label[direction]}
+    </span>
   );
 }
 
@@ -456,14 +440,14 @@ function CarsConfetti() {
   );
 }
 
-// How fast the car covers route-progress (0-1) per second while a
-// validated direction is held — per-leg t-span is roughly 0.17-0.25 (4-6
-// segments), so this paces each block at a bit over a second, holdable
-// comfortably by a preschooler.
+// How fast the car covers route-progress (0-1) per second while a validated
+// direction is held — per-leg t-span is roughly 0.17-0.25 (4-6 segments), so
+// this paces each block at a bit over a second, holdable comfortably by a
+// preschooler.
 const DRIVE_SPEED_T_PER_SEC = 0.15;
 
 // How close to a turn's own t counts as "at" that intersection — the zone
-// where the held direction has to match the upcoming turn rather than just
+// where the held key has to match the upcoming turn rather than just
 // whatever the car is already driving (see requiredDirection below).
 const TURN_EPSILON = 0.02;
 
@@ -483,7 +467,7 @@ function CarsDrivingStage({
   // Hold-to-drive, not tap-to-advance — per this feature's own request, the
   // car only advances while this is set to whatever's currently required
   // (see requiredDirection below), and freezes in place the instant it's
-  // cleared (key/button released).
+  // released. Arrow keys only now — no on-screen buttons any more.
   const [heldDirection, setHeldDirection] = useState<TurnDirection | null>(null);
   const [shakeToken, setShakeToken] = useState(0);
   const celebrationRef = useRef<HTMLParagraphElement>(null);
@@ -516,18 +500,19 @@ function CarsDrivingStage({
   const arrived = progressT >= 1;
   const targetPoint = toCanvasPoint(pointAtT(scaledWaypoints, progressT));
   const headingRad = tangentAngleAtT(scaledWaypoints, progressT);
-  // Within this leg's final stretch (or already past it, clamped), the
-  // held direction has to match the actual turn to keep moving — anywhere
-  // earlier in the leg, holding whichever absolute direction the car is
-  // already driving (headingToCardinal of its current heading) is all
-  // that's needed, same as any other stretch of road.
+  // Within this leg's final stretch (or already past it, clamped), the held
+  // key has to match the actual turn to keep moving — anywhere earlier in
+  // the leg, holding whichever absolute direction the car is already
+  // driving (headingToCardinal of its current heading) is all that's
+  // needed, same as any other stretch of road. CarsTurnInfo (at the top of
+  // the screen) and the turn's own narration both key off this too.
   const atDecisionPoint = pendingTurn !== null && progressT >= pendingTurn.t - TURN_EPSILON;
   const requiredDirection: TurnDirection = atDecisionPoint && pendingTurn ? pendingTurn.direction : headingToCardinal(headingRad);
 
   // Mirrors this render's requiredDirection into a ref (outside render, per
-  // React's rules-of-refs) so the stable (empty-deps) key/pointer handlers
-  // below can read the current requirement at press-time without needing
-  // to resubscribe on every progressT tick.
+  // React's rules-of-refs) so the stable (empty-deps) keydown handler below
+  // can read the current requirement at press-time without needing to
+  // resubscribe on every progressT tick.
   const requiredDirectionRef = useRef(requiredDirection);
   useEffect(() => {
     requiredDirectionRef.current = requiredDirection;
@@ -549,7 +534,7 @@ function CarsDrivingStage({
     originRef: celebrationRef,
   });
 
-  // Drives progressT forward each frame, but only while the held direction
+  // Drives progressT forward each frame, but only while the held key
   // actually matches what's currently required — releasing (heldDirection
   // becomes null) or holding the wrong one at an intersection simply stops
   // this from advancing, it doesn't reset anything.
@@ -570,8 +555,7 @@ function CarsDrivingStage({
   }, [heldDirection, requiredDirection, legTargetT, arrived]);
 
   // Speaks a turn's instruction once as its decision zone is first entered
-  // — not on every render, so a re-render from an unrelated state change
-  // (e.g. the shake animation clearing) doesn't repeat it.
+  // — not on every render, so an unrelated re-render doesn't repeat it.
   useEffect(() => {
     if (atDecisionPoint && pendingTurn) sayUk(TURN_PHRASES[pendingTurn.direction], muted);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -588,12 +572,12 @@ function CarsDrivingStage({
   // Starts holding a direction — checked synchronously right here (via the
   // requiredDirectionRef mirror above) rather than reactively in a
   // useEffect watching heldDirection, both because it's a direct
-  // consequence of this user event (not state syncing from other state)
-  // and because it needs the freshest possible read of the requirement,
-  // not whatever it was on the last render. Bounces on ANY mismatch now
-  // (not just "at a decision point") — mid-block the requirement is
-  // whichever absolute direction the car is already driving, so pressing
-  // something else is just as genuinely wrong as picking the wrong turn.
+  // consequence of this user event (not state syncing from other state) and
+  // because it needs the freshest possible read of the requirement, not
+  // whatever it was on the last render. Bounces on ANY mismatch now (not
+  // just "at a decision point") — mid-block the requirement is whichever
+  // absolute direction the car is already driving, so pressing something
+  // else is just as genuinely wrong as picking the wrong turn.
   const handleHoldStart = (direction: TurnDirection) => {
     setHeldDirection(direction);
     if (direction !== requiredDirectionRef.current) {
@@ -626,9 +610,12 @@ function CarsDrivingStage({
 
   return (
     <div className="relative flex w-full flex-1 flex-col items-center gap-4 py-2">
-      <span className="z-10 text-sm font-bold text-emerald-800/70 sm:text-base">
-        {t("destinationLabel")} {route.destination.emoji} {route.destination.label}
-      </span>
+      <div className="z-10 flex flex-wrap items-center justify-center gap-2 text-sm font-bold text-emerald-800/70 sm:text-base">
+        <span>
+          {t("destinationLabel")} {route.destination.emoji} {route.destination.label}
+        </span>
+        {atDecisionPoint && pendingTurn && <CarsTurnInfo direction={pendingTurn.direction} shakeToken={shakeToken} />}
+      </div>
 
       <div ref={setViewportRef} className="relative w-full flex-1 overflow-hidden rounded-2xl bg-gradient-to-b from-sky-200 to-emerald-200">
         {viewportReady && (
@@ -678,14 +665,6 @@ function CarsDrivingStage({
               >
                 <CarTopDownSprite className="h-full w-full drop-shadow" />
               </div>
-            </div>
-
-            <div className="absolute inset-x-0 top-4 z-10 flex flex-col items-center gap-3">
-              {atDecisionPoint && pendingTurn && <CarsRoadSign direction={pendingTurn.direction} shakeToken={shakeToken} />}
-              <CarsDirectionPad
-                heldDirection={heldDirection}
-                onHold={(direction) => (direction ? handleHoldStart(direction) : setHeldDirection(null))}
-              />
             </div>
 
             {arrived && (
