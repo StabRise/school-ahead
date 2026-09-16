@@ -12,10 +12,9 @@ import {
   type CarsRoute,
   generateCarsEquation,
   generateCarsRoute,
-  headingToCardinal,
   pointAtT,
-  tangentAngleAtT,
   type TurnDirection,
+  type TurnKind,
   waypointsToPathD,
 } from "./lib/cars-game";
 import { useBackgroundMusic } from "./lib/use-background-music";
@@ -39,22 +38,30 @@ import { useCarsGameStore } from "./stores/cars-game-store";
 // parked cars beforehand to mark exactly which ones will depart) and, once
 // solved, CarsDrivingStage (those specific marked cars — auto-filled from
 // the remaining parked ones if the child didn't mark enough — drive a
-// single generated winding road to a random destination, one after another
-// in a queue, pausing at each intersection for a voice-narrated turn the
-// child answers by holding the matching arrow key — no on-screen driving
-// buttons any more, keyboard only). At each intersection the upcoming turn
-// also shows as a small arrow + label at the top of the screen, right after
-// the destination line (see CarsTurnInfo), replacing the old floating road
-// sign. See lib/cars-game.ts's own header comment for why each round
+// single generated winding road to a random destination). Nav-app style:
+// the car sprite stays fixed, always pointing straight up the screen; the
+// map itself pans AND rotates underneath it (see mapRotationDeg) so the
+// direction the road actually goes still always matches what's on screen
+// (same invariant TurnDirection's own comment describes), it's just that
+// "going straight" now always means "up" no matter which way the route
+// itself is headed at that point — same as a phone GPS in course-up mode.
+// The keyboard control (no on-screen buttons) follows suit: holding ↑
+// always drives forward, and only a real upcoming turn ever asks for ←/→.
+// At each intersection the upcoming turn (or "keep going straight") shows
+// as a small arrow + label at the top of the screen, right after the
+// destination line (see CarsTurnInfo), and is voice-narrated once (see
+// TURN_PHRASES); once the car has actually turned, both revert to "go
+// straight" for the next block rather than continuing to announce the turn
+// that's already done (see CarsRouteTurn's own `kind` field in
+// lib/cars-game.ts). See that file's own header comment for why each round
 // generates exactly one path rather than a real branching road network.
 
 // Spoken instructions are hardcoded Ukrainian phrases (not next-intl keys)
 // same as cocktail-game.tsx's own PRAISE_PHRASES/REJECT_PHRASES — speech
 // content is independent of the on-screen labels in uk.json.
-const TURN_PHRASES: Record<TurnDirection, string> = {
-  up: "Проїдь прямо!",
+const TURN_PHRASES: Record<TurnKind, string> = {
+  straight: "Проїдь прямо!",
   right: "Поверни направо!",
-  down: "Їдь вниз!",
   left: "Поверни наліво!",
 };
 const ARRIVAL_PHRASES = ["Ура! Приїхали!", "Молодець! Доїхали!"];
@@ -280,50 +287,61 @@ function shiftWaypoints(waypoints: CarsPoint[]): CarsPoint[] {
   return waypoints.map(toCanvasPoint);
 }
 
-// Horizontal fraction of the viewport where the road's start point (the
-// parking-lot exit) sits — dead center, per this feature's own request.
-// Fixed for the whole stage (computed from route.waypoints[0], not the
-// car's current position) — the camera itself never pans; only the car
-// sprite moves.
+// Horizontal fraction of the viewport where the car sprite sits, fixed for
+// the whole drive — dead center, per this feature's own request. Nav-app
+// style: the car itself never moves on screen, the map pans (and rotates,
+// see mapRotationDeg) underneath it instead, always keeping this exact
+// point pinned to wherever the car currently is along the route.
 const CAMERA_ANCHOR_X = 0.5;
 
 // The car's own fixed rendered size (see its className below — no
 // responsive sm: variant, specifically so this stays exact) and how far
-// above the viewport's bottom edge its bottom edge should sit at the very
-// start of the journey — per this feature's own request: "виїджає зовсім
-// трохи - щоб її стало видно, але нижній край був рівний низу екрана + 5
-// пікселів". `left`/`top` position the sprite's CENTER (see its
+// above the viewport's bottom edge its bottom edge sits for the whole
+// drive — per this feature's own request: "виїджає зовсім трохи - щоб її
+// стало видно, але нижній край був рівний низу екрана + 5 пікселів". The
+// car's own left/top position the sprite's CENTER (see its
 // translate(-50%,-50%)), so the target center-Y is back-computed from the
 // desired bottom-edge position.
 const CAR_HEIGHT_PX = 56;
 const CAR_BOTTOM_MARGIN_PX = 5;
 
-// The destination should always read as "way up there" — comfortably
-// inside the top 30% of the screen, per this feature's own request — while
-// the X position is left to fall wherever the route's own turns take it
-// (no separate horizontal targeting needed). Since a randomly generated
-// route's actual vertical rise varies round to round, the whole route is
-// uniformly scaled (never distorting its right-angle corners) so the
-// destination lands at this exact screen-height fraction regardless.
+// A randomly generated route's actual vertical rise (start to destination,
+// before any turns bend it sideways) varies round to round, so the whole
+// route is uniformly scaled (never distorting its right-angle corners) to
+// land in a sensible on-screen size regardless — same zoom-level role a
+// real nav app's own auto-zoom plays. (With the map now rotating to track
+// the car's heading — see mapRotationDeg — the destination's on-screen
+// position moves around as the car turns rather than staying pinned to a
+// fixed height, same as any course-up GPS view; this scale only ever
+// controls overall zoom, not where the destination marker lands.)
 const TARGET_DESTINATION_Y = 0.10;
 const MIN_ROUTE_SCALE = 0.35;
 const MAX_ROUTE_SCALE = 1.6;
 
-// CarTopDownSprite (below) is drawn nose-up (heading -90° in our own
-// atan2(dy,dx) convention), so a plain rotation aligns it with any desired
-// heading — unlike a side-view car emoji (see this function's own git
-// history), a top-down sprite is fully rotationally symmetric: no
-// mirroring or per-direction special-casing needed for any of the 4
-// cardinal headings this grid road ever asks for.
-function carDirectionTransform(headingRad: number): string {
-  return `rotate(${(headingRad * 180) / Math.PI + 90}deg)`;
+// Cumulative map rotation (deg) after `turnIndex` turns have been crossed —
+// -90° per right turn, +90° per left, unchanged for a straight-through
+// crossing (see CarsRouteTurn's `kind`). Built up incrementally like this
+// (rather than derived fresh each frame from the car's raw current heading)
+// so it only ever changes by a clean ±90°/0° step at a time, with no
+// wraparound risk from the underlying heading's own -180°/180° branch cut —
+// a CSS transition on this value (see the world div below) would otherwise
+// occasionally spin most of the way around instead of a quick quarter turn.
+function cumulativeMapRotationDeg(turns: CarsRoute["turns"], turnIndex: number): number {
+  let deg = 0;
+  for (let i = 0; i < turnIndex; i++) {
+    if (turns[i].kind === "right") deg -= 90;
+    else if (turns[i].kind === "left") deg += 90;
+  }
+  return deg;
 }
 
-// A small original top-down car — nose pointing up, drawn from scratch
-// (not the emoji catalog, which is side-view and only used for the static
-// parked-cars illustration) so it can rotate cleanly to any of the road's
-// 4 headings. Matches this codebase's existing convention of small inline
-// SVG icons (e.g. game-choice.tsx's CarIcon) rather than an image asset.
+// A small original top-down car — nose pointing up, drawn from scratch (not
+// the emoji catalog, which is side-view and only used for the static
+// parked-cars illustration). Always rendered pointing straight up: nav-app
+// style, the sprite itself never rotates — the map does (see
+// mapRotationDeg), same as a phone GPS's course-up "puck". Matches this
+// codebase's existing convention of small inline SVG icons (e.g.
+// game-choice.tsx's CarIcon) rather than an image asset.
 function CarTopDownSprite({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 40 70" className={className} aria-hidden="true">
@@ -370,13 +388,14 @@ function useViewportSize(): [(el: HTMLDivElement | null) => void, ViewportSize] 
   return [setRef, size];
 }
 
-// Rotation for an up-pointing chevron — direction is an absolute screen
-// cardinal (see TurnDirection's own comment), so this is a plain fixed
-// lookup, not anything derived from the car's current heading.
-const CARDINAL_ROTATION: Record<TurnDirection, number> = { up: 0, right: 90, down: 180, left: -90 };
+// Rotation for an up-pointing chevron — a fixed lookup off the relative
+// turn kind (straight/left/right), consistent with the sprite/map's own
+// course-up convention: "straight" always draws pointing up, regardless of
+// the road's actual absolute heading at that point.
+const TURN_KIND_ROTATION: Record<TurnKind, number> = { straight: 0, right: 90, left: -90 };
 
-function DirectionArrowIcon({ direction, className = "h-6 w-6" }: { direction: TurnDirection; className?: string }) {
-  const rotation = CARDINAL_ROTATION[direction];
+function DirectionArrowIcon({ kind, className = "h-6 w-6" }: { kind: TurnKind; className?: string }) {
+  const rotation = TURN_KIND_ROTATION[kind];
   return (
     <svg viewBox="0 0 24 24" className={`${className} text-amber-600`} style={{ transform: `rotate(${rotation}deg)` }} aria-hidden="true">
       <path d="M12 2 L20 12 L14 12 L14 22 L10 22 L10 12 L4 12 Z" fill="currentColor" />
@@ -385,17 +404,20 @@ function DirectionArrowIcon({ direction, className = "h-6 w-6" }: { direction: T
 }
 
 // Shown right after the destination line at the top of the driving viewport
-// (see CarsDrivingStage) whenever the car is nearing a turn — an arrow plus
-// the same direction phrase TURN_PHRASES narrates aloud, telling the child
-// which arrow key to hold. Replaces the old floating road-sign card;
-// `shakeToken` still shakes it on a wrong key press (see handleHoldStart),
-// same as that card used to.
-function CarsTurnInfo({ direction, shakeToken }: { direction: TurnDirection; shakeToken: number }) {
+// (see CarsDrivingStage) for the whole drive — an arrow plus label for
+// whichever way the car currently needs to go (`activeKind`: "straight" for
+// the whole of every block, the actual turn only right at an intersection),
+// updating live rather than only popping in near a turn: that on/off
+// mounting used to retrigger this component's own entrance animation every
+// time, reading as a distracting flicker each time a turn's decision zone
+// was entered/left. Replaces the old floating road-sign card; `shakeToken`
+// still shakes it on a wrong key press (see handleHoldStart), same as that
+// card used to.
+function CarsTurnInfo({ kind, shakeToken }: { kind: TurnKind; shakeToken: number }) {
   const t = useTranslations("CarsGame");
-  const label: Record<TurnDirection, string> = {
-    up: t("driveUpLabel"),
+  const label: Record<TurnKind, string> = {
+    straight: t("driveUpLabel"),
     right: t("turnRightLabel"),
-    down: t("driveDownLabel"),
     left: t("turnLeftLabel"),
   };
   return (
@@ -407,8 +429,8 @@ function CarsTurnInfo({ direction, shakeToken }: { direction: TurnDirection; sha
       style={{ animation: shakeToken > 0 ? "raccoon-shake 0.4s ease-in-out" : "score-pop 0.3s ease-out" }}
       className="flex items-center gap-1 rounded-full bg-white/95 px-3 py-1 text-amber-700 shadow ring-2 ring-amber-300"
     >
-      <DirectionArrowIcon direction={direction} />
-      {label[direction]}
+      <DirectionArrowIcon kind={kind} />
+      {label[kind]}
     </span>
   );
 }
@@ -451,6 +473,11 @@ const DRIVE_SPEED_T_PER_SEC = 0.15;
 // whatever the car is already driving (see requiredDirection below).
 const TURN_EPSILON = 0.02;
 
+// How long the map's own quarter turn (see mapRotationDeg) eases over once
+// the car actually crosses a turn's waypoint — a quick, decisive pivot, not
+// a lazy drift.
+const ROTATE_TRANSITION_MS = 300;
+
 function CarsDrivingStage({
   route,
   muted,
@@ -480,18 +507,16 @@ function CarsDrivingStage({
   // rule, and the derivation is trivial anyway).
   const turnIndex = route.turns.filter((turn) => progressT >= turn.t).length;
 
-  // Uniform per-round scale so the destination (the route's last waypoint)
-  // lands at TARGET_DESTINATION_Y regardless of how far this particular
-  // route's random turns happened to rise — start.y is always 0 (see
-  // lib/cars-game.ts's buildRoad), so this scales everything relative to
-  // the fixed start point without needing a separate offset. Waits for a
-  // real viewport size rather than computing against {0,0}.
-  // The car's center-Y at the very start of the journey (t=0) — see
+  // Uniform per-round zoom scale — see TARGET_DESTINATION_Y's own comment.
+  // start.y is always 0 (see lib/cars-game.ts's buildRoad), so this scales
+  // everything relative to the fixed start point without needing a separate
+  // offset. Waits for a real viewport size rather than computing against
+  // {0,0}. The car's fixed screen center-Y for the whole drive — see
   // CAR_BOTTOM_MARGIN_PX's own comment.
-  const startCenterY = viewportSize.height - CAR_BOTTOM_MARGIN_PX - CAR_HEIGHT_PX / 2;
+  const carScreenY = viewportSize.height - CAR_BOTTOM_MARGIN_PX - CAR_HEIGHT_PX / 2;
   const netRise = route.waypoints[0].y - route.waypoints[route.waypoints.length - 1].y;
   const routeScale = viewportReady
-    ? Math.min(MAX_ROUTE_SCALE, Math.max(MIN_ROUTE_SCALE, (startCenterY - viewportSize.height * TARGET_DESTINATION_Y) / netRise))
+    ? Math.min(MAX_ROUTE_SCALE, Math.max(MIN_ROUTE_SCALE, (carScreenY - viewportSize.height * TARGET_DESTINATION_Y) / netRise))
     : 1;
   const scaledWaypoints = route.waypoints.map((p) => ({ x: p.x * routeScale, y: p.y * routeScale }));
 
@@ -499,15 +524,14 @@ function CarsDrivingStage({
   const legTargetT = pendingTurn ? pendingTurn.t : 1;
   const arrived = progressT >= 1;
   const targetPoint = toCanvasPoint(pointAtT(scaledWaypoints, progressT));
-  const headingRad = tangentAngleAtT(scaledWaypoints, progressT);
   // Within this leg's final stretch (or already past it, clamped), the held
-  // key has to match the actual turn to keep moving — anywhere earlier in
-  // the leg, holding whichever absolute direction the car is already
-  // driving (headingToCardinal of its current heading) is all that's
-  // needed, same as any other stretch of road. CarsTurnInfo (at the top of
-  // the screen) and the turn's own narration both key off this too.
+  // key has to actually turn to keep moving; anywhere earlier in the leg
+  // (or once there's no turn left at all), holding "up" — drive straight —
+  // is all that's needed. CarsTurnInfo (at the top of the screen) and the
+  // turn's own narration both key off this same `activeKind`.
   const atDecisionPoint = pendingTurn !== null && progressT >= pendingTurn.t - TURN_EPSILON;
-  const requiredDirection: TurnDirection = atDecisionPoint && pendingTurn ? pendingTurn.direction : headingToCardinal(headingRad);
+  const activeKind: TurnKind = atDecisionPoint && pendingTurn ? pendingTurn.kind : "straight";
+  const requiredDirection: TurnDirection = activeKind === "straight" ? "up" : activeKind;
 
   // Mirrors this render's requiredDirection into a ref (outside render, per
   // React's rules-of-refs) so the stable (empty-deps) keydown handler below
@@ -518,14 +542,21 @@ function CarsDrivingStage({
     requiredDirectionRef.current = requiredDirection;
   });
 
-  // A fixed placement for the whole stage (the route's own start point
-  // pinned so the car's bottom edge sits CAR_BOTTOM_MARGIN_PX above the
-  // viewport's bottom edge at t=0) — the world/road never pans; only the
-  // car sprite itself moves within it (see its own left/top/transform
-  // below).
-  const startPoint = toCanvasPoint(scaledWaypoints[0]);
-  const worldX = viewportSize.width * CAMERA_ANCHOR_X - startPoint.x;
-  const worldY = startCenterY - startPoint.y;
+  // Nav-app style: the car sprite is fixed on screen (see CAMERA_ANCHOR_X/
+  // carScreenY); the map pans AND rotates underneath it instead, every
+  // frame re-pinning the car's CURRENT point (not just its start point) to
+  // that fixed screen position — see cumulativeMapRotationDeg's own comment
+  // for why the rotation angle is built incrementally rather than derived
+  // fresh from the raw heading each frame. transformOrigin is set to that
+  // same current point (in the world div's own local/canvas coordinates,
+  // matching how the svg road/destination marker are positioned below), so
+  // the rotation pivots exactly on the point the translate then re-pins —
+  // that point's own screen position ends up depending only on the
+  // translate, never on the rotation, no matter what the rotation currently
+  // is (mid-transition included).
+  const mapRotationDeg = cumulativeMapRotationDeg(route.turns, turnIndex);
+  const worldX = viewportSize.width * CAMERA_ANCHOR_X - targetPoint.x;
+  const worldY = carScreenY - targetPoint.y;
 
   useDiamondMilestoneReward({
     mode: "level",
@@ -557,7 +588,7 @@ function CarsDrivingStage({
   // Speaks a turn's instruction once as its decision zone is first entered
   // — not on every render, so an unrelated re-render doesn't repeat it.
   useEffect(() => {
-    if (atDecisionPoint && pendingTurn) sayUk(TURN_PHRASES[pendingTurn.direction], muted);
+    if (atDecisionPoint && pendingTurn) sayUk(TURN_PHRASES[pendingTurn.kind], muted);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [atDecisionPoint, turnIndex]);
 
@@ -575,9 +606,9 @@ function CarsDrivingStage({
   // consequence of this user event (not state syncing from other state) and
   // because it needs the freshest possible read of the requirement, not
   // whatever it was on the last render. Bounces on ANY mismatch now (not
-  // just "at a decision point") — mid-block the requirement is whichever
-  // absolute direction the car is already driving, so pressing something
-  // else is just as genuinely wrong as picking the wrong turn.
+  // just "at a decision point") — mid-block the requirement is always "up"
+  // (drive straight, see activeKind), so pressing anything else is just as
+  // genuinely wrong as picking the wrong turn.
   const handleHoldStart = (direction: TurnDirection) => {
     setHeldDirection(direction);
     if (direction !== requiredDirectionRef.current) {
@@ -614,57 +645,78 @@ function CarsDrivingStage({
         <span>
           {t("destinationLabel")} {route.destination.emoji} {route.destination.label}
         </span>
-        {atDecisionPoint && pendingTurn && <CarsTurnInfo direction={pendingTurn.direction} shakeToken={shakeToken} />}
+        {!arrived && <CarsTurnInfo kind={activeKind} shakeToken={shakeToken} />}
       </div>
 
       <div ref={setViewportRef} className="relative w-full flex-1 overflow-hidden rounded-2xl bg-gradient-to-b from-sky-200 to-emerald-200">
         {viewportReady && (
           <>
+            {/* The map, two nested layers so panning and rotating don't
+                fight each other: the OUTER layer only translates, raw and
+                untransitioned every single rAF frame (a CSS transition here
+                would visibly lag behind the continuous updates); the INNER
+                layer only rotates, WITH a transition, so a turn eases
+                smoothly over ROTATE_TRANSITION_MS instead of snapping. Both
+                pivot/re-pin around the car's CURRENT point — see
+                worldX/worldY/mapRotationDeg's own comments above for why
+                that keeps the car pinned on screen regardless of either. */}
             <div
               className="absolute left-0 top-0"
               style={{ width: WORLD_CANVAS_SIZE, height: WORLD_CANVAS_SIZE, transform: `translate(${worldX}px, ${worldY}px)` }}
             >
-              <svg width={WORLD_CANVAS_SIZE} height={WORLD_CANVAS_SIZE} className="absolute left-0 top-0" aria-hidden="true">
-                <path d={waypointsToPathD(shiftWaypoints(scaledWaypoints))} stroke="#94a3b8" strokeWidth={22} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                <path
-                  d={waypointsToPathD(shiftWaypoints(scaledWaypoints))}
-                  stroke="#f8fafc"
-                  strokeWidth={14}
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeDasharray="14 14"
-                />
-              </svg>
-              {(() => {
-                const destinationPoint = toCanvasPoint(scaledWaypoints[scaledWaypoints.length - 1]);
-                return (
-                  <span
-                    aria-hidden="true"
-                    className="absolute -translate-x-1/2 -translate-y-1/2 text-7xl sm:text-8xl"
-                    style={{ left: destinationPoint.x, top: destinationPoint.y }}
-                  >
-                    {route.destination.emoji}
-                  </span>
-                );
-              })()}
-
-              {/* Only one car is driven/controlled, regardless of how many
-                  were marked as departing in the parking stage — per this
-                  feature's own request, simpler for the child to track than
-                  a whole convoy. The world/road itself is static (see
-                  worldX/worldY above); position updates every rAF frame (no
-                  CSS transition — it would fight the continuous updates),
-                  only the rotation eases so turning in place looks smooth. */}
               <div
-                // No responsive sm: size variant here — fixed at h-14 (56px)
-                // to match CAR_HEIGHT_PX exactly, which the bottom-margin
-                // anchor above depends on.
-                className="absolute h-14 w-8 transition-transform duration-300 ease-out"
-                style={{ left: targetPoint.x, top: targetPoint.y, transform: `translate(-50%, -50%) ${carDirectionTransform(headingRad)}` }}
+                style={{
+                  width: WORLD_CANVAS_SIZE,
+                  height: WORLD_CANVAS_SIZE,
+                  transformOrigin: `${targetPoint.x}px ${targetPoint.y}px`,
+                  transform: `rotate(${mapRotationDeg}deg)`,
+                  transition: `transform ${ROTATE_TRANSITION_MS}ms ease-out`,
+                }}
               >
-                <CarTopDownSprite className="h-full w-full drop-shadow" />
+                <svg width={WORLD_CANVAS_SIZE} height={WORLD_CANVAS_SIZE} className="absolute left-0 top-0" aria-hidden="true">
+                  <path d={waypointsToPathD(shiftWaypoints(scaledWaypoints))} stroke="#94a3b8" strokeWidth={22} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d={waypointsToPathD(shiftWaypoints(scaledWaypoints))}
+                    stroke="#f8fafc"
+                    strokeWidth={14}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeDasharray="14 14"
+                  />
+                </svg>
+                {(() => {
+                  const destinationPoint = toCanvasPoint(scaledWaypoints[scaledWaypoints.length - 1]);
+                  return (
+                    <span
+                      aria-hidden="true"
+                      className="absolute -translate-x-1/2 -translate-y-1/2 text-7xl sm:text-8xl"
+                      style={{ left: destinationPoint.x, top: destinationPoint.y }}
+                    >
+                      {route.destination.emoji}
+                    </span>
+                  );
+                })()}
               </div>
+            </div>
+
+            {/* Only one car is driven/controlled, regardless of how many
+                were marked as departing in the parking stage — per this
+                feature's own request, simpler for the child to track than a
+                whole convoy. Nav-app style: fixed on screen at
+                (CAMERA_ANCHOR_X, carScreenY), always pointing straight up —
+                the map (above) does all the panning and rotating instead. */}
+            <div
+              // No responsive sm: size variant here — fixed at h-14 (56px)
+              // to match CAR_HEIGHT_PX exactly, which carScreenY depends on.
+              className="absolute h-14 w-8"
+              style={{
+                left: viewportSize.width * CAMERA_ANCHOR_X,
+                top: carScreenY,
+                transform: "translate(-50%, -50%)",
+              }}
+            >
+              <CarTopDownSprite className="h-full w-full drop-shadow" />
             </div>
 
             {arrived && (
