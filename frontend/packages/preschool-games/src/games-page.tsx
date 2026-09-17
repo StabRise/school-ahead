@@ -15,20 +15,26 @@ import { useLocaleAwareGamesRouter } from "./kit/use-locale-aware-router";
 // only a tutor bookmarking /games gets bounced home, see
 // usePreschoolGamesGuard.
 
-// The "cards" game id (CardsGame, useCardsGameStore, /api/cards-game-mode*,
-// etc.) predates this URL and stays as-is internally — only its route
-// segment was renamed to /games/reading-cards, so it needs a lookup instead
+// The "cards" and "reading" game ids (CardsGame/useCardsGameStore/
+// /api/cards-game-mode* and ReadingGame respectively) predate their URLs
+// and stay as-is internally — only their route segments were renamed (to
+// /games/syllables2 and /games/syllables), so each needs a lookup instead
 // of the id doubling as the URL segment like every other game.
+// "flashcards" is the unrelated subject study-cards library
+// (FlashcardsGroupsPage), which actually owns the plain /games/cards
+// segment — see game-choice.tsx's own GAME_CATEGORIES comment for how the
+// two "cards" names split apart.
 const GAME_PATH_SEGMENT: Record<PreschoolGameId, string> = {
   balloons: "balloons",
   trains: "trains",
-  reading: "reading",
-  cards: "reading-cards",
+  reading: "syllables",
+  cards: "syllables2",
   stories: "stories",
   math: "math",
   "jumping-frogs": "jumping-frogs",
   cocktail: "cocktail",
   cars: "cars",
+  flashcards: "cards",
 };
 
 export function PreschoolGamesPage() {
@@ -44,7 +50,6 @@ export function PreschoolGamesPage() {
     <GamePageContainer>
       <GamePicker
         title={t("title")}
-        subtitle={t("subtitle")}
         onSelect={(game: PreschoolGameId) => router.push(`/games/${GAME_PATH_SEGMENT[game]}`)}
       />
     </GamePageContainer>

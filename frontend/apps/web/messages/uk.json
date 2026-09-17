@@ -157,6 +157,10 @@
     "title": "Усі уроки зроблено!",
     "subtitle": "У яку гру хочеш пограти?",
     "playButton": "Грати",
+    "categoryCardsTitle": "Картки",
+    "categoryReadingTitle": "Читання",
+    "categoryMathTitle": "Математика",
+    "categoryOtherTitle": "Інше",
     "balloonsTitle": "Кульки",
     "balloonsSubtitle": "Лопай кульки, що падають",
     "trainsTitle": "Потяг",
@@ -175,6 +179,8 @@
     "cocktailSubtitle": "Приготуй коктейль за рецептом",
     "carsTitle": "Машинки",
     "carsSubtitle": "Розв'яжи приклад і довези машинки до міста",
+    "flashcardsTitle": "Картки для навчання",
+    "flashcardsSubtitle": "Обери предмет і вчи картки",
     "switchGame": "Обрати іншу гру"
   },
   "ReadingGame": {
