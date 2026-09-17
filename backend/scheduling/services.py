@@ -1,4 +1,5 @@
 import datetime
+import random
 
 from django.db.models import Prefetch
 from django.utils import timezone
@@ -8,6 +9,8 @@ from academics.models import Class, Subject
 from accounts.models import StudentProfile
 from lessons import services as lesson_services
 from lessons.models import Lesson, StudentLesson, StudentLessonStatus
+
+from .schemas import SubjectLessonsIn
 
 WEEKDAYS_PER_SCHOOL_WEEK = 5
 
@@ -87,7 +90,7 @@ def generate_class_schedule(
     school_class: Class,
     start_date: datetime.date,
     end_date: datetime.date,
-    lessons_count_by_subject: dict[int, int],
+    subject_requests: dict[int, SubjectLessonsIn],
 ) -> dict:
     """The tutor's "Plan Lessons" modal on the class detail page: freely
     picks a date range and how many lessons of each subject to fit into
@@ -118,7 +121,14 @@ def generate_class_schedule(
     most-preferred-first. So the least-loaded/least-conflicting days absorb
     the biggest chunks while a subject's own lessons still land in order
     across the days it's given. Repeats are allowed once every day in range
-    already has that subject — see the "Plan Lessons" modal's info note."""
+    already has that subject — see the "Plan Lessons" modal's info note.
+
+    A subject requested with `randomize=True` (the modal's "Рендомні уроки"
+    checkbox) skips both of those "in order" guarantees for its own
+    lessons: the new ones are a random sample of the subject's not-yet-
+    assigned lessons rather than the next ones by topic/lesson order_index,
+    and the merged (reflowed + new) list is shuffled rather than re-sorted
+    back into curriculum order before being handed out to days."""
     students = list(StudentProfile.objects.filter(school_class=school_class))
     empty_result = {'lessons_scheduled': 0, 'students_affected': len(students), 'subjects': []}
     if not students or not _school_days(start_date, end_date):
@@ -132,7 +142,8 @@ def generate_class_schedule(
 
     subject_lessons: dict[int, list[Lesson]] = {}
     subject_end_date: dict[int, datetime.date] = {}
-    for subject_id, lessons_count in lessons_count_by_subject.items():
+    for subject_id, request in subject_requests.items():
+        lessons_count = request.lessons_count
         if lessons_count <= 0:
             continue
 
@@ -143,15 +154,18 @@ def generate_class_schedule(
             .exclude(status=StudentLessonStatus.COMPLETED)
             .select_related('lesson__topic')
         )
-        new_lessons = list(
-            Lesson.objects.filter(topic__subject_id=subject_id)
-            .exclude(student_lessons__isnull=False)
-            .order_by('topic__order_index', 'order_index')[:lessons_count]
-        )
-        lessons = sorted(
-            [sl.lesson for sl in movable_existing] + new_lessons,
-            key=lambda lesson: (lesson.topic.order_index, lesson.order_index),
-        )
+        available_new = Lesson.objects.filter(topic__subject_id=subject_id).exclude(student_lessons__isnull=False)
+        if request.randomize:
+            new_lessons = list(available_new.order_by('?')[:lessons_count])
+        else:
+            new_lessons = list(available_new.order_by('topic__order_index', 'order_index')[:lessons_count])
+
+        combined = [sl.lesson for sl in movable_existing] + new_lessons
+        if request.randomize:
+            random.shuffle(combined)
+            lessons = combined
+        else:
+            lessons = sorted(combined, key=lambda lesson: (lesson.topic.order_index, lesson.order_index))
         if not lessons:
             continue
 

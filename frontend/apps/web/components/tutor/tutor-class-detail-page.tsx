@@ -18,6 +18,7 @@ import { IsFilledBadge } from "@/components/subjects/is-filled-badge";
 import { AttestationTypeBadge } from "@/components/subjects/attestation-type-badge";
 import { SimpleEntityIcon } from "@/components/simple/entity-icon";
 import { SimplePageContainer } from "@/components/simple/page-container";
+import { CreateSubjectDialog } from "./create-subject-dialog";
 import { LoadSubjectMarkdownDialog } from "./load-subject-markdown-dialog";
 import { PlanLessonsDialog } from "./plan-lessons-dialog";
 import { UploadPlanDialog } from "./upload-plan-dialog";
@@ -263,6 +264,7 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <RecalculateWorkloadButton classId={classId} />
+              {data.is_class_teacher && <CreateSubjectDialog classId={classId} academicYear={data.academic_year} />}
               {data.is_class_teacher && <UploadPlanDialog classId={classId} />}
               {data.is_class_teacher && <LoadSubjectMarkdownDialog classId={classId} />}
               <PlanLessonsDialog classId={classId} />

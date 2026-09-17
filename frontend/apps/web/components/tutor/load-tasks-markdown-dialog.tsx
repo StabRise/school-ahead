@@ -12,6 +12,7 @@ import {
 } from "@school-ahead/api-client/browser/tasks/tasks";
 import { getListSubjectTopicsQueryKey } from "@school-ahead/api-client/browser/academics/academics";
 import type { TaskImportSummaryOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import { FileDropzone } from "@/components/file-dropzone";
 
 // Opened from the tutor's Subject detail page Tasks tab. Single-step, same
 // shape as UploadPlanDialog: pick a file and it's parsed+imported
@@ -91,18 +92,15 @@ export function LoadTasksMarkdownDialog({ subjectId }: { subjectId: number }) {
           ) : (
             <form onSubmit={handleUpload} className="mt-4 flex flex-col gap-4">
               <div className="flex flex-col gap-1">
-                <label htmlFor="tasks-markdown-file" className="text-xs font-medium text-gray-700">
-                  {t("fileLabel")}
-                </label>
-                <input
+                <span className="text-xs font-medium text-gray-700">{t("fileLabel")}</span>
+                <FileDropzone
                   id="tasks-markdown-file"
-                  type="file"
+                  hint={t("fileHint")}
+                  multiple={false}
                   accept=".md,.txt,text/markdown,text/plain"
-                  required
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  className="text-sm text-gray-700"
+                  onFilesSelected={(files) => setFile(files?.[0] ?? null)}
                 />
-                <p className="text-xs text-gray-500">{t("fileHint")}</p>
+                {file && <p className="text-xs text-gray-500">{file.name}</p>}
               </div>
 
               {importTasksMarkdown.isError && <p className="text-sm text-red-600">{t("uploadError")}</p>}

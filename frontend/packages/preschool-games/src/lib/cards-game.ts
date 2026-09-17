@@ -1,45 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { compareSyllables, sortConsonants } from "./reading-game";
-
-export { sortConsonants };
+import { compareSyllables } from "./reading-game";
 
 export interface CardsGameCard {
   syllable: string; // e.g. "ба" — also the image's filename minus extension
   word: string; // e.g. "баран" — empty when the syllable has no illustration yet
   image: string;
-}
-
-let consonantsPromise: Promise<string[]> | null = null;
-
-function fetchConsonants(): Promise<string[]> {
-  if (!consonantsPromise) {
-    consonantsPromise = fetch("/api/cards-game-modes")
-      .then((res) => res.json())
-      .then((data: { consonants: string[] }) => data.consonants)
-      .catch(() => []);
-  }
-  return consonantsPromise;
-}
-
-// The "Cards" minigame's full consonant (level) list — every subfolder of
-// public/static/syllables that's ready to play (see /api/cards-game-modes),
-// fetched once and cached module-wide. Empty until the fetch resolves.
-export function useCardsGameConsonants(): string[] {
-  const [consonants, setConsonants] = useState<string[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetchConsonants().then((result) => {
-      if (!cancelled) setConsonants(result);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return consonants;
 }
 
 const levelCardsCache = new Map<string, Promise<CardsGameCard[]>>();

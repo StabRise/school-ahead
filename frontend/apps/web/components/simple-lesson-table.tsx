@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { Monitor } from "lucide-react";
+import { CircleCheck, Monitor } from "lucide-react";
 import { compareLessonItems } from "@/lib/lesson-order";
 import { LESSON_TYPE_ICON, LESSON_TYPE_ICON_COLOR } from "@/components/simple/lesson-type-icon";
 import { formatGradeLabel, formatShortDate, resolveStatusLabel } from "@/components/simple/format";
@@ -41,8 +41,11 @@ export function mergeSimpleRows(lessons: CalendarItemOut[], backlog: BacklogItem
 }
 
 // Shared by the header row and every body row so columns line up like a
-// real table: icon / subject+lesson (flexible) / date / grade / status.
-const ROW_GRID = "grid grid-cols-[1.25rem_minmax(0,1fr)_5.5rem_3.5rem_10rem] items-center gap-3";
+// real table: icon / subject+lesson (flexible) / date / grade / status /
+// action. The trailing action column is always reserved (even when no
+// `onMarkComplete` is passed, e.g. the student's own dashboard) so the
+// other columns stay aligned between a plain and an actionable table.
+const ROW_GRID = "grid grid-cols-[1.25rem_minmax(0,1fr)_5.5rem_3.5rem_10rem_1.75rem] items-center gap-3";
 
 // origin_label (backlog rows only) is the lesson's original scheduled day —
 // same field the Standard dashboard/calendar already format as their
@@ -104,9 +107,25 @@ function compareRows(a: SimpleRow, b: SimpleRow, key: SortKey, direction: SortDi
   }
 }
 
-function SimpleRowItem({ item, colorful, hrefFor }: { item: SimpleRow; colorful?: boolean; hrefFor: (item: SimpleRow) => string }) {
+function SimpleRowItem({
+  item,
+  colorful,
+  hrefFor,
+  onMarkComplete,
+  markingCompleteId,
+}: {
+  item: SimpleRow;
+  colorful?: boolean;
+  hrefFor: (item: SimpleRow) => string;
+  // Tutor-only "mark as done" action (see SimpleLessonTable's own doc
+  // comment) — undefined for the student's own dashboard, so no button
+  // renders there and this row stays a plain link.
+  onMarkComplete?: (item: SimpleRow) => void;
+  markingCompleteId?: number;
+}) {
   const t = useTranslations("LessonWizard");
   const tStatus = useTranslations("LessonStatus");
+  const tTable = useTranslations("SimpleLessonTable");
   const Icon = LESSON_TYPE_ICON[item.lesson_type] ?? Monitor;
 
   const gradeLabel = formatGradeLabel({
@@ -143,6 +162,26 @@ function SimpleRowItem({ item, colorful, hrefFor }: { item: SimpleRow; colorful?
         ) : (
           <span className="truncate text-xs text-gray-500">{resolveStatusLabel(item.status, tStatus)}</span>
         )}
+        {onMarkComplete && item.status !== "completed" && (
+          // Plain <button> (not a nested <a>) — this row is already a Link,
+          // and stopping propagation/preventing default here is what keeps
+          // the click from also navigating to the lesson, same convention
+          // as tutor-stories-page.tsx's DownloadStoryButton.
+          <button
+            type="button"
+            title={tTable("markCompleteLabel")}
+            aria-label={tTable("markCompleteLabel")}
+            disabled={markingCompleteId === item.id}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onMarkComplete(item);
+            }}
+            className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50"
+          >
+            <CircleCheck className="h-4 w-4" />
+          </button>
+        )}
       </Link>
     </li>
   );
@@ -150,16 +189,19 @@ function SimpleRowItem({ item, colorful, hrefFor }: { item: SimpleRow; colorful?
 
 // Notion-style, borderless sortable table — the "Simple" view's shared
 // building block, used by components/simple-dashboard.tsx (see the Settings
-// page's "Вигляд" section for how a student picks it) and, read-only via a
-// tutor-scoped `hrefFor`, by the tutor's student-overview page. `colorful`
-// keeps the same dense table shape but restores the Default dashboard's
-// colored status badges and dark-red overdue dates instead of Simple's
-// plain grey text.
+// page's "Вигляд" section for how a student picks it) and, via a
+// tutor-scoped `hrefFor` plus `onMarkComplete`, by the tutor's
+// student-overview page (which can additionally mark a lesson done).
+// `colorful` keeps the same dense table shape but restores the Default
+// dashboard's colored status badges and dark-red overdue dates instead of
+// Simple's plain grey text.
 export function SimpleLessonTable({
   rows,
   emptyMessage,
   colorful,
   hrefFor = (item) => `/lessons/${item.id}`,
+  onMarkComplete,
+  markingCompleteId,
 }: {
   rows: SimpleRow[];
   emptyMessage: string;
@@ -170,6 +212,13 @@ export function SimpleLessonTable({
   // tutor-student-overview-page.tsx), since /lessons/[id] only works for
   // the signed-in student themself.
   hrefFor?: (item: SimpleRow) => string;
+  // Tutor-only "mark as done" action, rendered as a small per-row button —
+  // omitted entirely (no button, plain row) for the student's own
+  // dashboard, which passes neither of these.
+  onMarkComplete?: (item: SimpleRow) => void;
+  // The row currently mid-mutation, so only its own button disables/spins
+  // rather than the whole table.
+  markingCompleteId?: number;
 }) {
   const t = useTranslations("SimpleLessonTable");
   const { sort, toggleSort } = useSortState<SortKey>("date");
@@ -208,10 +257,18 @@ export function SimpleLessonTable({
           direction={sort.direction}
           onClick={() => toggleSort("status")}
         />
+        <span aria-hidden="true" />
       </div>
       <ul className="min-w-[39rem] divide-y divide-gray-100">
         {sortedRows.map((item) => (
-          <SimpleRowItem key={item.id} item={item} colorful={colorful} hrefFor={hrefFor} />
+          <SimpleRowItem
+            key={item.id}
+            item={item}
+            colorful={colorful}
+            hrefFor={hrefFor}
+            onMarkComplete={onMarkComplete}
+            markingCompleteId={markingCompleteId}
+          />
         ))}
       </ul>
     </div>

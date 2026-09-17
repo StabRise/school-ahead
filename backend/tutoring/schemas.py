@@ -30,6 +30,12 @@ class AssignmentOut(Schema):
     attestation_type: str
 
 
+class CreateSubjectIn(Schema):
+    name: str
+    start_date: datetime.date
+    due_date: datetime.date
+
+
 class LessonStudentOut(Schema):
     student_lesson_id: int
     student_id: int

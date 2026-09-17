@@ -5,9 +5,10 @@ import { useTranslations } from "next-intl";
 import { useRewardCardsGame } from "@school-ahead/api-client/browser/auth/auth";
 import { BalloonLearningCards, type LearningCard } from "./balloon-learning-cards";
 import { prefetchVoice, speakSequence, warmupSpeech } from "@school-ahead/api-client";
-import { sortConsonants, useCardsGameConsonants, useCardsGameLevel, type CardsGameCard } from "./lib/cards-game";
+import { useCardsGameLevel, type CardsGameCard } from "./lib/cards-game";
 import { useCardsGameStore } from "./stores/cards-game-store";
 import { useBackgroundMusic } from "./lib/use-background-music";
+import { useAlphabeticalConsonants } from "./kit/use-alphabetical-consonants";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { playCelebrationChime, playMatchSound, playMissSound } from "./kit/sound-effects";
 import { MusicToggleButton } from "./kit/music-toggle-button";
@@ -377,20 +378,20 @@ function CardsFallingGame({ cards, muted }: { cards: CardsGameCard[]; muted: boo
         // settings button in the top-left corner, which shares this same
         // top-4 row and would otherwise never receive the tap.
         <div className="pointer-events-none absolute inset-x-0 top-4 z-10 flex justify-center">
-          <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-white px-6 py-3 shadow-lg ring-2 ring-gray-200">
-            <span aria-label={t("targetLabel", { syllable: target.syllable })} className="font-extrabold text-5xl">
+          {/* The target pill itself is the replay control (cursor: pointer)
+              — no separate "🔊 repeat sound" button next to it any more,
+              same as jumping-frogs-game.tsx's TargetHeaderBar. */}
+          <button
+            type="button"
+            onClick={() => speakTarget(target)}
+            aria-label={t("targetLabel", { syllable: target.syllable })}
+            className="pointer-events-auto flex cursor-pointer items-center gap-3 rounded-full bg-white px-6 py-3 shadow-lg ring-2 ring-gray-200"
+          >
+            <span className="font-extrabold text-5xl">
               <span style={{ color: "#0369a1" }}>{target.syllable[0]}</span>
               <span style={{ color: "#dc2626" }}>{target.syllable[1]}</span>
             </span>
-            <button
-              type="button"
-              aria-label={t("replaySoundLabel")}
-              onClick={() => speakTarget(target)}
-              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-sky-50 text-lg"
-            >
-              🔊
-            </button>
-          </div>
+          </button>
         </div>
       )}
 
@@ -458,8 +459,7 @@ export function CardsGame() {
   const screenMode = useCardsGameStore((s) => s.screenMode);
   const setScreenMode = useCardsGameStore((s) => s.setScreenMode);
 
-  const rawConsonants = useCardsGameConsonants();
-  const consonants = useMemo(() => sortConsonants(rawConsonants), [rawConsonants]);
+  const consonants = useAlphabeticalConsonants("/api/cards-game-modes");
   const cards = useCardsGameLevel(consonant);
 
   // A consonant persisted from an earlier session might no longer be ready

@@ -530,6 +530,53 @@ class TestUploadClassPlan:
         assert response.data[0]['semester_name'] == 'Semester 1'
 
 
+class TestCreateTutorClassSubject:
+    def _make_class_teacher(self, school_class, tutor):
+        school_class.class_teacher = tutor
+        school_class.save(update_fields=['class_teacher'])
+
+    def test_creates_subject_with_given_name_and_dates(self, api_client, auth_header, tutor, school_class):
+        self._make_class_teacher(school_class, tutor)
+
+        response = api_client.post(
+            f'/tutor/classes/{school_class.id}/subjects',
+            json={'name': 'Geography', 'start_date': '2025-09-01', 'due_date': '2026-05-31'},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['subject_name'] == 'Geography'
+        assert response.data['class_id'] == school_class.id
+        subject = Subject.objects.get(school_class=school_class, name='Geography')
+        assert subject.start_date == datetime.date(2025, 9, 1)
+        assert subject.due_date == datetime.date(2026, 5, 31)
+        # Same auto-assignment as any other Subject-creation path (see
+        # TestUploadClassPlan.test_upload_imports_subjects_and_blocks).
+        assert TutorSubjectAssignment.objects.filter(tutor=tutor, subject=subject).exists()
+
+    def test_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, school_class):
+        response = api_client.post(
+            f'/tutor/classes/{school_class.id}/subjects',
+            json={'name': 'Geography', 'start_date': '2025-09-01', 'due_date': '2026-05-31'},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 403
+        assert not Subject.objects.filter(school_class=school_class, name='Geography').exists()
+
+    def test_rejected_for_tutor_who_is_not_the_class_teacher(self, api_client, auth_header, tutor, subject, school_class):
+        # Assigned to a subject in the class, but not its homeroom teacher.
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = api_client.post(
+            f'/tutor/classes/{school_class.id}/subjects',
+            json={'name': 'Geography', 'start_date': '2025-09-01', 'due_date': '2026-05-31'},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 403
+
+
 class TestUploadSubjectMarkdown:
     CONTENT = (
         'Subject: PL:Historia\n'
@@ -818,6 +865,108 @@ class TestLessonsJsonUpload:
         assert process_response.status_code == 200
         assert process_response.data['topics_created'] == 1
         assert process_response.data['lessons_created'] == 1
+
+
+class TestImportSubjectYoutubePlaylist:
+    """youtube_scrape.fetch_playlist_topic itself (the real HTTP scrape) is
+    exercised by its own unit tests — these cover the endpoint's plumbing
+    around it (permissions, import, error mapping), so fetch_playlist_topic
+    is monkeypatched rather than hitting the real network."""
+
+    def _fake_topic(self, topic_name='Base', truncated=False):
+        return (
+            {
+                'title': topic_name,
+                'description': '',
+                'lessons': [
+                    {
+                        'title': 'Video 1',
+                        'lesson_type': 'theory',
+                        'origin_url': 'https://www.youtube.com/watch?v=abc',
+                        'youtubes': ['https://www.youtube.com/watch?v=abc'],
+                        'pdfs': [],
+                        'content': 'https://www.youtube.com/watch?v=abc',
+                        'task_content': '',
+                    },
+                ],
+            },
+            truncated,
+        )
+
+    def test_imports_a_topic_and_lesson_per_video(self, api_client, auth_header, monkeypatch, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        monkeypatch.setattr(
+            'tutoring.api.youtube_scrape.fetch_playlist_topic',
+            lambda playlist_url, topic_name: self._fake_topic(topic_name),
+        )
+
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/youtube-import',
+            json={'topic_name': 'Base', 'playlist_url': 'https://www.youtube.com/playlist?list=PL123'},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['topic_name'] == 'Base'
+        assert response.data['lessons_created'] == 1
+        assert response.data['lessons_skipped'] == 0
+        assert response.data['truncated'] is False
+        topic = Topic.objects.get(subject=subject, title='Base')
+        assert topic.lessons.filter(title='Video 1').exists()
+
+    def test_reruns_only_add_new_videos(self, api_client, auth_header, monkeypatch, tutor, subject):
+        """Same playlist scraped twice — the second run reuses the Topic and
+        skips the already-imported lesson (import_topics_and_lessons is
+        idempotent by (topic, title))."""
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        monkeypatch.setattr(
+            'tutoring.api.youtube_scrape.fetch_playlist_topic',
+            lambda playlist_url, topic_name: self._fake_topic(topic_name),
+        )
+        payload = {'topic_name': 'Base', 'playlist_url': 'https://www.youtube.com/playlist?list=PL123'}
+        api_client.post(f'/tutor/subjects/{subject.id}/youtube-import', json=payload, headers=auth_header(tutor.user))
+
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/youtube-import', json=payload, headers=auth_header(tutor.user)
+        )
+
+        assert response.status_code == 200
+        assert response.data['lessons_created'] == 0
+        assert response.data['lessons_skipped'] == 1
+        assert Topic.objects.filter(subject=subject, title='Base').count() == 1
+
+    def test_surfaces_scrape_errors_as_bad_request(self, api_client, auth_header, monkeypatch, tutor, subject):
+        from lessons import youtube_scrape
+
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        def _raise(playlist_url, topic_name):
+            raise youtube_scrape.ScrapeError('No videos found on this page — is it a valid, public YouTube playlist URL?')
+
+        monkeypatch.setattr('tutoring.api.youtube_scrape.fetch_playlist_topic', _raise)
+
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/youtube-import',
+            json={'topic_name': 'Base', 'playlist_url': 'https://www.youtube.com/playlist?list=PL123'},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 400
+        assert not Topic.objects.filter(subject=subject, title='Base').exists()
+
+    def test_rejected_for_unassigned_tutor(self, api_client, auth_header, monkeypatch, tutor, subject):
+        monkeypatch.setattr(
+            'tutoring.api.youtube_scrape.fetch_playlist_topic',
+            lambda playlist_url, topic_name: self._fake_topic(topic_name),
+        )
+
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/youtube-import',
+            json={'topic_name': 'Base', 'playlist_url': 'https://www.youtube.com/playlist?list=PL123'},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 403
 
 
 class TestLessonDetail:
@@ -1184,6 +1333,74 @@ class TestDeleteStudentLesson:
 
         assert response.status_code == 403
         assert StudentLesson.objects.filter(id=sl.id).exists()
+
+
+class TestMarkStudentLessonComplete:
+    def test_marks_assigned_lesson_complete(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        sl = StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+            status=StudentLessonStatus.ASSIGNED,
+        )
+
+        response = api_client.post(f'/tutor/student-lessons/{sl.id}/mark-complete', headers=auth_header(tutor.user))
+
+        assert response.status_code == 204
+        sl.refresh_from_db()
+        assert sl.status == StudentLessonStatus.COMPLETED
+        assert sl.completed_at is not None
+
+    def test_marks_pending_review_lesson_complete(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        sl = StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+            status=StudentLessonStatus.PENDING_REVIEW,
+        )
+
+        response = api_client.post(f'/tutor/student-lessons/{sl.id}/mark-complete', headers=auth_header(tutor.user))
+
+        assert response.status_code == 204
+        sl.refresh_from_db()
+        assert sl.status == StudentLessonStatus.COMPLETED
+
+    def test_rejected_when_already_completed(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        sl = StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+            status=StudentLessonStatus.COMPLETED,
+        )
+
+        response = api_client.post(f'/tutor/student-lessons/{sl.id}/mark-complete', headers=auth_header(tutor.user))
+
+        assert response.status_code == 409
+
+    def test_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject, student):
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        sl = StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+            status=StudentLessonStatus.ASSIGNED,
+        )
+
+        response = api_client.post(f'/tutor/student-lessons/{sl.id}/mark-complete', headers=auth_header(tutor.user))
+
+        assert response.status_code == 403
+        sl.refresh_from_db()
+        assert sl.status == StudentLessonStatus.ASSIGNED
 
 
 class TestSetSubjectFilled:

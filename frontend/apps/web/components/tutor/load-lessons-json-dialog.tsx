@@ -13,6 +13,7 @@ import {
   useUploadTutorSubjectLessonsJson,
 } from "@school-ahead/api-client/browser/tutor/tutor";
 import type { LessonsJsonOut, ProcessLessonsJsonOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import { FileDropzone } from "@/components/file-dropzone";
 
 type AggregateResult = Pick<
   ProcessLessonsJsonOut,
@@ -207,18 +208,15 @@ export function LoadLessonsJsonDialog({ subjectId }: { subjectId: number }) {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label htmlFor="lessons-json-file" className="text-xs font-medium text-gray-700">
-                  {t("fileLabel")}
-                </label>
-                <input
+                <span className="text-xs font-medium text-gray-700">{t("fileLabel")}</span>
+                <FileDropzone
                   id="lessons-json-file"
-                  type="file"
+                  hint={t("fileHint")}
+                  multiple={false}
                   accept="application/json,.json,.zip,application/zip,application/x-zip-compressed"
-                  required
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  className="text-sm text-gray-700"
+                  onFilesSelected={(files) => setFile(files?.[0] ?? null)}
                 />
-                <p className="text-xs text-gray-500">{t("fileHint")}</p>
+                {file && <p className="text-xs text-gray-500">{file.name}</p>}
               </div>
 
               {uploadLessonsJson.isError && <p className="text-sm text-red-600">{t("uploadError")}</p>}

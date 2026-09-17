@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ExternalLink } from "lucide-react";
+import { Download, ExternalLink } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetTutorPreschoolStoryQueryKey,
@@ -27,6 +27,13 @@ import { StoryAssetSidebar } from "@/components/tutor/story-asset-sidebar";
 const AUTOSAVE_INTERVAL_MS = 20_000;
 
 const NEW_STORY_TITLE = "Нова казка";
+
+// Same export endpoint/URL shape as tutor-stories-page.tsx's
+// DownloadStoryButton — duplicated rather than shared since it's a
+// one-line string build, not real logic.
+function downloadUrl(storyId: number): string {
+  return `${process.env.NEXT_PUBLIC_API_URL}/api/preschool/tutor/stories/${storyId}/export`;
+}
 
 // Local form state is seeded from `story` once on mount, same convention as
 // tutor-lesson-detail-page.tsx's LessonEditForm — the caller below (
@@ -159,147 +166,191 @@ function StoryForm({ story, onDeleted }: { story: StoryDetailOut | null; onDelet
     );
   };
 
+  const handleDownload = () => {
+    if (!savedStory) return;
+    window.location.href = downloadUrl(savedStory.id);
+  };
+
+  // Patches `savedStory.assets` in place after an upload/delete in the
+  // sidebar — `savedStory` is local state seeded once from the query (see
+  // its declaration above), so invalidating the query alone wouldn't
+  // repaint the sidebar until this component happened to remount.
+  const handleAssetsChange = (assets: StoryDetailOut["assets"]) => {
+    setSavedStory((current) => (current ? { ...current, assets } : current));
+  };
+
+  // Rendered both above the form (so a tutor scrolled deep into a long
+  // story's content doesn't have to scroll back up just to save/publish)
+  // and at its original spot below the content editor — `saveButtonType`
+  // "submit" only for the bottom copy, which sits inside the actual <form>
+  // (Enter-to-submit from the title/subtitle inputs targets that one); the
+  // top copy is a plain button calling performSave directly since it's
+  // rendered outside the form.
+  const actionButtons = (saveButtonType: "button" | "submit") => (
+    <div className="flex flex-wrap gap-2">
+      <button
+        type={saveButtonType}
+        onClick={saveButtonType === "button" ? performSave : undefined}
+        disabled={!title.trim() || isSaving}
+        className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+      >
+        {t("saveButton")}
+      </button>
+      {savedStory && (
+        <button
+          type="button"
+          onClick={handleTogglePublish}
+          disabled={isSaving}
+          className={`rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50 ${
+            savedStory.is_published
+              ? "border border-gray-300 text-gray-700 hover:bg-gray-50"
+              : "bg-emerald-600 text-white hover:bg-emerald-700"
+          }`}
+        >
+          {savedStory.is_published ? t("unpublishButton") : t("publishButton")}
+        </button>
+      )}
+      {savedStory && (
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={deleteStory.isPending}
+          className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+        >
+          {t("remove")}
+        </button>
+      )}
+      {savedStory && (
+        <button
+          type="button"
+          onClick={handleDownload}
+          className="flex items-center gap-1.5 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          <Download className="h-3.5 w-3.5" />
+          {t("downloadButton")}
+        </button>
+      )}
+      {savedStory && (
+        // The public game route only serves published stories (see
+        // backend/preschool/api.py's get_story) — an unpublished one
+        // 404s there, so the link is disabled rather than opening onto
+        // an empty/broken preview.
+        <Link
+          href={`/games/stories/${savedStory.slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-disabled={!savedStory.is_published}
+          title={savedStory.is_published ? undefined : t("viewInGameRequiresPublish")}
+          className={`flex items-center gap-1.5 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 ${
+            savedStory.is_published ? "" : "pointer-events-none opacity-50"
+          }`}
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          {t("viewInGame")}
+        </Link>
+      )}
+    </div>
+  );
+
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-      <form onSubmit={handleSubmit} className="flex max-w-2xl flex-1 flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="story-title" className="text-xs font-medium text-gray-700">
-            {t("storyTitle")}
-          </label>
-          <input
-            id="story-title"
-            type="text"
-            required
-            value={title}
-            onChange={(e) => {
-              setTitle(e.target.value);
-              markDirty();
-            }}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
-          />
-        </div>
+    <div className="flex flex-col gap-4">
+      {actionButtons("button")}
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor="story-subtitle" className="text-xs font-medium text-gray-700">
-            {t("subtitle")}
-          </label>
-          <input
-            id="story-subtitle"
-            type="text"
-            value={subtitle}
-            onChange={(e) => {
-              setSubtitle(e.target.value);
-              markDirty();
-            }}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-gray-700">{t("coverImage")}</span>
-          <div className="flex items-center gap-3">
-            {savedStory?.cover_image && !coverFile && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={savedStory.cover_image} alt="" className="h-16 w-16 shrink-0 rounded-md object-cover" />
-            )}
-            <FileDropzone
-              id="story-cover"
-              hint={t("dropzoneHint")}
-              multiple={false}
-              accept="image/*"
-              onFilesSelected={(files) => {
-                setCoverFile(files?.[0] ?? null);
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <form onSubmit={handleSubmit} className="flex max-w-2xl flex-1 flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="story-title" className="text-xs font-medium text-gray-700">
+              {t("storyTitle")}
+            </label>
+            <input
+              id="story-title"
+              type="text"
+              required
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value);
                 markDirty();
               }}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
             />
           </div>
-          {coverFile && <p className="text-xs text-gray-500">{coverFile.name}</p>}
-        </div>
 
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-gray-700">{t("content")}</span>
-          <StoryMarkdownEditor
-            value={content}
-            onChange={(next) => {
-              setContent(next);
-              markDirty();
-            }}
-            previewSlug={savedStory?.slug ?? "draft"}
-            rows={16}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="story-subtitle" className="text-xs font-medium text-gray-700">
+              {t("subtitle")}
+            </label>
+            <input
+              id="story-subtitle"
+              type="text"
+              value={subtitle}
+              onChange={(e) => {
+                setSubtitle(e.target.value);
+                markDirty();
+              }}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-gray-700">{t("coverImage")}</span>
+            <div className="flex items-center gap-3">
+              {savedStory?.cover_image && !coverFile && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={savedStory.cover_image} alt="" className="h-16 w-16 shrink-0 rounded-md object-cover" />
+              )}
+              <FileDropzone
+                id="story-cover"
+                hint={t("dropzoneHint")}
+                multiple={false}
+                accept="image/*"
+                onFilesSelected={(files) => {
+                  setCoverFile(files?.[0] ?? null);
+                  markDirty();
+                }}
+              />
+            </div>
+            {coverFile && <p className="text-xs text-gray-500">{coverFile.name}</p>}
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-gray-700">{t("content")}</span>
+            <StoryMarkdownEditor
+              value={content}
+              onChange={(next) => {
+                setContent(next);
+                markDirty();
+              }}
+              previewSlug={savedStory?.slug ?? "draft"}
+              rows={16}
+            />
+          </div>
+
+          {saveError && <p className="text-sm text-red-600">{t("saveError")}</p>}
+
+          <p className="text-xs text-gray-500">
+            {isSaving
+              ? t("savingStatus")
+              : isDirty
+                ? savedStory === null
+                  ? t("notCreatedYetStatus")
+                  : t("unsavedStatus")
+                : lastSavedAt && t("savedAtStatus", { time: lastSavedAt.toLocaleTimeString() })}
+          </p>
+
+          {actionButtons("submit")}
+        </form>
+
+        {savedStory ? (
+          <StoryAssetSidebar
+            storyId={savedStory.id}
+            assets={savedStory.assets}
+            content={content}
+            onAssetsChange={handleAssetsChange}
           />
-        </div>
-
-        {saveError && <p className="text-sm text-red-600">{t("saveError")}</p>}
-
-        <p className="text-xs text-gray-500">
-          {isSaving
-            ? t("savingStatus")
-            : isDirty
-              ? savedStory === null
-                ? t("notCreatedYetStatus")
-                : t("unsavedStatus")
-              : lastSavedAt && t("savedAtStatus", { time: lastSavedAt.toLocaleTimeString() })}
-        </p>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="submit"
-            disabled={!title.trim() || isSaving}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            {t("saveButton")}
-          </button>
-          {savedStory && (
-            <button
-              type="button"
-              onClick={handleTogglePublish}
-              disabled={isSaving}
-              className={`rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50 ${
-                savedStory.is_published
-                  ? "border border-gray-300 text-gray-700 hover:bg-gray-50"
-                  : "bg-emerald-600 text-white hover:bg-emerald-700"
-              }`}
-            >
-              {savedStory.is_published ? t("unpublishButton") : t("publishButton")}
-            </button>
-          )}
-          {savedStory && (
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={deleteStory.isPending}
-              className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
-            >
-              {t("remove")}
-            </button>
-          )}
-          {savedStory && (
-            // The public game route only serves published stories (see
-            // backend/preschool/api.py's get_story) — an unpublished one
-            // 404s there, so the link is disabled rather than opening onto
-            // an empty/broken preview.
-            <Link
-              href={`/games/stories/${savedStory.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-disabled={!savedStory.is_published}
-              title={savedStory.is_published ? undefined : t("viewInGameRequiresPublish")}
-              className={`flex items-center gap-1.5 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 ${
-                savedStory.is_published ? "" : "pointer-events-none opacity-50"
-              }`}
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              {t("viewInGame")}
-            </Link>
-          )}
-        </div>
-      </form>
-
-      {savedStory ? (
-        <StoryAssetSidebar storyId={savedStory.id} assets={savedStory.assets} content={content} />
-      ) : (
-        <p className="max-w-xs text-xs text-gray-500 lg:mt-6">{t("assetsAvailableAfterSaveHint")}</p>
-      )}
+        ) : (
+          <p className="max-w-xs text-xs text-gray-500 lg:mt-6">{t("assetsAvailableAfterSaveHint")}</p>
+        )}
+      </div>
     </div>
   );
 }

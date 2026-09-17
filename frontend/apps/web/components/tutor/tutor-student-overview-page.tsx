@@ -1,10 +1,20 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { BookOpen, User } from "lucide-react";
-import { useGetTutorStudent, useListTutorStudentAchievements } from "@school-ahead/api-client/browser/tutor/tutor";
-import { useGetTutorStudentBacklog, useGetTutorStudentCalendar } from "@school-ahead/api-client/browser/schedule/schedule";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetTutorStudent,
+  useListTutorStudentAchievements,
+  useMarkTutorStudentLessonComplete,
+} from "@school-ahead/api-client/browser/tutor/tutor";
+import {
+  getGetTutorStudentBacklogQueryKey,
+  getGetTutorStudentCalendarQueryKey,
+  useGetTutorStudentBacklog,
+  useGetTutorStudentCalendar,
+} from "@school-ahead/api-client/browser/schedule/schedule";
 import { AvatarBadge, type AvatarLayer } from "@school-ahead/avatar";
 import type { TutorStudentOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { Link } from "@/i18n/navigation";
@@ -125,11 +135,33 @@ export function TutorStudentOverviewPage({
 }) {
   const t = useTranslations("TutorStudentOverview");
   const studentQuery = useGetTutorStudent(studentId);
+  const queryClient = useQueryClient();
+  const markComplete = useMarkTutorStudentLessonComplete();
+  const [markingCompleteId, setMarkingCompleteId] = useState<number | undefined>(undefined);
 
   const todayKey = useMemo(() => todayIso(), []);
   const weekStartKey = useMemo(() => isoOf(startOfWeek(new Date())), []);
   const calendarQuery = useGetTutorStudentCalendar(studentId, { week_start: weekStartKey });
   const backlogQuery = useGetTutorStudentBacklog(studentId);
+
+  // "Позначити виконаним" on a today/backlog row — lets a tutor mark a
+  // lesson done directly (e.g. one actually finished in person, off-
+  // platform) without needing the student to submit/confirm it themself.
+  // See backend's mark_student_lesson_complete, which accepts any status
+  // (unlike grade(), restricted to PendingReview submissions).
+  const handleMarkComplete = (item: { id: number }) => {
+    setMarkingCompleteId(item.id);
+    markComplete.mutate(
+      { studentLessonId: item.id },
+      {
+        onSettled: () => setMarkingCompleteId(undefined),
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetTutorStudentCalendarQueryKey(studentId) });
+          queryClient.invalidateQueries({ queryKey: getGetTutorStudentBacklogQueryKey(studentId) });
+        },
+      },
+    );
+  };
 
   // Same "today + still-open backlog" merge the student's own dashboard
   // renders (components/student-dashboard.tsx -> SimpleDashboard) — a
@@ -207,6 +239,8 @@ export function TutorStudentOverviewPage({
                       emptyMessage={t("noLessonsToday")}
                       colorful
                       hrefFor={(item) => `/tutor/lessons/${item.lesson_id}`}
+                      onMarkComplete={handleMarkComplete}
+                      markingCompleteId={markingCompleteId}
                     />
                   )}
                 </>
