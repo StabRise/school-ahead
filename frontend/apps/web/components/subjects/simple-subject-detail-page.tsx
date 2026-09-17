@@ -17,6 +17,7 @@ import {
   useUpdateStudentCardTranslation,
 } from "@school-ahead/api-client/browser/cards/cards";
 import type { CardSetSummaryOut, StudentCardOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import { FlashcardImportDialog } from "@school-ahead/flashcards";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { ProgressBar } from "@/components/progress-bar";
 import { Tabs } from "@/components/tabs";
@@ -30,6 +31,7 @@ import { LESSON_TYPE_ICON, LESSON_TYPE_ICON_COLOR } from "@/components/simple/le
 import { formatGradeLabel, formatShortDate, resolveStatusLabel } from "@/components/simple/format";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { StatusBadge } from "@/components/status-badge";
+import { useTabQueryParam } from "@/lib/use-tab-query-param";
 import type { SubjectLessonOut, TopicOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 
 // The Tasks tab's content — topic-grouped optional practice work a tutor
@@ -358,27 +360,31 @@ function CardsTopicSection({ groupSlug, summary }: { groupSlug: string; summary:
 // The Cards tab's content — the student's own personal flashcards (saved
 // while translating a lesson's content/синопсис/матеріали, see
 // translatable-content.tsx/read-along-content.tsx's "add to cards"
-// button), grouped Subject → Topic → Lesson the same way the Cards game
-// itself does (backend/cards/ reshapes this into the game's Group/Set/
-// Category shape — see @school-ahead/flashcards' lib/flashcards.ts).
-function CardsTabContent({ subjectId }: { subjectId: number }) {
+// button, or imported wholesale via FlashcardImportDialog's "load set from
+// json file"), grouped Subject → Topic → Lesson the same way the Cards
+// game itself does (backend/cards/ reshapes this into the game's
+// Group/Set/Category shape — see @school-ahead/flashcards' lib/
+// flashcards.ts). FlashcardImportDialog is pinned to this exact subject
+// (`fixedSubject`, shown read-only, not a free pick) — so an import always
+// lands here, either under a matching real Topic/Lesson or a personal
+// "custom-<id>" set within this same subject-<id> group, never elsewhere.
+function CardsTabContent({ subjectId, subjectName }: { subjectId: number; subjectName: string }) {
   const t = useTranslations("SubjectDetail");
   const groupSlug = `subject-${subjectId}`;
   const setsQuery = useListMyCardSets(groupSlug);
   const sets = setsQuery.data ?? [];
 
-  if (setsQuery.isLoading) {
-    return <p className="text-sm text-gray-500">{t("loading")}</p>;
-  }
-  if (setsQuery.isError) {
-    return <p className="text-sm text-red-600">{t("error")}</p>;
-  }
-  if (sets.length === 0) {
-    return <p className="text-sm text-gray-500">{t("noCards")}</p>;
-  }
-
   return (
     <div className="flex flex-col gap-5">
+      <div className="flex justify-end">
+        <FlashcardImportDialog fixedSubject={{ id: subjectId, name: subjectName }} />
+      </div>
+
+      {setsQuery.isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
+      {setsQuery.isError && <p className="text-sm text-red-600">{t("error")}</p>}
+      {!setsQuery.isLoading && !setsQuery.isError && sets.length === 0 && (
+        <p className="text-sm text-gray-500">{t("noCards")}</p>
+      )}
       {sets.map((set) => (
         <CardsTopicSection key={set.slug} groupSlug={groupSlug} summary={set} />
       ))}
@@ -398,6 +404,7 @@ function CardsTabContent({ subjectId }: { subjectId: number }) {
 // Settings page's "Вигляд" section (components/settings/view-settings.tsx).
 export function SimpleSubjectDetailPage({ subjectId, colorful }: { subjectId: number; colorful?: boolean }) {
   const t = useTranslations("SubjectDetail");
+  const [activeTab, setActiveTab] = useTabQueryParam("lessons");
 
   const subjectQuery = useGetSubject(subjectId);
   const progressQuery = useGetSubjectProgress(subjectId);
@@ -462,6 +469,8 @@ export function SimpleSubjectDetailPage({ subjectId, colorful }: { subjectId: nu
         </div>
 
         <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
           tabs={[
             {
               value: "lessons",
@@ -533,7 +542,7 @@ export function SimpleSubjectDetailPage({ subjectId, colorful }: { subjectId: nu
             {
               value: "cards",
               label: t("cardsTab"),
-              content: <CardsTabContent subjectId={subjectId} />,
+              content: <CardsTabContent subjectId={subjectId} subjectName={subject.name} />,
             },
           ]}
         />

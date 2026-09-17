@@ -43,6 +43,13 @@ public/static/cards/
   `title.json` (`{"title": "..."}`) to show up in the group picker at all —
   a group folder with no `title.json` (or none yet, like an
   in-progress `polski/`) is silently skipped rather than shown broken.
+  `title.json` may also set `"language"` (one of `en`/`uk`/`pl`/`es`, e.g.
+  `fizyka/title.json`: `{"title": "Fizyka", "language": "pl"}`) — every set
+  under that group then defaults its TTS voice to it instead of the
+  game-wide `en` fallback, still just a default a student can override per
+  set from the ⚙ panel's language picker (see §6/stores/
+  flashcard-language-store.ts). An invalid or missing `language` is ignored
+  the same way an invalid/missing `title` is.
 - `<set>` is one pickable deck within that subject (e.g. `7 klasa`). It
   needs a `set.json` with this shape:
 
@@ -60,7 +67,8 @@ public/static/cards/
             "term": "Potęga",
             "translation": "Степінь",
             "image": "img/potęga.jpeg",
-            "definition": "Wynik wielokrotnego mnożenia liczby przez samą siebie."
+            "definition": "Wynik wielokrotnego mnożenia liczby przez samą siebie.",
+            "formula": "g \\approx 10\\ \\text{m/s}^2 = 10\\ \\text{N/kg}"
           }
         ]
       }
@@ -72,8 +80,9 @@ public/static/cards/
 - `categories` are the deck's topics (розділ/тема) — each becomes an entry
   in the topic filter, and the quiz uses category membership to pick
   same-topic distractors (see §5).
-- Every item field except `term` is optional: `translation`, `image`, and
-  `definition` may be omitted. `id` is accepted but not trusted —
+- Every item field except `term` is optional: `translation`, `image`,
+  `definition`, and `formula` may be omitted. `id` is accepted but not
+  trusted —
   `/api/flashcard-set` renumbers every item sequentially server-side
   regardless of what (if anything) the JSON provides, since nothing else
   needs the author's original id to be stable and some sets in practice
@@ -87,6 +96,14 @@ public/static/cards/
   `remark-gfm`) — rendered without the shared `Markdown` component's
   `.prose` wrapper (which isn't dark-mode aware), so it inherits whatever
   color/size the card face already set.
+- `formula` is raw LaTeX (e.g. `"g \\approx 10\\ \\text{m/s}^2 = 10\\
+  \\text{N/kg}"`), rendered directly via KaTeX in display mode — unlike
+  `definition`, the whole field is always math, so it's not wrapped in
+  `$...$`/`$$...$$` delimiters the way an inline formula inside a
+  `definition` would be. Use it for a physics/math constant or equation
+  that belongs on the card alongside (or instead of) a prose `definition`;
+  an invalid LaTeX source renders KaTeX's own inline error text rather than
+  breaking the card.
 
 Adding a new group or set is purely a filesystem change — drop the folder
 in, no code change, no build step, no manifest to update elsewhere.
@@ -112,7 +129,9 @@ Backing API routes (filesystem readers, same pattern as `/api/stories` /
 - `GET /api/flashcard-sets?group=<slug>` — lists every set with a valid
   `set.json` under that group, plus the group's own title.
 - `GET /api/flashcard-set?group=<slug>&set=<slug>` — the full parsed set
-  (categories + items with renumbered ids), plus the group's title.
+  (categories + items with renumbered ids), plus the group's title and its
+  `title.json`-declared default language (`groupLanguage`, `null` if unset
+  or invalid).
 
 `group`/`set` query params are bare folder names interpolated into a
 filesystem path — both are validated (no path separators, no `.`/`..`,
@@ -130,6 +149,14 @@ own `slug`.
     title.
   - Toolbar: a ⚙ settings button and a 📊 results button on the left, a
     two-icon mode switcher on the right.
+  - On a wide screen (`lg:` breakpoint and up), Навчання/Тест show a topic
+    table-of-contents sidebar down the left side (`FlashcardTopicSidebar`)
+    — collapsible via a toggle button, state persisted the same as the
+    game's other shared UI preferences (`topicSidebarCollapsed`, stores/
+    flashcards-store.ts); hidden entirely below that breakpoint and in
+    Список, which already groups every card by topic inline. It's a second
+    way to reach the same topic filter GameSettingsPanel's "Тема" `<select>`
+    drives — picking a topic from either stays in sync.
   - The active mode's content (flip deck or quiz) below, centered.
 
 ## 5. Game modes
@@ -172,10 +199,10 @@ sections:
 - **Тема** — the topic filter described above.
 - **Картка** — two independent checkbox groups, "Лицева сторона" (front)
   and "Зворотна сторона" (back), each offering Термін (term) / Переклад
-  (translation) / Зображення (image) / Означення (definition). At least
-  one box per side must stay checked. Both game modes render through the
-  same `CardFaceContent` component, so this one choice applies to Навчання
-  and Тест alike.
+  (translation) / Зображення (image) / Означення (definition) / Формула
+  (formula). At least one box per side must stay checked. Both game modes
+  render through the same `CardFaceContent` component, so this one choice
+  applies to Навчання and Тест alike.
 
 If a card is missing a field the student checked for a given side (e.g.
 "translation" checked, but this particular card has none), that face falls
@@ -198,7 +225,66 @@ the currently open set only*, newest first, each row showing the date and
 `score/total · percent%`. This is a student-local scratch history (plain
 localStorage, nothing sent to the backend) — not a graded record.
 
-## 8. Design notes
+## 8. Personal cards & importing from JSON
+
+Unlike the rest of this doc (static `public/static/cards/**` decks, no
+login required), a student's *personal* cards are backend-backed
+(`backend/cards/`) and require auth. Implementation:
+`frontend/apps/web/components/translatable-content.tsx`/
+`read-along-content.tsx`'s "Додати до карток" button saves a translated
+word from a lesson's content as a `cards.models.StudentCard`, and
+`useFlashcardGroups`/`useFlashcardSets`/`useFlashcardSet`
+(`src/lib/flashcards.ts`) merge those in alongside the static groups so
+the rest of the game (learn deck, quiz, list, print, settings) needs no
+changes to play them.
+
+A `StudentCard` is always tied to a real curriculum Subject — its group is
+always `subject-<id>`, never a subject-less bucket. Within that group, its
+"set" is one of two things:
+
+- Normally, a real Topic (`lesson` FK; Topic = set `topic-<id>`, Lesson =
+  category) — the structure it was saved from while reading a lesson.
+- Or, for a bulk import whose topic/lesson titles don't match real
+  curriculum, a personal `StudentCustomTopic` → `StudentCustomLesson`
+  chain (`custom_lesson` FK; set `custom-<id>`) — still tied to the same
+  real Subject, just not a real Topic. `StudentCard.lesson`/`custom_lesson`
+  are nullable, exactly one set per card (a DB `CheckConstraint`). A real
+  `topic-<id>` set and a personal `custom-<id>` one can appear side by side
+  under the same `subject-<id>` group.
+
+A student can bulk-import a whole set.json-shaped deck as personal cards
+from the Cards game's group picker, or from a Subject's own Картки tab
+(`FlashcardImportDialog`, student-only, both places pass through the same
+component). Either way the student picks a real Subject — from the Subject
+page it's pinned and shown read-only (`fixedSubject`, since it's already
+known and shouldn't be second-guessed); from the group picker it's a
+required `<select>` populated from `GET /academics/my-subjects`. This
+guarantees the cards always end up on that exact Subject's own Картки tab,
+never somewhere else. The dialog then reads a local `.json` file — the
+same shape a static `set.json` uses, `{"set": {"title": ..., "categories":
+[{"title": ..., "items": [...]}]}}`, or the bare `{title, categories}`
+underneath — and posts `{subject_id, title, categories}` to `POST
+/cards/import` (`cards.services.import_card_set`). `title` is matched
+(case-insensitively) against a real Topic under that Subject; if it
+matches *and* every category's title also matches a real Lesson under that
+Topic, the cards are attached there directly — same place a from-a-lesson
+card would land. Otherwise (no matching Topic, or a partial lesson match)
+the *entire* import is instead filed under a `StudentCustomTopic` of the
+same title under the same Subject (get-or-created, so re-importing merges
+rather than duplicating) — deliberately never split across a real Topic
+and a personal one, so a student always finds a whole deck in exactly one
+place. This path never creates a real Subject/Topic/Lesson: those stay
+tutor/admin-authored curriculum (see
+`lessons.services.import_topics_and_lessons` for that separate,
+tutor-facing "load lessons.json" flow) — an import can't leak into a
+class's schedule, course listing, or completion %.
+
+Only `term`/`translation`/`definition` survive an import — `StudentCard`
+has no `image`/`formula`/`sound` fields, so those keys (if present in the
+source file) are silently dropped, same limitation the personal-cards path
+already had before this feature.
+
+## 9. Design notes
 
 - No shared UI kit component library is used here (no shadcn/ui in this
   repo) — plain Tailwind utility classes throughout, slate/white palette

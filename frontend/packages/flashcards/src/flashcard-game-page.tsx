@@ -4,18 +4,21 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, Layers, List, ListChecks, Printer } from "lucide-react";
+import type { SpeechLanguage } from "@school-ahead/api-client";
 import { LocaleLink as Link } from "./kit/locale-link";
 import { PageShell as SimplePageContainer } from "./kit/page-shell";
 import { flashcardImageUrl, flashcardSoundUrl, useFlashcardSet, type FlashcardItem } from "./lib/flashcards";
 import { FlashcardLearnDeck } from "./flashcard-learn-deck";
 import { FlashcardQuiz, type CategorizedFlashcardItem } from "./flashcard-quiz";
 import { FlashcardTermsList } from "./flashcard-terms-list";
+import { FlashcardTopicSidebar } from "./flashcard-topic-sidebar";
 import { GameSettingsPanel } from "./game-settings-panel";
 import { QuizResultsPanel } from "./quiz-results-panel";
 import { useFlashcardsStore } from "./stores/flashcards-store";
 import { useFlashcardQuizResultsStore } from "./stores/flashcard-quiz-results-store";
 import { flashcardProgressKey, useFlashcardProgressStore, type FlashcardStatus } from "./stores/flashcard-progress-store";
 import { flashcardTopicKey, useFlashcardTopicStore } from "./stores/flashcard-topic-store";
+import { getFlashcardLanguage, useFlashcardLanguageStore } from "./stores/flashcard-language-store";
 
 const ALL_TOPICS = "all";
 
@@ -27,10 +30,13 @@ const ALL_TOPICS = "all";
 // (GameSettingsPanel; both modes render through the same CardFaceContent,
 // so the same front/back choice applies to either). Every completed Тест
 // round is recorded (useFlashcardQuizResultsStore) and browsable from the
-// 📊 popup (QuizResultsPanel).
+// 📊 popup (QuizResultsPanel). On wide screens, Навчання/Тест also get a
+// collapsible topic table-of-contents down the left side
+// (FlashcardTopicSidebar) alongside the same ⚙-panel topic filter — Список
+// doesn't, since it already groups every card by topic inline.
 export function FlashcardGamePage({ group, set }: { group: string; set: string }) {
   const t = useTranslations("FlashcardsGame");
-  const { groupTitle, set: flashcardSet, isLoading } = useFlashcardSet(group, set);
+  const { groupTitle, groupLanguage, set: flashcardSet, isLoading } = useFlashcardSet(group, set);
   const searchParams = useSearchParams();
   const urlTopic = searchParams.get("topic");
 
@@ -94,8 +100,23 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
   const setFlipOrientation = useFlashcardsStore((s) => s.setFlipOrientation);
   const soundEnabled = useFlashcardsStore((s) => s.soundEnabled);
   const setSoundEnabled = useFlashcardsStore((s) => s.setSoundEnabled);
-  const ttsLanguage = useFlashcardsStore((s) => s.ttsLanguage);
-  const setTtsLanguage = useFlashcardsStore((s) => s.setTtsLanguage);
+  const topicSidebarCollapsed = useFlashcardsStore((s) => s.topicSidebarCollapsed);
+  const setTopicSidebarCollapsed = useFlashcardsStore((s) => s.setTopicSidebarCollapsed);
+
+  // Persisted (localStorage) but specific to this group+set — same reasoning
+  // as topicByCardSet above, since one set's term language (e.g. "math/7
+  // klasa" in Polish, "hisp/start" in Spanish) has nothing to do with
+  // another's — see stores/flashcard-language-store.ts. Falls back to the
+  // group's own title.json `language` (e.g. fizyka/title.json's "pl") when
+  // the student hasn't picked one for this particular set yet — still just
+  // a default, overridable from the ⚙ panel same as before.
+  const languageByCardSet = useFlashcardLanguageStore((s) => s.languageByCardSet);
+  const setLanguageForCardSet = useFlashcardLanguageStore((s) => s.setLanguage);
+  const ttsLanguage = getFlashcardLanguage(languageByCardSet, group, set, groupLanguage ?? undefined);
+  const setTtsLanguage = useCallback(
+    (language: SpeechLanguage) => setLanguageForCardSet(group, set, language),
+    [setLanguageForCardSet, group, set],
+  );
   const addQuizAttempt = useFlashcardQuizResultsStore((s) => s.addAttempt);
 
   // "Знаю"/"Складно" marks, persisted per group+set+card — see
@@ -174,8 +195,16 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
   }
 
   const topicOptions = [
-    { value: ALL_TOPICS, label: t("allTopicsOption") },
-    ...flashcardSet.categories.map((category) => ({ value: category.title, label: category.title })),
+    {
+      value: ALL_TOPICS,
+      label: t("allTopicsOption"),
+      count: flashcardSet.categories.reduce((sum, category) => sum + category.items.length, 0),
+    },
+    ...flashcardSet.categories.map((category) => ({
+      value: category.title,
+      label: category.title,
+      count: category.items.length,
+    })),
   ];
 
   return (
@@ -268,41 +297,54 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
         </div>
       </div>
 
-      <div className="flex justify-center">
-        {mode === "learn" && (
-          <FlashcardLearnDeck
-            key={`learn:${topic}:${onlyDifficult}:${skipKnown}`}
-            items={learnItems}
-            resolveImage={resolveImage}
-            resolveSound={resolveSound}
-            frontConfig={frontConfig}
-            backConfig={backConfig}
-            flipOrientation={flipOrientation}
-            soundEnabled={soundEnabled}
-            ttsLanguage={ttsLanguage}
-            getStatus={getItemStatus}
-            onStatusChange={setItemStatus}
+      <div className="flex items-start gap-6">
+        {(mode === "learn" || mode === "quiz") && (
+          <FlashcardTopicSidebar
+            className="hidden lg:block"
+            topics={topicOptions}
+            activeTopic={topic}
+            onTopicChange={setTopic}
+            collapsed={topicSidebarCollapsed}
+            onToggleCollapsed={() => setTopicSidebarCollapsed(!topicSidebarCollapsed)}
           />
         )}
-        {mode === "quiz" && (
-          <FlashcardQuiz
-            key={`quiz:${topic}:${JSON.stringify(backConfig)}`}
-            items={categorizedItems}
-            resolveImage={resolveImage}
-            frontConfig={frontConfig}
-            backConfig={backConfig}
-            getStatus={getItemStatus}
-            onComplete={handleQuizComplete}
-          />
-        )}
-        {mode === "list" && (
-          <FlashcardTermsList
-            categories={filteredCategories}
-            resolveImage={resolveImage}
-            getStatus={getItemStatus}
-            onStatusChange={setItemStatus}
-          />
-        )}
+
+        <div className="flex flex-1 justify-center">
+          {mode === "learn" && (
+            <FlashcardLearnDeck
+              key={`learn:${topic}:${onlyDifficult}:${skipKnown}`}
+              items={learnItems}
+              resolveImage={resolveImage}
+              resolveSound={resolveSound}
+              frontConfig={frontConfig}
+              backConfig={backConfig}
+              flipOrientation={flipOrientation}
+              soundEnabled={soundEnabled}
+              ttsLanguage={ttsLanguage}
+              getStatus={getItemStatus}
+              onStatusChange={setItemStatus}
+            />
+          )}
+          {mode === "quiz" && (
+            <FlashcardQuiz
+              key={`quiz:${topic}:${JSON.stringify(backConfig)}`}
+              items={categorizedItems}
+              resolveImage={resolveImage}
+              frontConfig={frontConfig}
+              backConfig={backConfig}
+              getStatus={getItemStatus}
+              onComplete={handleQuizComplete}
+            />
+          )}
+          {mode === "list" && (
+            <FlashcardTermsList
+              categories={filteredCategories}
+              resolveImage={resolveImage}
+              getStatus={getItemStatus}
+              onStatusChange={setItemStatus}
+            />
+          )}
+        </div>
       </div>
     </SimplePageContainer>
   );

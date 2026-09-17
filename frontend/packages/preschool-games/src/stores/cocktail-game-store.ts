@@ -25,6 +25,13 @@ interface CocktailGameState {
   // cross-game toggle).
   muted: boolean;
   setMuted: (muted: boolean) => void;
+  // When on, a round ends the instant the opening addition equation is
+  // solved (confetti celebration, then straight into the next equation) —
+  // the recipe/shaker stage never mounts. Per this feature's own request: a
+  // "just the math problems" mode for a child who only wants to practice
+  // przykłady without mixing the cocktail.
+  onlyEquations: boolean;
+  setOnlyEquations: (onlyEquations: boolean) => void;
 }
 
 export const useCocktailGameStore = create<CocktailGameState>()(
@@ -34,6 +41,8 @@ export const useCocktailGameStore = create<CocktailGameState>()(
       setMode: (mode) => set({ mode }),
       muted: false,
       setMuted: (muted) => set({ muted }),
+      onlyEquations: false,
+      setOnlyEquations: (onlyEquations) => set({ onlyEquations }),
     }),
     { name: "cocktail-game-store" },
   ),

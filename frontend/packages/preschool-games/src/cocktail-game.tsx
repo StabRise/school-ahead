@@ -21,6 +21,13 @@ import { useBackgroundMusic } from "./lib/use-background-music";
 import { playCocktailBounceSound, playCocktailFailSound, playCocktailSplashSound, playVictoryFanfare } from "./kit/sound-effects";
 import { MusicToggleButton } from "./kit/music-toggle-button";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
+import {
+  NUMBER_TILE_CLASS,
+  NumberTileButton,
+  equationFontSizeStyle,
+  equationOperatorFontSizeStyle,
+  numberTileSizeStyle,
+} from "./kit/number-tile";
 import { useCocktailGameStore, type CocktailMode } from "./stores/cocktail-game-store";
 
 // This game is narrated and labeled entirely in Polish (a specific request,
@@ -158,33 +165,19 @@ function CocktailRecipeCard({ recipe, dropped }: { recipe: CocktailRecipe; dropp
   );
 }
 
-// Same square-tile look as math-game.tsx's HotbarSlot (border-4, rounded-md,
-// shadow-inner) — this game's own version is simpler since it never needs
-// that one's font-size-measuring machinery (only ever 3-4 single/double-
-// digit sums) or a "locked in" status — once picked correctly, the answer
-// moves into the equation itself (see CocktailEquationGate's own square
-// there) rather than staying selected in this choices row.
-function EquationAnswerSlot({
-  value,
-  wrong,
-  onClick,
-}: {
-  value: number;
-  wrong: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex h-14 w-14 items-center justify-center rounded-md border-4 text-xl font-extrabold text-gray-800 shadow-inner transition sm:h-16 sm:w-16 sm:text-2xl ${
-        wrong ? "border-red-400 bg-red-100 ring-4 ring-red-300" : "border-gray-400 bg-gray-200 hover:bg-gray-300"
-      }`}
-    >
-      {value}
-    </button>
-  );
-}
+// The fruit icons drawn under an operand's digit — at most 3 per column
+// (RECIPE_ITEM_COUNT_RANGE in lib/cocktail-game.ts), so they can stay large
+// enough to actually count at a glance and still fit two columns plus the
+// answer tile across a phone.
+const EQUATION_ICON_FONT_SIZE: CSSProperties = { fontSize: "clamp(1.25rem, 6vw, 3rem)" };
+
+// The same icons repeated under the SOLVED answer tile as counting proof —
+// there are up to twice as many of them as in either operand column, and
+// they have to wrap inside the tile's own width, so they're drawn smaller.
+const ANSWER_PROOF_ICON_STYLE: CSSProperties = {
+  fontSize: "clamp(1rem, 4vw, 2rem)",
+  width: numberTileSizeStyle.width,
+};
 
 // One equation operand as a children's-workbook column: the digit on top,
 // that many of its own ingredient's icon drawn underneath — per this
@@ -193,11 +186,13 @@ function EquationAnswerSlot({
 // recipe card itself.
 function EquationOperandColumn({ item }: { item: CocktailRecipeItem }) {
   return (
-    <div className="flex flex-col items-center gap-1.5">
-      <span className="text-3xl font-extrabold text-gray-800 sm:text-4xl">{item.count}</span>
-      <div className="flex gap-1">
+    <div className="flex flex-col items-center gap-2">
+      <span className="font-extrabold text-gray-800" style={equationFontSizeStyle}>
+        {item.count}
+      </span>
+      <div className="flex gap-1" style={EQUATION_ICON_FONT_SIZE}>
         {Array.from({ length: item.count }, (_, i) => (
-          <span key={i} aria-hidden="true" className="text-xl sm:text-2xl">
+          <span key={i} aria-hidden="true">
             {emojiFor(item.key)}
           </span>
         ))}
@@ -206,20 +201,35 @@ function EquationOperandColumn({ item }: { item: CocktailRecipeItem }) {
   );
 }
 
+// How long a correctly-picked tile flashes green (see NumberTileButton's
+// "correct" status) before the equation reveals its full answer — same
+// duration as a wrong pick's own red flash below, for a matched beat.
+const CORRECT_PICK_DELAY_MS = 500;
+
+// How long the solved equation (filled-in answer + its combined icons)
+// stays on screen before auto-advancing to the shaker/recipe/table — no
+// "Далі" button to tap any more, per this feature's own request; just
+// enough of a pause for the count-the-pictures payoff to land.
+const NEXT_STAGE_DELAY_MS = 1500;
+
 // The round's opening gate — "how many pieces does this recipe need in
 // total," derived straight from the two recipe counts (equationFor). A
-// wrong pick just flashes red and clears (see EquationAnswerSlot) — there's
-// no fail state here, only "not yet". A CORRECT pick doesn't advance
-// straight away: it locks in that square, reveals the recipe's full set of
-// icons underneath it (2 + 3 pictures next to each other, "як в дитячих
-// зошитах" — the same picture-proof workbooks use to confirm a sum), and
-// only a "Далі" tap actually mounts the shaker/recipe/table — giving the
+// wrong pick just flashes red and clears (see kit/number-tile.tsx's
+// NumberTileButton) — there's no fail state here, only "not yet". A CORRECT
+// pick flashes green first (CORRECT_PICK_DELAY_MS), then locks in that
+// square, reveals the recipe's full set of icons underneath it (2 + 3
+// pictures next to each other, "як в дитячих зошитах" — the same
+// picture-proof workbooks use to confirm a sum), and auto-advances to the
+// shaker/recipe/table after NEXT_STAGE_DELAY_MS — giving the
 // count-the-pictures payoff a beat to land before the game moves on.
 function CocktailEquationGate({ recipe, muted, onSolved }: { recipe: CocktailRecipe; muted: boolean; onSolved: () => void }) {
   const t = useTranslations("CocktailGame");
   const equation = equationFor(recipe);
   const [{ choices }] = useState(() => buildEquationChoices(equation.sum));
   const [wrongIndex, setWrongIndex] = useState<number | null>(null);
+  // Set the instant the right tile is picked, then `solved` follows
+  // CORRECT_PICK_DELAY_MS later — see the function's own doc comment.
+  const [correctIndex, setCorrectIndex] = useState<number | null>(null);
   const [solved, setSolved] = useState(false);
   const combinedIcons = [
     ...Array.from({ length: recipe[0].count }, () => recipe[0].key),
@@ -236,10 +246,20 @@ function CocktailEquationGate({ recipe, muted, onSolved }: { recipe: CocktailRec
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auto-advances to the shaker/recipe/table once solved — see
+  // NEXT_STAGE_DELAY_MS.
+  useEffect(() => {
+    if (!solved) return;
+    const timeout = setTimeout(onSolved, NEXT_STAGE_DELAY_MS);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [solved]);
+
   const handlePick = (index: number, value: number) => {
     if (value === equation.sum) {
-      setSolved(true);
+      setCorrectIndex(index);
       sayPl(pickPhrase(PRAISE_PHRASES), muted);
+      setTimeout(() => setSolved(true), CORRECT_PICK_DELAY_MS);
       return;
     }
     playCocktailBounceSound();
@@ -249,32 +269,37 @@ function CocktailEquationGate({ recipe, muted, onSolved }: { recipe: CocktailRec
   };
 
   return (
-    <div className="flex w-full flex-1 flex-col items-center justify-center gap-6">
-      <div className="flex flex-col items-center gap-3 rounded-3xl bg-white/90 px-6 py-5 shadow-lg ring-4 ring-white">
+    <div className="flex w-full flex-1 flex-col items-center justify-center gap-6 sm:gap-8">
+      <div className="flex w-full flex-col items-center gap-4 rounded-3xl bg-white/90 px-2 py-5 shadow-lg ring-4 ring-white sm:gap-6 sm:px-8 sm:py-7">
         <span className="text-sm font-bold text-gray-500 sm:text-base">{t("equationLabel")}</span>
-        <div className="flex items-start justify-center gap-3 sm:gap-4">
+        <div className="flex items-start justify-center gap-1 sm:gap-4">
           <EquationOperandColumn item={recipe[0]} />
-          <span className="pt-1 text-3xl font-extrabold text-gray-400 sm:pt-1.5 sm:text-4xl">+</span>
+          <span className="font-extrabold text-gray-400" style={equationOperatorFontSizeStyle}>
+            +
+          </span>
           <EquationOperandColumn item={recipe[1]} />
-          <span className="pt-1 text-3xl font-extrabold text-gray-400 sm:pt-1.5 sm:text-4xl">=</span>
+          <span className="font-extrabold text-gray-400" style={equationOperatorFontSizeStyle}>
+            =
+          </span>
           {/* The answer's own square lives right here in the equation now,
               as its own column matching EquationOperandColumn's shape — an
               empty dashed placeholder until solved, then filled with the
               picked answer plus (per this feature's own request) the
               recipe's combined icon set underneath it, same "number on top,
               its pictures below" layout the operand columns already use. */}
-          <div className="flex flex-col items-center gap-1.5">
+          <div className="flex flex-col items-center gap-2">
             <span
-              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-md border-4 text-xl font-extrabold shadow-inner transition sm:h-16 sm:w-16 sm:text-2xl ${
+              style={numberTileSizeStyle}
+              className={`${NUMBER_TILE_CLASS} ${
                 solved ? "border-emerald-400 bg-emerald-100 text-emerald-700 ring-4 ring-emerald-300" : "border-dashed border-gray-300 text-gray-300"
               }`}
             >
               {solved ? equation.sum : "?"}
             </span>
             {solved && (
-              <div className="flex flex-wrap items-center justify-center gap-0.5">
+              <div className="flex flex-wrap items-center justify-center gap-0.5" style={ANSWER_PROOF_ICON_STYLE}>
                 {combinedIcons.map((key, i) => (
-                  <span key={i} aria-hidden="true" className="text-lg sm:text-xl">
+                  <span key={i} aria-hidden="true">
                     {emojiFor(key)}
                   </span>
                 ))}
@@ -284,23 +309,18 @@ function CocktailEquationGate({ recipe, muted, onSolved }: { recipe: CocktailRec
         </div>
       </div>
 
-      {!solved ? (
-        <div className="flex gap-3">
+      {!solved && (
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
           {choices.map((value, index) => (
-            <EquationAnswerSlot key={index} value={value} wrong={wrongIndex === index} onClick={() => handlePick(index, value)} />
+            <NumberTileButton
+              key={index}
+              value={value}
+              status={wrongIndex === index ? "incorrect" : correctIndex === index ? "correct" : "default"}
+              disabled={correctIndex !== null}
+              onClick={() => handlePick(index, value)}
+            />
           ))}
         </div>
-      ) : (
-        // Glass emoji rather than a bare arrow — previews what's coming
-        // next (the shaker) instead of just meaning "continue" in the
-        // abstract, per the brief's own "стакана чи стрілкою" either/or.
-        <button
-          type="button"
-          onClick={onSolved}
-          className="preschool-button z-10 flex items-center gap-2 rounded-full bg-emerald-500 px-6 py-2.5 text-lg font-extrabold text-white shadow-lg ring-4 ring-emerald-300 transition hover:scale-105"
-        >
-          {t("nextButton")} 🥤
-        </button>
       )}
     </div>
   );
@@ -416,12 +436,54 @@ function CocktailConfetti() {
   );
 }
 
+// How long the "only equations" celebration (confetti + praise) stays on
+// screen before auto-advancing straight into the next equation — no button
+// to tap, per this feature's own request, matching the equation gate's own
+// auto-advance pacing (NEXT_STAGE_DELAY_MS) rather than the longer
+// full-recipe win celebration.
+const EQUATION_CELEBRATION_MS = 1800;
+
+// Shown in place of the recipe/shaker stage when `onlyEquations` is on —
+// the round already ended the moment the opening addition equation was
+// solved, so this is purely a congratulatory beat before CocktailRound
+// remounts fresh (see CocktailGame's roundToken) for the next przykład.
+function CocktailEquationCelebration({ onDone }: { onDone: () => void }) {
+  const t = useTranslations("CocktailGame");
+
+  useEffect(() => {
+    const timeout = setTimeout(onDone, EQUATION_CELEBRATION_MS);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="relative flex w-full flex-1 flex-col items-center justify-center gap-4 overflow-hidden py-2">
+      <CocktailConfetti />
+      <p className="z-10 text-2xl font-extrabold text-emerald-700 sm:text-3xl" style={{ animation: "score-pop 0.4s ease-out" }}>
+        {t("equationCelebrationTitle")}
+      </p>
+    </div>
+  );
+}
+
 // One full round: a fresh recipe + scattered table, played out to either a
-// win or (free mode only) a wrong-recipe retry. Remounted wholesale via a
+// win or (free mode only) a wrong-recipe retry — or, with `onlyEquations`
+// on, straight from the opening equation into a celebration and the next
+// round, skipping the recipe/shaker entirely. Remounted wholesale via a
 // `key` change (see CocktailGame below) on mode switch or "play again" —
 // simplest way to reset every bit of round state at once, same idiom
 // math-game.tsx's own doc comment credits for its runner legs.
-function CocktailRound({ mode, muted, onWin }: { mode: CocktailMode; muted: boolean; onWin: () => void }) {
+function CocktailRound({
+  mode,
+  muted,
+  onlyEquations,
+  onWin,
+}: {
+  mode: CocktailMode;
+  muted: boolean;
+  onlyEquations: boolean;
+  onWin: () => void;
+}) {
   const t = useTranslations("CocktailGame");
   const [recipe] = useState<CocktailRecipe>(generateRecipe);
   const [table] = useState<CocktailTablePiece[]>(() => buildTable(recipe));
@@ -439,6 +501,7 @@ function CocktailRound({ mode, muted, onWin }: { mode: CocktailMode; muted: bool
   // fresh recipe/equation comes with every remount, same as everything
   // else here).
   const [equationSolved, setEquationSolved] = useState(false);
+  const [celebratingEquation, setCelebratingEquation] = useState(false);
   const celebrationRef = useRef<HTMLParagraphElement>(null);
   const rewardCocktailGame = useRewardCocktailGame();
 
@@ -528,6 +591,12 @@ function CocktailRound({ mode, muted, onWin }: { mode: CocktailMode; muted: bool
   // jedną łyżkę miodu do shakera!") rather than a generic "dodaj składniki"
   // per this feature's own request.
   const handleEquationSolved = () => {
+    if (onlyEquations) {
+      playVictoryFanfare();
+      sayPl(pickPhrase(WIN_PHRASES), muted);
+      setCelebratingEquation(true);
+      return;
+    }
     setEquationSolved(true);
     saySequencePl(
       [
@@ -539,6 +608,10 @@ function CocktailRound({ mode, muted, onWin }: { mode: CocktailMode; muted: bool
       muted,
     );
   };
+
+  if (celebratingEquation) {
+    return <CocktailEquationCelebration onDone={onWin} />;
+  }
 
   if (!equationSolved) {
     return <CocktailEquationGate recipe={recipe} muted={muted} onSolved={handleEquationSolved} />;
@@ -622,8 +695,27 @@ export function CocktailGame() {
   const setMode = useCocktailGameStore((s) => s.setMode);
   const muted = useCocktailGameStore((s) => s.muted);
   const setMuted = useCocktailGameStore((s) => s.setMuted);
+  const onlyEquations = useCocktailGameStore((s) => s.onlyEquations);
+  const setOnlyEquations = useCocktailGameStore((s) => s.setOnlyEquations);
   const [roundToken, setRoundToken] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsPanelRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
   useBackgroundMusic();
+
+  // Closes the settings panel on a click/tap anywhere outside it — same
+  // pattern as cars-game.tsx's own settings panel.
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (settingsPanelRef.current?.contains(target)) return;
+      if (settingsButtonRef.current?.contains(target)) return;
+      setSettingsOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [settingsOpen]);
 
   // Warms up the Polish voice model once up front so the round's opening
   // narration (CocktailEquationGate) doesn't stall on a multi-megabyte
@@ -634,6 +726,28 @@ export function CocktailGame() {
 
   return (
     <div className="relative flex min-h-[32rem] flex-1 flex-col overflow-hidden rounded-3xl bg-gradient-to-b from-sky-100 via-emerald-50 to-lime-100 p-2 ring-4 ring-inset ring-white/90 shadow-lg sm:p-4">
+      <button
+        ref={settingsButtonRef}
+        type="button"
+        aria-label={t("settingsButton")}
+        onClick={() => setSettingsOpen((current) => !current)}
+        className="absolute left-4 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+      >
+        ⚙️
+      </button>
+
+      {settingsOpen && (
+        <div
+          ref={settingsPanelRef}
+          className="absolute left-4 top-16 z-10 flex w-60 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200"
+        >
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={onlyEquations} onChange={(e) => setOnlyEquations(e.target.checked)} />
+            <span className="font-medium text-gray-700">{t("onlyEquationsLabel")}</span>
+          </label>
+        </div>
+      )}
+
       <div className="absolute left-20 top-4 z-10 flex gap-1 rounded-full bg-white p-1 shadow-lg ring-2 ring-gray-200">
         <button
           type="button"
@@ -674,7 +788,13 @@ export function CocktailGame() {
 
       <MusicToggleButton className="absolute right-4 top-4 z-10" />
 
-      <CocktailRound key={`${mode}-${roundToken}`} mode={mode} muted={muted} onWin={() => setRoundToken((n) => n + 1)} />
+      <CocktailRound
+        key={`${mode}-${roundToken}`}
+        mode={mode}
+        muted={muted}
+        onlyEquations={onlyEquations}
+        onWin={() => setRoundToken((n) => n + 1)}
+      />
     </div>
   );
 }

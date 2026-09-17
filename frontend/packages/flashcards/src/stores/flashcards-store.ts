@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { SpeechLanguage } from "@school-ahead/api-client";
 import {
   DEFAULT_BACK_CONFIG,
   DEFAULT_FRONT_CONFIG,
@@ -29,11 +28,11 @@ interface FlashcardsState {
   // start speaking unexpectedly.
   soundEnabled: boolean;
   setSoundEnabled: (value: boolean) => void;
-  // Which Piper voice speaks the term — independent of the app's own UI
-  // locale (currently uk-only), since a card set's term can be in any of
-  // these languages.
-  ttsLanguage: SpeechLanguage;
-  setTtsLanguage: (language: SpeechLanguage) => void;
+  // Collapsed state of the wide-screen-only topic sidebar (Навчання/Тест —
+  // see FlashcardTopicSidebar) — open by default, same as every other
+  // panel in this game.
+  topicSidebarCollapsed: boolean;
+  setTopicSidebarCollapsed: (value: boolean) => void;
 }
 
 export const useFlashcardsStore = create<FlashcardsState>()(
@@ -49,8 +48,8 @@ export const useFlashcardsStore = create<FlashcardsState>()(
       setFlipOrientation: (flipOrientation) => set({ flipOrientation }),
       soundEnabled: false,
       setSoundEnabled: (soundEnabled) => set({ soundEnabled }),
-      ttsLanguage: "en",
-      setTtsLanguage: (ttsLanguage) => set({ ttsLanguage }),
+      topicSidebarCollapsed: false,
+      setTopicSidebarCollapsed: (topicSidebarCollapsed) => set({ topicSidebarCollapsed }),
     }),
     { name: "flashcards-store" },
   ),

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@school-ahead/api-client";
 import { useGetMyCardSet, useListMyCardGroups, useListMyCardSets } from "@school-ahead/api-client/browser/cards/cards";
-import type { FlashcardGroupSummary, FlashcardItem, FlashcardSet, FlashcardSetSummary } from "./flashcard-types";
+import type { FlashcardGroupSummary, FlashcardItem, FlashcardLanguage, FlashcardSet, FlashcardSetSummary } from "./flashcard-types";
 
 // Client fetch hooks for the "Cards" study flashcards game (docs/preschool/
 // games/cards.md) — term/translation/definition/image decks for older
@@ -23,14 +23,23 @@ import type { FlashcardGroupSummary, FlashcardItem, FlashcardSet, FlashcardSetSu
 // FlashcardSetSummary/FlashcardSet shape the static route handlers already
 // produce, so the rest of the game (learn deck, quiz, terms list, print,
 // settings panel, topic filter) needs no changes at all to play them.
-export type { FlashcardItem, FlashcardCategory, FlashcardSet, FlashcardGroupSummary, FlashcardSetSummary } from "./flashcard-types";
+export type {
+  FlashcardItem,
+  FlashcardCategory,
+  FlashcardSet,
+  FlashcardGroupSummary,
+  FlashcardSetSummary,
+  FlashcardLanguage,
+} from "./flashcard-types";
 export { flashcardImageUrl, flashcardSoundUrl } from "./flashcard-types";
 
-// Personal groups/sets are namespaced with this prefix (backend/cards/api.py's
-// GROUP_SLUG_RE/SET_SLUG_RE: "subject-<id>"/"topic-<id>") so they can never
-// collide with a static public/static/cards/<folder> name (always a plain
-// word like "spanish"/"math") — every hook below uses this prefix to decide
-// which of the two data sources a given group belongs to.
+// Personal groups/sets are namespaced with this prefix (backend/cards/
+// api.py's GROUP_SLUG_RE: "subject-<id>", a real curriculum Subject —
+// every personal card, imported or not, is tied to one, see
+// cards/models.py) so they can never collide with a static
+// public/static/cards/<folder> name (always a plain word like
+// "spanish"/"math") — every hook below uses this prefix to decide which
+// of the two data sources a given group belongs to.
 const PERSONAL_GROUP_PREFIX = "subject-";
 
 function isPersonalGroup(group: string | null): boolean {
@@ -138,6 +147,11 @@ export function useFlashcardSets(group: string | null): FlashcardSetsResponse {
 
 interface FlashcardSetResponse {
   groupTitle: string | null;
+  // The group's title.json-declared default TTS language (e.g.
+  // fizyka/title.json: {"language": "pl"}), `null` for a group that didn't
+  // set one (or a personal set, which has no such concept) — see
+  // FlashcardGamePage's use of it as getFlashcardLanguage's fallback.
+  groupLanguage: FlashcardLanguage | null;
   set: FlashcardSet | null;
 }
 
@@ -149,7 +163,7 @@ function fetchFlashcardSet(group: string, set: string): Promise<FlashcardSetResp
   if (!cached) {
     cached = fetch(`/api/flashcard-set?group=${encodeURIComponent(group)}&set=${encodeURIComponent(set)}`)
       .then((res) => res.json())
-      .catch(() => ({ groupTitle: null, set: null }));
+      .catch(() => ({ groupTitle: null, groupLanguage: null, set: null }));
     setCache.set(key, cached);
   }
   return cached;
@@ -166,7 +180,7 @@ export function useFlashcardSet(
   const personal = isPersonalGroup(group);
   const [loaded, setLoaded] = useState<{ key: string | null; data: FlashcardSetResponse }>({
     key: null,
-    data: { groupTitle: null, set: null },
+    data: { groupTitle: null, groupLanguage: null, set: null },
   });
   const personalGroupTitle = usePersonalGroupTitle(group);
   const personalSetQuery = useGetMyCardSet(group ?? "", set ?? "", {
@@ -187,10 +201,10 @@ export function useFlashcardSet(
   }, [group, set, personal]);
 
   if (personal) {
-    if (!group || !set) return { groupTitle: null, set: null, isLoading: false };
-    if (personalSetQuery.isLoading) return { groupTitle: null, set: null, isLoading: true };
+    if (!group || !set) return { groupTitle: null, groupLanguage: null, set: null, isLoading: false };
+    if (personalSetQuery.isLoading) return { groupTitle: null, groupLanguage: null, set: null, isLoading: true };
     const data = personalSetQuery.data;
-    if (!data) return { groupTitle: personalGroupTitle, set: null, isLoading: false };
+    if (!data) return { groupTitle: personalGroupTitle, groupLanguage: null, set: null, isLoading: false };
     // Personal cards already carry a real, unique StudentCard.id — unlike
     // the static route handler, which has to invent sequential ids for
     // otherwise-id-less JSON.
@@ -208,9 +222,11 @@ export function useFlashcardSet(
         ),
       })),
     };
-    return { groupTitle: personalGroupTitle, set: flashcardSet, isLoading: false };
+    return { groupTitle: personalGroupTitle, groupLanguage: null, set: flashcardSet, isLoading: false };
   }
 
   const isLoading = loaded.key !== key;
-  return isLoading ? { groupTitle: null, set: null, isLoading: true } : { ...loaded.data, isLoading: false };
+  return isLoading
+    ? { groupTitle: null, groupLanguage: null, set: null, isLoading: true }
+    : { ...loaded.data, isLoading: false };
 }

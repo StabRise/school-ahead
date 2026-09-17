@@ -52,6 +52,7 @@ function backSignature(item: FlashcardItem, backConfig: CardFaceConfig): string 
       if (field === "term") return item.term;
       if (field === "translation") return item.translation ?? "";
       if (field === "definition") return item.definition ?? "";
+      if (field === "formula") return item.formula ?? "";
       return item.image ?? "";
     })
     .join("|");

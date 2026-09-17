@@ -1,21 +1,29 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { FlashcardImportDialog } from "./flashcard-import-dialog";
 import { LocaleLink as Link } from "./kit/locale-link";
 import { PageShell as SimplePageContainer } from "./kit/page-shell";
 import { useFlashcardGroups } from "./lib/flashcards";
 
 // "Cards" study flashcards game's subject picker (docs/preschool/games/
 // cards.md, /games/cards) — one tile per public/static/cards/<group> that
-// has a title.json (see /api/flashcard-groups). Picking a group goes to
-// /games/cards/<group> to then pick a set within it.
+// has a title.json (see /api/flashcard-groups), plus (student-only) a
+// "Мої картки" tile once useFlashcardGroups' personal half returns one.
+// Picking a group goes to /games/cards/<group> to then pick a set within
+// it. FlashcardImportDialog (the "load set from json file" button, student-
+// only) lets a student add to their personal groups without a tutor
+// pre-authoring a Lesson for it.
 export function FlashcardsGroupsPage() {
   const t = useTranslations("FlashcardsGame");
   const groups = useFlashcardGroups();
 
   return (
     <SimplePageContainer title={t("groupsTitle")}>
-      <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">{t("groupsSubtitle")}</p>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <p className="text-sm text-slate-500 dark:text-slate-400">{t("groupsSubtitle")}</p>
+        <FlashcardImportDialog />
+      </div>
 
       {groups.length === 0 ? (
         <p className="text-sm text-slate-500 dark:text-slate-400">{t("noGroups")}</p>

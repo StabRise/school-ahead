@@ -7,7 +7,6 @@ import { useRewardJumpingFrogs } from "@school-ahead/api-client/browser/auth/aut
 import { prefetchVoice, speak, warmupSpeech } from "@school-ahead/api-client";
 import {
   playCardSound,
-  sortConsonants,
   useReadingGameConsonants,
   useReadingGameLevel,
   type ReadingGameCard,
@@ -984,8 +983,15 @@ export function JumpingFrogsGame() {
   const muted = useJumpingFrogsStore((s) => s.muted);
   const setMuted = useJumpingFrogsStore((s) => s.setMuted);
 
+  // Unlike reading-game.tsx/cards-game.tsx (whose consonant lists drive a
+  // pedagogical difficulty progression, see sortConsonants), this game's
+  // settings dropdown is a free pick with no progression baked in, so it
+  // lists the consonants in plain Ukrainian alphabetical (abetka) order.
   const rawConsonants = useReadingGameConsonants();
-  const consonants = useMemo(() => sortConsonants(rawConsonants), [rawConsonants]);
+  const consonants = useMemo(
+    () => [...rawConsonants].sort((a, b) => a.localeCompare(b, "uk")),
+    [rawConsonants],
+  );
 
   // A consonant persisted from an earlier session might no longer be
   // ready to play — fall back to the first available one, same self-heal

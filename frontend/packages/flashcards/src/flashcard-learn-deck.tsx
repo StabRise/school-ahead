@@ -23,9 +23,11 @@ import { FlipCard } from "./flip-card";
 // browsable deck (← / → below the card, and the same keys on the
 // keyboard) rather than a queue that empties: «Складно» (Flag) and «Знаю»
 // (Check) mark the current card — persisted across sessions via
-// getStatus/onStatusChange (backed by useFlashcardProgressStore) — with a
-// short confirmation sound each, but deliberately stay on the same card
-// (the student reviews the badge, then moves on with ← / → themselves).
+// getStatus/onStatusChange (backed by useFlashcardProgressStore), with a
+// short confirmation sound — but deliberately stay on the same card (the
+// student reviews the badge, then moves on with ← / → themselves). Both
+// toggle, same as FlashcardTermsList's toggleStatus: clicking an
+// already-active mark again clears it instead of re-confirming it.
 // «Повторити» clears any mark on the current card (back to unmarked) and
 // does advance — it's "I'll see this again later", not a judgment to sit
 // with. `items` is a snapshot taken once at mount (see
@@ -100,13 +102,15 @@ export function FlashcardLearnDeck({
   };
   const handleKnow = () => {
     if (!current) return;
-    onStatusChange(current.id, "known");
-    playKnowSound();
+    const next = getStatus(current.id) === "known" ? null : "known";
+    onStatusChange(current.id, next);
+    if (next === "known") playKnowSound();
   };
   const handleDifficult = () => {
     if (!current) return;
-    onStatusChange(current.id, "difficult");
-    playDifficultSound();
+    const next = getStatus(current.id) === "difficult" ? null : "difficult";
+    onStatusChange(current.id, next);
+    if (next === "difficult") playDifficultSound();
   };
 
   // Left/Right arrow keys mirror the on-screen ← / → buttons, Space mirrors

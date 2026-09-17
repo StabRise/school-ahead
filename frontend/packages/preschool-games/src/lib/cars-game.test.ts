@@ -119,4 +119,26 @@ describe("generateCarsRoute", () => {
       }
     }
   });
+
+  it("gives each turn a `kind` matching the actual geometry — straight iff collinear, else the true left/right handedness", () => {
+    // The driving stage's map-rotation and "go straight vs. turn" narration
+    // (cars-game.tsx's CarsDrivingStage) key entirely off `kind`, so it has
+    // to agree with the waypoints actually drawn, same promise the
+    // `direction` test above makes for the absolute cardinal.
+    for (let i = 0; i < 30; i++) {
+      const route = generateCarsRoute();
+      for (let k = 0; k < route.turns.length; k++) {
+        const before = segmentVector(route.waypoints[k], route.waypoints[k + 1]);
+        const after = segmentVector(route.waypoints[k + 1], route.waypoints[k + 2]);
+        const beforeCardinal = headingToCardinal(Math.atan2(before.y, before.x));
+        if (beforeCardinal === route.turns[k].direction) {
+          expect(route.turns[k].kind).toBe("straight");
+        } else {
+          // Screen (y-down) cross product: positive = clockwise = right turn.
+          const cross = before.x * after.y - before.y * after.x;
+          expect(route.turns[k].kind).toBe(cross > 0 ? "right" : "left");
+        }
+      }
+    }
+  });
 });

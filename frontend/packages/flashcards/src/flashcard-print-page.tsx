@@ -6,7 +6,7 @@ import { ArrowLeft, Printer } from "lucide-react";
 import { LocaleLink as Link } from "./kit/locale-link";
 import { flashcardImageUrl, useFlashcardSet, type FlashcardItem } from "./lib/flashcards";
 import { resolveVisibleCardFields, type CardFaceConfig } from "./card-face-config";
-import { DefinitionMarkdown } from "./card-face-content";
+import { DefinitionMarkdown, FormulaMath } from "./card-face-content";
 import { useFlashcardsStore } from "./stores/flashcards-store";
 import { flashcardTopicKey, useFlashcardTopicStore } from "./stores/flashcard-topic-store";
 import {
@@ -90,6 +90,7 @@ function PrintCardCell({
   const termRef = useRef<HTMLParagraphElement>(null);
   const translationRef = useRef<HTMLParagraphElement>(null);
   const definitionRef = useRef<HTMLDivElement>(null);
+  const formulaRef = useRef<HTMLParagraphElement>(null);
 
   useLayoutEffect(() => {
     const cell = cellRef.current;
@@ -98,6 +99,7 @@ function PrintCardCell({
       termRef.current && { el: termRef.current, base: TERM_BASE_PT[rows] },
       translationRef.current && { el: translationRef.current, base: TERM_BASE_PT[rows] },
       definitionRef.current && { el: definitionRef.current, base: DEFINITION_BASE_PT[rows] },
+      formulaRef.current && { el: formulaRef.current, base: DEFINITION_BASE_PT[rows] },
     ];
     const textEls = candidates.filter((entry): entry is { el: HTMLElement; base: number } => entry !== null);
 
@@ -118,7 +120,7 @@ function PrintCardCell({
         el.style.fontSize = `${base * scale}pt`;
       });
     }
-  }, [item.id, rows, imagesReady, config.term, config.translation, config.image, config.definition, imageUrl]);
+  }, [item.id, rows, imagesReady, config.term, config.translation, config.image, config.definition, config.formula, imageUrl]);
 
   return (
     <div ref={cellRef} className={`flex h-full w-full flex-col items-center justify-center overflow-hidden text-center text-black ${CELL_PADDING_CLASS[rows]}`}>
@@ -140,6 +142,11 @@ function PrintCardCell({
         <div ref={definitionRef} className="leading-snug" style={{ fontSize: `${DEFINITION_BASE_PT[rows]}pt` }}>
           <DefinitionMarkdown content={item.definition} />
         </div>
+      )}
+      {shown.has("formula") && item.formula && (
+        <p ref={formulaRef} className="leading-snug" style={{ fontSize: `${DEFINITION_BASE_PT[rows]}pt` }}>
+          <FormulaMath content={item.formula} />
+        </p>
       )}
     </div>
   );

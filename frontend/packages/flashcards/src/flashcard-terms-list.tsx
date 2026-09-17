@@ -7,7 +7,7 @@ import { Check, Flag } from "lucide-react";
 import type { FlashcardCategory, FlashcardItem } from "./lib/flashcards";
 import type { FlashcardStatus } from "./stores/flashcard-progress-store";
 import { playDifficultSound, playKnowSound } from "./lib/flashcard-sounds";
-import { DefinitionMarkdown } from "./card-face-content";
+import { DefinitionMarkdown, FormulaMath } from "./card-face-content";
 
 type ListFilter = "all" | "known" | "difficult";
 
@@ -82,6 +82,11 @@ function FlashcardTermRow({
             <DefinitionMarkdown content={item.definition} />
           </div>
         )}
+        {item.formula && (
+          <div className="mt-0.5 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            <FormulaMath content={item.formula} />
+          </div>
+        )}
       </div>
 
       {/* Deliberately tiny and neutral when unmarked (no border, muted
@@ -131,10 +136,9 @@ function matchesFilter(status: FlashcardStatus | undefined, filter: ListFilter):
 // every card grouped by topic, laid out like the subject detail page's
 // lesson list (components/subjects/simple-subject-detail-page.tsx: a small
 // muted topic label, then a plain divided row list) rather than as
-// one-at-a-time cards. Marking Знаю/Складно here toggles (unlike
-// FlashcardLearnDeck's one-way buttons) since there's no separate
-// "Повторити" control in a list — clicking an already-active mark clears
-// it.
+// one-at-a-time cards. Marking Знаю/Складно here toggles, same as
+// FlashcardLearnDeck's handleKnow/handleDifficult — clicking an
+// already-active mark clears it.
 export function FlashcardTermsList({
   categories,
   resolveImage,
