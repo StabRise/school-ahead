@@ -15,12 +15,14 @@ import { GamePageContainer } from "./kit/game-page-container";
 import { HomeButton } from "./kit/home-button";
 
 // Full-screen player for one preschool minigame at its own URL
-// (/games/balloons, /games/trains, /games/reading, /games/reading-cards,
-// /games/stories[/<storySlug>] — see games-page.tsx for the picker that
-// links here). Trains fills the screen edge-to-edge; the others are capped
-// and centered on wide screens (xl:max-w-*, same "don't cap below xl"
-// convention as components/page-container.tsx) so they don't spread across
-// an ultrawide monitor into an unplayably wide area.
+// (/games/balloons, /games/trains, /games/syllables (game id still
+// "reading" internally), /games/syllables2 (game id still "cards"
+// internally — see games-page.tsx's GAME_PATH_SEGMENT), /games/stories[/
+// <storySlug>] — see games-page.tsx for the picker that links here).
+// Trains fills the screen edge-to-edge; the others are capped and
+// centered on wide screens (xl:max-w-*, same "don't cap below xl"
+// convention as components/page-container.tsx) so they don't spread
+// across an ultrawide monitor into an unplayably wide area.
 //
 // `storySlug` is only meaningful for game === "stories" — set when this is
 // reached via /games/stories/[storySlug]/page.tsx, so a specific story
