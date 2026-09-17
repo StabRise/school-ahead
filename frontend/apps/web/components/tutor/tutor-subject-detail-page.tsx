@@ -63,6 +63,7 @@ import { useTabQueryParam } from "@/lib/use-tab-query-param";
 import { AssignStudentDialog } from "./assign-student-dialog";
 import { LessonEditorDialog } from "./lesson-editor-dialog";
 import { LoadLessonsJsonDialog } from "./load-lessons-json-dialog";
+import { LoadYoutubePlaylistDialog } from "./load-youtube-playlist-dialog";
 import { PlanSubjectLessonsDialog } from "./plan-subject-lessons-dialog";
 import { RescheduleAssignmentDialog } from "./reschedule-assignment-dialog";
 import { TaskEditorDialog } from "./task-editor-dialog";
@@ -1008,6 +1009,7 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                       subjectName={subject.name}
                     />
                     <LoadLessonsJsonDialog subjectId={subjectId} />
+                    <LoadYoutubePlaylistDialog subjectId={subjectId} />
                     <button
                       type="button"
                       title={t("shuffleLessonsButton")}

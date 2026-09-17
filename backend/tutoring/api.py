@@ -32,6 +32,7 @@ from house import services as house_services
 from house.models import FurnitureItem, FurnitureSurface, FurnitureTexture
 from house.schemas import FurnitureTextureOut
 from lessons import services as lesson_services
+from lessons import youtube_scrape
 from lessons.models import (
     GradingType,
     Lesson,
@@ -49,6 +50,8 @@ from lessons.schemas import (
     LessonsReorderIn,
     LessonUpdateIn,
     ProcessLessonsJsonOut,
+    YoutubeImportIn,
+    YoutubeImportOut,
 )
 
 from . import services
@@ -58,6 +61,7 @@ from .schemas import (
     AssignDayLessonIn,
     AssignmentOut,
     AssignStudentIn,
+    CreateSubjectIn,
     GradeIn,
     ImportPlanOut,
     ImportSubjectMarkdownOut,
@@ -350,6 +354,41 @@ def process_lessons_json(request: HttpRequest, lessons_json_id: int):
         topics_reused=summary.topics_reused,
         lessons_created=len(summary.lessons_created),
         lessons_skipped=summary.lessons_skipped,
+    )
+
+
+@router.post(
+    '/subjects/{subject_id}/youtube-import',
+    response=YoutubeImportOut,
+    operation_id='import_tutor_subject_youtube_playlist',
+)
+def import_subject_youtube_playlist(request: HttpRequest, subject_id: int, payload: YoutubeImportIn):
+    """The "📥 Завантажити з YouTube" popup on the Subject detail page —
+    scrapes a public YouTube playlist (same algorithm as manage.py's
+    tmp_scrape_lessons -Y, see lessons.youtube_scrape) straight into one
+    Topic (get_or_created by `payload.topic_name`, "Base" by default) with
+    one theory Lesson per video, via the same import_topics_and_lessons the
+    JSON-upload flow uses above — so re-running this against the same
+    playlist (or a playlist that grew new videos) only adds what's
+    genuinely new instead of duplicating lessons."""
+    require_csrf(request)
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    subject = get_object_or_404(Subject, id=subject_id)
+
+    try:
+        topic_data, truncated = youtube_scrape.fetch_playlist_topic(payload.playlist_url, payload.topic_name)
+    except youtube_scrape.ScrapeError as exc:
+        raise HttpError(400, str(exc)) from exc
+
+    with transaction.atomic():
+        summary = lesson_services.import_topics_and_lessons(subject, [topic_data])
+
+    return YoutubeImportOut(
+        topic_id=summary.topics[0].id,
+        topic_name=summary.topics[0].title,
+        lessons_created=len(summary.lessons_created),
+        lessons_skipped=summary.lessons_skipped,
+        truncated=truncated,
     )
 
 
@@ -880,6 +919,35 @@ def get_tutor_class(request: HttpRequest, class_id: int):
         ],
         subjects=[_assignment_out(a, request) for a in assignments],
     )
+
+
+@router.post('/classes/{class_id}/subjects', response=AssignmentOut, operation_id='create_tutor_class_subject')
+def create_tutor_class_subject(request: HttpRequest, class_id: int, payload: CreateSubjectIn):
+    """The "Додати урок" popup on the Class detail page — a bare Subject
+    with just a name and a date range (defaults to the class's own academic
+    year, September 1 .. May 31, on the frontend), for a tutor to fill in
+    with topics/lessons afterward — same entry point as uploading a plan or
+    a Markdown curriculum file (upload_class_plan/upload_subject_markdown
+    below), just without either. Restricted to the class's homeroom
+    teacher, same as those two, so a Subject always starts out with an
+    owning tutor: creating it fires the on_subject_created signal
+    (tutoring.signals.assign_class_teacher_to_subject), same as every other
+    Subject-creation path."""
+    require_csrf(request)
+    services.ensure_is_class_teacher(request, class_id)
+    school_class = get_object_or_404(Class, id=class_id)
+
+    subject = Subject.objects.create(
+        school_class=school_class, name=payload.name, start_date=payload.start_date, due_date=payload.due_date,
+    )
+    subject.color = academics_services.assign_subject_color(subject)
+    subject.order_index = academics_services.assign_subject_order_index(subject)
+    subject.save(update_fields=['color', 'order_index'])
+    academics_services.ensure_subject_blocks(subject)
+    academics_services.assign_topics_to_blocks(subject)
+
+    assignment = _tutor_assignments_with_counts(request, subject_id=subject.id).get()
+    return _assignment_out(assignment, request)
 
 
 @router.patch('/classes/{class_id}/subjects/reorder', operation_id='reorder_tutor_class_subjects')

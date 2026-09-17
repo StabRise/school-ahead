@@ -494,6 +494,15 @@
     "subjectLessonsCount": "{count, plural, one {# урок} few {# уроки} many {# уроків} other {# уроку}}",
     "closeButton": "Закрити"
   },
+  "CreateSubject": {
+    "triggerButton": "Додати предмет",
+    "title": "Додати предмет",
+    "nameLabel": "Назва",
+    "createButton": "Створити",
+    "creating": "Створення...",
+    "createError": "Не вдалося створити предмет. Спробуйте ще раз.",
+    "cancelButton": "Скасувати"
+  },
   "LoadLessonsJson": {
     "triggerButton": "Завантажити уроки з JSON",
     "title": "Завантажити уроки з JSON",
@@ -514,6 +523,21 @@
     "topicsReused": "Наявні теми: {count}",
     "lessonsCreated": "Нові уроки: {count}",
     "lessonsSkipped": "Пропущено уроків (вже існували): {count}",
+    "closeButton": "Закрити"
+  },
+  "LoadYoutubePlaylist": {
+    "triggerButton": "Завантажити з YouTube",
+    "title": "Завантажити з YouTube",
+    "topicNameLabel": "Назва теми",
+    "urlLabel": "Посилання на плейлист",
+    "importButton": "Завантажити",
+    "importing": "Завантаження...",
+    "importError": "Не вдалося завантажити плейлист. Перевірте посилання і спробуйте ще раз.",
+    "resultTopic": "Тема: {topic}",
+    "lessonsCreated": "Нові уроки: {count}",
+    "lessonsSkipped": "Пропущено уроків (вже існували): {count}",
+    "truncatedWarning": "У плейлисті більше відео, ніж вміщує перша сторінка — завантажено лише перші.",
+    "cancelButton": "Скасувати",
     "closeButton": "Закрити"
   },
   "UploadPlan": {
