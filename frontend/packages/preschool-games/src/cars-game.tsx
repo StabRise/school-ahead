@@ -743,19 +743,70 @@ function CarsDrivingStage({
 
 // --- Round + top-level shell ----------------------------------------------
 
-type RoundPhase = "parking" | "driving";
+// How long the "only equations" celebration (confetti + praise) stays on
+// screen before auto-advancing straight into the next equation — no button
+// to tap, per this feature's own request ("поздравление з конфеті і слід
+// приклад"), matching the parking stage's own auto-advance pacing
+// (NEXT_STAGE_DELAY_MS) rather than the longer arrival celebration.
+const EQUATION_CELEBRATION_MS = 1800;
+
+// Shown in place of the driving stage when `onlyEquations` is on — the
+// round already ended the moment the parking-stage equation was solved, so
+// this is purely a congratulatory beat before CarsRound remounts fresh (see
+// CarsGame's roundToken) for the next приклад.
+function CarsEquationCelebration({ onDone }: { onDone: () => void }) {
+  const t = useTranslations("CarsGame");
+
+  useEffect(() => {
+    const timeout = setTimeout(onDone, EQUATION_CELEBRATION_MS);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="relative flex w-full flex-1 flex-col items-center justify-center gap-4 overflow-hidden py-2">
+      <CarsConfetti />
+      <p className="z-10 text-2xl font-extrabold text-emerald-700 sm:text-3xl" style={{ animation: "score-pop 0.4s ease-out" }}>
+        {t("equationCelebrationTitle")}
+      </p>
+    </div>
+  );
+}
+
+type RoundPhase = "parking" | "driving" | "celebrating";
 
 // One full round: a fresh equation + route, played parking -> driving ->
-// arrival. Remounted wholesale via `key` (see CarsGame below) once the
-// child presses "Далі" — same reset-everything-at-once idiom as
-// cocktail-game.tsx's CocktailRound.
-function CarsRound({ muted, onWin }: { muted: boolean; onWin: () => void }) {
+// arrival — or, with `onlyEquations` on, parking -> celebrating straight
+// back into a fresh round, skipping the drive entirely. Remounted wholesale
+// via `key` (see CarsGame below) once the round ends — same
+// reset-everything-at-once idiom as cocktail-game.tsx's CocktailRound.
+function CarsRound({
+  muted,
+  onlyEquations,
+  onWin,
+}: {
+  muted: boolean;
+  onlyEquations: boolean;
+  onWin: () => void;
+}) {
   const [equation] = useState<CarsEquation>(generateCarsEquation);
   const [route] = useState<CarsRoute>(generateCarsRoute);
   const [roundPhase, setRoundPhase] = useState<RoundPhase>("parking");
 
   if (roundPhase === "parking") {
-    return <CarsParkingStage equation={equation} muted={muted} onSolved={() => setRoundPhase("driving")} />;
+    return (
+      <CarsParkingStage
+        equation={equation}
+        muted={muted}
+        onSolved={() => {
+          if (onlyEquations) playVictoryFanfare();
+          setRoundPhase(onlyEquations ? "celebrating" : "driving");
+        }}
+      />
+    );
+  }
+  if (roundPhase === "celebrating") {
+    return <CarsEquationCelebration onDone={onWin} />;
   }
   return <CarsDrivingStage route={route} muted={muted} onDone={onWin} />;
 }
@@ -764,6 +815,8 @@ export function CarsGame() {
   const t = useTranslations("CarsGame");
   const muted = useCarsGameStore((s) => s.muted);
   const setMuted = useCarsGameStore((s) => s.setMuted);
+  const onlyEquations = useCarsGameStore((s) => s.onlyEquations);
+  const setOnlyEquations = useCarsGameStore((s) => s.setOnlyEquations);
   const [roundToken, setRoundToken] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsPanelRef = useRef<HTMLDivElement>(null);
@@ -817,12 +870,16 @@ export function CarsGame() {
             <input type="checkbox" checked={muted} onChange={(e) => setMuted(e.target.checked)} />
             <span className="font-medium text-gray-700">{t("mutedLabel")}</span>
           </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={onlyEquations} onChange={(e) => setOnlyEquations(e.target.checked)} />
+            <span className="font-medium text-gray-700">{t("onlyEquationsLabel")}</span>
+          </label>
         </div>
       )}
 
       <MusicToggleButton className="absolute right-4 top-4 z-10" />
 
-      <CarsRound key={roundToken} muted={muted} onWin={() => setRoundToken((n) => n + 1)} />
+      <CarsRound key={roundToken} muted={muted} onlyEquations={onlyEquations} onWin={() => setRoundToken((n) => n + 1)} />
     </div>
   );
 }

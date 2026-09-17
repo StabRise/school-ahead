@@ -266,7 +266,10 @@
     "shakeButton": "Wstrząśnij shakerem",
     "wrongRecipeMessage": "O nie! To nie jest właściwy przepis. Spróbuj ponownie.",
     "celebrationTitle": "Nasz koktajl jest gotowy! Magiczny koktajl!",
-    "playAgainButton": "Jeszcze raz"
+    "playAgainButton": "Jeszcze raz",
+    "settingsButton": "Ustawienia",
+    "onlyEquationsLabel": "Tylko przykłady",
+    "equationCelebrationTitle": "Brawo!"
   },
   "CarsGame": {
     "equationLabel": "Розв'яжи приклад",
@@ -277,7 +280,9 @@
     "celebrationTitle": "Приїхали!",
     "nextButton": "Далі",
     "settingsButton": "Налаштування",
-    "mutedLabel": "Без озвучення"
+    "mutedLabel": "Без озвучення",
+    "onlyEquationsLabel": "Тільки приклади",
+    "equationCelebrationTitle": "Молодець!"
   },
   "FlashcardsGame": {
     "groupsTitle": "Картки для навчання",

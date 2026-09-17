@@ -17,6 +17,13 @@ interface CarsGameState {
   // is a single cross-game toggle).
   muted: boolean;
   setMuted: (muted: boolean) => void;
+  // When on, a round ends the instant the parking-stage equation is solved
+  // (confetti celebration, then straight into the next equation) — the
+  // driving stage never plays. Per this feature's own request: a
+  // "just the math problems" mode for a child who only wants to practice
+  // приклади without the drive.
+  onlyEquations: boolean;
+  setOnlyEquations: (onlyEquations: boolean) => void;
 }
 
 export const useCarsGameStore = create<CarsGameState>()(
@@ -24,6 +31,8 @@ export const useCarsGameStore = create<CarsGameState>()(
     (set) => ({
       muted: false,
       setMuted: (muted) => set({ muted }),
+      onlyEquations: false,
+      setOnlyEquations: (onlyEquations) => set({ onlyEquations }),
     }),
     { name: "cars-game-store" },
   ),

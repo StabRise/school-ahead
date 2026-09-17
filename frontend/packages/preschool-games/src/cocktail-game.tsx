@@ -436,12 +436,54 @@ function CocktailConfetti() {
   );
 }
 
+// How long the "only equations" celebration (confetti + praise) stays on
+// screen before auto-advancing straight into the next equation — no button
+// to tap, per this feature's own request, matching the equation gate's own
+// auto-advance pacing (NEXT_STAGE_DELAY_MS) rather than the longer
+// full-recipe win celebration.
+const EQUATION_CELEBRATION_MS = 1800;
+
+// Shown in place of the recipe/shaker stage when `onlyEquations` is on —
+// the round already ended the moment the opening addition equation was
+// solved, so this is purely a congratulatory beat before CocktailRound
+// remounts fresh (see CocktailGame's roundToken) for the next przykład.
+function CocktailEquationCelebration({ onDone }: { onDone: () => void }) {
+  const t = useTranslations("CocktailGame");
+
+  useEffect(() => {
+    const timeout = setTimeout(onDone, EQUATION_CELEBRATION_MS);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="relative flex w-full flex-1 flex-col items-center justify-center gap-4 overflow-hidden py-2">
+      <CocktailConfetti />
+      <p className="z-10 text-2xl font-extrabold text-emerald-700 sm:text-3xl" style={{ animation: "score-pop 0.4s ease-out" }}>
+        {t("equationCelebrationTitle")}
+      </p>
+    </div>
+  );
+}
+
 // One full round: a fresh recipe + scattered table, played out to either a
-// win or (free mode only) a wrong-recipe retry. Remounted wholesale via a
+// win or (free mode only) a wrong-recipe retry — or, with `onlyEquations`
+// on, straight from the opening equation into a celebration and the next
+// round, skipping the recipe/shaker entirely. Remounted wholesale via a
 // `key` change (see CocktailGame below) on mode switch or "play again" —
 // simplest way to reset every bit of round state at once, same idiom
 // math-game.tsx's own doc comment credits for its runner legs.
-function CocktailRound({ mode, muted, onWin }: { mode: CocktailMode; muted: boolean; onWin: () => void }) {
+function CocktailRound({
+  mode,
+  muted,
+  onlyEquations,
+  onWin,
+}: {
+  mode: CocktailMode;
+  muted: boolean;
+  onlyEquations: boolean;
+  onWin: () => void;
+}) {
   const t = useTranslations("CocktailGame");
   const [recipe] = useState<CocktailRecipe>(generateRecipe);
   const [table] = useState<CocktailTablePiece[]>(() => buildTable(recipe));
@@ -459,6 +501,7 @@ function CocktailRound({ mode, muted, onWin }: { mode: CocktailMode; muted: bool
   // fresh recipe/equation comes with every remount, same as everything
   // else here).
   const [equationSolved, setEquationSolved] = useState(false);
+  const [celebratingEquation, setCelebratingEquation] = useState(false);
   const celebrationRef = useRef<HTMLParagraphElement>(null);
   const rewardCocktailGame = useRewardCocktailGame();
 
@@ -548,6 +591,12 @@ function CocktailRound({ mode, muted, onWin }: { mode: CocktailMode; muted: bool
   // jedną łyżkę miodu do shakera!") rather than a generic "dodaj składniki"
   // per this feature's own request.
   const handleEquationSolved = () => {
+    if (onlyEquations) {
+      playVictoryFanfare();
+      sayPl(pickPhrase(WIN_PHRASES), muted);
+      setCelebratingEquation(true);
+      return;
+    }
     setEquationSolved(true);
     saySequencePl(
       [
@@ -559,6 +608,10 @@ function CocktailRound({ mode, muted, onWin }: { mode: CocktailMode; muted: bool
       muted,
     );
   };
+
+  if (celebratingEquation) {
+    return <CocktailEquationCelebration onDone={onWin} />;
+  }
 
   if (!equationSolved) {
     return <CocktailEquationGate recipe={recipe} muted={muted} onSolved={handleEquationSolved} />;
@@ -642,8 +695,27 @@ export function CocktailGame() {
   const setMode = useCocktailGameStore((s) => s.setMode);
   const muted = useCocktailGameStore((s) => s.muted);
   const setMuted = useCocktailGameStore((s) => s.setMuted);
+  const onlyEquations = useCocktailGameStore((s) => s.onlyEquations);
+  const setOnlyEquations = useCocktailGameStore((s) => s.setOnlyEquations);
   const [roundToken, setRoundToken] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsPanelRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
   useBackgroundMusic();
+
+  // Closes the settings panel on a click/tap anywhere outside it — same
+  // pattern as cars-game.tsx's own settings panel.
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (settingsPanelRef.current?.contains(target)) return;
+      if (settingsButtonRef.current?.contains(target)) return;
+      setSettingsOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [settingsOpen]);
 
   // Warms up the Polish voice model once up front so the round's opening
   // narration (CocktailEquationGate) doesn't stall on a multi-megabyte
@@ -654,6 +726,28 @@ export function CocktailGame() {
 
   return (
     <div className="relative flex min-h-[32rem] flex-1 flex-col overflow-hidden rounded-3xl bg-gradient-to-b from-sky-100 via-emerald-50 to-lime-100 p-2 ring-4 ring-inset ring-white/90 shadow-lg sm:p-4">
+      <button
+        ref={settingsButtonRef}
+        type="button"
+        aria-label={t("settingsButton")}
+        onClick={() => setSettingsOpen((current) => !current)}
+        className="absolute left-4 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+      >
+        ⚙️
+      </button>
+
+      {settingsOpen && (
+        <div
+          ref={settingsPanelRef}
+          className="absolute left-4 top-16 z-10 flex w-60 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200"
+        >
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={onlyEquations} onChange={(e) => setOnlyEquations(e.target.checked)} />
+            <span className="font-medium text-gray-700">{t("onlyEquationsLabel")}</span>
+          </label>
+        </div>
+      )}
+
       <div className="absolute left-20 top-4 z-10 flex gap-1 rounded-full bg-white p-1 shadow-lg ring-2 ring-gray-200">
         <button
           type="button"
@@ -694,7 +788,13 @@ export function CocktailGame() {
 
       <MusicToggleButton className="absolute right-4 top-4 z-10" />
 
-      <CocktailRound key={`${mode}-${roundToken}`} mode={mode} muted={muted} onWin={() => setRoundToken((n) => n + 1)} />
+      <CocktailRound
+        key={`${mode}-${roundToken}`}
+        mode={mode}
+        muted={muted}
+        onlyEquations={onlyEquations}
+        onWin={() => setRoundToken((n) => n + 1)}
+      />
     </div>
   );
 }
