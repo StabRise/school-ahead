@@ -42,6 +42,23 @@ export interface FlashcardSetSummary {
   itemCount: number;
 }
 
+// A group's title.json may set a `language` (e.g.
+// public/static/cards/fizyka/title.json: {"title": "Fizyka", "language":
+// "pl"}) so every set under it defaults its TTS voice to that language
+// instead of the game-wide "en" fallback — still just a default, overridden
+// per group+set the moment a student picks a different one from the ⚙
+// panel (see stores/flashcard-language-store.ts). Kept as its own union
+// rather than importing @school-ahead/api-client's SpeechLanguage (a
+// browser-oriented package) so this file stays importable from server route
+// handlers; the literal values are the same set, so a FlashcardLanguage
+// value type-checks wherever a SpeechLanguage is expected.
+export const FLASHCARD_LANGUAGES = ["en", "uk", "pl", "es"] as const;
+export type FlashcardLanguage = (typeof FLASHCARD_LANGUAGES)[number];
+
+export function isFlashcardLanguage(value: unknown): value is FlashcardLanguage {
+  return typeof value === "string" && (FLASHCARD_LANGUAGES as readonly string[]).includes(value);
+}
+
 // A folder name (group or set) is used as-is from the filesystem — reject
 // anything that could escape the intended directory once interpolated into
 // a path (path separators, "..", a leading "."), same rule as

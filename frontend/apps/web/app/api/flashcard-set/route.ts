@@ -1,7 +1,7 @@
 import { readFile } from "fs/promises";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
-import { isValidFlashcardSlug, type FlashcardSet } from "@school-ahead/flashcards/types";
+import { isFlashcardLanguage, isValidFlashcardSlug, type FlashcardLanguage, type FlashcardSet } from "@school-ahead/flashcards/types";
 
 // Raw content of one set.json (docs/preschool/games/cards.md) — the direct
 // link a lesson embeds (games/cards/<group>/<set>) reads this on load.
@@ -21,14 +21,23 @@ const CARDS_DIR = path.join(process.cwd(), "public", "static", "cards");
 const TITLE_FILE = "title.json";
 const SET_FILE = "set.json";
 
-async function readGroupTitle(groupDir: string): Promise<string | null> {
+interface GroupMeta {
+  title: string | null;
+  // The group's default TTS language (title.json's optional `language`,
+  // e.g. fizyka/title.json: {"language": "pl"}) — see FlashcardLanguage.
+  language: FlashcardLanguage | null;
+}
+
+async function readGroupMeta(groupDir: string): Promise<GroupMeta> {
   const content = await readFile(path.join(groupDir, TITLE_FILE), "utf-8").catch(() => null);
-  if (content === null) return null;
+  if (content === null) return { title: null, language: null };
   try {
-    const parsed = JSON.parse(content) as { title?: unknown };
-    return typeof parsed.title === "string" && parsed.title.length > 0 ? parsed.title : null;
+    const parsed = JSON.parse(content) as { title?: unknown; language?: unknown };
+    const title = typeof parsed.title === "string" && parsed.title.length > 0 ? parsed.title : null;
+    const language = isFlashcardLanguage(parsed.language) ? parsed.language : null;
+    return { title, language };
   } catch {
-    return null;
+    return { title: null, language: null };
   }
 }
 
@@ -64,11 +73,11 @@ export async function GET(request: NextRequest) {
   const group = request.nextUrl.searchParams.get("group");
   const set = request.nextUrl.searchParams.get("set");
   if (!group || !set || !isValidFlashcardSlug(group) || !isValidFlashcardSlug(set)) {
-    return NextResponse.json({ groupTitle: null, set: null });
+    return NextResponse.json({ groupTitle: null, groupLanguage: null, set: null });
   }
 
   const groupDir = path.join(CARDS_DIR, group);
-  const [groupTitle, parsedSet] = await Promise.all([readGroupTitle(groupDir), readSet(path.join(groupDir, set))]);
+  const [groupMeta, parsedSet] = await Promise.all([readGroupMeta(groupDir), readSet(path.join(groupDir, set))]);
 
-  return NextResponse.json({ groupTitle, set: parsedSet });
+  return NextResponse.json({ groupTitle: groupMeta.title, groupLanguage: groupMeta.language, set: parsedSet });
 }

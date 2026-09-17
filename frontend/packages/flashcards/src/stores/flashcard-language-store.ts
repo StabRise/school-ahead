@@ -33,10 +33,15 @@ export const useFlashcardLanguageStore = create<FlashcardLanguageState>()(
   ),
 );
 
+// `fallback` is the group's own title.json-declared default (see
+// FlashcardLanguage in lib/flashcard-types.ts) when the group set one —
+// only used until the student picks a language of their own for this
+// group+set, at which point the persisted choice always wins.
 export function getFlashcardLanguage(
   languageByCardSet: Record<string, SpeechLanguage>,
   group: string,
   set: string,
+  fallback: SpeechLanguage = DEFAULT_LANGUAGE,
 ): SpeechLanguage {
-  return languageByCardSet[flashcardLanguageKey(group, set)] ?? DEFAULT_LANGUAGE;
+  return languageByCardSet[flashcardLanguageKey(group, set)] ?? fallback;
 }

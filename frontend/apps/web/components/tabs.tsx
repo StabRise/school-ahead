@@ -27,20 +27,30 @@ const tabClassName = (isActive: boolean) =>
 //
 // Uncontrolled by default (own `active` state, starting at `defaultValue`).
 // Pass `value` to control which tab is active from outside — required when
-// any tab has an `href`, since then the route itself decides which panel
-// is open rather than in-page clicks.
+// any tab has an `href` (the route itself decides which panel is open
+// rather than in-page clicks), and also usable with plain (non-`href`)
+// tabs by pairing it with `onValueChange` — e.g. the Subject detail pages'
+// `?tab=...` sync (lib/use-tab-query-param.ts) — so a click both flips the
+// active panel and lets the caller mirror it into the URL.
 export function Tabs({
   tabs,
   defaultValue,
   value,
+  onValueChange,
 }: {
   tabs: TabItem[];
   defaultValue?: string;
   value?: string;
+  onValueChange?: (value: string) => void;
 }) {
   const [uncontrolledActive, setUncontrolledActive] = useState(defaultValue ?? tabs[0]?.value);
   const active = value ?? uncontrolledActive;
   const activeTab = tabs.find((tab) => tab.value === active) ?? tabs[0];
+
+  const selectTab = (next: string) => {
+    if (onValueChange) onValueChange(next);
+    else setUncontrolledActive(next);
+  };
 
   return (
     <div>
@@ -57,7 +67,7 @@ export function Tabs({
               type="button"
               role="tab"
               aria-selected={isActive}
-              onClick={() => setUncontrolledActive(tab.value)}
+              onClick={() => selectTab(tab.value)}
               className={tabClassName(isActive)}
             >
               {tab.label}

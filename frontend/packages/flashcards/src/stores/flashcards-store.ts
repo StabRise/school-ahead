@@ -28,6 +28,11 @@ interface FlashcardsState {
   // start speaking unexpectedly.
   soundEnabled: boolean;
   setSoundEnabled: (value: boolean) => void;
+  // Collapsed state of the wide-screen-only topic sidebar (Навчання/Тест —
+  // see FlashcardTopicSidebar) — open by default, same as every other
+  // panel in this game.
+  topicSidebarCollapsed: boolean;
+  setTopicSidebarCollapsed: (value: boolean) => void;
 }
 
 export const useFlashcardsStore = create<FlashcardsState>()(
@@ -43,6 +48,8 @@ export const useFlashcardsStore = create<FlashcardsState>()(
       setFlipOrientation: (flipOrientation) => set({ flipOrientation }),
       soundEnabled: false,
       setSoundEnabled: (soundEnabled) => set({ soundEnabled }),
+      topicSidebarCollapsed: false,
+      setTopicSidebarCollapsed: (topicSidebarCollapsed) => set({ topicSidebarCollapsed }),
     }),
     { name: "flashcards-store" },
   ),

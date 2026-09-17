@@ -58,6 +58,7 @@ import { groupTasksByTopicId, TaskListSection } from "@/components/subjects/task
 import { LESSON_TYPE_ICON, LESSON_TYPE_ICON_COLOR } from "@/components/simple/lesson-type-icon";
 import { formatGradeLabel, formatShortDate } from "@/components/simple/format";
 import { StatusBadge } from "@/components/status-badge";
+import { useTabQueryParam } from "@/lib/use-tab-query-param";
 import { AssignStudentDialog } from "./assign-student-dialog";
 import { LessonEditorDialog } from "./lesson-editor-dialog";
 import { LoadLessonsJsonDialog } from "./load-lessons-json-dialog";
@@ -731,6 +732,7 @@ function TopicSection({
 export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
   const t = useTranslations("TutorSubjectDetail");
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useTabQueryParam("lessons");
 
   const subjectQuery = useGetSubject(subjectId);
   const topicsQuery = useListSubjectTopics(subjectId);
@@ -965,6 +967,8 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
         </div>
 
         <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
           tabs={[
             {
               value: "lessons",
