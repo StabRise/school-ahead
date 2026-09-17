@@ -65,7 +65,17 @@ function AssetThumb({ asset, isUsed, usedLabel }: { asset: StoryAssetOut; isUsed
   );
 }
 
-function AssetRow({ storyId, asset, isUsed }: { storyId: number; asset: StoryAssetOut; isUsed: boolean }) {
+function AssetRow({
+  storyId,
+  asset,
+  isUsed,
+  onDeleted,
+}: {
+  storyId: number;
+  asset: StoryAssetOut;
+  isUsed: boolean;
+  onDeleted: (assetId: number) => void;
+}) {
   const t = useTranslations("TutorStories");
   const queryClient = useQueryClient();
   const deleteAsset = useDeleteTutorPreschoolStoryAsset();
@@ -73,7 +83,12 @@ function AssetRow({ storyId, asset, isUsed }: { storyId: number; asset: StoryAss
   const handleDelete = () => {
     deleteAsset.mutate(
       { storyId, assetId: asset.id },
-      { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetTutorPreschoolStoryQueryKey(storyId) }) },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetTutorPreschoolStoryQueryKey(storyId) });
+          onDeleted(asset.id);
+        },
+      },
     );
   };
 
@@ -112,14 +127,23 @@ function AssetRow({ storyId, asset, isUsed }: { storyId: number; asset: StoryAss
 // image/audio/video uploaded for this story, each draggable straight into
 // the content textarea (see story-markdown-editor.tsx's onDrop). Uploading
 // takes any number of files at once via FileDropzone's `multiple`.
+//
+// `onAssetsChange` patches the parent's own `savedStory.assets` copy
+// directly with the mutation's result — invalidating the story query alone
+// doesn't repaint this list, since story-editor-page.tsx's StoryForm keeps
+// `savedStory` in local state (seeded once from the query, not resubscribed
+// to it), so an upload/delete only showed up here after a full page reload
+// before this.
 export function StoryAssetSidebar({
   storyId,
   assets,
   content,
+  onAssetsChange,
 }: {
   storyId: number;
   assets: StoryAssetOut[];
   content: string;
+  onAssetsChange: (assets: StoryAssetOut[]) => void;
 }) {
   const t = useTranslations("TutorStories");
   const queryClient = useQueryClient();
@@ -129,7 +153,12 @@ export function StoryAssetSidebar({
     if (!files || files.length === 0) return;
     createAssets.mutate(
       { storyId, data: { files: Array.from(files) } },
-      { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetTutorPreschoolStoryQueryKey(storyId) }) },
+      {
+        onSuccess: (created) => {
+          queryClient.invalidateQueries({ queryKey: getGetTutorPreschoolStoryQueryKey(storyId) });
+          onAssetsChange([...assets, ...created]);
+        },
+      },
     );
   };
 
@@ -151,7 +180,13 @@ export function StoryAssetSidebar({
       ) : (
         <ul className="flex flex-col gap-2">
           {assets.map((asset) => (
-            <AssetRow key={asset.id} storyId={storyId} asset={asset} isUsed={content.includes(asset.url)} />
+            <AssetRow
+              key={asset.id}
+              storyId={storyId}
+              asset={asset}
+              isUsed={content.includes(asset.url)}
+              onDeleted={(assetId) => onAssetsChange(assets.filter((a) => a.id !== assetId))}
+            />
           ))}
         </ul>
       )}
