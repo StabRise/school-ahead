@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
+import katex from "katex";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -42,6 +43,20 @@ export function DefinitionMarkdown({ content }: { content: string }) {
       </ReactMarkdown>
     </div>
   );
+}
+
+// A card's `formula` (docs/preschool/games/cards.md) is raw LaTeX (e.g.
+// "g \\approx 10 \\, \\text{m/s}^2"), rendered directly via KaTeX rather
+// than through DefinitionMarkdown's $...$/$$...$$-delimited Markdown
+// pipeline — the whole field is always math, never prose with formulas
+// mixed in. `throwOnError: false` degrades to KaTeX's own inline error
+// span (in red) instead of crashing the card on a typo in the source JSON.
+export function FormulaMath({ content }: { content: string }) {
+  const html = useMemo(
+    () => katex.renderToString(content, { throwOnError: false, displayMode: true }),
+    [content],
+  );
+  return <span className="[&_.katex-display]:!my-0" dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
 // Renders one face's worth of a card (docs/preschool/games/cards.md) —
@@ -111,6 +126,17 @@ export function CardFaceContent({
           }
         >
           <DefinitionMarkdown content={item.definition} />
+        </div>
+      )}
+      {shown.has("formula") && item.formula && (
+        <div
+          className={
+            size === "lg"
+              ? "rounded-md bg-slate-100 px-3 py-1.5 text-slate-800 dark:bg-slate-800 dark:text-slate-100"
+              : "rounded bg-slate-100 px-2 py-1 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100"
+          }
+        >
+          <FormulaMath content={item.formula} />
         </div>
       )}
     </div>

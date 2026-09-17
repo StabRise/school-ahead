@@ -7,7 +7,7 @@ import { Check, Flag } from "lucide-react";
 import type { FlashcardCategory, FlashcardItem } from "./lib/flashcards";
 import type { FlashcardStatus } from "./stores/flashcard-progress-store";
 import { playDifficultSound, playKnowSound } from "./lib/flashcard-sounds";
-import { DefinitionMarkdown } from "./card-face-content";
+import { DefinitionMarkdown, FormulaMath } from "./card-face-content";
 
 type ListFilter = "all" | "known" | "difficult";
 
@@ -80,6 +80,11 @@ function FlashcardTermRow({
         {item.definition && (
           <div className="mt-0.5 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
             <DefinitionMarkdown content={item.definition} />
+          </div>
+        )}
+        {item.formula && (
+          <div className="mt-0.5 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            <FormulaMath content={item.formula} />
           </div>
         )}
       </div>

@@ -60,7 +60,8 @@ public/static/cards/
             "term": "Potęga",
             "translation": "Степінь",
             "image": "img/potęga.jpeg",
-            "definition": "Wynik wielokrotnego mnożenia liczby przez samą siebie."
+            "definition": "Wynik wielokrotnego mnożenia liczby przez samą siebie.",
+            "formula": "g \\approx 10\\ \\text{m/s}^2 = 10\\ \\text{N/kg}"
           }
         ]
       }
@@ -72,8 +73,9 @@ public/static/cards/
 - `categories` are the deck's topics (розділ/тема) — each becomes an entry
   in the topic filter, and the quiz uses category membership to pick
   same-topic distractors (see §5).
-- Every item field except `term` is optional: `translation`, `image`, and
-  `definition` may be omitted. `id` is accepted but not trusted —
+- Every item field except `term` is optional: `translation`, `image`,
+  `definition`, and `formula` may be omitted. `id` is accepted but not
+  trusted —
   `/api/flashcard-set` renumbers every item sequentially server-side
   regardless of what (if anything) the JSON provides, since nothing else
   needs the author's original id to be stable and some sets in practice
@@ -87,6 +89,14 @@ public/static/cards/
   `remark-gfm`) — rendered without the shared `Markdown` component's
   `.prose` wrapper (which isn't dark-mode aware), so it inherits whatever
   color/size the card face already set.
+- `formula` is raw LaTeX (e.g. `"g \\approx 10\\ \\text{m/s}^2 = 10\\
+  \\text{N/kg}"`), rendered directly via KaTeX in display mode — unlike
+  `definition`, the whole field is always math, so it's not wrapped in
+  `$...$`/`$$...$$` delimiters the way an inline formula inside a
+  `definition` would be. Use it for a physics/math constant or equation
+  that belongs on the card alongside (or instead of) a prose `definition`;
+  an invalid LaTeX source renders KaTeX's own inline error text rather than
+  breaking the card.
 
 Adding a new group or set is purely a filesystem change — drop the folder
 in, no code change, no build step, no manifest to update elsewhere.
@@ -172,10 +182,10 @@ sections:
 - **Тема** — the topic filter described above.
 - **Картка** — two independent checkbox groups, "Лицева сторона" (front)
   and "Зворотна сторона" (back), each offering Термін (term) / Переклад
-  (translation) / Зображення (image) / Означення (definition). At least
-  one box per side must stay checked. Both game modes render through the
-  same `CardFaceContent` component, so this one choice applies to Навчання
-  and Тест alike.
+  (translation) / Зображення (image) / Означення (definition) / Формула
+  (formula). At least one box per side must stay checked. Both game modes
+  render through the same `CardFaceContent` component, so this one choice
+  applies to Навчання and Тест alike.
 
 If a card is missing a field the student checked for a given side (e.g.
 "translation" checked, but this particular card has none), that face falls

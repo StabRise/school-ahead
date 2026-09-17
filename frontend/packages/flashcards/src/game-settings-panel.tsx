@@ -20,6 +20,7 @@ const FIELD_LABEL_KEY: Record<CardField, string> = {
   translation: "fieldTranslation",
   image: "fieldImage",
   definition: "fieldDefinition",
+  formula: "fieldFormula",
 };
 
 function toggleField(config: CardFaceConfig, field: CardField): CardFaceConfig {

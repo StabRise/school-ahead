@@ -10,6 +10,9 @@ export interface FlashcardItem {
   translation?: string;
   image?: string;
   definition?: string;
+  // A formula (e.g. "g ≈ 10 m/s² = 10 N/kg") — plain text, shown alongside
+  // definition rather than through DefinitionMarkdown since it's not prose.
+  formula?: string;
   // Relative path (resolved via flashcardSoundUrl) to a pre-recorded mp3 of
   // the term — played instead of TTS when present and reachable (see
   // lib/flashcard-speech.ts).
