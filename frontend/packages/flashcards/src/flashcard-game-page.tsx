@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, Layers, List, ListChecks, Printer } from "lucide-react";
+import type { SpeechLanguage } from "@school-ahead/api-client";
 import { LocaleLink as Link } from "./kit/locale-link";
 import { PageShell as SimplePageContainer } from "./kit/page-shell";
 import { flashcardImageUrl, flashcardSoundUrl, useFlashcardSet, type FlashcardItem } from "./lib/flashcards";
@@ -16,6 +17,7 @@ import { useFlashcardsStore } from "./stores/flashcards-store";
 import { useFlashcardQuizResultsStore } from "./stores/flashcard-quiz-results-store";
 import { flashcardProgressKey, useFlashcardProgressStore, type FlashcardStatus } from "./stores/flashcard-progress-store";
 import { flashcardTopicKey, useFlashcardTopicStore } from "./stores/flashcard-topic-store";
+import { getFlashcardLanguage, useFlashcardLanguageStore } from "./stores/flashcard-language-store";
 
 const ALL_TOPICS = "all";
 
@@ -94,8 +96,18 @@ export function FlashcardGamePage({ group, set }: { group: string; set: string }
   const setFlipOrientation = useFlashcardsStore((s) => s.setFlipOrientation);
   const soundEnabled = useFlashcardsStore((s) => s.soundEnabled);
   const setSoundEnabled = useFlashcardsStore((s) => s.setSoundEnabled);
-  const ttsLanguage = useFlashcardsStore((s) => s.ttsLanguage);
-  const setTtsLanguage = useFlashcardsStore((s) => s.setTtsLanguage);
+
+  // Persisted (localStorage) but specific to this group+set — same reasoning
+  // as topicByCardSet above, since one set's term language (e.g. "math/7
+  // klasa" in Polish, "hisp/start" in Spanish) has nothing to do with
+  // another's — see stores/flashcard-language-store.ts.
+  const languageByCardSet = useFlashcardLanguageStore((s) => s.languageByCardSet);
+  const setLanguageForCardSet = useFlashcardLanguageStore((s) => s.setLanguage);
+  const ttsLanguage = getFlashcardLanguage(languageByCardSet, group, set);
+  const setTtsLanguage = useCallback(
+    (language: SpeechLanguage) => setLanguageForCardSet(group, set, language),
+    [setLanguageForCardSet, group, set],
+  );
   const addQuizAttempt = useFlashcardQuizResultsStore((s) => s.addAttempt);
 
   // "Знаю"/"Складно" marks, persisted per group+set+card — see

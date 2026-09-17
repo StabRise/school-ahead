@@ -131,10 +131,9 @@ function matchesFilter(status: FlashcardStatus | undefined, filter: ListFilter):
 // every card grouped by topic, laid out like the subject detail page's
 // lesson list (components/subjects/simple-subject-detail-page.tsx: a small
 // muted topic label, then a plain divided row list) rather than as
-// one-at-a-time cards. Marking Знаю/Складно here toggles (unlike
-// FlashcardLearnDeck's one-way buttons) since there's no separate
-// "Повторити" control in a list — clicking an already-active mark clears
-// it.
+// one-at-a-time cards. Marking Знаю/Складно here toggles, same as
+// FlashcardLearnDeck's handleKnow/handleDifficult — clicking an
+// already-active mark clears it.
 export function FlashcardTermsList({
   categories,
   resolveImage,
