@@ -43,9 +43,13 @@ function UsedBadge({ isUsed, label }: { isUsed: boolean; label: string }) {
 function AssetThumb({ asset, isUsed, usedLabel }: { asset: StoryAssetOut; isUsed: boolean; usedLabel: string }) {
   if (IMAGE_RE.test(asset.url)) {
     return (
-      <span className="relative inline-flex shrink-0">
+      <span className="relative z-0 inline-flex shrink-0 hover:z-20">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={asset.url} alt="" className="h-10 w-10 rounded object-cover" />
+        <img
+          src={asset.url}
+          alt=""
+          className="h-10 w-10 origin-left rounded object-cover shadow-none transition-transform duration-150 hover:scale-[3] hover:shadow-xl"
+        />
         <UsedBadge isUsed={isUsed} label={usedLabel} />
       </span>
     );

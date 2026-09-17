@@ -66,56 +66,6 @@ export function compareSyllables(a: string, b: string): number {
   return vowelRank(a) - vowelRank(b) || a.localeCompare(b, "uk");
 }
 
-// The pedagogical consonant order the reading minigame introduces levels in
-// (docs/preschool/games/reading/README.md §3: "спочатку М Т Б С К Л В Г Р Н
-// П а далі всі інші приголосні укр мови") — used both for the level (mode)
-// picker's ordering and for "next letter" once a level is cleared. A
-// consonant not listed here (a folder added later) sorts alphabetically
-// after every listed one.
-const CONSONANT_ORDER = ["М", "Т", "Б", "С", "К", "Л", "В", "Г", "Р", "Н", "П"];
-
-export function sortConsonants(consonants: string[]): string[] {
-  return [...consonants].sort((a, b) => {
-    const rankA = CONSONANT_ORDER.indexOf(a);
-    const rankB = CONSONANT_ORDER.indexOf(b);
-    if (rankA === -1 && rankB === -1) return a.localeCompare(b, "uk");
-    if (rankA === -1) return 1;
-    if (rankB === -1) return -1;
-    return rankA - rankB;
-  });
-}
-
-let consonantsPromise: Promise<string[]> | null = null;
-
-function fetchConsonants(): Promise<string[]> {
-  if (!consonantsPromise) {
-    consonantsPromise = fetch("/api/reading-game-modes")
-      .then((res) => res.json())
-      .then((data: { consonants: string[] }) => data.consonants)
-      .catch(() => []);
-  }
-  return consonantsPromise;
-}
-
-// The reading minigame's full consonant (level) list — every subfolder of
-// public/static/letters, fetched once and cached module-wide. Empty
-// until the fetch resolves.
-export function useReadingGameConsonants(): string[] {
-  const [consonants, setConsonants] = useState<string[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetchConsonants().then((result) => {
-      if (!cancelled) setConsonants(result);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return consonants;
-}
-
 interface ReadingGameLevelData {
   cards: ReadingGameCard[];
   syllableSounds: ReadingGameSyllableSounds;

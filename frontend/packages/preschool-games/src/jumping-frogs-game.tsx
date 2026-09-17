@@ -1,16 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, TransitionEvent } from "react";
 import { useTranslations } from "next-intl";
 import { useRewardJumpingFrogs } from "@school-ahead/api-client/browser/auth/auth";
 import { prefetchVoice, speak, warmupSpeech } from "@school-ahead/api-client";
-import {
-  playCardSound,
-  useReadingGameConsonants,
-  useReadingGameLevel,
-  type ReadingGameCard,
-} from "./lib/reading-game";
+import { playCardSound, useReadingGameLevel, type ReadingGameCard } from "./lib/reading-game";
 import {
   buildLetterLevel,
   buildLevel,
@@ -23,6 +18,7 @@ import {
 import { WordCardRow } from "./lib/syllable-card";
 import { useJumpingFrogsStore, type JumpingFrogsDifficulty } from "./stores/jumping-frogs-store";
 import { useBackgroundMusic } from "./lib/use-background-music";
+import { useAlphabeticalConsonants } from "./kit/use-alphabetical-consonants";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { playCelebrationChime, playFrogJumpSound, playFrogMissSound } from "./kit/sound-effects";
 import { MusicToggleButton } from "./kit/music-toggle-button";
@@ -983,15 +979,7 @@ export function JumpingFrogsGame() {
   const muted = useJumpingFrogsStore((s) => s.muted);
   const setMuted = useJumpingFrogsStore((s) => s.setMuted);
 
-  // Unlike reading-game.tsx/cards-game.tsx (whose consonant lists drive a
-  // pedagogical difficulty progression, see sortConsonants), this game's
-  // settings dropdown is a free pick with no progression baked in, so it
-  // lists the consonants in plain Ukrainian alphabetical (abetka) order.
-  const rawConsonants = useReadingGameConsonants();
-  const consonants = useMemo(
-    () => [...rawConsonants].sort((a, b) => a.localeCompare(b, "uk")),
-    [rawConsonants],
-  );
+  const consonants = useAlphabeticalConsonants("/api/reading-game-modes");
 
   // A consonant persisted from an earlier session might no longer be
   // ready to play — fall back to the first available one, same self-heal

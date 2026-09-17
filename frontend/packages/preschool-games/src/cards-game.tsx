@@ -5,9 +5,10 @@ import { useTranslations } from "next-intl";
 import { useRewardCardsGame } from "@school-ahead/api-client/browser/auth/auth";
 import { BalloonLearningCards, type LearningCard } from "./balloon-learning-cards";
 import { prefetchVoice, speakSequence, warmupSpeech } from "@school-ahead/api-client";
-import { sortConsonants, useCardsGameConsonants, useCardsGameLevel, type CardsGameCard } from "./lib/cards-game";
+import { useCardsGameLevel, type CardsGameCard } from "./lib/cards-game";
 import { useCardsGameStore } from "./stores/cards-game-store";
 import { useBackgroundMusic } from "./lib/use-background-music";
+import { useAlphabeticalConsonants } from "./kit/use-alphabetical-consonants";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { playCelebrationChime, playMatchSound, playMissSound } from "./kit/sound-effects";
 import { MusicToggleButton } from "./kit/music-toggle-button";
@@ -458,8 +459,7 @@ export function CardsGame() {
   const screenMode = useCardsGameStore((s) => s.screenMode);
   const setScreenMode = useCardsGameStore((s) => s.setScreenMode);
 
-  const rawConsonants = useCardsGameConsonants();
-  const consonants = useMemo(() => sortConsonants(rawConsonants), [rawConsonants]);
+  const consonants = useAlphabeticalConsonants("/api/cards-game-modes");
   const cards = useCardsGameLevel(consonant);
 
   // A consonant persisted from an earlier session might no longer be ready

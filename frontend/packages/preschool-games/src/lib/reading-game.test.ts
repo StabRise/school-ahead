@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareSyllables, selectLevel, sortConsonants, type ReadingGameCard } from "./reading-game";
+import { compareSyllables, selectLevel, type ReadingGameCard } from "./reading-game";
 
 const CARDS: ReadingGameCard[] = [
   { key: "Мавпа", image: "/Мавпа.png", syllable: "МА", sound: null },
@@ -74,11 +74,5 @@ describe("selectLevel", () => {
     expect([...syllables].sort()).toEqual(["МА", "МЕ"]);
     expect(cards).toHaveLength(3);
     expect(cards.some((c) => c.syllable === "МЕ")).toBe(true);
-  });
-});
-
-describe("sortConsonants", () => {
-  it("orders the pedagogical consonants first, then unlisted ones alphabetically", () => {
-    expect(sortConsonants(["П", "Т", "Ж", "М", "Б"])).toEqual(["М", "Т", "Б", "П", "Ж"]);
   });
 });

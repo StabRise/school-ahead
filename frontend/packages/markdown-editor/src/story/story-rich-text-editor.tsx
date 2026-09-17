@@ -38,7 +38,7 @@ function buildImageChip(
   chip.contentEditable = "false";
   chip.draggable = true;
   chip.dataset.imageUrl = url;
-  chip.className = "relative mx-0.5 inline-block cursor-grab align-middle active:cursor-grabbing";
+  chip.className = "relative z-0 mx-0.5 inline-block cursor-grab align-middle hover:z-20 active:cursor-grabbing";
 
   chip.addEventListener("dragstart", (e) => {
     // Same "{ <url> }" shape story-asset-sidebar.tsx's drag payload uses, so
@@ -54,7 +54,8 @@ function buildImageChip(
   img.src = url;
   img.alt = "";
   img.draggable = false; // let the chip (not the browser's native image drag) own dragstart
-  img.className = "inline-block h-14 w-auto rounded object-contain align-middle shadow";
+  img.className =
+    "inline-block h-28 w-auto origin-left rounded object-contain align-middle shadow transition-transform duration-150 hover:scale-[3] hover:shadow-xl";
   chip.appendChild(img);
 
   const removeButton = document.createElement("button");

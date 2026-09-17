@@ -8,14 +8,13 @@ import {
   playCardSound,
   playSyllableSound,
   selectLevel,
-  sortConsonants,
-  useReadingGameConsonants,
   useReadingGameLevel,
   type ReadingGameCard,
   type ReadingGameSyllableSounds,
 } from "./lib/reading-game";
 import { MAX_SYLLABLE_COUNT, MIN_SYLLABLE_COUNT, useReadingGameStore } from "./stores/reading-game-store";
 import { useBackgroundMusic } from "./lib/use-background-music";
+import { useAlphabeticalConsonants } from "./kit/use-alphabetical-consonants";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { playCelebrationChime, playMatchSound, playMissSound } from "./kit/sound-effects";
 import { MusicToggleButton } from "./kit/music-toggle-button";
@@ -413,8 +412,7 @@ export function ReadingGame() {
   const muted = useReadingGameStore((s) => s.muted);
   const setMuted = useReadingGameStore((s) => s.setMuted);
 
-  const rawConsonants = useReadingGameConsonants();
-  const consonants = useMemo(() => sortConsonants(rawConsonants), [rawConsonants]);
+  const consonants = useAlphabeticalConsonants("/api/reading-game-modes");
   const { cards: levelCards, syllableSounds } = useReadingGameLevel(consonant);
   const { syllables, cards } = useMemo(() => selectLevel(levelCards, syllableCount), [levelCards, syllableCount]);
 
