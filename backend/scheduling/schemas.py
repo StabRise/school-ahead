@@ -74,6 +74,13 @@ class RescheduleIn(Schema):
 class SubjectLessonsIn(Schema):
     subject_id: int
     lessons_count: int = 0
+    # "Рендомні уроки" checkbox on the Plan Lessons popup — picks
+    # `lessons_count` not-yet-assigned lessons of this subject at random
+    # (instead of the next ones in topic/lesson order_index order) and
+    # hands them out to days in that random order too, rather than
+    # re-sorted back into curriculum order. See
+    # services.generate_class_schedule.
+    randomize: bool = False
 
 
 class GenerateClassScheduleIn(Schema):

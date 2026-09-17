@@ -206,7 +206,6 @@
     "screenModeGameHint": "Перевірка знань",
     "screenModeLearning": "Навчання",
     "targetLabel": "Знайди: {syllable}",
-    "replaySoundLabel": "Повторити звук",
     "scoreLabel": "Правильних відповідей: {count}"
   },
   "StoriesGame": {
@@ -256,7 +255,6 @@
     "randomLetterLabel": "Випадкова буква",
     "mutedLabel": "Без звуку",
     "targetLabel": "Знайди: {word}",
-    "replaySoundLabel": "Повторити звук",
     "levelsClearedLabel": "Рівнів пройдено: {count}",
     "celebrationTitle": "Ура! Жабка перестрибнула річку!",
     "noWordsMessage": "Для цієї букви поки що немає слів"
@@ -395,7 +393,8 @@
     "columnLesson": "Урок",
     "columnDate": "Дата",
     "columnGrade": "Оцінка",
-    "columnStatus": "Статус"
+    "columnStatus": "Статус",
+    "markCompleteLabel": "Позначити виконаним"
   },
   "TutorDashboard": {
     "title": "Панель тьютора",
@@ -484,6 +483,8 @@
     "loading": "Завантаження...",
     "noSubjects": "Ви ще не викладаєте жодного предмета в цьому класі.",
     "lessonsCountSuffix": "уроків",
+    "randomLessonsLabel": "Рендомні уроки",
+    "randomLessonsHint": "Уроки обираються та розподіляються по днях у випадковому порядку, а не по порядку теми.",
     "infoNote": "Систему рівномірно розподілить уроки за період, мінімізуючи повторення одного предмета в один день, де це можливо. Якщо частина уроків предмета вже запланована пізніше в календарі, вони будуть перенесені разом з новими, щоб зберегти правильний порядок.",
     "generateError": "Не вдалося згенерувати розклад. Спробуйте ще раз.",
     "cancelButton": "Скасувати",
@@ -583,6 +584,7 @@
     "expandTopicButton": "Розгорнути тему",
     "collapseTopicButton": "Згорнути тему",
     "lessonReorderError": "Не вдалося змінити порядок уроків. Спробуйте ще раз.",
+    "shuffleLessonsButton": "Перемішати уроки",
     "noStudentsAssigned": "Не призначено жодному учню",
     "notAssignedToStudent": "Не призначено",
     "assignToStudentButton": "Призначити учню",

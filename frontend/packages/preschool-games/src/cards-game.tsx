@@ -378,20 +378,20 @@ function CardsFallingGame({ cards, muted }: { cards: CardsGameCard[]; muted: boo
         // settings button in the top-left corner, which shares this same
         // top-4 row and would otherwise never receive the tap.
         <div className="pointer-events-none absolute inset-x-0 top-4 z-10 flex justify-center">
-          <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-white px-6 py-3 shadow-lg ring-2 ring-gray-200">
-            <span aria-label={t("targetLabel", { syllable: target.syllable })} className="font-extrabold text-5xl">
+          {/* The target pill itself is the replay control (cursor: pointer)
+              — no separate "🔊 repeat sound" button next to it any more,
+              same as jumping-frogs-game.tsx's TargetHeaderBar. */}
+          <button
+            type="button"
+            onClick={() => speakTarget(target)}
+            aria-label={t("targetLabel", { syllable: target.syllable })}
+            className="pointer-events-auto flex cursor-pointer items-center gap-3 rounded-full bg-white px-6 py-3 shadow-lg ring-2 ring-gray-200"
+          >
+            <span className="font-extrabold text-5xl">
               <span style={{ color: "#0369a1" }}>{target.syllable[0]}</span>
               <span style={{ color: "#dc2626" }}>{target.syllable[1]}</span>
             </span>
-            <button
-              type="button"
-              aria-label={t("replaySoundLabel")}
-              onClick={() => speakTarget(target)}
-              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-sky-50 text-lg"
-            >
-              🔊
-            </button>
-          </div>
+          </button>
         </div>
       )}
 

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, TransitionEvent } from "react";
 import { useTranslations } from "next-intl";
 import { useRewardJumpingFrogs } from "@school-ahead/api-client/browser/auth/auth";
-import { prefetchVoice, speak, warmupSpeech } from "@school-ahead/api-client";
+import { prefetchVoice, speak, speakSequence, warmupSpeech } from "@school-ahead/api-client";
 import { playCardSound, useReadingGameLevel, type ReadingGameCard } from "./lib/reading-game";
 import {
   buildLetterLevel,
@@ -330,6 +330,7 @@ function LilyPadRow({
   difficulty,
   rowHeight,
   onCorrect,
+  onWrongTap,
 }: {
   row: JumpingFrogsRow;
   active: boolean;
@@ -337,17 +338,28 @@ function LilyPadRow({
   difficulty: JumpingFrogsDifficulty;
   rowHeight: number;
   onCorrect: (column: 0 | 1 | 2) => void;
+  // Reads the tapped card aloud, then plays the comic "пук" miss sound —
+  // the card only disappears (setEliminated below) once that's done, so a
+  // wrong tap always gets read before its lily pad goes bare.
+  onWrongTap: (card: ReadingGameCard) => Promise<void>;
 }) {
   const [eliminated, setEliminated] = useState<Set<0 | 1 | 2>>(new Set());
+  // Tracked in a ref, not state — blocks a second tap on the same column
+  // while its read-then-miss sequence is still playing, without needing a
+  // render (and without hiding the card early the way adding it to
+  // `eliminated` right away would).
+  const pendingRef = useRef<Set<0 | 1 | 2>>(new Set());
 
   const handleTap = (column: 0 | 1 | 2) => {
-    if (!active || eliminated.has(column)) return;
+    if (!active || eliminated.has(column) || pendingRef.current.has(column)) return;
     if (column === row.correctIndex) {
       onCorrect(column);
       return;
     }
-    playFrogMissSound();
-    setEliminated((prev) => new Set(prev).add(column));
+    pendingRef.current.add(column);
+    void onWrongTap(row.options[column]).then(() => {
+      setEliminated((prev) => new Set(prev).add(column));
+    });
   };
 
   return (
@@ -496,6 +508,7 @@ function PondColumn({
   cameraSlot,
   activeRowIndex,
   onTapRow,
+  onWrongTap,
   onJumpEnd,
   onPanEnd,
 }: {
@@ -509,6 +522,7 @@ function PondColumn({
   // gets a fresh mount (see FrogSprite's header comment for why).
   jumpToken: number;
   cameraSlot: number;
+  onWrongTap: (card: ReadingGameCard) => Promise<void>;
   // Which row array index currently accepts taps — -1 while the frog is
   // mid-jump/pan, so a stray tap on the row it just left (or is about to
   // land on) can't sneak in a bonk/jump before the animation settles.
@@ -558,6 +572,7 @@ function PondColumn({
               difficulty={difficulty}
               rowHeight={rowHeight}
               onCorrect={(column) => onTapRow(rowIndex, column)}
+              onWrongTap={onWrongTap}
             />
           </div>
         ))}
@@ -596,9 +611,18 @@ function TargetHeaderBar({
 
   return (
     <div className="flex items-center justify-center gap-3 py-3">
-      <div
+      {/* The target card itself is the replay control — tapping it (cursor:
+          pointer via `cursor-pointer`) reads the word aloud, so there's no
+          separate "🔊 repeat sound" button alongside it any more. Always
+          functional (unlike the level's automatic narration, which respects
+          `muted`) — a "read it to me" affordance should work on tap
+          regardless, same as every other game's own replay button (e.g.
+          cards-game.tsx's CardsFallingGame, which isn't muted-gated either). */}
+      <button
+        type="button"
+        onClick={onReplay}
         aria-label={t("targetLabel", { word: target.key })}
-        className="flex items-center gap-3 rounded-full bg-white px-4 py-2 shadow-lg ring-2 ring-gray-200"
+        className="flex cursor-pointer items-center gap-3 rounded-full bg-white px-4 py-2 shadow-lg ring-2 ring-gray-200"
       >
         {/* Levels 1/2's letters/syllables are synthesized, not drawn from a
             real word with an illustration (see buildLevelContent) — no
@@ -635,23 +659,6 @@ function TargetHeaderBar({
         ) : (
           <WordCardRow segments={wordSegments(target.key)} size="sm" cardSizeRem={3.25} />
         )}
-      </div>
-      {/* A separate button, not inside the white pill above (it used to sit
-          inside it, sharing the card's own rounded box) — its own distinct
-          circle reads more clearly as a separate control than as another
-          part of the card display. Always shown and always functional
-          (unlike the level's automatic narration, which respects `muted`)
-          — a dedicated "read it to me" affordance should work on tap
-          regardless, same as every other game's own replay button (e.g.
-          cards-game.tsx's CardsFallingGame, which isn't muted-gated at all
-          either). */}
-      <button
-        type="button"
-        aria-label={t("replaySoundLabel")}
-        onClick={onReplay}
-        className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
-      >
-        🔊
       </button>
     </div>
   );
@@ -718,7 +725,7 @@ function JumpingFrogsLevel({
   const completedRef = useRef(false);
 
   // `muted` only silences *automatic* narration (on landing, on this
-  // level's mount) — an explicit tap on the header's 🔊 button (playWordAloud)
+  // level's mount) — an explicit tap on the target card (playWordAloud)
   // should always work, same as every other game's manual replay button
   // (e.g. cards-game.tsx's CardsFallingGame, which isn't muted-gated at all).
   const playWordAloud = (card: ReadingGameCard) => {
@@ -729,6 +736,25 @@ function JumpingFrogsLevel({
     if (muted) return;
     playWordAloud(card);
   };
+
+  // Promise-returning sibling of playWordAloud, used only for a wrong tap
+  // (handleWrongTap below) — its lily pad shouldn't go bare until the read
+  // has actually finished, and `speak()` itself doesn't report completion
+  // (it just queues an utterance), so this uses speakSequence instead,
+  // same "await the TTS" trick as reading-game.tsx's playSyllable/playWord
+  // chaining.
+  const playWordAloudAsync = (card: ReadingGameCard): Promise<void> =>
+    card.sound ? playCardSound(card) : speakSequence([card.key], "uk", undefined, "short");
+
+  // A wrong tap always reads the tapped syllable/word aloud first (even
+  // when `muted` — same "always works" reasoning as the target card's own
+  // replay tap above), then plays the comic "пук" miss sound — the lily
+  // pad's card only disappears once this resolves (see LilyPadRow's
+  // handleTap).
+  const handleWrongTap = (card: ReadingGameCard): Promise<void> =>
+    playWordAloudAsync(card).then(() => {
+      playFrogMissSound();
+    });
 
   // Every card actually used in this level needs TTS unless it has a
   // recording — prefetch the voice once, then warm up the vocabulary, same
@@ -834,6 +860,7 @@ function JumpingFrogsLevel({
         cameraSlot={cameraSlot}
         activeRowIndex={phase === "idle" ? frogSlot : -1}
         onTapRow={handleTapRow}
+        onWrongTap={handleWrongTap}
         onJumpEnd={handleJumpEnd}
         onPanEnd={handlePanEnd}
       />

@@ -1186,6 +1186,74 @@ class TestDeleteStudentLesson:
         assert StudentLesson.objects.filter(id=sl.id).exists()
 
 
+class TestMarkStudentLessonComplete:
+    def test_marks_assigned_lesson_complete(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        sl = StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+            status=StudentLessonStatus.ASSIGNED,
+        )
+
+        response = api_client.post(f'/tutor/student-lessons/{sl.id}/mark-complete', headers=auth_header(tutor.user))
+
+        assert response.status_code == 204
+        sl.refresh_from_db()
+        assert sl.status == StudentLessonStatus.COMPLETED
+        assert sl.completed_at is not None
+
+    def test_marks_pending_review_lesson_complete(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        sl = StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+            status=StudentLessonStatus.PENDING_REVIEW,
+        )
+
+        response = api_client.post(f'/tutor/student-lessons/{sl.id}/mark-complete', headers=auth_header(tutor.user))
+
+        assert response.status_code == 204
+        sl.refresh_from_db()
+        assert sl.status == StudentLessonStatus.COMPLETED
+
+    def test_rejected_when_already_completed(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        sl = StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+            status=StudentLessonStatus.COMPLETED,
+        )
+
+        response = api_client.post(f'/tutor/student-lessons/{sl.id}/mark-complete', headers=auth_header(tutor.user))
+
+        assert response.status_code == 409
+
+    def test_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject, student):
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        sl = StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+            status=StudentLessonStatus.ASSIGNED,
+        )
+
+        response = api_client.post(f'/tutor/student-lessons/{sl.id}/mark-complete', headers=auth_header(tutor.user))
+
+        assert response.status_code == 403
+        sl.refresh_from_db()
+        assert sl.status == StudentLessonStatus.ASSIGNED
+
+
 class TestSetSubjectFilled:
     def test_set_subject_filled(self, api_client, auth_header, tutor, subject):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)

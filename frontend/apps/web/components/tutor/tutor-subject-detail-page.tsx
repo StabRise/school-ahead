@@ -12,6 +12,7 @@ import {
   Monitor,
   Pencil,
   Plus,
+  Shuffle,
   type LucideIcon,
   Trash2,
   UserPlus,
@@ -917,6 +918,31 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
     );
   };
 
+  // "Перемешати уроки" — randomizes each topic's own lesson order (never
+  // moves a lesson to a different topic, just like handleLessonDrop within
+  // one topic) via one Fisher-Yates shuffle per topic, then sends every
+  // topic's new order_index in a single reorderLessons call.
+  const handleShuffleLessons = () => {
+    const items = [...lessonsByTopicId.entries()].flatMap(([topicId, topicLessons]) => {
+      const shuffled = [...topicLessons];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled.map((lesson, index) => ({ id: lesson.id, topic_id: topicId, order_index: index + 1 }));
+    });
+    if (items.length === 0) return;
+
+    reorderLessons.mutate(
+      { subjectId, data: { items } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsQueryKey(subjectId) });
+        },
+      },
+    );
+  };
+
   const isLoading = subjectQuery.isLoading || topicsQuery.isLoading || lessonsQuery.isLoading;
   const isError = subjectQuery.isError || topicsQuery.isError || lessonsQuery.isError;
 
@@ -982,6 +1008,16 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                       subjectName={subject.name}
                     />
                     <LoadLessonsJsonDialog subjectId={subjectId} />
+                    <button
+                      type="button"
+                      title={t("shuffleLessonsButton")}
+                      aria-label={t("shuffleLessonsButton")}
+                      onClick={handleShuffleLessons}
+                      disabled={reorderLessons.isPending}
+                      className="shrink-0 rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <Shuffle className="h-4 w-4" />
+                    </button>
                   </div>
 
                   {(reorderTopics.isError || reorderLessons.isError) && (

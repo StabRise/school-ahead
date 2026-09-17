@@ -7,6 +7,7 @@ from accounts.models import Role, StudentProfile, TutorProfile, User
 from lessons import services as lesson_services
 from lessons.models import GradeResult, Lesson, LessonType, StudentLesson, StudentLessonStatus
 from scheduling import services
+from scheduling.schemas import SubjectLessonsIn
 from tutoring.models import TutorSubjectAssignment
 
 pytestmark = pytest.mark.django_db
@@ -49,6 +50,12 @@ def _make_lessons(subject, count):
         )
         for i in range(1, count + 1)
     ]
+
+
+def _req(subject_id: int, lessons_count: int, *, randomize: bool = False) -> dict[int, SubjectLessonsIn]:
+    """Builds the `subject_requests` dict services.generate_class_schedule
+    takes, for the common single-subject test case."""
+    return {subject_id: SubjectLessonsIn(subject_id=subject_id, lessons_count=lessons_count, randomize=randomize)}
 
 
 class TestGenerateCalendar:
@@ -106,7 +113,7 @@ class TestGenerateClassSchedule:
         start = datetime.date(2025, 9, 1)
         end = datetime.date(2025, 9, 5)
 
-        result = services.generate_class_schedule(school_class, start, end, {subject.id: 2})
+        result = services.generate_class_schedule(school_class, start, end, _req(subject.id, 2))
 
         assert result['lessons_scheduled'] == 2
         assert result['subjects'] == [{'subject_id': subject.id, 'lessons_scheduled': 2}]
@@ -117,7 +124,7 @@ class TestGenerateClassSchedule:
     def test_zero_lessons_count_skips_subject(self, subject, school_class, student):
         _make_lessons(subject, 3)
         result = services.generate_class_schedule(
-            school_class, datetime.date(2025, 9, 1), datetime.date(2025, 9, 5), {subject.id: 0}
+            school_class, datetime.date(2025, 9, 1), datetime.date(2025, 9, 5), _req(subject.id, 0)
         )
         assert result == {'lessons_scheduled': 0, 'students_affected': 1, 'subjects': []}
         assert StudentLesson.objects.count() == 0
@@ -135,7 +142,7 @@ class TestGenerateClassSchedule:
         )
 
         services.generate_class_schedule(
-            school_class, datetime.date(2025, 9, 1), datetime.date(2025, 9, 5), {subject.id: 1}
+            school_class, datetime.date(2025, 9, 1), datetime.date(2025, 9, 5), _req(subject.id, 1)
         )
 
         completed.refresh_from_db()
@@ -151,7 +158,7 @@ class TestGenerateClassSchedule:
         )
 
         services.generate_class_schedule(
-            school_class, datetime.date(2025, 9, 1), datetime.date(2025, 9, 1), {subject.id: 1}
+            school_class, datetime.date(2025, 9, 1), datetime.date(2025, 9, 1), _req(subject.id, 1)
         )
 
         manual.refresh_from_db()
@@ -175,7 +182,7 @@ class TestGenerateClassSchedule:
         )
 
         _make_lessons(subject, 1)
-        services.generate_class_schedule(school_class, monday, datetime.date(2025, 9, 5), {subject.id: 1})
+        services.generate_class_schedule(school_class, monday, datetime.date(2025, 9, 5), _req(subject.id, 1))
 
         new_sl = StudentLesson.objects.get(student=student, lesson__topic__subject=subject)
         # Monday already has 2, Tuesday already has 1 — Wednesday is the
@@ -188,7 +195,7 @@ class TestGenerateClassSchedule:
         # — each day must take two, since there's nowhere else to put them.
         monday = datetime.date(2025, 9, 1)
         tuesday = datetime.date(2025, 9, 2)
-        result = services.generate_class_schedule(school_class, monday, tuesday, {subject.id: 4})
+        result = services.generate_class_schedule(school_class, monday, tuesday, _req(subject.id, 4))
         assert result['subjects'] == [{'subject_id': subject.id, 'lessons_scheduled': 4}]
         assert StudentLesson.objects.filter(student=student, scheduled_date=monday).count() == 2
         assert StudentLesson.objects.filter(student=student, scheduled_date=tuesday).count() == 2
@@ -201,7 +208,7 @@ class TestGenerateClassSchedule:
         monday = datetime.date(2025, 9, 1)
         tuesday = datetime.date(2025, 9, 2)
         wednesday = datetime.date(2025, 9, 3)
-        services.generate_class_schedule(school_class, monday, wednesday, {subject.id: 4})
+        services.generate_class_schedule(school_class, monday, wednesday, _req(subject.id, 4))
 
         dates_by_lesson = {
             sl.lesson_id: sl.scheduled_date
@@ -228,7 +235,7 @@ class TestGenerateClassSchedule:
         StudentLesson.objects.create(student=student, lesson=lessons[1], scheduled_date=later_tuesday)
         StudentLesson.objects.create(student=student, lesson=lessons[2], scheduled_date=later_wednesday)
 
-        result = services.generate_class_schedule(school_class, earlier_monday, earlier_friday, {subject.id: 5})
+        result = services.generate_class_schedule(school_class, earlier_monday, earlier_friday, _req(subject.id, 5))
 
         assert result['subjects'] == [{'subject_id': subject.id, 'lessons_scheduled': 8}]
         dates_by_lesson = {
@@ -244,8 +251,45 @@ class TestGenerateClassSchedule:
         _make_lessons(subject, 1)
         saturday = datetime.date(2025, 9, 6)
         sunday = datetime.date(2025, 9, 7)
-        result = services.generate_class_schedule(school_class, saturday, sunday, {subject.id: 5})
+        result = services.generate_class_schedule(school_class, saturday, sunday, _req(subject.id, 5))
         assert result == {'lessons_scheduled': 0, 'students_affected': 1, 'subjects': []}
+
+    def test_randomize_still_schedules_the_requested_count(self, subject, school_class, student):
+        """Doesn't assert *which* lessons land where (that's the point of
+        randomizing) — just that randomize=True still schedules exactly
+        `lessons_count` lessons, spread across the available school days."""
+        _make_lessons(subject, 5)
+        monday = datetime.date(2025, 9, 1)
+        friday = datetime.date(2025, 9, 5)
+
+        result = services.generate_class_schedule(school_class, monday, friday, _req(subject.id, 5, randomize=True))
+
+        assert result['subjects'] == [{'subject_id': subject.id, 'lessons_scheduled': 5}]
+        assert StudentLesson.objects.filter(student=student).count() == 5
+        dates = set(StudentLesson.objects.filter(student=student).values_list('scheduled_date', flat=True))
+        assert dates <= {monday + datetime.timedelta(days=i) for i in range(5)}
+
+    def test_randomize_does_not_guarantee_curriculum_order_across_days(self, subject, school_class, student):
+        """Same 5-lessons-over-5-days setup as test_lessons_land_in_order_
+        across_days, but randomize=True — repeat until the curriculum order
+        is actually broken at least once, since a single random shuffle
+        could coincidentally still land in order."""
+        lessons = _make_lessons(subject, 5)
+        monday = datetime.date(2025, 9, 1)
+        friday = datetime.date(2025, 9, 5)
+        expected_in_order_days = [monday + datetime.timedelta(days=i) for i in range(5)]
+
+        saw_out_of_order = False
+        for _ in range(30):
+            StudentLesson.objects.all().delete()
+            services.generate_class_schedule(school_class, monday, friday, _req(subject.id, 5, randomize=True))
+            dates_by_lesson = {
+                sl.lesson_id: sl.scheduled_date for sl in StudentLesson.objects.filter(student=student)
+            }
+            if [dates_by_lesson[lesson.id] for lesson in lessons] != expected_in_order_days:
+                saw_out_of_order = True
+                break
+        assert saw_out_of_order
 
 
 class TestReadEndpoints:

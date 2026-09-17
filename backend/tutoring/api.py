@@ -693,6 +693,23 @@ def delete_student_lesson(request: HttpRequest, student_lesson_id: int, response
     return response
 
 
+@router.post('/student-lessons/{student_lesson_id}/mark-complete', operation_id='mark_tutor_student_lesson_complete')
+def mark_student_lesson_complete(request: HttpRequest, student_lesson_id: int, response: HttpResponse):
+    """Lets a tutor mark any of a student's lessons as done directly —
+    e.g. one actually finished in person/off-platform — regardless of its
+    current status, unlike grade() above (which only accepts a submission
+    the student has already sent in, from PendingReview). Used by the
+    student-overview page's "Сьогоднішні уроки" tab (frontend's
+    tutor-student-overview-page.tsx)."""
+    require_csrf(request)
+    student_lesson = _get_scoped_student_lesson(request, student_lesson_id)
+    if student_lesson.status == StudentLessonStatus.COMPLETED:
+        raise HttpError(409, 'Lesson is already completed')
+    lesson_services.mark_completed(student_lesson, request.auth)
+    response.status_code = 204
+    return response
+
+
 @router.get('/students', response=list[TutorStudentOut])
 def list_students(request: HttpRequest):
     students = services.get_tutor_students(request.auth)

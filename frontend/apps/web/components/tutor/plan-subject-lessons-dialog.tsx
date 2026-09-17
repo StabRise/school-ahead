@@ -30,6 +30,7 @@ export function PlanSubjectLessonsDialog({
   const [startDate, setStartDate] = useState(todayIso);
   const [endDate, setEndDate] = useState(() => addDaysIso(todayIso(), DEFAULT_PERIOD_DAYS));
   const [lessonsCount, setLessonsCount] = useState(0);
+  const [randomize, setRandomize] = useState(false);
   const [result, setResult] = useState<GenerateClassScheduleOut | null>(null);
 
   const generateSchedule = useSchedulingApiGenerateClassSchedule();
@@ -40,6 +41,7 @@ export function PlanSubjectLessonsDialog({
       setStartDate(todayIso());
       setEndDate(addDaysIso(todayIso(), DEFAULT_PERIOD_DAYS));
       setLessonsCount(0);
+      setRandomize(false);
       setResult(null);
     }
   };
@@ -56,7 +58,7 @@ export function PlanSubjectLessonsDialog({
         data: {
           start_date: startDate,
           end_date: endDate,
-          subjects: [{ subject_id: subjectId, lessons_count: lessonsCount }],
+          subjects: [{ subject_id: subjectId, lessons_count: lessonsCount, randomize }],
         },
       },
       { onSuccess: (data) => setResult(data) },
@@ -107,6 +109,19 @@ export function PlanSubjectLessonsDialog({
                 <span className="text-sm font-medium text-gray-900">{subjectName}</span>
                 <LessonsCountInput value={lessonsCount} onChange={setLessonsCount} />
               </div>
+
+              <label className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  checked={randomize}
+                  onChange={(e) => setRandomize(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium text-gray-900">{t("randomLessonsLabel")}</span>
+                  <span className="text-xs text-gray-500">{t("randomLessonsHint")}</span>
+                </span>
+              </label>
 
               <p className="rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-900">ℹ️ {t("infoNote")}</p>
 

@@ -1,11 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { UploadCloud } from "lucide-react";
 
 // Click-to-browse + drag-and-drop file picker — same look and behavior
 // everywhere a file gets attached (the student's task submission in
 // TaskStep, the tutor's reply attachments in PendingReviewPanel). Only the
 // hint text and what happens with the picked files differ per caller.
+// `min-h-32` (plus the icon) keeps this a real drop *target* — a rectangle
+// you can aim a drag at — rather than shrinking to a single line of hint
+// text the way a bare flex box with no minimum height would.
 export function FileDropzone({
   id,
   hint,
@@ -43,10 +47,11 @@ export function FileDropzone({
         setIsDragging(false);
         onFilesSelected(e.dataTransfer.files);
       }}
-      className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed p-6 text-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
+      className={`flex min-h-32 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-6 text-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
         isDragging ? "border-gray-900 bg-gray-50" : "border-gray-300 hover:border-gray-400"
       }`}
     >
+      <UploadCloud className={`h-8 w-8 ${isDragging ? "text-gray-700" : "text-gray-300"}`} aria-hidden="true" />
       <p className="text-sm text-gray-500">{hint}</p>
       <input
         ref={fileInputRef}

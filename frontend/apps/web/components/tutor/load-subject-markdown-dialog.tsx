@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@/i18n/navigation";
 import { getGetTutorClassQueryKey, useUploadTutorSubjectMarkdown } from "@school-ahead/api-client/browser/tutor/tutor";
 import type { ImportSubjectMarkdownOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import { FileDropzone } from "@/components/file-dropzone";
 
 // Opened from the tutor's Class detail page. Single-step: pick a single
 // subject's curriculum markdown file (front matter — Subject/SubjectBlocks/
@@ -113,17 +114,15 @@ export function LoadSubjectMarkdownDialog({ classId }: { classId: number }) {
           ) : (
             <form onSubmit={handleUpload} className="mt-4 flex flex-col gap-4">
               <div className="flex flex-col gap-1">
-                <label htmlFor="subject-markdown-file" className="text-xs font-medium text-gray-700">
-                  {t("fileLabel")}
-                </label>
-                <input
+                <span className="text-xs font-medium text-gray-700">{t("fileLabel")}</span>
+                <FileDropzone
                   id="subject-markdown-file"
-                  type="file"
+                  hint={t("fileLabel")}
+                  multiple={false}
                   accept=".md,.txt,text/markdown,text/plain"
-                  required
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  className="text-sm text-gray-700"
+                  onFilesSelected={(files) => setFile(files?.[0] ?? null)}
                 />
+                {file && <p className="text-xs text-gray-500">{file.name}</p>}
               </div>
 
               {uploadSubject.isError && <p className="text-sm text-red-600">{t("uploadError")}</p>}
