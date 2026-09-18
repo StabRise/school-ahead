@@ -418,6 +418,21 @@ def update_subject_lesson_icons(request: HttpRequest, subject_id: int):
     return UpdateLessonIconsOut(updated=summary.updated, skipped=summary.skipped)
 
 
+@router.post(
+    '/topics/{topic_id}/update-lesson-icons',
+    response=UpdateLessonIconsOut,
+    operation_id='update_tutor_topic_lesson_icons',
+)
+def update_topic_lesson_icons(request: HttpRequest, topic_id: int):
+    """Same as update_subject_lesson_icons above, scoped to one Topic — the
+    icon button on the Subject detail page's per-topic header."""
+    require_csrf(request)
+    topic = get_object_or_404(Topic.objects.select_related('subject'), id=topic_id)
+    services.ensure_is_tutor_for_subject(request, topic.subject_id)
+    summary = lesson_services.update_topic_lesson_icons(topic)
+    return UpdateLessonIconsOut(updated=summary.updated, skipped=summary.skipped)
+
+
 @router.patch('/topics/{topic_id}/block', response=TopicOut, operation_id='set_topic_block')
 def set_topic_block(request: HttpRequest, topic_id: int, payload: SetTopicBlockIn):
     """Manually moves a topic to a different SubjectBlock — see

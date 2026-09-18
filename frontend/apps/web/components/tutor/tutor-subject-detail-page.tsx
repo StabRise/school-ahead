@@ -34,6 +34,7 @@ import {
   useSetSubjectFilled,
   useSetTopicBlock,
   useUpdateTutorSubjectLessonIcons,
+  useUpdateTutorTopicLessonIcons,
 } from "@school-ahead/api-client/browser/tutor/tutor";
 import {
   getListSubjectTasksQueryKey,
@@ -67,6 +68,7 @@ import { LessonEditorDialog } from "./lesson-editor-dialog";
 import { LoadLessonsJsonDialog } from "./load-lessons-json-dialog";
 import { LoadYoutubePlaylistDialog } from "./load-youtube-playlist-dialog";
 import { PlanSubjectLessonsDialog } from "./plan-subject-lessons-dialog";
+import { PreschoolPreviewTab } from "./preschool-preview-tab";
 import { RescheduleAssignmentDialog } from "./reschedule-assignment-dialog";
 import { TaskEditorDialog } from "./task-editor-dialog";
 import { LoadTasksMarkdownDialog } from "./load-tasks-markdown-dialog";
@@ -241,6 +243,42 @@ function UpdateLessonIconsButton({ subjectId, onUpdated }: { subjectId: number; 
       className="shrink-0 rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
     >
       <ImageIcon className="h-4 w-4" />
+    </button>
+  );
+}
+
+// Same idea as UpdateLessonIconsButton above, scoped to one Topic — sits in
+// the topic header's own button row (TopicSection) instead of the Lessons
+// toolbar, sized to match the header's other icon buttons (addLessonButton/
+// deleteTopicButton) rather than the toolbar's.
+function UpdateTopicLessonIconsButton({ topicId, onUpdated }: { topicId: number; onUpdated: () => void }) {
+  const t = useTranslations("TutorSubjectDetail");
+  const updateIcons = useUpdateTutorTopicLessonIcons();
+
+  const handleClick = () => {
+    if (!window.confirm(t("updateTopicLessonIconsConfirm"))) return;
+    updateIcons.mutate(
+      { topicId },
+      {
+        onSuccess: (data) => {
+          onUpdated();
+          window.alert(t("updateLessonIconsResult", { updated: data.updated, skipped: data.skipped }));
+        },
+        onError: () => window.alert(t("updateLessonIconsError")),
+      },
+    );
+  };
+
+  return (
+    <button
+      type="button"
+      title={t("updateTopicLessonIconsButton")}
+      aria-label={t("updateTopicLessonIconsButton")}
+      onClick={handleClick}
+      disabled={updateIcons.isPending}
+      className="flex items-center rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+    >
+      <ImageIcon className="h-3.5 w-3.5" aria-hidden="true" />
     </button>
   );
 }
@@ -734,6 +772,7 @@ function TopicSection({
               </button>
             }
           />
+          <UpdateTopicLessonIconsButton topicId={topic.id} onUpdated={onLessonListChanged} />
           <button
             type="button"
             onClick={handleDelete}
@@ -1170,6 +1209,18 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
               value: "materials",
               label: t("materialsTab"),
               content: <SubjectMaterials subjectId={subjectId} canManage />,
+            },
+            {
+              value: "preschool-preview",
+              label: t("preschoolPreviewTab"),
+              content: (
+                <PreschoolPreviewTab
+                  subject={subject}
+                  topics={topics}
+                  lessons={lessons}
+                  lessonStudentsByLessonId={lessonStudentsByLessonId}
+                />
+              ),
             },
           ]}
         />

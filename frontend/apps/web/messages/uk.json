@@ -603,6 +603,8 @@
     "lessonsTab": "Уроки",
     "planTab": "План",
     "materialsTab": "Матеріали",
+    "preschoolPreviewTab": "Preschool перегляд",
+    "preschoolPreviewEmpty": "У цьому предметі ще немає уроків.",
     "noTopics": "Тем ще немає.",
     "noLessonsInTopic": "У цій темі ще немає уроків.",
     "lessonsCount": "Уроків: {count}",
@@ -633,6 +635,8 @@
     "updateLessonIconsConfirm": "Оновити іконку кожного уроку з посиланням на YouTube мініатюрою його першого відео? Це замінить іконки, встановлені вручну.",
     "updateLessonIconsResult": "Оновлено іконок: {updated}. Пропущено (немає посилання на YouTube): {skipped}.",
     "updateLessonIconsError": "Не вдалося оновити іконки уроків. Спробуйте ще раз.",
+    "updateTopicLessonIconsButton": "Оновити іконки уроків з YouTube",
+    "updateTopicLessonIconsConfirm": "Оновити іконку кожного уроку цієї теми з посиланням на YouTube мініатюрою його першого відео? Це замінить іконки, встановлені вручну.",
     "editAssignmentDateTitle": "Редагувати дату призначення",
     "editAssignmentDateButton": "Редагувати дату",
     "assignDateLabel": "Дата",
@@ -1198,7 +1202,9 @@
     "title": "Полиця з книжками",
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити предмети.",
-    "empty": "Книжок на полиці ще немає."
+    "empty": "Книжок на полиці ще немає.",
+    "filterLabel": "Фільтр за категорією:",
+    "allBooks": "Всі книжки"
   },
   "PreschoolSubjectDetail": {
     "backToShelf": "До полиці",

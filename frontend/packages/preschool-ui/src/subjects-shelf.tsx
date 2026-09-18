@@ -1,8 +1,10 @@
 "use client";
 
+import { useMemo, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { useGetMySubjects } from "@school-ahead/api-client/browser/academics/academics";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useGetMySubjects, useListSubjectGroups } from "@school-ahead/api-client/browser/academics/academics";
 import { useGetSubjectProgress } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import type { SubjectOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { Cloud, Sun, DefaultStepIcon } from "./decorations";
@@ -19,60 +21,113 @@ const BOOK_COLORS = [
   "from-cyan-400 to-cyan-600",
 ];
 
-// A book with its subject icon on the cover and a bookmark ribbon whose
-// length grows with lesson progress — a bookshelf take on the default
-// view's subject grid, restyled for a 6-year-old. See
-// docs/views/preschool/README.md.
+// A book with its subject icon, name and a progress bar on the cover — a
+// bookshelf take on the default view's subject grid, restyled for a
+// 6-year-old. See docs/views/preschool/README.md.
 function Book({ subject }: { subject: SubjectOut }) {
   const progressQuery = useGetSubjectProgress(subject.id);
-  const percent = Math.min(100, Math.max(0, progressQuery.data?.completed_percent ?? 0));
+  const percent = Math.round(Math.min(100, Math.max(0, progressQuery.data?.completed_percent ?? 0)));
   const color = BOOK_COLORS[subject.id % BOOK_COLORS.length];
-  const ribbonHeight = 10 + percent * 0.28;
 
   return (
     <Link
       href={`/subjects/${subject.id}`}
       aria-label={subject.name}
-      className="group flex w-24 shrink-0 flex-col items-center gap-2 sm:w-28"
+      className="group flex w-32 shrink-0 flex-col sm:w-36"
     >
-      <div className="relative">
-        <span
-          className="absolute right-4 top-0 z-0 w-3 rounded-b-sm bg-rose-500 shadow-sm transition-[height]"
-          style={{ height: `${ribbonHeight}px` }}
-          aria-hidden="true"
-        />
-        <div
-          className={`relative z-10 flex h-40 w-24 flex-col items-center rounded-t-xl rounded-b-md bg-gradient-to-b pt-3 shadow-lg transition-transform group-hover:-translate-y-1 group-active:scale-95 sm:w-28 ${color}`}
-        >
-          <span className="absolute bottom-2 left-2 top-2 w-[3px] rounded bg-white/30" aria-hidden="true" />
-          <span className="absolute bottom-2 left-4 top-2 w-[2px] rounded bg-white/20" aria-hidden="true" />
+      <div
+        className={`relative flex h-44 flex-col items-center gap-1 rounded-t-xl rounded-b-md bg-gradient-to-b pb-2 pl-5 pr-1.5 pt-1.5 shadow-lg transition-transform group-hover:-translate-y-1 group-active:scale-95 sm:h-48 ${color}`}
+      >
+        <span className="absolute bottom-2 left-2 top-2 w-[3px] rounded bg-white/30" aria-hidden="true" />
+        <span className="absolute bottom-2 left-4 top-2 w-[2px] rounded bg-white/20" aria-hidden="true" />
 
-          <span className="mr-2 flex h-20 w-20 shrink-0 items-center justify-center self-end overflow-hidden rounded-xl border-2 border-white/80 bg-white shadow">
-            {subject.icon ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={subject.icon} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <DefaultStepIcon />
-            )}
-          </span>
+        {/* Takes all the height the name and progress row leave over, out to the right edge. */}
+        <span className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-xl border-2 border-white/80 bg-white shadow">
+          {subject.icon ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={subject.icon} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <DefaultStepIcon />
+          )}
+        </span>
 
-          <span className="mt-2 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-extrabold text-amber-800 shadow-sm">
-            {Math.round(percent)}%
-          </span>
+        <span className="line-clamp-2 flex h-8 w-full items-center justify-center text-center text-xs font-extrabold leading-tight text-white drop-shadow">
+          {subject.name}
+        </span>
+
+        <div className="flex w-full items-center gap-1.5 px-1">
+          <div
+            role="progressbar"
+            aria-valuenow={percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            className="h-3 flex-1 overflow-hidden rounded-full bg-black/25"
+          >
+            <div className="h-full rounded-full bg-amber-300 transition-[width]" style={{ width: `${percent}%` }} />
+          </div>
+          <span className="w-8 text-right text-[11px] font-extrabold text-white drop-shadow">{percent}%</span>
         </div>
       </div>
+    </Link>
+  );
+}
 
-      <span className="line-clamp-2 text-center text-xs font-bold leading-tight text-emerald-900">
-        {subject.name}
-      </span>
+// A filter pill is a real link (`?group=<id>`, none for "all") rather than
+// local state, so a reload or shared URL lands on the same category — the
+// preschool counterpart of the `?tab=` convention (use-tab-query-param.ts).
+function FilterPill({
+  href,
+  active,
+  icon,
+  title,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  icon?: ReactNode;
+  // Tooltip + accessible name — for a pill that shows only an image.
+  title?: string;
+  children?: ReactNode;
+}) {
+  const iconOnly = children === undefined;
+  return (
+    <Link
+      href={href}
+      replace
+      scroll={false}
+      title={title}
+      aria-label={title}
+      aria-current={active ? "true" : undefined}
+      className={`flex items-center gap-2 text-base font-extrabold transition-colors ${
+        iconOnly ? "rounded-2xl p-1.5" : "rounded-full py-1.5 pl-2 pr-4"
+      } ${active ? "bg-indigo-600 text-white shadow-lg" : "bg-slate-100 text-slate-800 hover:bg-slate-200"}`}
+    >
+      {icon}
+      {children}
     </Link>
   );
 }
 
 export function PreschoolSubjectsShelf() {
   const t = useTranslations("PreschoolSubjects");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { data, isLoading, isError } = useGetMySubjects();
-  const subjects = data ?? [];
+  const { data: subjectGroups } = useListSubjectGroups();
+  const allSubjects = useMemo(() => data ?? [], [data]);
+
+  // Groups are global (not per class), so only offer the ones this
+  // student's class actually has a subject in — an empty category would
+  // just be a dead-end tab. Subjects without a group appear under "all
+  // books" only.
+  const groups = useMemo(() => {
+    const usedGroupIds = new Set(allSubjects.map((subject) => subject.group_id));
+    return (subjectGroups ?? []).filter((group) => usedGroupIds.has(group.id));
+  }, [allSubjects, subjectGroups]);
+
+  const groupParam = searchParams.get("group");
+  const activeGroup = groups.find((group) => String(group.id) === groupParam) ?? null;
+  const subjects = activeGroup ? allSubjects.filter((subject) => subject.group_id === activeGroup.id) : allSubjects;
 
   return (
     <div className="relative flex flex-1 flex-col bg-gradient-to-b from-sky-200 via-emerald-100 to-lime-200">
@@ -87,6 +142,41 @@ export function PreschoolSubjectsShelf() {
 
         {isLoading && <p className="text-center text-sm font-medium text-emerald-800">{t("loading")}</p>}
         {isError && <p className="text-center text-sm font-medium text-red-700">{t("error")}</p>}
+
+        {groups.length > 0 && (
+          <nav
+            aria-label={t("filterLabel")}
+            className="flex flex-wrap items-center justify-center gap-3 rounded-[2rem] border-4 border-yellow-200 bg-white/90 px-6 py-4 shadow-xl"
+          >
+            <FilterPill
+              href={pathname}
+              active={activeGroup === null}
+              title={t("allBooks")}
+              icon={
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src="/static/subjects/all-books.jpg" alt="" className="h-12 w-12 rounded-xl object-cover" />
+              }
+            />
+            <span className="h-10 w-0.5 rounded-full bg-slate-300" aria-hidden="true" />
+            {groups.map((group) => (
+              <FilterPill
+                key={group.id}
+                href={`${pathname}?group=${group.id}`}
+                active={activeGroup?.id === group.id}
+                title={group.name}
+                icon={
+                  group.icon ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={group.icon} alt="" className="h-12 w-12 rounded-xl object-cover" />
+                  ) : undefined
+                }
+              >
+                {/* No image uploaded yet — fall back to the name so the pill isn't blank. */}
+                {group.icon ? undefined : group.name}
+              </FilterPill>
+            ))}
+          </nav>
+        )}
 
         {!isLoading && !isError && subjects.length === 0 && (
           <p className="text-center text-sm font-medium text-emerald-800">{t("empty")}</p>

@@ -46,6 +46,25 @@ def test_list_subject_groups_orders_by_order_index(api_client, auth_header, stud
     assert [g['name'] for g in response.data] == ['Українська школа', 'Польська школа']
 
 
+def test_list_subject_groups_resolves_icon_as_absolute_url(api_client, auth_header, student_user, settings, tmp_path):
+    """Powers the preschool bookshelf's category filter — see
+    SubjectGroupOut.icon."""
+    from django.core.files.base import ContentFile
+
+    settings.MEDIA_ROOT = tmp_path
+    SubjectGroup.objects.all().delete()
+    with_icon = SubjectGroup.objects.create(name='З іконкою', order_index=1)
+    with_icon.icon.save('icon.png', ContentFile(b'icon-bytes'), save=True)
+    SubjectGroup.objects.create(name='Без іконки', order_index=2)
+
+    response = api_client.get('/academics/subject-groups', headers=auth_header(student_user))
+
+    assert response.status_code == 200
+    with_icon_row, without_icon_row = response.data
+    assert with_icon_row['icon'].startswith('http') and with_icon_row['icon'].endswith('.png')
+    assert without_icon_row['icon'] is None
+
+
 def test_subject_defaults_group_to_none_and_has_order_index(subject):
     assert subject.group_id is None
     assert subject.order_index == 0

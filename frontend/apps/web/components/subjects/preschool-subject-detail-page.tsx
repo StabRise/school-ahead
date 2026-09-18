@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, FileText, ListChecks, Monitor, Star } from "lucide-react";
+import { ArrowLeft, Star } from "lucide-react";
 import { useAuthStore } from "@school-ahead/api-client";
 import { Cloud, Raccoon, Sun } from "@school-ahead/preschool-ui";
 import { AvatarBadge, useEquippedAvatarLayers } from "@school-ahead/avatar";
@@ -11,30 +11,8 @@ import { useGetSubject, useListSubjectTopics } from "@school-ahead/api-client/br
 import { useGetSubjectProgress, useListStudentSubjectLessons } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import type { SubjectLessonOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { groupTopicsByBlock } from "@/components/subjects/group-topics-by-block";
+import { PreschoolLessonTile } from "@/components/subjects/preschool-lesson-tile";
 import { ProgressBar } from "@/components/progress-bar";
-
-// Per-type icon, mirroring components/simple/lesson-type-icon.tsx's map —
-// kept local (not imported) since this card always renders it in white on
-// a colored gradient, never the grey/colorful variants that map's own
-// LESSON_TYPE_ICON_COLOR covers.
-const LESSON_TYPE_ICON = {
-  theory: Monitor,
-  with_task: FileText,
-  with_quiz: ListChecks,
-} as const;
-
-// One gradient per card, cycled by position within its block — the "candy
-// shelf" palette from the preschool subject-detail mock (pink, sky, amber,
-// emerald, violet, repeating), distinct from BOOK_COLORS in
-// subjects-shelf.tsx (top-to-bottom book covers, not a grid of cards).
-const CARD_GRADIENTS = [
-  "from-rose-400 to-rose-600",
-  "from-sky-400 to-sky-600",
-  "from-amber-400 to-amber-500",
-  "from-emerald-400 to-emerald-600",
-  "from-violet-400 to-violet-600",
-  "from-pink-400 to-pink-600",
-];
 
 // The student's dressed companion — same CompanionAvatar idiom as
 // game-map.tsx/calendar-view.tsx (preschool-ui), just kept local here since
@@ -49,27 +27,6 @@ interface FlatLesson {
   topicTitle: string;
 }
 
-// Same lesson -> subject fallback StepIcon uses on the game map/calendar
-// (preschool-ui's game-map.tsx/lesson-bubble.tsx) — lesson.icon (a YouTube
-// thumbnail or tutor upload) wins, falling back to the subject's own icon.
-// When present, it takes over the whole card (image-forward, like a book
-// cover) with just the title captioned below; only a lesson with neither
-// falls back to the plain gradient + lesson-type-glyph card.
-function PreschoolLessonIconCard({ href, icon, title }: { href: string; icon: string; title: string }) {
-  return (
-    <Link
-      href={href}
-      className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-lg transition-transform hover:-translate-y-1 active:scale-95"
-    >
-      <span className="aspect-video w-full overflow-hidden bg-gray-100">
-        {/* eslint-disable-next-line @next/next/no-img-element -- external/user-uploaded URL, not a static asset next/image can optimize */}
-        <img src={icon} alt="" className="h-full w-full object-cover" />
-      </span>
-      <span className="truncate px-2 py-2 text-center text-xs font-bold text-gray-700">{title}</span>
-    </Link>
-  );
-}
-
 function PreschoolLessonCard({
   entry,
   index,
@@ -79,33 +36,20 @@ function PreschoolLessonCard({
   index: number;
   subjectIcon: string | null;
 }) {
-  const t = useTranslations("PreschoolSubjectDetail");
   const { lesson, topicTitle } = entry;
   const isAssigned = lesson.student_lesson_id !== null;
   const href = isAssigned ? `/lessons/${lesson.student_lesson_id}` : `/lessons/preview/${lesson.id}`;
-  const icon = lesson.icon ?? subjectIcon;
-
-  if (icon) {
-    return <PreschoolLessonIconCard href={href} icon={icon} title={lesson.title} />;
-  }
-
-  const Icon = LESSON_TYPE_ICON[lesson.lesson_type as keyof typeof LESSON_TYPE_ICON] ?? Monitor;
-  const gradient = CARD_GRADIENTS[index % CARD_GRADIENTS.length];
 
   return (
-    <Link
+    <PreschoolLessonTile
       href={href}
-      className={`group flex flex-col gap-2 rounded-2xl bg-gradient-to-br p-4 text-white shadow-lg transition-transform hover:-translate-y-1 active:scale-95 ${gradient}`}
-    >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/25">
-        <Icon className="size-5" aria-hidden="true" />
-      </span>
-      <span className="w-fit rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide">
-        {t("lessonBadge", { index: index + 1 })}
-      </span>
-      <span className="text-base font-extrabold leading-tight">{lesson.title}</span>
-      {topicTitle && <span className="truncate text-xs font-medium text-white/80">{topicTitle}</span>}
-    </Link>
+      icon={lesson.icon}
+      subjectIcon={subjectIcon}
+      lessonType={lesson.lesson_type}
+      title={lesson.title}
+      topicTitle={topicTitle}
+      index={index}
+    />
   );
 }
 

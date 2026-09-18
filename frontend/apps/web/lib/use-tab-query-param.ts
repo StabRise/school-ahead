@@ -9,18 +9,23 @@ import { usePathname, useRouter } from "@/i18n/navigation";
 // LessonWizard's `?step=...`. Reloading or sharing the link lands back on
 // the same tab instead of always resetting to the first one. Pass the
 // result straight to Tabs' `value`/`onValueChange` (components/tabs.tsx).
-export function useTabQueryParam(defaultValue: string): [string, (next: string) => void] {
+// `paramName` defaults to `tab`; the student subjects list passes `group`
+// (`/subjects?group=2`) for its per-SubjectGroup tabs.
+export function useTabQueryParam(
+  defaultValue: string,
+  paramName = "tab",
+): [string, (next: string) => void] {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const activeTab = searchParams.get("tab") ?? defaultValue;
+  const activeTab = searchParams.get(paramName) ?? defaultValue;
 
   const setActiveTab = (next: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (next === defaultValue) {
-      params.delete("tab");
+      params.delete(paramName);
     } else {
-      params.set("tab", next);
+      params.set(paramName, next);
     }
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });

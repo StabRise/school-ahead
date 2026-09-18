@@ -40,6 +40,11 @@ class SubjectGroupOut(Schema):
     id: int
     name: str
     order_index: int
+    icon: str | None
+
+    @staticmethod
+    def resolve_icon(obj, context):
+        return _absolute_file_url(obj.icon, context)
 
 
 class SubjectBlockOut(Schema):
