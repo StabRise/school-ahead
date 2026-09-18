@@ -811,6 +811,8 @@
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити урок.",
     "exitLabel": "Вийти на стежку",
+    "favoriteAddLabel": "Додати до улюблених",
+    "favoriteRemoveLabel": "Прибрати з улюблених",
     "readTitleButton": "Прочитати назву уроку",
     "continueButton": "Далі",
     "needHelpWaiting": "Тьютор скоро допоможе!",
@@ -1227,7 +1229,15 @@
     "chooseLessonHint": "Обери урок просто натиснувши на картку!",
     "lessonBadge": "Урок {index}",
     "noLessons": "Тут поки що немає уроків для тебе.",
-    "allLessonsCompleted": "Усі уроки цього предмета пройдено! 🎉"
+    "noFavorites": "Тут будуть твої улюблені уроки. Натисни ❤️ на уроці, щоб додати його!",
+    "allLessonsCompleted": "Усі уроки цього предмета пройдено! 🎉",
+    "settingsButton": "Налаштування",
+    "filterTitle": "Які уроки показувати?",
+    "filter": {
+      "available": "Доступні (не пройдені)",
+      "all": "Усі (і пройдені)",
+      "favorites": "Улюблені"
+    }
   },
   "TutorAvatarEditor": {
     "title": "Редактор аватарів",

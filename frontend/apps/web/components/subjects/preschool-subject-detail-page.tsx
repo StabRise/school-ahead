@@ -1,18 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
-import { ArrowLeft, Star } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { Star } from "lucide-react";
 import { useAuthStore } from "@school-ahead/api-client";
-import { Cloud, Raccoon, Sun } from "@school-ahead/preschool-ui";
+import { Cloud, PreschoolButton, Raccoon, Sun } from "@school-ahead/preschool-ui";
 import { AvatarBadge, useEquippedAvatarLayers } from "@school-ahead/avatar";
-import { Link } from "@/i18n/navigation";
 import { useGetSubject, useListSubjectTopics } from "@school-ahead/api-client/browser/academics/academics";
 import { useGetSubjectProgress, useListStudentSubjectLessons } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import type { SubjectLessonOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { groupTopicsByBlock } from "@/components/subjects/group-topics-by-block";
 import { limitAcrossGroups } from "@/lib/limit-across-groups";
+import { isLessonShown } from "@/lib/preschool-lessons-filter";
+import { usePreschoolLessonsFilterStore } from "@/stores/preschool-lessons-filter-store";
 import { PreschoolLessonTile } from "@/components/subjects/preschool-lesson-tile";
+import { PreschoolLessonsFilterButton } from "@/components/subjects/preschool-lessons-filter-button";
 import { ProgressBar } from "@/components/progress-bar";
 
 // The student's dressed companion — same CompanionAvatar idiom as
@@ -92,7 +94,9 @@ function PreschoolBlockSection({
 // tabs, those stay behind in the grown-up view. See docs/views/preschool/README.md.
 export function PreschoolSubjectDetailPage({ subjectId }: { subjectId: number }) {
   const t = useTranslations("PreschoolSubjectDetail");
+  const locale = useLocale();
   const canDoAnyLesson = useAuthStore((state) => state.user?.canDoAnyLesson ?? false);
+  const lessonsFilter = usePreschoolLessonsFilterStore((state) => state.filter);
 
   const subjectQuery = useGetSubject(subjectId);
   const progressQuery = useGetSubjectProgress(subjectId);
@@ -113,26 +117,25 @@ export function PreschoolSubjectDetailPage({ subjectId }: { subjectId: number })
 
   const subject = subjectQuery.data;
 
-  // A lesson without a StudentLesson yet only shows when the student is
-  // allowed to start any lesson themselves (StudentProfile.can_do_any_lesson
-  // — same rule as SimpleSubjectLessonRow); a finished one never shows at
-  // all here, unlike the grown-up view which keeps it (greyed) for
-  // history — this screen is "what can I do right now", not a log.
+  // Which lessons make the cut is the child's own choice (the gear in the
+  // header, remembered for every subject) — see lib/preschool-lessons-filter.ts.
   const visibleEntriesByBlock = useMemo(() => {
     if (!subject) return [];
     return groupTopicsByBlock(topics, subject.blocks).map((group) => {
       const entries: FlatLesson[] = [];
       for (const topic of group.topics) {
         for (const lesson of lessonsByTopicId.get(topic.id) ?? []) {
-          const isAssigned = lesson.student_lesson_id !== null;
-          if (isAssigned && lesson.status === "completed") continue;
-          if (!isAssigned && !canDoAnyLesson) continue;
-          entries.push({ lesson, topicTitle: topic.title });
+          const shown = isLessonShown(
+            lessonsFilter,
+            { isAssigned: lesson.student_lesson_id !== null, status: lesson.status, isFavorite: lesson.is_favorite },
+            canDoAnyLesson,
+          );
+          if (shown) entries.push({ lesson, topicTitle: topic.title });
         }
       }
       return { group, entries };
     });
-  }, [subject, topics, lessonsByTopicId, canDoAnyLesson]);
+  }, [subject, topics, lessonsByTopicId, canDoAnyLesson, lessonsFilter]);
 
   const totalCount = useMemo(
     () => visibleEntriesByBlock.reduce((count, { entries }) => count + entries.length, 0),
@@ -181,19 +184,20 @@ export function PreschoolSubjectDetailPage({ subjectId }: { subjectId: number })
     return (
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 rounded-3xl bg-white/90 p-4 shadow-xl sm:p-6">
         <div className="flex flex-col gap-3">
-          <Link
-            href="/subjects"
-            className="flex w-fit items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-900"
-          >
-            <ArrowLeft className="size-3.5" aria-hidden="true" />
-            {t("backToShelf")}
-          </Link>
-
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-400 text-white shadow">
-                <Star className="size-6 fill-white" aria-hidden="true" />
-              </span>
+              {/* Back to the shelf — a house button where the decorative star used to
+                  be. PreschoolButton links with next/link, which knows nothing about
+                  the locale, so the href carries it explicitly. */}
+              <PreschoolButton
+                href={`/${locale}/subjects`}
+                icon="🏠"
+                label={t("backToShelf")}
+                ringColorClassName="ring-emerald-400"
+                sizeClassName="h-14 w-14"
+                position="static"
+                className="shrink-0"
+              />
               <div className="flex flex-col gap-1">
                 <span className="w-fit rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-sky-700">
                   {subject.class_name}
@@ -202,10 +206,13 @@ export function PreschoolSubjectDetailPage({ subjectId }: { subjectId: number })
               </div>
             </div>
 
-            <span className="flex w-fit shrink-0 items-center gap-1.5 rounded-full bg-rose-100 px-4 py-2 text-sm font-bold text-rose-700">
-              <Star className="size-4 fill-rose-500 text-rose-500" aria-hidden="true" />
-              {t("pointsLabel", { count: points })}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="flex w-fit shrink-0 items-center gap-1.5 rounded-full bg-rose-100 px-4 py-2 text-sm font-bold text-rose-700">
+                <Star className="size-4 fill-rose-500 text-rose-500" aria-hidden="true" />
+                {t("pointsLabel", { count: points })}
+              </span>
+              <PreschoolLessonsFilterButton onChange={() => setVisibleCount(PAGE_SIZE)} />
+            </div>
           </div>
 
           <div className="border-t border-dashed border-gray-200 pt-3">
@@ -240,7 +247,9 @@ export function PreschoolSubjectDetailPage({ subjectId }: { subjectId: number })
             {hasMore && <div ref={setSentinel} aria-hidden="true" className="h-px" />}
           </>
         ) : (
-          <p className="text-center text-sm font-medium text-gray-500">{t("noLessons")}</p>
+          <p className="text-center text-sm font-medium text-gray-500">
+            {lessonsFilter === "favorites" ? t("noFavorites") : t("noLessons")}
+          </p>
         )}
 
         <div className="relative -mb-2 -mt-2 flex justify-start pl-2">

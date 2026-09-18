@@ -196,6 +196,11 @@ viewport (`fixed inset-0`) — the header hides itself for these routes when
 `interfaceMode === "preschool"` (see `Header.tsx`). A round exit button
 (top-left, links to `/`) is the only way out.
 
+A heart `PreschoolButton` (`FavoriteButton`) sits next to the exit button and
+marks the lesson as one of the child's favourites — `StudentLesson.is_favorite`,
+set through `PATCH /student-lessons/{id}/favorite`. The heart flips at once
+and is rolled back if the request fails.
+
 Two steps, held as local state (not persisted — purely a client-side
 "which panel" toggle, same as the default `LessonWizard`'s
 materials/assessment switch):
@@ -256,6 +261,28 @@ stump piled with coins/crystals, and the raccoon (bouncing, holding a
 trophy) — with the title/subtitle text and a big swaying "home" button
 (icon-only, same `node-sway` animation as the road's current-step node)
 stacked underneath, centered.
+
+### Subject page (`/subjects/[id]`)
+
+Component: `preschool-subject-detail-page.tsx` → `PreschoolSubjectDetailPage`
+(the bookshelf at `/subjects`, `subjects-shelf.tsx`, leads here). One flat grid
+of lesson cards grouped by semester block, headed by a 🏠 `PreschoolButton`
+back to the shelf, the class badge, the subject name and the points badge.
+
+* **Cards** (`PreschoolLessonTile`) have one fixed height per breakpoint —
+  never derived from their content or picture, so they don't change size as
+  more load. A card with a picture (`Lesson.icon`, falling back to the
+  subject's icon) is the picture with the title under it; one with neither is
+  a coloured gradient card.
+* **Load as you scroll:** the first 20 cards render, and 20 more are revealed
+  whenever a marker below the grid nears the viewport. The whole lesson list
+  is still fetched in one request — only rendering is windowed.
+* **Which lessons show** is chosen with the ⚙️ in the top-right corner (same
+  look as the games' settings gear) and kept in a persisted zustand store
+  (`preschool-lessons-filter-store.ts`) shared by every subject — see
+  `lib/preschool-lessons-filter.ts` for the rules: *available* (default — not
+  finished yet), *all* (finished ones too) or *favorites* (hearted on the lesson
+  screen, finished or not). Changing it resets the scroll window.
 
 ## 5. Shared building blocks
 

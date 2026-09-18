@@ -2,13 +2,26 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@/i18n/navigation";
-import { useGetStudentLesson } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
+import {
+  getGetStudentLessonQueryKey,
+  useGetStudentLesson,
+  useSetStudentLessonFavorite,
+} from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import type { StudentLessonOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { extractYoutubeVideo, Markdown, YoutubeEmbed } from "@school-ahead/markdown-editor";
 import { TaskStep } from "@/components/lesson-wizard/task-step";
 import { ResolveNeedHelpButton } from "@/components/lesson-wizard/resolve-need-help-button";
-import { Cloud, Sun, Raccoon, CelebrationScene, PreschoolTheoryCheck, ScreenFrame } from "@school-ahead/preschool-ui";
+import {
+  Cloud,
+  Sun,
+  Raccoon,
+  CelebrationScene,
+  PreschoolButton,
+  PreschoolTheoryCheck,
+  ScreenFrame,
+} from "@school-ahead/preschool-ui";
 import { PreschoolQuizGame } from "@/components/preschool/quiz-game";
 import { speak, toSpeechText } from "@school-ahead/api-client";
 
@@ -36,6 +49,55 @@ function ExitButton() {
         />
       </svg>
     </Link>
+  );
+}
+
+function HeartIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-9 w-9 text-rose-500" aria-hidden="true">
+      <path
+        d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+        fill={filled ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// The heart beside the exit button — marks (or unmarks) the lesson as one of
+// the child's favourites (StudentLesson.is_favorite). Lives on the screen
+// itself, not in either step, so it's there for the whole lesson. The heart
+// flips at once and is rolled back if the request fails: a child taps it and
+// expects an instant answer, not a wait on the network.
+function FavoriteButton({ studentLessonId, isFavorite }: { studentLessonId: number; isFavorite: boolean }) {
+  const t = useTranslations("PreschoolLesson");
+  const queryClient = useQueryClient();
+  const setFavorite = useSetStudentLessonFavorite();
+
+  const showFavorite = (value: boolean) =>
+    queryClient.setQueryData<StudentLessonOut>(
+      getGetStudentLessonQueryKey(studentLessonId),
+      (lesson) => lesson && { ...lesson, is_favorite: value },
+    );
+
+  const handleClick = () => {
+    const next = !isFavorite;
+    showFavorite(next);
+    setFavorite.mutate({ studentLessonId, data: { is_favorite: next } }, { onError: () => showFavorite(!next) });
+  };
+
+  return (
+    <PreschoolButton
+      icon={<HeartIcon filled={isFavorite} />}
+      label={isFavorite ? t("favoriteRemoveLabel") : t("favoriteAddLabel")}
+      ringColorClassName="ring-rose-400"
+      sizeClassName="h-16 w-16"
+      position="static"
+      className="absolute left-28 top-6"
+      onClick={handleClick}
+    />
   );
 }
 
@@ -220,6 +282,7 @@ export function PreschoolLessonView({ studentLessonId }: { studentLessonId: numb
       </div>
 
       <ExitButton />
+      {data && <FavoriteButton studentLessonId={studentLessonId} isFavorite={data.is_favorite} />}
 
       {isLoading && <p className="relative m-auto text-lg font-medium text-emerald-900">{t("loading")}</p>}
       {isError && <p className="relative m-auto text-lg font-medium text-red-700">{t("error")}</p>}

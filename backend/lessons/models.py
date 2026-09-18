@@ -152,6 +152,10 @@ class StudentLesson(TimeStampedModel):
     # saves any edit (even an empty string), this becomes their own copy and
     # stops following later edits to lesson.synopsis, same as forking a doc.
     synopsis_notes = models.TextField(null=True, blank=True, default=None)
+    # The student's own "I love this one" mark — the heart button on the
+    # preschool lesson screen (see lessons.api.set_favorite). Per student, not
+    # per lesson: StudentLesson is already one row per (student, lesson).
+    is_favorite = models.BooleanField(default=False)
 
     class Meta:
         unique_together = [('student', 'lesson')]

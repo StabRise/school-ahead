@@ -35,6 +35,7 @@ from .schemas import (
     NextLessonOut,
     QuizHintOut,
     RequestHelpIn,
+    SetFavoriteIn,
     StudentLessonMaterialOut,
     StudentLessonOut,
     StudentLessonStartOut,
@@ -131,6 +132,23 @@ def update_synopsis(request: HttpRequest, student_lesson_id: int, payload: Updat
     student_lesson = _get_owned(request, student_lesson_id)
     student_lesson.synopsis_notes = payload.content
     student_lesson.save(update_fields=['synopsis_notes'])
+    return student_lesson
+
+
+@router.patch(
+    '/{student_lesson_id}/favorite',
+    response=StudentLessonOut,
+    operation_id='set_student_lesson_favorite',
+)
+def set_favorite(request: HttpRequest, student_lesson_id: int, payload: SetFavoriteIn):
+    """Marks or unmarks a lesson as one of the student's favourites — the
+    heart button on the preschool lesson screen. Idempotent: it sets the
+    flag to `is_favorite` rather than toggling it, so a double tap or a
+    retried request can't flip it back."""
+    require_csrf(request)
+    student_lesson = _get_owned(request, student_lesson_id)
+    student_lesson.is_favorite = payload.is_favorite
+    student_lesson.save(update_fields=['is_favorite'])
     return student_lesson
 
 
@@ -425,6 +443,7 @@ def list_subject_lessons(request: HttpRequest, subject_id: int):
                 grade_points=student_lesson.grade_points if student_lesson else None,
                 grade_result=student_lesson.grade_result if student_lesson else None,
                 icon=_absolute_file_url(lesson.icon, request),
+                is_favorite=student_lesson.is_favorite if student_lesson else False,
             )
         )
     return result
