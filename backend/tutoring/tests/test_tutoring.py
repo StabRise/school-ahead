@@ -1121,6 +1121,58 @@ class TestUpdateTopicLessonIcons:
         assert response.status_code == 403
 
 
+class TestUpdateLessonIcon:
+    """Same thumbnail-download monkeypatch as TestUpdateSubjectLessonIcons —
+    the real YouTube CDN isn't hit in tests."""
+
+    class _FakeResponse:
+        def __init__(self, content=b'fake-jpg-bytes'):
+            self.content = content
+
+        def raise_for_status(self):
+            pass
+
+    def _lesson(self, subject, content):
+        topic = Topic.objects.create(subject=subject, title='T', order_index=1)
+        return Lesson.objects.create(
+            topic=topic, order_index=1, title='L', lesson_type=LessonType.THEORY, grading_type='binary',
+            content=content,
+        )
+
+    def test_sets_icon_from_youtube_thumbnail(
+        self, api_client, auth_header, monkeypatch, tutor, subject, settings, tmp_path
+    ):
+        settings.MEDIA_ROOT = tmp_path
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        lesson = self._lesson(subject, 'https://www.youtube.com/watch?v=abcdefghijk')
+        monkeypatch.setattr('lessons.services.requests.get', lambda url, timeout: self._FakeResponse())
+
+        response = api_client.post(f'/tutor/lessons/{lesson.id}/update-icon', headers=auth_header(tutor.user))
+
+        assert response.status_code == 200
+        assert response.data == {'updated': 1, 'skipped': 0}
+        lesson.refresh_from_db()
+        assert lesson.icon.name.endswith('.jpg')
+
+    def test_skipped_when_content_has_no_youtube_link(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        lesson = self._lesson(subject, 'Just plain text.')
+
+        response = api_client.post(f'/tutor/lessons/{lesson.id}/update-icon', headers=auth_header(tutor.user))
+
+        assert response.status_code == 200
+        assert response.data == {'updated': 0, 'skipped': 1}
+        lesson.refresh_from_db()
+        assert not lesson.icon
+
+    def test_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        lesson = self._lesson(subject, 'https://www.youtube.com/watch?v=abcdefghijk')
+
+        response = api_client.post(f'/tutor/lessons/{lesson.id}/update-icon', headers=auth_header(tutor.user))
+
+        assert response.status_code == 403
+
+
 class TestLessonDetail:
     def test_get_lesson(self, api_client, auth_header, tutor, subject):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)

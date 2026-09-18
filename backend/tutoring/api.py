@@ -433,6 +433,23 @@ def update_topic_lesson_icons(request: HttpRequest, topic_id: int):
     return UpdateLessonIconsOut(updated=summary.updated, skipped=summary.skipped)
 
 
+@router.post(
+    '/lessons/{lesson_id}/update-icon',
+    response=UpdateLessonIconsOut,
+    operation_id='update_tutor_lesson_icon',
+)
+def update_lesson_icon(request: HttpRequest, lesson_id: int):
+    """Same as update_subject_lesson_icons above, for one Lesson — the
+    "load image" button on a lesson's tile in the Preschool Preview tab.
+    `skipped` is 1 (updated 0) when the lesson's content has no YouTube link
+    or the thumbnail couldn't be downloaded."""
+    require_csrf(request)
+    lesson = get_object_or_404(Lesson.objects.select_related('topic'), id=lesson_id)
+    services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
+    updated = lesson_services.set_lesson_icon_from_content(lesson)
+    return UpdateLessonIconsOut(updated=int(updated), skipped=int(not updated))
+
+
 @router.patch('/topics/{topic_id}/block', response=TopicOut, operation_id='set_topic_block')
 def set_topic_block(request: HttpRequest, topic_id: int, payload: SetTopicBlockIn):
     """Manually moves a topic to a different SubjectBlock — see
