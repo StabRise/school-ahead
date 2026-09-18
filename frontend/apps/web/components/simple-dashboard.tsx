@@ -4,10 +4,9 @@ import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useGetWeeklyProgress } from "@school-ahead/api-client/browser/schedule/schedule";
-import { useListMyAchievements } from "@school-ahead/api-client/browser/achievements/achievements";
-import { Link } from "@/i18n/navigation";
 import { ProgressBar } from "@/components/progress-bar";
 import { mergeSimpleRows, SimpleLessonTable } from "@/components/simple-lesson-table";
+import { SubjectProgressList } from "@/components/subject-progress-list";
 import { useSimpleDashboardStore } from "@/stores/simple-dashboard-store";
 import type { BacklogItemOut, CalendarItemOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 
@@ -80,7 +79,7 @@ function SimpleWeeklyProgress({ colorful }: { colorful?: boolean }) {
   }
 
   const maxCount = Math.max(1, ...days.map((day) => day.completed_count));
-  const MAX_BAR_HEIGHT_PX = 64;
+  const MAX_BAR_HEIGHT_PX = 160; // 2.5x the original 64px
 
   return (
     <div className="flex flex-col gap-3">
@@ -108,34 +107,6 @@ function SimpleWeeklyProgress({ colorful }: { colorful?: boolean }) {
       </div>
       <ProgressBar percent={data?.completed_percent ?? 0} label={t("weeklyPercentLabel")} colorful={colorful} />
     </div>
-  );
-}
-
-// Borderless take on the Standard dashboard's SubjectStatsCard — same
-// per-subject completion bars, no card border. Renders nothing while empty,
-// same as the Standard card.
-function SimpleSubjectStats({ colorful }: { colorful?: boolean }) {
-  const { data } = useListMyAchievements();
-  const subjects = data ?? [];
-
-  if (subjects.length === 0) {
-    return null;
-  }
-
-  return (
-    <ul className="flex flex-col gap-3">
-      {subjects.map((subject) => (
-        <li key={subject.subject_id}>
-          <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
-            <Link href={`/subjects/${subject.subject_id}`} className="truncate text-gray-700 hover:underline">
-              {subject.subject_name}
-            </Link>
-            <span>{Math.round(subject.completed_percent)}%</span>
-          </div>
-          <ProgressBar percent={subject.completed_percent} colorful={colorful} />
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -171,8 +142,7 @@ export function SimpleDashboard({
             <SimpleWeeklyProgress colorful={colorful} />
           </div>
           <div className="flex flex-col gap-2">
-            <h4 className="text-xs font-medium text-gray-500">{t("statsTitle")}</h4>
-            <SimpleSubjectStats colorful={colorful} />
+            <SubjectProgressList colorful={colorful} />
           </div>
         </div>
       </CollapsibleSection>

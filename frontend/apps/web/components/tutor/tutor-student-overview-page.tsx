@@ -2,13 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { BookOpen, User } from "lucide-react";
+import { User } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  useGetTutorStudent,
-  useListTutorStudentAchievements,
-  useMarkTutorStudentLessonComplete,
-} from "@school-ahead/api-client/browser/tutor/tutor";
+import { useGetTutorStudent, useMarkTutorStudentLessonComplete } from "@school-ahead/api-client/browser/tutor/tutor";
 import {
   getGetTutorStudentBacklogQueryKey,
   getGetTutorStudentCalendarQueryKey,
@@ -17,12 +13,12 @@ import {
 } from "@school-ahead/api-client/browser/schedule/schedule";
 import { AvatarBadge, type AvatarLayer } from "@school-ahead/avatar";
 import type { TutorStudentOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
-import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { ProgressBar } from "@/components/progress-bar";
 import { SimpleCalendar } from "@/components/calendar/simple-calendar";
 import { mergeSimpleRows, SimpleLessonTable } from "@/components/simple-lesson-table";
+import { SubjectProgressList } from "@/components/subject-progress-list";
 import { Tabs } from "@/components/tabs";
 import { isoOf, todayIso } from "@/lib/dates";
 
@@ -70,55 +66,6 @@ function equippedLayersFromStudent(student: TutorStudentOut): AvatarLayer[] {
         rotation: item.rotation ?? 0,
       })),
   ];
-}
-
-// "Статистика" tab — one progress bar per subject in the student's class,
-// same shape as the student's own dashboard's collapsible stats section
-// (components/simple-dashboard.tsx's SimpleSubjectStats), just fed from the
-// tutor-scoped achievements endpoint instead of the self-scoped one.
-function SubjectStatsTab({ studentId }: { studentId: number }) {
-  const t = useTranslations("TutorStudentOverview");
-  const { data, isLoading, isError } = useListTutorStudentAchievements(studentId);
-  const subjects = data ?? [];
-
-  if (isLoading) {
-    return <p className="text-sm text-gray-500">{t("loading")}</p>;
-  }
-  if (isError) {
-    return <p className="text-sm text-red-600">{t("error")}</p>;
-  }
-  if (subjects.length === 0) {
-    return <p className="text-sm text-gray-500">{t("noSubjects")}</p>;
-  }
-
-  return (
-    <ul className="flex flex-col gap-3">
-      {subjects.map((subject) => (
-        <li key={subject.subject_id}>
-          <div className="mb-1 flex items-center justify-between gap-2 text-xs text-gray-500">
-            <Link
-              href={`/tutor/students/${studentId}/subjects/${subject.subject_id}`}
-              className="min-w-0 truncate text-gray-700 hover:underline"
-            >
-              {subject.subject_name}
-            </Link>
-            <span className="flex shrink-0 items-center gap-2">
-              <Link
-                href={`/tutor/subjects/${subject.subject_id}`}
-                title={t("viewSubjectButton")}
-                aria-label={t("viewSubjectButton")}
-                className="rounded-md p-1 text-gray-400 hover:bg-gray-50 hover:text-gray-700"
-              >
-                <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
-              </Link>
-              <span>{Math.round(subject.completed_percent)}%</span>
-            </span>
-          </div>
-          <ProgressBar percent={subject.completed_percent} colorful />
-        </li>
-      ))}
-    </ul>
-  );
 }
 
 // Landing page for the "today" link on the day-name in a student's calendar
@@ -256,7 +203,7 @@ export function TutorStudentOverviewPage({
               value: "stats",
               label: t("statsTab"),
               href: `/tutor/students/${studentId}/stats`,
-              content: <SubjectStatsTab studentId={studentId} />,
+              content: <SubjectProgressList studentId={studentId} colorful />,
             },
           ]}
         />

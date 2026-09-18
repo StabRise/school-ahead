@@ -2,7 +2,7 @@ import datetime
 
 import pytest
 
-from academics.models import Class, School, Subject, SubjectBlock, Topic
+from academics.models import Class, School, Subject, SubjectBlock, SubjectGroup, Topic
 from accounts.models import Role, StudentProfile, User
 from lessons import services as lesson_services
 from lessons.models import Lesson, LessonType, StudentLesson
@@ -78,6 +78,27 @@ def test_list_my_achievements_includes_block_breakdown(api_client, auth_header, 
         'id': block2.id, 'index': 2, 'label': 'Semester 2',
         'completed_count': 0, 'total_count': 1, 'completed_percent': 0.0,
     }
+
+
+def test_list_my_achievements_includes_order_and_group(api_client, auth_header, school_class, student):
+    group = SubjectGroup.objects.create(name='Ukrainian curriculum', order_index=2)
+    Subject.objects.create(school_class=school_class, name='Grouped', group=group, order_index=1)
+    Subject.objects.create(school_class=school_class, name='Ungrouped', order_index=0)
+
+    response = api_client.get('/achievements/subjects', headers=auth_header(student.user))
+
+    assert response.status_code == 200
+    rows_by_name = {row['subject_name']: row for row in response.data}
+    assert rows_by_name['Grouped']['order_index'] == 1
+    assert rows_by_name['Grouped']['group_id'] == group.id
+    assert rows_by_name['Grouped']['group_name'] == 'Ukrainian curriculum'
+    assert rows_by_name['Grouped']['group_order_index'] == 2
+    assert rows_by_name['Ungrouped']['order_index'] == 0
+    assert rows_by_name['Ungrouped']['group_id'] is None
+    assert rows_by_name['Ungrouped']['group_name'] is None
+    assert rows_by_name['Ungrouped']['group_order_index'] == 0
+    # order_index (then name) is the default sort — ungrouped(0) before grouped(1)
+    assert [row['subject_name'] for row in response.data] == ['Ungrouped', 'Grouped']
 
 
 def test_list_my_achievements_empty_when_no_class(api_client, auth_header):

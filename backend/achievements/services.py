@@ -38,7 +38,11 @@ def list_subject_achievements(student: StudentProfile, request: HttpRequest) -> 
     if student.school_class_id is None:
         return []
 
-    subjects = Subject.objects.filter(school_class_id=student.school_class_id).order_by('name')
+    subjects = (
+        Subject.objects.filter(school_class_id=student.school_class_id)
+        .select_related('group')
+        .order_by('order_index', 'name')
+    )
     result = []
     for subject in subjects:
         total_lessons = Lesson.objects.filter(topic__subject_id=subject.id).count()
@@ -52,6 +56,10 @@ def list_subject_achievements(student: StudentProfile, request: HttpRequest) -> 
                 subject_name=subject.name,
                 subject_icon=_absolute_file_url(subject.icon, request),
                 subject_color=subject.color,
+                order_index=subject.order_index,
+                group_id=subject.group_id,
+                group_name=subject.group.name if subject.group_id else None,
+                group_order_index=subject.group.order_index if subject.group_id else 0,
                 completed_count=completed,
                 total_count=total,
                 completed_percent=percent,

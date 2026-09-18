@@ -383,7 +383,6 @@
     "backlogHint": "Уроки, які не завершено вчасно",
     "backlogOrigin": "Дата: {label}",
     "statisticsSectionTitle": "Статистика",
-    "statsTitle": "Прогрес по предметах",
     "weeklyProgressTitle": "Виконано за тиждень",
     "weeklyPercentLabel": "% тижня виконано",
     "expandLesson": "Розгорнути",
@@ -465,9 +464,7 @@
     "todayTitle": "Сьогоднішні уроки",
     "noLessonsToday": "На сьогодні уроків не заплановано",
     "calendarTab": "Календар",
-    "statsTab": "Статистика по предметах",
-    "noSubjects": "У цього учня немає предметів",
-    "viewSubjectButton": "Перейти до предмета"
+    "statsTab": "Статистика по предметах"
   },
   "PlanLessons": {
     "triggerButton": "Запланувати уроки на період",
@@ -899,6 +896,21 @@
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити досягнення. Спробуйте ще раз.",
     "empty": "Предметів ще немає."
+  },
+  "SubjectProgress": {
+    "title": "Прогрес по предметах",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити дані. Спробуйте ще раз.",
+    "empty": "Предметів ще немає.",
+    "groupedViewLabel": "Групувати предмети",
+    "ungroupedViewLabel": "Показати всі предмети списком",
+    "ungroupedGroupLabel": "Без групи",
+    "sortLabel": "Сортування",
+    "sortDefault": "За порядком",
+    "sortName": "За назвою",
+    "sortProgressAsc": "За прогресом (зростання)",
+    "sortProgressDesc": "За прогресом (спадання)",
+    "viewSubjectButton": "Перейти до предмета"
   },
   "AvatarPlacementEditor": {
     "rotateItem": "Повернути",
