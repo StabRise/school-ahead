@@ -8,7 +8,7 @@ from common.permissions import get_own_student_profile
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 from lessons import services as lesson_services
-from lessons.models import StudentLesson
+from lessons.models import StudentLesson, StudentLessonStatus
 from ninja import Router
 from ninja.errors import HttpError
 from tutoring.services import (
@@ -46,6 +46,18 @@ def _calendar_item(request: HttpRequest, student_lesson: StudentLesson) -> Calen
         and student_lesson.completed_at.date() < student_lesson.scheduled_date
     )
     subject = student_lesson.lesson.topic.subject
+    has_submission = student_lesson.submissions.exists()
+    # Same rule as lessons.api.cancel_self_selected_lesson (self-selected, no
+    # submission, no comment), plus "not finished" — deleting a completed
+    # lesson would wipe the record of it (and let it be redone for the
+    # reward). `and` short-circuits, so the comments query only runs for the
+    # few self-selected lessons.
+    can_cancel = (
+        student_lesson.is_self_selected
+        and student_lesson.status != StudentLessonStatus.COMPLETED
+        and not has_submission
+        and not student_lesson.comments.exists()
+    )
     return CalendarItemOut(
         id=student_lesson.id,
         lesson_id=student_lesson.lesson_id,
@@ -56,7 +68,7 @@ def _calendar_item(request: HttpRequest, student_lesson: StudentLesson) -> Calen
         topic_order_index=student_lesson.lesson.topic.order_index,
         lesson_order_index=student_lesson.lesson.order_index,
         status=student_lesson.status,
-        has_submission=student_lesson.submissions.exists(),
+        has_submission=has_submission,
         scheduled_date=student_lesson.scheduled_date,
         completed_at=student_lesson.completed_at,
         is_completed_ahead=is_ahead,
@@ -68,6 +80,7 @@ def _calendar_item(request: HttpRequest, student_lesson: StudentLesson) -> Calen
         lesson_type=student_lesson.lesson.lesson_type,
         task_content=student_lesson.lesson.task_content,
         is_self_selected=student_lesson.is_self_selected,
+        can_cancel=can_cancel,
     )
 
 

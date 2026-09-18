@@ -148,6 +148,13 @@ class LessonsReorderIn(Schema):
     items: list[LessonOrderIn]
 
 
+class SetFavoriteIn(Schema):
+    """The heart button on the preschool lesson screen — see
+    StudentLesson.is_favorite."""
+
+    is_favorite: bool
+
+
 class UpdateSynopsisIn(Schema):
     """A student saving their own edited copy of Lesson.synopsis — see
     StudentLesson.synopsis_notes."""
@@ -235,6 +242,7 @@ class StudentLessonOut(Schema):
     # start_lesson_today — gates the "Я не буду сьогодні робити" button
     # (cancel_self_selected_lesson) on the frontend's lesson wizard.
     is_self_selected: bool
+    is_favorite: bool
     started_at: datetime.datetime | None
     completed_at: datetime.datetime | None
     grade_points: int | None
@@ -444,6 +452,10 @@ class SubjectLessonOut(Schema):
     # the subject's own icon (already fetched separately via SubjectOut) when
     # this is empty, same lesson -> subject fallback as CalendarItemOut.
     icon: str | None
+    # StudentLesson.is_favorite — False when this student has no StudentLesson
+    # for the lesson yet. Powers the preschool subject page's "favourites"
+    # filter.
+    is_favorite: bool
 
 
 class LessonPreviewOut(Schema):

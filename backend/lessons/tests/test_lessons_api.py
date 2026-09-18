@@ -192,6 +192,57 @@ def test_update_synopsis_rejects_non_owner(api_client, auth_header, other_studen
     assert student_lesson.synopsis_notes is None
 
 
+def test_lessons_are_not_favourites_by_default(api_client, auth_header, student, student_lesson):
+    response = api_client.get(f'/student-lessons/{student_lesson.id}', headers=auth_header(student.user))
+
+    assert response.status_code == 200
+    assert response.data['is_favorite'] is False
+
+
+def test_set_favorite_marks_and_unmarks_the_lesson(api_client, auth_header, student, student_lesson):
+    headers = auth_header(student.user)
+
+    marked = api_client.patch(
+        f'/student-lessons/{student_lesson.id}/favorite', json={'is_favorite': True}, headers=headers
+    )
+    assert marked.status_code == 200
+    assert marked.data['is_favorite'] is True
+    student_lesson.refresh_from_db()
+    assert student_lesson.is_favorite is True
+    # It shows up on the next read of the lesson too.
+    assert api_client.get(f'/student-lessons/{student_lesson.id}', headers=headers).data['is_favorite'] is True
+
+    unmarked = api_client.patch(
+        f'/student-lessons/{student_lesson.id}/favorite', json={'is_favorite': False}, headers=headers
+    )
+    assert unmarked.data['is_favorite'] is False
+    student_lesson.refresh_from_db()
+    assert student_lesson.is_favorite is False
+
+
+def test_set_favorite_is_idempotent(api_client, auth_header, student, student_lesson):
+    """It sets the flag rather than toggling it — a double tap or a retried
+    request must not flip it back."""
+    headers = auth_header(student.user)
+
+    for _ in range(2):
+        response = api_client.patch(
+            f'/student-lessons/{student_lesson.id}/favorite', json={'is_favorite': True}, headers=headers
+        )
+        assert response.data['is_favorite'] is True
+
+
+def test_set_favorite_rejects_non_owner(api_client, auth_header, other_student, student_lesson):
+    response = api_client.patch(
+        f'/student-lessons/{student_lesson.id}/favorite',
+        json={'is_favorite': True},
+        headers=auth_header(other_student.user),
+    )
+    assert response.status_code == 403
+    student_lesson.refresh_from_db()
+    assert student_lesson.is_favorite is False
+
+
 def test_start_and_confirm_understanding_flow(api_client, auth_header, student, student_lesson):
     headers = auth_header(student.user)
 
@@ -402,6 +453,27 @@ def test_list_subject_lessons_includes_unassigned_lessons(
     assert unassigned_row['status'] is None
     assert unassigned_row['task_content'] == 'Do exercises'
     assert unassigned_row['scheduled_date'] is None
+
+
+def test_list_subject_lessons_reports_which_lessons_are_favourites(
+    api_client, auth_header, topic, student, student_lesson
+):
+    other_lesson = Lesson.objects.create(
+        topic=topic, order_index=2, title='Not yet assigned',
+        lesson_type=LessonType.THEORY, grading_type='binary',
+    )
+    student_lesson.is_favorite = True
+    student_lesson.save(update_fields=['is_favorite'])
+
+    response = api_client.get(
+        f'/student-lessons/subjects/{topic.subject_id}/lessons', headers=auth_header(student.user)
+    )
+
+    assert response.status_code == 200
+    by_id = {row['id']: row for row in response.data}
+    assert by_id[student_lesson.lesson_id]['is_favorite'] is True
+    # No StudentLesson for this one yet, so it can't be a favourite.
+    assert by_id[other_lesson.id]['is_favorite'] is False
 
 
 def test_list_subject_lessons_resolves_icon_as_absolute_url(

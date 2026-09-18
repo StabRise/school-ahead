@@ -35,7 +35,7 @@ export function StudentDashboard() {
   const interfaceMode = useAuthStore((state) => state.user?.interfaceMode);
   const isPreschool = interfaceMode === "preschool";
   const isSimple = interfaceMode === "simple";
-  const { data, isLoading, isError } = useGetToday({ date: toLocalIsoDate(new Date()) });
+  const { data, isLoading, isError, refetch } = useGetToday({ date: toLocalIsoDate(new Date()) });
 
   const lessons = useMemo(() => sortLessonItems(data?.today ?? []), [data?.today]);
   const backlog = useMemo(() => sortLessonItems(data?.backlog ?? []), [data?.backlog]);
@@ -70,7 +70,7 @@ export function StudentDashboard() {
             {/* No separate backlog section here — tails are already walked
                 into `roadItems` above, so listing them again would just
                 duplicate what's on the road. See docs/views/preschool/README.md. */}
-            {!isLoading && !isError && <PreschoolGameMap items={roadItems} />}
+            {!isLoading && !isError && <PreschoolGameMap items={roadItems} onLessonCancelled={() => refetch()} />}
           </div>
         )}
       </div>
