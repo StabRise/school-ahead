@@ -16,6 +16,10 @@ class CalendarItemOut(Schema):
     topic_order_index: int
     lesson_order_index: int
     status: str
+    # Whether the student has submitted work for this lesson yet — lets the
+    # tutor's calendar only offer to remove an In Progress lesson before any
+    # submission exists. See lessons.models.LessonSubmission.
+    has_submission: bool
     scheduled_date: datetime.date
     completed_at: datetime.datetime | None
     is_completed_ahead: bool

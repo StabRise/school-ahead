@@ -253,6 +253,9 @@ function SimpleDayLessonRow({
   // everything the status word would, so the label drops entirely instead.
   const statusLabel = isCompleted || colorful ? null : resolveStatusLabel(item.status, tStatus);
   const showActionRow = showTutorLinks || canManage;
+  // A tutor can remove an assignment before the student has submitted
+  // anything for it — still Assigned, or In Progress with no submission yet.
+  const canRemove = item.status === "assigned" || (item.status === "in_progress" && !item.has_submission);
 
   const stopDragStart = (e: React.MouseEvent) => e.stopPropagation();
 
@@ -314,7 +317,7 @@ function SimpleDayLessonRow({
               <CalendarClock className="size-3.5" aria-hidden="true" />
             </button>
           )}
-          {showTutorLinks && item.status === "assigned" && (
+          {showTutorLinks && canRemove && (
             <button
               type="button"
               onMouseDown={stopDragStart}

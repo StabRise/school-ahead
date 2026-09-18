@@ -9,7 +9,15 @@ from academics import services as academics_services
 from academics.models import Class, School, Subject, Topic
 from accounts.models import Role, StudentProfile, TutorProfile, User
 from house.models import FurnitureItem, FurnitureTexture
-from lessons.models import Lesson, LessonType, QuizChoice, QuizQuestion, StudentLesson, StudentLessonStatus
+from lessons.models import (
+    Lesson,
+    LessonSubmission,
+    LessonType,
+    QuizChoice,
+    QuizQuestion,
+    StudentLesson,
+    StudentLessonStatus,
+)
 from tutoring.models import TutorSubjectAssignment
 from tutoring.services import get_tutor_subject_ids
 
@@ -1303,7 +1311,25 @@ class TestDeleteStudentLesson:
         assert response.status_code == 204
         assert not StudentLesson.objects.filter(id=sl.id).exists()
 
-    def test_delete_rejected_when_not_assigned(self, api_client, auth_header, tutor, subject, student):
+    def test_delete_rejected_when_pending_review(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        sl = StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+            status=StudentLessonStatus.PENDING_REVIEW,
+        )
+
+        response = api_client.delete(f'/tutor/student-lessons/{sl.id}', headers=auth_header(tutor.user))
+
+        assert response.status_code == 409
+        assert StudentLesson.objects.filter(id=sl.id).exists()
+
+    def test_delete_in_progress_student_lesson_without_submission(
+        self, api_client, auth_header, tutor, subject, student
+    ):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
         topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
         lesson = Lesson.objects.create(
@@ -1313,6 +1339,25 @@ class TestDeleteStudentLesson:
             student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
             status=StudentLessonStatus.IN_PROGRESS,
         )
+
+        response = api_client.delete(f'/tutor/student-lessons/{sl.id}', headers=auth_header(tutor.user))
+
+        assert response.status_code == 204
+        assert not StudentLesson.objects.filter(id=sl.id).exists()
+
+    def test_delete_rejected_when_in_progress_with_submission(
+        self, api_client, auth_header, tutor, subject, student
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        sl = StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+            status=StudentLessonStatus.IN_PROGRESS,
+        )
+        LessonSubmission.objects.create(student_lesson=sl)
 
         response = api_client.delete(f'/tutor/student-lessons/{sl.id}', headers=auth_header(tutor.user))
 

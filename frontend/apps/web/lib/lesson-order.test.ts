@@ -12,6 +12,7 @@ function item(overrides: Partial<CalendarItemOut> & { id: number }): CalendarIte
     topic_order_index: 1,
     lesson_order_index: 1,
     status: "assigned",
+    has_submission: false,
     scheduled_date: "2026-09-01",
     completed_at: null,
     is_completed_ahead: false,
