@@ -1112,6 +1112,30 @@ class TestImportSubjectYoutubePlaylist:
         def raise_for_status(self):
             pass
 
+    def test_topic_description_is_saved_when_the_topic_is_created(
+        self, api_client, auth_header, monkeypatch, tutor, subject
+    ):
+        """The scraper puts the playlist's URL in the topic's description
+        (youtube_scrape.fetch_playlist_topic) — it must reach Topic.description."""
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic_data, truncated = self._fake_topic('Base')
+        topic_data['description'] = 'https://www.youtube.com/playlist?list=PL123'
+        monkeypatch.setattr(
+            'tutoring.api.youtube_scrape.fetch_playlist_topic',
+            lambda playlist_url, topic_name: (topic_data, truncated),
+        )
+
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/youtube-import',
+            json={'playlist_url': 'https://www.youtube.com/playlist?list=PL123'},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert Topic.objects.get(subject=subject, title='Base').description == (
+            'https://www.youtube.com/playlist?list=PL123'
+        )
+
     def test_topic_name_is_optional(self, api_client, auth_header, monkeypatch, tutor, subject):
         """Omitting topic_name reaches the scraper as blank, which it turns
         into the playlist's own title (see youtube_scrape.fetch_playlist_topic)."""

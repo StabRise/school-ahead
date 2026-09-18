@@ -28,6 +28,16 @@ export const PRESCHOOL_CARD_GRADIENTS = [
   "from-pink-400 to-pink-600",
 ];
 
+// Every tile has the same fixed height, per breakpoint — never derived from
+// its content, its picture's proportions or how many tiles are on screen.
+// (An `aspect-video` picture box sized itself off the tile's width and
+// collapsed to a sliver in iPad Safari, so cards got shorter the more of them
+// had loaded.) The picture height is picked so the picture is roughly 16:9
+// at the column width each grid layout gives it, and PICTURE + CAPTION add
+// up to TILE_HEIGHT: 6rem+2.25rem, 8rem+2.25rem, 11rem+2.25rem.
+const TILE_HEIGHT = "h-[8.25rem] sm:h-[10.25rem] lg:h-[13.25rem]";
+const TILE_PICTURE_HEIGHT = "h-24 sm:h-32 lg:h-44";
+
 // href is a plain (already locale-scoped-by-caller) path — same as every
 // other call site of next-intl's Link in this codebase; omit it to render a
 // non-interactive tile (the tutor's read-only "Preschool Preview" tab).
@@ -77,13 +87,15 @@ export function PreschoolLessonTile({
     return (
       <CardShell
         href={href}
-        className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-lg transition-transform hover:-translate-y-1 active:scale-95"
+        className={`group flex shrink-0 flex-col overflow-hidden rounded-2xl bg-white shadow-lg transition-transform hover:-translate-y-1 active:scale-95 ${TILE_HEIGHT}`}
       >
-        <span className="aspect-video w-full overflow-hidden bg-gray-100">
+        <span className={`relative block w-full shrink-0 overflow-hidden bg-gray-100 ${TILE_PICTURE_HEIGHT}`}>
           {/* eslint-disable-next-line @next/next/no-img-element -- external/user-uploaded URL, not a static asset next/image can optimize */}
-          <img src={resolvedIcon} alt="" className="h-full w-full object-cover" />
+          <img src={resolvedIcon} alt="" className="absolute inset-0 h-full w-full object-cover" />
         </span>
-        <span className="truncate px-2 py-2 text-center text-xs font-bold text-gray-700">{title}</span>
+        <span className="block h-9 shrink-0 truncate px-2 text-center text-xs font-bold leading-9 text-gray-700">
+          {title}
+        </span>
       </CardShell>
     );
   }
@@ -94,16 +106,18 @@ export function PreschoolLessonTile({
   return (
     <CardShell
       href={href}
-      className={`group flex flex-col gap-2 rounded-2xl bg-gradient-to-br p-4 text-white shadow-lg transition-transform hover:-translate-y-1 active:scale-95 ${gradient}`}
+      className={`group flex shrink-0 flex-col gap-1.5 overflow-hidden rounded-2xl bg-gradient-to-br p-3 text-white shadow-lg transition-transform hover:-translate-y-1 active:scale-95 sm:p-4 ${TILE_HEIGHT} ${gradient}`}
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/25">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/25">
         <Icon className="size-5" aria-hidden="true" />
       </span>
-      <span className="w-fit rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide">
+      <span className="w-fit shrink-0 rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide">
         {t("lessonBadge", { index: index + 1 })}
       </span>
-      <span className="text-base font-extrabold leading-tight">{title}</span>
-      {topicTitle && <span className="truncate text-xs font-medium text-white/80">{topicTitle}</span>}
+      <span className="line-clamp-2 text-sm font-extrabold leading-tight sm:text-base">{title}</span>
+      {topicTitle && (
+        <span className="hidden shrink-0 truncate text-xs font-medium text-white/80 sm:block">{topicTitle}</span>
+      )}
     </CardShell>
   );
 }

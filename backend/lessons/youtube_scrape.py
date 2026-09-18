@@ -7,6 +7,7 @@ import_subject_youtube_playlist, which imports it immediately)."""
 
 import json
 import re
+from urllib.parse import parse_qs, urlparse
 
 import requests
 
@@ -51,6 +52,17 @@ def extract_video_id(content: str) -> str | None:
 
 class ScrapeError(Exception):
     pass
+
+
+def canonical_playlist_url(url: str) -> str:
+    """The plain playlist page for any link carrying a `list=` id. A
+    `watch?v=…&list=…` link (what the address bar shows while a playlist
+    plays) is a *video* page whose data has no playlist items, so scraping
+    it fails — the list id is all that's needed. Links without one are
+    returned unchanged."""
+    url = url.strip()
+    list_ids = parse_qs(urlparse(url).query).get('list')
+    return f'https://www.youtube.com/playlist?list={list_ids[0]}' if list_ids else url
 
 
 def _make_session() -> requests.Session:
@@ -160,7 +172,9 @@ def fetch_playlist_topic(playlist_url: str, topic_name: str = '') -> tuple[dict,
     """Returns (topic_data, truncated) — topic_data is TopicOut-shaped,
     ready for lessons.services.import_topics_and_lessons. The topic is named
     `topic_name`, or — when that's blank — after the playlist itself
-    (DEFAULT_TOPIC_NAME if its title can't be read). Follows the
+    (DEFAULT_TOPIC_NAME if its title can't be read), and its description is
+    the playlist's URL (canonical_playlist_url) so a tutor can find the
+    source again. Follows the
     playlist's continuation pages (~100 videos each) until the end.
     `truncated` is True only when that stopped early — a later page failed
     to load or MAX_CONTINUATION_PAGES was hit — so the videos returned are
@@ -169,6 +183,7 @@ def fetch_playlist_topic(playlist_url: str, topic_name: str = '') -> tuple[dict,
     first page (network, unrecognized page, empty playlist) — callers decide
     how to surface that (manage.py's CommandError vs. tutoring.api's
     HttpError 400)."""
+    playlist_url = canonical_playlist_url(playlist_url)
     session = _make_session()
     html_text = _fetch(session, playlist_url)
     data = _initial_data(html_text)
@@ -212,4 +227,4 @@ def fetch_playlist_topic(playlist_url: str, topic_name: str = '') -> tuple[dict,
             'task_content': '',
         })
     title = topic_name.strip() or _playlist_title(data) or DEFAULT_TOPIC_NAME
-    return {'title': title, 'description': '', 'lessons': lessons}, truncated
+    return {'title': title, 'description': playlist_url, 'lessons': lessons}, truncated
