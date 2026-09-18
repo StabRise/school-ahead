@@ -1108,16 +1108,26 @@ def set_lesson_icon_from_content(lesson: Lesson) -> bool:
     return True
 
 
+def _update_lesson_icons(lessons: QuerySet) -> UpdateLessonIconsSummary:
+    summary = UpdateLessonIconsSummary()
+    for lesson in lessons:
+        if set_lesson_icon_from_content(lesson):
+            summary.updated += 1
+        else:
+            summary.skipped += 1
+    return summary
+
+
 def update_subject_lesson_icons(subject: Subject) -> UpdateLessonIconsSummary:
     """Sets Lesson.icon to the thumbnail of the first YouTube video linked
     from that lesson's content, for every lesson in `subject`. Lessons with
     no YouTube link in their content, or whose thumbnail fails to download,
     are left untouched and counted as skipped rather than failing the whole
     run."""
-    summary = UpdateLessonIconsSummary()
-    for lesson in Lesson.objects.filter(topic__subject=subject):
-        if set_lesson_icon_from_content(lesson):
-            summary.updated += 1
-        else:
-            summary.skipped += 1
-    return summary
+    return _update_lesson_icons(Lesson.objects.filter(topic__subject=subject))
+
+
+def update_topic_lesson_icons(topic: Topic) -> UpdateLessonIconsSummary:
+    """Same as update_subject_lesson_icons, scoped to a single Topic — the
+    icon button on the Subject detail page's per-topic header."""
+    return _update_lesson_icons(Lesson.objects.filter(topic=topic))

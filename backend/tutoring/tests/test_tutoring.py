@@ -1071,6 +1071,56 @@ class TestUpdateSubjectLessonIcons:
         assert response.status_code == 403
 
 
+class TestUpdateTopicLessonIcons:
+    """Same thumbnail-download monkeypatch as TestUpdateSubjectLessonIcons —
+    the real YouTube CDN isn't hit in tests."""
+
+    class _FakeResponse:
+        def __init__(self, content=b'fake-jpg-bytes'):
+            self.content = content
+
+        def raise_for_status(self):
+            pass
+
+    def test_sets_icons_only_for_lessons_in_this_topic(
+        self, api_client, auth_header, monkeypatch, tutor, subject, settings, tmp_path
+    ):
+        settings.MEDIA_ROOT = tmp_path
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='T1', order_index=1)
+        other_topic = Topic.objects.create(subject=subject, title='T2', order_index=2)
+        in_topic = Lesson.objects.create(
+            topic=topic, order_index=1, title='Has video', lesson_type=LessonType.THEORY, grading_type='binary',
+            content='https://www.youtube.com/watch?v=abcdefghijk',
+        )
+        in_other_topic = Lesson.objects.create(
+            topic=other_topic, order_index=1, title='Also has video', lesson_type=LessonType.THEORY,
+            grading_type='binary', content='https://www.youtube.com/watch?v=zyxwvutsrqp',
+        )
+        monkeypatch.setattr('lessons.services.requests.get', lambda url, timeout: self._FakeResponse())
+
+        response = api_client.post(
+            f'/tutor/topics/{topic.id}/update-lesson-icons', headers=auth_header(tutor.user)
+        )
+
+        assert response.status_code == 200
+        assert response.data['updated'] == 1
+        assert response.data['skipped'] == 0
+        in_topic.refresh_from_db()
+        in_other_topic.refresh_from_db()
+        assert in_topic.icon.name.endswith('.jpg')
+        assert not in_other_topic.icon
+
+    def test_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        topic = Topic.objects.create(subject=subject, title='T', order_index=1)
+
+        response = api_client.post(
+            f'/tutor/topics/{topic.id}/update-lesson-icons', headers=auth_header(tutor.user)
+        )
+
+        assert response.status_code == 403
+
+
 class TestLessonDetail:
     def test_get_lesson(self, api_client, auth_header, tutor, subject):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
