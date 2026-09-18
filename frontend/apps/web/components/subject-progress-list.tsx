@@ -9,6 +9,7 @@ import { useListTutorStudentAchievements } from "@school-ahead/api-client/browse
 import type { SubjectAchievementOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { Link } from "@/i18n/navigation";
 import { ProgressBar } from "@/components/progress-bar";
+import { subjectGroupLabel } from "@/lib/subject-group-label";
 import { useSubjectProgressViewStore, type SubjectProgressSort } from "@/stores/subject-progress-view-store";
 
 const SORT_OPTIONS: SubjectProgressSort[] = ["default", "name", "progress_asc", "progress_desc"];
@@ -235,7 +236,9 @@ export function SubjectProgressList({ studentId, colorful }: { studentId?: numbe
         <div className="flex flex-col gap-4">
           {groups.map((group) => (
             <div key={group.key} className="flex flex-col gap-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{group.label}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                {subjectGroupLabel(group.label, group.items.length)}
+              </p>
               <ul className="flex flex-col gap-3">
                 {group.items.map((subject) => (
                   <SubjectProgressRow

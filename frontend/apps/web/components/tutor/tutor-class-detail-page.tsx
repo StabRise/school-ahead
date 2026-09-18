@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, GripVertical, RefreshCw } from "lucide-react";
+import { Calendar, ChevronDown, ChevronRight, Crown, GripVertical, RefreshCw } from "lucide-react";
 import type { AssignmentOut, TutorStudentOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import {
   getGetTutorClassQueryKey,
@@ -18,6 +18,9 @@ import { IsFilledBadge } from "@/components/subjects/is-filled-badge";
 import { AttestationTypeBadge } from "@/components/subjects/attestation-type-badge";
 import { SimpleEntityIcon } from "@/components/simple/entity-icon";
 import { SimplePageContainer } from "@/components/simple/page-container";
+import { Tabs } from "@/components/tabs";
+import { subjectGroupLabel } from "@/lib/subject-group-label";
+import { useTabQueryParam } from "@/lib/use-tab-query-param";
 import { CreateSubjectDialog } from "./create-subject-dialog";
 import { LoadSubjectMarkdownDialog } from "./load-subject-markdown-dialog";
 import { PlanLessonsDialog } from "./plan-lessons-dialog";
@@ -43,6 +46,7 @@ function SubjectRow({
   onDropOnThisSubject: () => void;
 }) {
   const t = useTranslations("TutorClassDetail");
+  const workloadValue = subject.block_workloads.map((w) => (w === null ? "—" : w.toFixed(2))).join(" / ");
 
   return (
     <li className="flex items-center gap-0.5">
@@ -78,10 +82,11 @@ function SubjectRow({
             {t("lessonsCount", { count: subject.lesson_count })}
           </span>
           {subject.block_workloads.length > 0 && (
-            <span className="text-xs text-gray-500">
-              {t("workloadLabel", {
-                value: subject.block_workloads.map((w) => (w === null ? "—" : w.toFixed(2))).join(" / "),
-              })}
+            <span
+              className="text-xs text-gray-500"
+              title={t("workloadLabel", { value: workloadValue })}
+            >
+              {workloadValue}
             </span>
           )}
         </div>
@@ -93,13 +98,23 @@ function SubjectRow({
 }
 
 function StudentRow({ student }: { student: TutorStudentOut }) {
+  const t = useTranslations("TutorClassDetail");
+
   return (
-    <li>
+    <li className="flex items-center justify-between gap-3">
       <Link
-        href={`/tutor/students/${student.id}/calendar`}
-        className="flex items-center justify-between gap-3 rounded px-2 py-2 hover:bg-gray-50"
+        href={`/tutor/students/${student.id}`}
+        className="flex min-w-0 flex-1 items-center rounded px-2 py-2 hover:bg-gray-50"
       >
         <span className="font-medium text-gray-900">{student.name}</span>
+      </Link>
+      <Link
+        href={`/tutor/students/${student.id}/calendar`}
+        title={t("viewCalendarButton")}
+        aria-label={t("viewCalendarButton")}
+        className="shrink-0 rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+      >
+        <Calendar className="size-4" aria-hidden="true" />
       </Link>
     </li>
   );
@@ -127,10 +142,11 @@ function RecalculateWorkloadButton({ classId }: { classId: number }) {
       type="button"
       onClick={handleClick}
       disabled={recalculate.isPending}
-      className="flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+      title={t("recalculateWorkloadButton")}
+      aria-label={t("recalculateWorkloadButton")}
+      className="flex shrink-0 items-center justify-center rounded-md border border-gray-300 p-2 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
     >
-      <RefreshCw className={`h-4 w-4 ${recalculate.isPending ? "animate-spin" : ""}`} />
-      {t("recalculateWorkloadButton")}
+      <RefreshCw className={`h-4 w-4 ${recalculate.isPending ? "animate-spin" : ""}`} aria-hidden="true" />
     </button>
   );
 }
@@ -149,6 +165,7 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
   const reorderSubjects = useReorderTutorClassSubjects();
   const [draggedSubjectId, setDraggedSubjectId] = useState<number | null>(null);
   const [collapsedSectionKeys, setCollapsedSectionKeys] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useTabQueryParam("subjects");
 
   const toggleSectionCollapsed = (key: string) => {
     setCollapsedSectionKeys((prev) => {
@@ -259,101 +276,127 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
           <Breadcrumbs items={breadcrumbItems} />
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold text-gray-900">{data.name}</h1>
-              {data.is_class_teacher && <span className="shrink-0 text-xs text-gray-500">{t("youAreClassTeacher")}</span>}
+              <h1 className="text-2xl font-semibold text-gray-900">{t("classTitle", { name: data.name })}</h1>
+              {data.is_class_teacher && (
+                <span
+                  title={t("youAreClassTeacher")}
+                  aria-label={t("youAreClassTeacher")}
+                  className="flex shrink-0 items-center rounded-full bg-blue-100 p-1 text-blue-700"
+                >
+                  <Crown className="size-3.5" aria-hidden="true" />
+                </span>
+              )}
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <RecalculateWorkloadButton classId={classId} />
               {data.is_class_teacher && <CreateSubjectDialog classId={classId} academicYear={data.academic_year} />}
+              <RecalculateWorkloadButton classId={classId} />
               {data.is_class_teacher && <UploadPlanDialog classId={classId} />}
               {data.is_class_teacher && <LoadSubjectMarkdownDialog classId={classId} />}
               <PlanLessonsDialog classId={classId} />
             </div>
           </div>
-          <p className="text-sm text-gray-700">
-            {t("classTeacherLabel")}:{" "}
-            <span className="font-medium">{data.class_teacher_name ?? t("classTeacherUnset")}</span>
-          </p>
+          {!data.is_class_teacher && (
+            <p className="text-sm text-gray-700">
+              {t("classTeacherLabel")}:{" "}
+              <span className="font-medium">{data.class_teacher_name ?? t("classTeacherUnset")}</span>
+            </p>
+          )}
         </div>
 
-        <div className="flex flex-col gap-3">
-          <h2 className="text-lg font-semibold text-gray-900">{t("subjectsTitle")}</h2>
-          {reorderSubjects.isError && <p className="text-xs text-red-600">{t("subjectReorderError")}</p>}
-          {data.subjects.length === 0 ? (
-            <p className="text-sm text-gray-500">{t("noSubjects")}</p>
-          ) : (
-            <div className="flex flex-col gap-5">
-              {sections
-                .filter((section) => section.subjects.length > 0 || section.groupId !== null)
-                .map((section) => {
-                  const sectionKey = String(section.groupId ?? "ungrouped");
-                  const collapsed = collapsedSectionKeys.has(sectionKey);
-                  return (
-                    <div
-                      key={sectionKey}
-                      onDragOver={(e) => {
-                        if (draggedSubjectId !== null) e.preventDefault();
-                      }}
-                      onDrop={(e) => {
-                        if (draggedSubjectId === null) return;
-                        e.preventDefault();
-                        handleSubjectDrop(section.groupId, null);
-                      }}
-                      className="flex flex-col gap-1"
-                    >
-                      {section.label && (
-                        <button
-                          type="button"
-                          onClick={() => toggleSectionCollapsed(sectionKey)}
-                          aria-expanded={!collapsed}
-                          title={collapsed ? t("expandGroupButton") : t("collapseGroupButton")}
-                          className="flex items-center gap-1 rounded px-1.5 py-1 text-left hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-                        >
-                          {collapsed ? (
-                            <ChevronRight className="size-3.5 shrink-0 text-gray-400" aria-hidden="true" />
-                          ) : (
-                            <ChevronDown className="size-3.5 shrink-0 text-gray-400" aria-hidden="true" />
-                          )}
-                          <h3 className="text-xs font-semibold text-gray-500">{section.label}</h3>
-                        </button>
-                      )}
-                      {!collapsed &&
-                        (section.subjects.length === 0 ? (
-                          <p className="px-2 text-xs text-gray-400">{t("emptyGroupHint")}</p>
-                        ) : (
-                          <ul className="divide-y divide-gray-100">
-                            {section.subjects.map((subject) => (
-                              <SubjectRow
-                                key={subject.subject_id}
-                                subject={subject}
-                                isDragging={draggedSubjectId === subject.subject_id}
-                                draggedSubjectId={draggedSubjectId}
-                                onDragStart={() => setDraggedSubjectId(subject.subject_id)}
-                                onDragEnd={() => setDraggedSubjectId(null)}
-                                onDropOnThisSubject={() => handleSubjectDrop(section.groupId, subject.subject_id)}
-                              />
-                            ))}
-                          </ul>
-                        ))}
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          tabs={[
+            {
+              value: "subjects",
+              label: t("subjectsTitle"),
+              content: (
+                <div className="flex flex-col gap-3">
+                  {reorderSubjects.isError && <p className="text-xs text-red-600">{t("subjectReorderError")}</p>}
+                  {data.subjects.length === 0 ? (
+                    <p className="text-sm text-gray-500">{t("noSubjects")}</p>
+                  ) : (
+                    <div className="flex flex-col gap-5">
+                      {sections
+                        .filter((section) => section.subjects.length > 0 || section.groupId !== null)
+                        .map((section) => {
+                          const sectionKey = String(section.groupId ?? "ungrouped");
+                          const collapsed = collapsedSectionKeys.has(sectionKey);
+                          return (
+                            <div
+                              key={sectionKey}
+                              onDragOver={(e) => {
+                                if (draggedSubjectId !== null) e.preventDefault();
+                              }}
+                              onDrop={(e) => {
+                                if (draggedSubjectId === null) return;
+                                e.preventDefault();
+                                handleSubjectDrop(section.groupId, null);
+                              }}
+                              className="flex flex-col gap-1"
+                            >
+                              {section.label && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleSectionCollapsed(sectionKey)}
+                                  aria-expanded={!collapsed}
+                                  title={collapsed ? t("expandGroupButton") : t("collapseGroupButton")}
+                                  className="flex items-center gap-1 rounded px-1.5 py-1 text-left hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                                >
+                                  {collapsed ? (
+                                    <ChevronRight className="size-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+                                  ) : (
+                                    <ChevronDown className="size-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+                                  )}
+                                  <h3 className="text-xs font-semibold text-gray-500">
+                                    {subjectGroupLabel(section.label, section.subjects.length)}
+                                  </h3>
+                                </button>
+                              )}
+                              {!collapsed &&
+                                (section.subjects.length === 0 ? (
+                                  <p className="px-2 text-xs text-gray-400">{t("emptyGroupHint")}</p>
+                                ) : (
+                                  <ul className="divide-y divide-gray-100">
+                                    {section.subjects.map((subject) => (
+                                      <SubjectRow
+                                        key={subject.subject_id}
+                                        subject={subject}
+                                        isDragging={draggedSubjectId === subject.subject_id}
+                                        draggedSubjectId={draggedSubjectId}
+                                        onDragStart={() => setDraggedSubjectId(subject.subject_id)}
+                                        onDragEnd={() => setDraggedSubjectId(null)}
+                                        onDropOnThisSubject={() =>
+                                          handleSubjectDrop(section.groupId, subject.subject_id)
+                                        }
+                                      />
+                                    ))}
+                                  </ul>
+                                ))}
+                            </div>
+                          );
+                        })}
                     </div>
-                  );
-                })}
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-3">
-          <h2 className="text-lg font-semibold text-gray-900">{t("studentsTitle")}</h2>
-          {data.students.length === 0 ? (
-            <p className="text-sm text-gray-500">{t("noStudents")}</p>
-          ) : (
-            <ul className="divide-y divide-gray-100">
-              {data.students.map((student) => (
-                <StudentRow key={student.id} student={student} />
-              ))}
-            </ul>
-          )}
-        </div>
+                  )}
+                </div>
+              ),
+            },
+            {
+              value: "students",
+              label: t("studentsTitle"),
+              content:
+                data.students.length === 0 ? (
+                  <p className="text-sm text-gray-500">{t("noStudents")}</p>
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {data.students.map((student) => (
+                      <StudentRow key={student.id} student={student} />
+                    ))}
+                  </ul>
+                ),
+            },
+          ]}
+        />
       </div>
     </SimplePageContainer>
   );
