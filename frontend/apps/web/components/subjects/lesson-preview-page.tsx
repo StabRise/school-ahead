@@ -3,6 +3,8 @@
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { Monitor } from "lucide-react";
+import { useAuthStore } from "@school-ahead/api-client";
+import { PreschoolButton } from "@school-ahead/preschool-ui";
 import {
   getGetNextLessonQueryKey,
   getGetSubjectProgressQueryKey,
@@ -38,6 +40,7 @@ export function LessonPreviewPage({ lessonId }: { lessonId: number }) {
   const tSubject = useTranslations("SubjectDetail");
   const router = useRouter();
   const queryClient = useQueryClient();
+  const isPreschool = useAuthStore((state) => state.user?.interfaceMode === "preschool");
 
   const previewQuery = usePreviewLesson(lessonId);
   const startToday = useStartLessonToday();
@@ -53,6 +56,7 @@ export function LessonPreviewPage({ lessonId }: { lessonId: number }) {
   const LessonTypeIcon = LESSON_TYPE_ICON[lesson.lesson_type] ?? Monitor;
 
   const handleStartToday = () => {
+    if (startToday.isPending) return;
     startToday.mutate(
       { lessonId },
       {
@@ -96,6 +100,15 @@ export function LessonPreviewPage({ lessonId }: { lessonId: number }) {
               >
                 {t("continueButton")}
               </Link>
+            ) : isPreschool ? (
+              <PreschoolButton
+                icon="🚀"
+                label={startToday.isPending ? t("starting") : t("startTodayButton")}
+                onClick={handleStartToday}
+                ringColorClassName="ring-rose-400"
+                position="static"
+                className="shrink-0"
+              />
             ) : (
               <button
                 type="button"
