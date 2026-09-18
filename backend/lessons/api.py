@@ -1,3 +1,6 @@
+import datetime
+
+from accounts.models import StudentProfile
 from achievements import services as achievement_services
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
@@ -26,6 +29,7 @@ from .schemas import (
     ConfirmUnderstandingIn,
     DeleteMaterialSentencesIn,
     LessonCommentOut,
+    LessonPreviewOut,
     MaterialAnnotationOut,
     MyAssignableLessonOut,
     NextLessonOut,
@@ -33,6 +37,7 @@ from .schemas import (
     RequestHelpIn,
     StudentLessonMaterialOut,
     StudentLessonOut,
+    StudentLessonStartOut,
     SubjectLessonOut,
     SubjectProgressOut,
     SubmitQuizIn,
@@ -82,6 +87,23 @@ def get_student_lesson(request: HttpRequest, student_lesson_id: int):
     student_lesson = _get_owned(request, student_lesson_id)
     services.ensure_started(student_lesson, request.auth)
     return student_lesson
+
+
+@router.delete('/{student_lesson_id}', response={204: None}, operation_id='cancel_self_selected_lesson')
+def cancel_self_selected_lesson(request: HttpRequest, student_lesson_id: int):
+    """"Я не буду сьогодні робити" — a student backing out of a lesson they
+    picked themselves (StudentLesson.is_self_selected, via
+    start_lesson_today) before submitting anything or leaving a comment on
+    it. Tutor-assigned lessons can't be cancelled this way — see
+    tutoring.api.delete_student_lesson for that (status-gated) equivalent."""
+    require_csrf(request)
+    student_lesson = _get_owned(request, student_lesson_id)
+    if not student_lesson.is_self_selected:
+        raise HttpError(409, 'Only a self-selected lesson can be cancelled this way')
+    if student_lesson.submissions.exists() or student_lesson.comments.exists():
+        raise HttpError(409, 'Cannot cancel a lesson that already has a submission or a comment')
+    student_lesson.delete()
+    return Status(204, None)
 
 
 @router.patch(
@@ -394,6 +416,75 @@ def list_subject_lessons(request: HttpRequest, subject_id: int):
             )
         )
     return result
+
+
+def _get_previewable_lesson(
+    request: HttpRequest, lesson_id: int
+) -> tuple[StudentProfile, Lesson, StudentLesson | None]:
+    """403s unless `lesson` is in the requesting student's own class and
+    either they already have a StudentLesson for it (existing, returned so
+    callers can short-circuit) or StudentProfile.can_do_any_lesson lets them
+    reach any lesson in their class's subjects. Shared by preview_lesson and
+    start_lesson_today below."""
+    student = get_own_student_profile(request)
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('topic__subject__school_class', 'topic__subject_block'),
+        id=lesson_id,
+    )
+    if lesson.topic.subject.school_class_id != student.school_class_id:
+        raise HttpError(404, 'Lesson not found')
+    existing = StudentLesson.objects.filter(student=student, lesson=lesson).first()
+    if existing is None and not student.can_do_any_lesson:
+        raise HttpError(403, 'Not allowed to open a lesson that is not assigned to you yet')
+    return student, lesson, existing
+
+
+def _lesson_preview_out(lesson: Lesson, existing: StudentLesson | None, request: HttpRequest) -> LessonPreviewOut:
+    return LessonPreviewOut(
+        id=lesson.id,
+        title=lesson.title,
+        lesson_type=lesson.lesson_type,
+        content=lesson.content,
+        task_content=lesson.task_content,
+        materials=list(lesson.materials.all()),
+        subject_id=lesson.topic.subject_id,
+        subject_name=lesson.topic.subject.name,
+        topic_id=lesson.topic_id,
+        topic_title=lesson.topic.title,
+        subject_block_label=lesson.topic.subject_block.label if lesson.topic.subject_block else None,
+        student_lesson_id=existing.id if existing else None,
+    )
+
+
+@router.get('/lessons/{lesson_id}/preview', response=LessonPreviewOut, operation_id='preview_lesson')
+def preview_lesson(request: HttpRequest, lesson_id: int):
+    """Read-only lesson content for a student who doesn't have this Lesson
+    assigned yet — reachable only when StudentProfile.can_do_any_lesson is
+    set (or the student already has it, so the row's own link keeps working
+    even if the flag is later turned off). Powers the "Я хочу зробити це
+    сьогодні" flow on the Subject detail page — see start_lesson_today."""
+    _, lesson, existing = _get_previewable_lesson(request, lesson_id)
+    return _lesson_preview_out(lesson, existing, request)
+
+
+@router.post('/lessons/{lesson_id}/start-today', response=StudentLessonStartOut, operation_id='start_lesson_today')
+def start_lesson_today(request: HttpRequest, lesson_id: int):
+    """"Я хочу зробити це сьогодні" — creates today's StudentLesson for a
+    lesson the student picked themselves rather than one a tutor assigned,
+    gated the same way as preview_lesson. Idempotent: calling it again once
+    already started just returns the existing StudentLesson instead of
+    erroring, since a student could reasonably hit the button twice."""
+    require_csrf(request)
+    student, lesson, existing = _get_previewable_lesson(request, lesson_id)
+    if existing is not None:
+        return StudentLessonStartOut(student_lesson_id=existing.id)
+    try:
+        student_lesson = services.assign_student(
+            lesson, student, datetime.date.today(), is_self_selected=True
+        )
+    except services.InvalidTransition as exc:
+        raise HttpError(409, str(exc)) from exc
+    return StudentLessonStartOut(student_lesson_id=student_lesson.id)
 
 
 @router.get(

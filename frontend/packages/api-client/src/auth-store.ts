@@ -85,6 +85,11 @@ export interface AuthUser {
   equippedAccessoryItems: EquippedAvatarItem[];
   // Only meaningful for role="student" — see docs/core/progress.md section 2.
   diamondBalance: number | null;
+  // Only meaningful for role="student" — StudentProfile.can_do_any_lesson,
+  // lets the student open/start any lesson in their class's subjects, not
+  // just ones a tutor assigned them. See components/subjects/
+  // simple-subject-detail-page.tsx and lessons.api.preview_lesson.
+  canDoAnyLesson: boolean | null;
 }
 
 interface AuthState {

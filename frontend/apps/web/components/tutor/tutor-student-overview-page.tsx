@@ -4,7 +4,12 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { User } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useGetTutorStudent, useMarkTutorStudentLessonComplete } from "@school-ahead/api-client/browser/tutor/tutor";
+import {
+  getGetTutorStudentQueryKey,
+  useGetTutorStudent,
+  useMarkTutorStudentLessonComplete,
+  useSetStudentCanDoAnyLesson,
+} from "@school-ahead/api-client/browser/tutor/tutor";
 import {
   getGetTutorStudentBacklogQueryKey,
   getGetTutorStudentCalendarQueryKey,
@@ -66,6 +71,44 @@ function equippedLayersFromStudent(student: TutorStudentOut): AvatarLayer[] {
         rotation: item.rotation ?? 0,
       })),
   ];
+}
+
+// Tutor-toggled flag letting this student open/start any lesson in their
+// class's subjects, not just ones assigned to them — StudentProfile.
+// can_do_any_lesson, powers the "not assigned yet" rows on the student's
+// own Subject detail page and the "Я хочу зробити це сьогодні" flow. Same
+// checkbox-toggle pattern as IsFilledToggle (tutor-subject-detail-page.tsx).
+function CanDoAnyLessonToggle({ studentId, student }: { studentId: number; student: TutorStudentOut }) {
+  const t = useTranslations("TutorStudentOverview");
+  const queryClient = useQueryClient();
+  const setCanDoAnyLesson = useSetStudentCanDoAnyLesson();
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCanDoAnyLesson.mutate(
+      { studentId, data: { can_do_any_lesson: e.target.checked } },
+      {
+        onSuccess: (data) => {
+          queryClient.setQueryData(getGetTutorStudentQueryKey(studentId), data);
+        },
+      },
+    );
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <label className="flex items-center gap-2 text-sm text-gray-700">
+        <input
+          type="checkbox"
+          checked={student.can_do_any_lesson}
+          onChange={handleChange}
+          disabled={setCanDoAnyLesson.isPending}
+          className="h-4 w-4 rounded border-gray-300"
+        />
+        {t("canDoAnyLessonLabel")}
+      </label>
+      {setCanDoAnyLesson.isError && <span className="text-sm text-red-600">{t("canDoAnyLessonError")}</span>}
+    </div>
+  );
 }
 
 // Landing page for the "today" link on the day-name in a student's calendar
@@ -166,6 +209,7 @@ export function TutorStudentOverviewPage({
             <h1 className="text-xl font-semibold text-gray-900">{student.name}</h1>
             <p className="text-sm text-gray-500">{student.class_name}</p>
             <ProgressBar percent={student.completed_percent} label={t("completedLabel")} colorful />
+            <CanDoAnyLessonToggle studentId={studentId} student={student} />
           </div>
         </div>
 

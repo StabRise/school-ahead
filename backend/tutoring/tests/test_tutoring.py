@@ -1240,6 +1240,7 @@ class TestAssignStudent:
 
         sl = StudentLesson.objects.get(student=student, lesson=lesson)
         assert sl.is_manually_scheduled is True
+        assert sl.is_self_selected is False
 
     def test_assign_lesson_to_already_assigned_student_conflicts(
         self, api_client, auth_header, tutor, subject, student
@@ -1292,6 +1293,51 @@ class TestAssignStudent:
             headers=auth_header(tutor.user),
         )
         assert response.status_code == 404
+
+
+class TestSetStudentCanDoAnyLesson:
+    def test_tutor_can_enable_flag(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        assert student.can_do_any_lesson is False
+
+        response = api_client.patch(
+            f'/tutor/students/{student.id}/can-do-any-lesson',
+            json={'can_do_any_lesson': True},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['can_do_any_lesson'] is True
+        student.refresh_from_db()
+        assert student.can_do_any_lesson is True
+
+    def test_tutor_can_disable_flag(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        student.can_do_any_lesson = True
+        student.save(update_fields=['can_do_any_lesson'])
+
+        response = api_client.patch(
+            f'/tutor/students/{student.id}/can-do-any-lesson',
+            json={'can_do_any_lesson': False},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['can_do_any_lesson'] is False
+        student.refresh_from_db()
+        assert student.can_do_any_lesson is False
+
+    def test_rejected_for_unassigned_tutor(self, api_client, auth_header, student):
+        user = User.objects.create_user(email='outside-tutor@example.com', role=Role.TUTOR)
+        outside_tutor = TutorProfile.objects.create(user=user)
+
+        response = api_client.patch(
+            f'/tutor/students/{student.id}/can-do-any-lesson',
+            json={'can_do_any_lesson': True},
+            headers=auth_header(outside_tutor.user),
+        )
+
+        assert response.status_code == 403
 
 
 class TestDeleteStudentLesson:

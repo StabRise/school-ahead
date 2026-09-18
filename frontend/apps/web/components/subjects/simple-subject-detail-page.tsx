@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check, Monitor, Pencil, Play, X } from "lucide-react";
+import { useAuthStore } from "@school-ahead/api-client";
 import { Link } from "@/i18n/navigation";
 import { useGetSubject, useListSubjectTopics } from "@school-ahead/api-client/browser/academics/academics";
 import {
@@ -105,14 +106,19 @@ function TasksTabContent({
 // One lesson row inside a topic section — monochrome, tiny grey icon, plain
 // text meta (date/status/grade) instead of TopicAccordionItem's colored
 // left-border Card and status/grade pill badges. An unassigned lesson (no
-// StudentLesson row yet) still shows so a student can see what's coming,
-// but renders unlinked and dimmed, same as the Standard view's LessonRow.
-// `colorful` (Default mode) colors the lesson-type icon and shows status as
-// a small colored badge instead of plain grey text.
+// StudentLesson row yet) still shows so a student can see what's coming;
+// it renders unlinked and dimmed, same as the Standard view's LessonRow,
+// unless the student's StudentProfile.can_do_any_lesson lets them open and
+// start any lesson themselves — then it links to a read-only preview
+// (components/subjects/lesson-preview-page.tsx) with a "Я хочу зробити це
+// сьогодні" button instead of the real lesson wizard. `colorful` (Default
+// mode) colors the lesson-type icon and shows status as a small colored
+// badge instead of plain grey text.
 function SimpleSubjectLessonRow({ lesson, colorful }: { lesson: SubjectLessonOut; colorful?: boolean }) {
   const t = useTranslations("LessonWizard");
   const tStatus = useTranslations("LessonStatus");
   const tDetail = useTranslations("SubjectDetail");
+  const canOpenUnassigned = useAuthStore((state) => state.user?.canDoAnyLesson ?? false);
   const Icon = LESSON_TYPE_ICON[lesson.lesson_type] ?? Monitor;
   const iconColorClass = colorful ? (LESSON_TYPE_ICON_COLOR[lesson.lesson_type] ?? "text-gray-400") : "text-gray-400";
   const isAssigned = lesson.student_lesson_id !== null;
@@ -146,16 +152,15 @@ function SimpleSubjectLessonRow({ lesson, colorful }: { lesson: SubjectLessonOut
     </>
   );
 
-  if (!isAssigned) {
+  if (!isAssigned && !canOpenUnassigned) {
     return <li className="flex items-center gap-2 rounded px-1.5 py-1 opacity-60">{content}</li>;
   }
 
+  const href = isAssigned ? `/lessons/${lesson.student_lesson_id}` : `/lessons/preview/${lesson.id}`;
+
   return (
     <li>
-      <Link
-        href={`/lessons/${lesson.student_lesson_id}`}
-        className="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-gray-50"
-      >
+      <Link href={href} className="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-gray-50">
         {content}
       </Link>
     </li>

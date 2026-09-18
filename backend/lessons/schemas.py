@@ -231,6 +231,10 @@ class StudentLessonOut(Schema):
     status: str
     scheduled_date: datetime.date
     is_manually_scheduled: bool
+    # Set only when the student picked this lesson themselves via
+    # start_lesson_today — gates the "Я не буду сьогодні робити" button
+    # (cancel_self_selected_lesson) on the frontend's lesson wizard.
+    is_self_selected: bool
     started_at: datetime.datetime | None
     completed_at: datetime.datetime | None
     grade_points: int | None
@@ -436,6 +440,36 @@ class SubjectLessonOut(Schema):
     scheduled_date: datetime.date | None
     grade_points: int | None
     grade_result: str | None
+
+
+class LessonPreviewOut(Schema):
+    """Read-only content for a Lesson the requesting student doesn't have a
+    StudentLesson for yet — shown on /lessons/preview/{lesson_id} before
+    they decide whether to start it today (lessons.api.start_lesson_today).
+    Only reachable when StudentProfile.can_do_any_lesson is set, or the
+    student already has this lesson (student_lesson_id then non-null, so
+    the frontend can link straight into the real lesson instead). Omits
+    quiz_questions/grading_type — only relevant once actually started."""
+
+    id: int
+    title: str
+    lesson_type: str
+    content: str
+    task_content: str
+    materials: list[LessonAttachmentOut]
+    subject_id: int
+    subject_name: str
+    topic_id: int
+    topic_title: str
+    subject_block_label: str | None
+    student_lesson_id: int | None
+
+
+class StudentLessonStartOut(Schema):
+    """Result of start_lesson_today — just enough for the frontend to
+    redirect into the real lesson wizard at /lessons/{student_lesson_id}."""
+
+    student_lesson_id: int
 
 
 class NextLessonOut(Schema):

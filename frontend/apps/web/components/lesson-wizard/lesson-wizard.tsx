@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ChevronRight, NotebookText } from "lucide-react";
+import { ChevronRight, NotebookText, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetStudentLessonQueryKey,
+  useCancelSelfSelectedLesson,
   useGetStudentLesson,
   useListLessonComments,
   useUpdateStudentLessonSynopsis,
@@ -204,6 +205,7 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   const [showSynopsis, setShowSynopsis] = useState(false);
   const queryClient = useQueryClient();
   const updateSynopsis = useUpdateStudentLessonSynopsis();
+  const cancelLesson = useCancelSelfSelectedLesson();
 
   const [step, setStepState] = useState<WizardStep | null>(stepFromUrl);
   // Whether the status-based landing tab (see initialStepForStatus) has been
@@ -286,6 +288,20 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
     );
   };
 
+  // "Я не буду сьогодні робити" — only for a lesson the student picked
+  // themselves (is_self_selected), and only before they've submitted
+  // anything or left a comment on it, same rule the backend enforces
+  // (lessons.api.cancel_self_selected_lesson).
+  const canCancelSelfSelected =
+    data.is_self_selected && data.submissions.length === 0 && (comments ?? []).length === 0;
+  const handleCancelSelfSelected = () => {
+    if (!window.confirm(t("cancelSelfSelectedConfirm"))) return;
+    cancelLesson.mutate(
+      { studentLessonId },
+      { onSuccess: () => router.push(`/subjects/${data.lesson.subject_id}`) },
+    );
+  };
+
   return (
     <PageContainer maxWidthClassName="xl:max-w-7xl">
       <Breadcrumbs items={breadcrumbItems} />
@@ -330,8 +346,20 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
                 <NotebookText className="size-4" />
               </button>
             )}
+            {canCancelSelfSelected && (
+              <button
+                type="button"
+                onClick={handleCancelSelfSelected}
+                disabled={cancelLesson.isPending}
+                className="flex items-center gap-1.5 rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+              >
+                <X className="size-4" aria-hidden="true" />
+                {t("cancelSelfSelectedButton")}
+              </button>
+            )}
           </div>
         </div>
+        {cancelLesson.isError && <p className="text-sm text-red-600">{t("cancelSelfSelectedError")}</p>}
         <StepSwitcher
           step={effectiveStep}
           lessonType={data.lesson.lesson_type}

@@ -472,7 +472,9 @@
     "todayTitle": "Сьогоднішні уроки",
     "noLessonsToday": "На сьогодні уроків не заплановано",
     "calendarTab": "Календар",
-    "statsTab": "Статистика по предметах"
+    "statsTab": "Статистика по предметах",
+    "canDoAnyLessonLabel": "Може самостійно обирати будь-який урок",
+    "canDoAnyLessonError": "Не вдалося зберегти. Спробуйте ще раз."
   },
   "PlanLessons": {
     "triggerButton": "Запланувати уроки на період",
@@ -753,6 +755,9 @@
     "error": "Не вдалося завантажити урок.",
     "showSynopsisButton": "Показати конспект",
     "hideSynopsisButton": "Сховати конспект",
+    "cancelSelfSelectedButton": "Я не буду сьогодні робити",
+    "cancelSelfSelectedConfirm": "Скасувати цей урок? Ви обрали його самостійно — його буде видалено.",
+    "cancelSelfSelectedError": "Не вдалося скасувати урок. Спробуйте ще раз.",
     "synopsisPanelLabel": "Конспект",
     "synopsisSaving": "Зберігається...",
     "synopsisResizeHandleLabel": "Змінити ширину колонок",
@@ -1075,6 +1080,15 @@
     "editButton": "Редагувати переклад",
     "saveButton": "Зберегти",
     "cancelButton": "Скасувати"
+  },
+  "LessonPreview": {
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити урок. Спробуйте ще раз.",
+    "taskContentTitle": "Завдання",
+    "startTodayButton": "Я хочу зробити це сьогодні",
+    "starting": "Створюємо урок...",
+    "startError": "Не вдалося розпочати урок. Спробуйте ще раз.",
+    "continueButton": "Продовжити урок"
   },
   "SubjectPlan": {
     "loading": "Завантаження...",

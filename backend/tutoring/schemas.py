@@ -95,6 +95,13 @@ class TutorStudentOut(Schema):
     equipped_clothing_items: list[AvatarItemOut] = []
     equipped_headwear_items: list[AvatarItemOut] = []
     equipped_accessory_items: list[AvatarItemOut] = []
+    # StudentProfile.can_do_any_lesson — tutor-toggled from the student
+    # overview page, see set_student_can_do_any_lesson.
+    can_do_any_lesson: bool = False
+
+
+class SetCanDoAnyLessonIn(Schema):
+    can_do_any_lesson: bool
 
 
 class TutorClassOut(Schema):
