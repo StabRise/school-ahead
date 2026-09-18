@@ -455,7 +455,9 @@ def update_subject_lesson_icons(request: HttpRequest, subject_id: int):
     services.ensure_is_tutor_for_subject(request, subject_id)
     subject = get_object_or_404(Subject, id=subject_id)
     summary = lesson_services.update_subject_lesson_icons(subject)
-    return UpdateLessonIconsOut(updated=summary.updated, skipped=summary.skipped)
+    return UpdateLessonIconsOut(
+        updated=summary.updated, skipped=summary.skipped, already_had_icon=summary.already_had_icon
+    )
 
 
 @router.post(
@@ -470,7 +472,9 @@ def update_topic_lesson_icons(request: HttpRequest, topic_id: int):
     topic = get_object_or_404(Topic.objects.select_related('subject'), id=topic_id)
     services.ensure_is_tutor_for_subject(request, topic.subject_id)
     summary = lesson_services.update_topic_lesson_icons(topic)
-    return UpdateLessonIconsOut(updated=summary.updated, skipped=summary.skipped)
+    return UpdateLessonIconsOut(
+        updated=summary.updated, skipped=summary.skipped, already_had_icon=summary.already_had_icon
+    )
 
 
 @router.post(

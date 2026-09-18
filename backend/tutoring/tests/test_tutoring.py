@@ -1259,6 +1259,81 @@ class TestUpdateSubjectLessonIcons:
         assert response.status_code == 403
 
 
+class TestBulkIconUpdateKeepsExistingIcons:
+    """The subject- and topic-wide "update lesson icons" buttons only fill in
+    missing icons — a lesson that already has one is never touched."""
+
+    class _Thumbnails:
+        """Stands in for requests.get, recording which video ids were fetched."""
+
+        def __init__(self):
+            self.fetched = []
+
+        def __call__(self, url, timeout):
+            self.fetched.append(url)
+
+            class _Response:
+                content = b'thumbnail-bytes'
+
+                def raise_for_status(self):
+                    pass
+
+            return _Response()
+
+    def _setup(self, tutor, subject, settings, tmp_path, monkeypatch):
+        from django.core.files.base import ContentFile
+
+        settings.MEDIA_ROOT = tmp_path
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='T', order_index=1)
+        has_icon = Lesson.objects.create(
+            topic=topic, order_index=1, title='Has icon', lesson_type=LessonType.THEORY, grading_type='binary',
+            content='https://www.youtube.com/watch?v=aaaaaaaaaaa',
+        )
+        has_icon.icon.save('mine.png', ContentFile(b'tutor-upload'), save=True)
+        needs_icon = Lesson.objects.create(
+            topic=topic, order_index=2, title='Needs icon', lesson_type=LessonType.THEORY, grading_type='binary',
+            content='https://www.youtube.com/watch?v=bbbbbbbbbbb',
+        )
+        no_link = Lesson.objects.create(
+            topic=topic, order_index=3, title='No link', lesson_type=LessonType.THEORY, grading_type='binary',
+            content='Just text.',
+        )
+        thumbnails = self._Thumbnails()
+        monkeypatch.setattr('lessons.services.requests.get', thumbnails)
+        return topic, has_icon, needs_icon, no_link, thumbnails
+
+    def _assert_only_missing_icons_were_filled(self, response, has_icon, needs_icon, no_link, thumbnails, original_name):
+        assert response.status_code == 200
+        assert response.data == {'updated': 1, 'skipped': 1, 'already_had_icon': 1}
+        has_icon.refresh_from_db()
+        needs_icon.refresh_from_db()
+        no_link.refresh_from_db()
+        # The existing icon is the very same file, with its bytes intact.
+        assert has_icon.icon.name == original_name
+        assert has_icon.icon.read() == b'tutor-upload'
+        assert needs_icon.icon.name.endswith('.jpg')
+        assert not no_link.icon
+        # No thumbnail was even downloaded for the lesson that had an icon.
+        assert thumbnails.fetched == ['https://img.youtube.com/vi/bbbbbbbbbbb/hqdefault.jpg']
+
+    def test_subject_wide_update(self, api_client, auth_header, monkeypatch, tutor, subject, settings, tmp_path):
+        topic, has_icon, needs_icon, no_link, thumbnails = self._setup(tutor, subject, settings, tmp_path, monkeypatch)
+        original_name = has_icon.icon.name
+
+        response = api_client.post(f'/tutor/subjects/{subject.id}/update-lesson-icons', headers=auth_header(tutor.user))
+
+        self._assert_only_missing_icons_were_filled(response, has_icon, needs_icon, no_link, thumbnails, original_name)
+
+    def test_topic_wide_update(self, api_client, auth_header, monkeypatch, tutor, subject, settings, tmp_path):
+        topic, has_icon, needs_icon, no_link, thumbnails = self._setup(tutor, subject, settings, tmp_path, monkeypatch)
+        original_name = has_icon.icon.name
+
+        response = api_client.post(f'/tutor/topics/{topic.id}/update-lesson-icons', headers=auth_header(tutor.user))
+
+        self._assert_only_missing_icons_were_filled(response, has_icon, needs_icon, no_link, thumbnails, original_name)
+
+
 class TestUpdateTopicLessonIcons:
     """Same thumbnail-download monkeypatch as TestUpdateSubjectLessonIcons —
     the real YouTube CDN isn't hit in tests."""
@@ -1338,7 +1413,7 @@ class TestUpdateLessonIcon:
         response = api_client.post(f'/tutor/lessons/{lesson.id}/update-icon', headers=auth_header(tutor.user))
 
         assert response.status_code == 200
-        assert response.data == {'updated': 1, 'skipped': 0}
+        assert response.data == {'updated': 1, 'skipped': 0, 'already_had_icon': 0}
         lesson.refresh_from_db()
         assert lesson.icon.name.endswith('.jpg')
 
@@ -1349,7 +1424,7 @@ class TestUpdateLessonIcon:
         response = api_client.post(f'/tutor/lessons/{lesson.id}/update-icon', headers=auth_header(tutor.user))
 
         assert response.status_code == 200
-        assert response.data == {'updated': 0, 'skipped': 1}
+        assert response.data == {'updated': 0, 'skipped': 1, 'already_had_icon': 0}
         lesson.refresh_from_db()
         assert not lesson.icon
 

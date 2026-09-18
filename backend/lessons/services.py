@@ -1087,7 +1087,10 @@ YOUTUBE_THUMBNAIL_WORKERS = 8
 @dataclass
 class UpdateLessonIconsSummary:
     updated: int = 0
+    # No YouTube link in the content, or the thumbnail couldn't be downloaded.
     skipped: int = 0
+    # Left alone because it already has an icon.
+    already_had_icon: int = 0
 
 
 def _fetch_youtube_thumbnail(video_id: str) -> bytes | None:
@@ -1137,17 +1140,24 @@ def set_lesson_icons_from_content(lessons: Iterable[Lesson]) -> int:
 
 
 def _update_lesson_icons(lessons: QuerySet) -> UpdateLessonIconsSummary:
+    """Only fills in icons — a lesson that already has one (a tutor's own
+    upload, or an earlier thumbnail) is never touched."""
     lessons = list(lessons)
-    updated = set_lesson_icons_from_content(lessons)
-    return UpdateLessonIconsSummary(updated=updated, skipped=len(lessons) - updated)
+    without_icon = [lesson for lesson in lessons if not lesson.icon]
+    updated = set_lesson_icons_from_content(without_icon)
+    return UpdateLessonIconsSummary(
+        updated=updated,
+        skipped=len(without_icon) - updated,
+        already_had_icon=len(lessons) - len(without_icon),
+    )
 
 
 def update_subject_lesson_icons(subject: Subject) -> UpdateLessonIconsSummary:
     """Sets Lesson.icon to the thumbnail of the first YouTube video linked
-    from that lesson's content, for every lesson in `subject`. Lessons with
-    no YouTube link in their content, or whose thumbnail fails to download,
-    are left untouched and counted as skipped rather than failing the whole
-    run."""
+    from that lesson's content, for every lesson in `subject` that has no
+    icon yet (see _update_lesson_icons). Lessons with no YouTube link in
+    their content, or whose thumbnail fails to download, are left untouched
+    and counted as skipped rather than failing the whole run."""
     return _update_lesson_icons(Lesson.objects.filter(topic__subject=subject))
 
 
