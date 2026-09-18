@@ -585,6 +585,148 @@ class TestCreateTutorClassSubject:
         assert response.status_code == 403
 
 
+class TestCreateTutorClassSubjectGroup:
+    def _class_teacher(self, school_class, tutor):
+        school_class.class_teacher = tutor
+        school_class.save(update_fields=['class_teacher'])
+
+    def _payload(self, **extra):
+        return {'name': 'Geography', 'start_date': '2025-09-01', 'due_date': '2026-05-31', **extra}
+
+    def test_files_the_subject_under_the_chosen_group(self, api_client, auth_header, tutor, school_class):
+        from academics.models import SubjectGroup
+
+        self._class_teacher(school_class, tutor)
+        group = SubjectGroup.objects.create(name='Польська школа', order_index=9)
+
+        response = api_client.post(
+            f'/tutor/classes/{school_class.id}/subjects',
+            json=self._payload(group_id=group.id),
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['group_id'] == group.id
+        assert Subject.objects.get(school_class=school_class, name='Geography').group_id == group.id
+
+    def test_group_is_optional(self, api_client, auth_header, tutor, school_class):
+        self._class_teacher(school_class, tutor)
+
+        response = api_client.post(
+            f'/tutor/classes/{school_class.id}/subjects', json=self._payload(), headers=auth_header(tutor.user)
+        )
+
+        assert response.status_code == 200
+        assert response.data['group_id'] is None
+
+    def test_unknown_group_is_rejected(self, api_client, auth_header, tutor, school_class):
+        self._class_teacher(school_class, tutor)
+
+        response = api_client.post(
+            f'/tutor/classes/{school_class.id}/subjects',
+            json=self._payload(group_id=999999),
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 404
+        assert not Subject.objects.filter(school_class=school_class, name='Geography').exists()
+
+
+class TestUpdateTutorSubject:
+    def test_renames_the_subject(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}', json={'name': '  Algebra  '}, headers=auth_header(tutor.user)
+        )
+
+        assert response.status_code == 200
+        assert response.data['name'] == 'Algebra'
+        subject.refresh_from_db()
+        assert subject.name == 'Algebra'
+
+    def test_blank_name_is_rejected(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}', json={'name': '   '}, headers=auth_header(tutor.user)
+        )
+
+        assert response.status_code == 400
+        subject.refresh_from_db()
+        assert subject.name == 'Math'
+
+    def test_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        response = api_client.patch(
+            f'/tutor/subjects/{subject.id}', json={'name': 'Algebra'}, headers=auth_header(tutor.user)
+        )
+
+        assert response.status_code == 403
+
+
+class TestUploadTutorSubjectIcon:
+    def _image(self, name='icon.png', content=b'\x89PNG\r\n', content_type='image/png'):
+        return SimpleUploadedFile(name, content, content_type=content_type)
+
+    def _upload(self, api_client, auth_header, tutor, subject, file):
+        return api_client.post(
+            f'/tutor/subjects/{subject.id}/icon', FILES={'file': file}, headers=auth_header(tutor.user)
+        )
+
+    def test_sets_the_icon_and_returns_its_url(self, api_client, auth_header, tutor, subject, settings, tmp_path):
+        settings.MEDIA_ROOT = tmp_path
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = self._upload(api_client, auth_header, tutor, subject, self._image())
+
+        assert response.status_code == 200
+        assert response.data['icon'].startswith('http') and response.data['icon'].endswith('.png')
+        subject.refresh_from_db()
+        assert subject.icon.name.startswith('subject_icons/')
+
+    def test_replacing_deletes_the_previous_file(self, api_client, auth_header, tutor, subject, settings, tmp_path):
+        settings.MEDIA_ROOT = tmp_path
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        self._upload(api_client, auth_header, tutor, subject, self._image('one.png'))
+        subject.refresh_from_db()
+        first_path = tmp_path / subject.icon.name
+        assert first_path.exists()
+
+        self._upload(api_client, auth_header, tutor, subject, self._image('two.png', b'second'))
+
+        subject.refresh_from_db()
+        assert (tmp_path / subject.icon.name).exists()
+        assert not first_path.exists()
+
+    def test_non_image_is_rejected(self, api_client, auth_header, tutor, subject, settings, tmp_path):
+        settings.MEDIA_ROOT = tmp_path
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = self._upload(
+            api_client, auth_header, tutor, subject, self._image('notes.txt', b'hello', 'text/plain')
+        )
+
+        assert response.status_code == 400
+        subject.refresh_from_db()
+        assert not subject.icon
+
+    def test_oversized_image_is_rejected(self, api_client, auth_header, tutor, subject, settings, tmp_path, monkeypatch):
+        settings.MEDIA_ROOT = tmp_path
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        monkeypatch.setattr('tutoring.api.MAX_SUBJECT_ICON_BYTES', 4)
+
+        response = self._upload(api_client, auth_header, tutor, subject, self._image(content=b'12345678'))
+
+        assert response.status_code == 400
+
+    def test_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject, settings, tmp_path):
+        settings.MEDIA_ROOT = tmp_path
+
+        response = self._upload(api_client, auth_header, tutor, subject, self._image())
+
+        assert response.status_code == 403
+
+
 class TestUploadSubjectMarkdown:
     CONTENT = (
         'Subject: PL:Historia\n'

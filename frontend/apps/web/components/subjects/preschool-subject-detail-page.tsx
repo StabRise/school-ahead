@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, Star } from "lucide-react";
 import { useAuthStore } from "@school-ahead/api-client";
@@ -11,6 +11,7 @@ import { useGetSubject, useListSubjectTopics } from "@school-ahead/api-client/br
 import { useGetSubjectProgress, useListStudentSubjectLessons } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import type { SubjectLessonOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { groupTopicsByBlock } from "@/components/subjects/group-topics-by-block";
+import { limitAcrossGroups } from "@/lib/limit-across-groups";
 import { PreschoolLessonTile } from "@/components/subjects/preschool-lesson-tile";
 import { ProgressBar } from "@/components/progress-bar";
 
@@ -21,6 +22,13 @@ function CompanionAvatar({ className }: { className: string }) {
   const layers = useEquippedAvatarLayers();
   return <AvatarBadge layers={layers} className={className} fallback={<Raccoon mood="happy" className={className} />} />;
 }
+
+// How many lesson cards show at first, and how many more each time the
+// child scrolls near the bottom. The whole lesson list is still fetched in
+// one request (a few hundred small rows) — this only limits what's rendered,
+// which is what matters: every card loads its own thumbnail image, and a
+// long YouTube-imported subject has hundreds of them.
+const PAGE_SIZE = 20;
 
 interface FlatLesson {
   lesson: SubjectLessonOut;
@@ -103,28 +111,16 @@ export function PreschoolSubjectDetailPage({ subjectId }: { subjectId: number })
     return map;
   }, [lessons]);
 
-  const isLoading = subjectQuery.isLoading || topicsQuery.isLoading || lessonsQuery.isLoading;
-  const isError = subjectQuery.isError || topicsQuery.isError || lessonsQuery.isError;
+  const subject = subjectQuery.data;
 
-  const content = (() => {
-    if (isLoading) {
-      return <p className="text-center text-sm font-medium text-emerald-800">{t("loading")}</p>;
-    }
-    if (isError || !subjectQuery.data) {
-      return <p className="text-center text-sm font-medium text-red-700">{t("error")}</p>;
-    }
-
-    const subject = subjectQuery.data;
-    const percent = Math.round(Math.min(100, Math.max(0, progressQuery.data?.completed_percent ?? 0)));
-    const points = progressQuery.data?.completed_count ?? 0;
-    const blockGroups = groupTopicsByBlock(topics, subject.blocks);
-
-    // A lesson without a StudentLesson yet only shows when the student is
-    // allowed to start any lesson themselves (StudentProfile.can_do_any_lesson
-    // — same rule as SimpleSubjectLessonRow); a finished one never shows at
-    // all here, unlike the grown-up view which keeps it (greyed) for
-    // history — this screen is "what can I do right now", not a log.
-    const visibleEntriesByBlock = blockGroups.map((group) => {
+  // A lesson without a StudentLesson yet only shows when the student is
+  // allowed to start any lesson themselves (StudentProfile.can_do_any_lesson
+  // — same rule as SimpleSubjectLessonRow); a finished one never shows at
+  // all here, unlike the grown-up view which keeps it (greyed) for
+  // history — this screen is "what can I do right now", not a log.
+  const visibleEntriesByBlock = useMemo(() => {
+    if (!subject) return [];
+    return groupTopicsByBlock(topics, subject.blocks).map((group) => {
       const entries: FlatLesson[] = [];
       for (const topic of group.topics) {
         for (const lesson of lessonsByTopicId.get(topic.id) ?? []) {
@@ -136,9 +132,52 @@ export function PreschoolSubjectDetailPage({ subjectId }: { subjectId: number })
       }
       return { group, entries };
     });
+  }, [subject, topics, lessonsByTopicId, canDoAnyLesson]);
 
-    const hasAnyVisibleLesson = visibleEntriesByBlock.some(({ entries }) => entries.length > 0);
+  const totalCount = useMemo(
+    () => visibleEntriesByBlock.reduce((count, { entries }) => count + entries.length, 0),
+    [visibleEntriesByBlock],
+  );
 
+  // Infinite scroll: render the first `visibleCount` cards (across block
+  // sections), and reveal PAGE_SIZE more whenever the sentinel below the
+  // list comes within ~a screen of the viewport. The observer is recreated
+  // after every batch (`visibleCount` in the deps) — a fresh observer
+  // reports the sentinel's current state right away, so if a batch didn't
+  // push it out of range (tall screen), the next one loads without needing
+  // a scroll.
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
+  const hasMore = totalCount > visibleCount;
+  const shownEntriesByBlock = useMemo(
+    () => limitAcrossGroups(visibleEntriesByBlock, visibleCount),
+    [visibleEntriesByBlock, visibleCount],
+  );
+  useEffect(() => {
+    if (!hasMore || !sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) setVisibleCount((count) => count + PAGE_SIZE);
+      },
+      { rootMargin: "400px 0px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, sentinel, visibleCount]);
+
+  const isLoading = subjectQuery.isLoading || topicsQuery.isLoading || lessonsQuery.isLoading;
+  const isError = subjectQuery.isError || topicsQuery.isError || lessonsQuery.isError;
+
+  const content = (() => {
+    if (isLoading) {
+      return <p className="text-center text-sm font-medium text-emerald-800">{t("loading")}</p>;
+    }
+    if (isError || !subject) {
+      return <p className="text-center text-sm font-medium text-red-700">{t("error")}</p>;
+    }
+
+    const percent = Math.round(Math.min(100, Math.max(0, progressQuery.data?.completed_percent ?? 0)));
+    const points = progressQuery.data?.completed_count ?? 0;
     return (
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 rounded-3xl bg-white/90 p-4 shadow-xl sm:p-6">
         <div className="flex flex-col gap-3">
@@ -185,11 +224,11 @@ export function PreschoolSubjectDetailPage({ subjectId }: { subjectId: number })
           </div>
         </div>
 
-        {hasAnyVisibleLesson ? (
+        {totalCount > 0 ? (
           <>
             <p className="text-sm font-medium text-gray-500">{t("chooseLessonHint")}</p>
             <div className="flex flex-col gap-6">
-              {visibleEntriesByBlock.map(({ group, entries }) => (
+              {shownEntriesByBlock.map(({ group, entries }) => (
                 <PreschoolBlockSection
                   key={group.key}
                   label={group.label}
@@ -198,6 +237,7 @@ export function PreschoolSubjectDetailPage({ subjectId }: { subjectId: number })
                 />
               ))}
             </div>
+            {hasMore && <div ref={setSentinel} aria-hidden="true" className="h-px" />}
           </>
         ) : (
           <p className="text-center text-sm font-medium text-gray-500">{t("noLessons")}</p>

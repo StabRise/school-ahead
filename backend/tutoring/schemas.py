@@ -34,6 +34,15 @@ class CreateSubjectIn(Schema):
     name: str
     start_date: datetime.date
     due_date: datetime.date
+    # Optional SubjectGroup ("category") to file the new subject under.
+    group_id: int | None = None
+
+
+class UpdateSubjectIn(Schema):
+    """Inline rename from the tutor's Subject detail page — see
+    tutoring.api.update_tutor_subject."""
+
+    name: str
 
 
 class LessonStudentOut(Schema):

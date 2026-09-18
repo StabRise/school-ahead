@@ -64,6 +64,7 @@ import { formatGradeLabel, formatShortDate } from "@/components/simple/format";
 import { StatusBadge } from "@/components/status-badge";
 import { useTabQueryParam } from "@/lib/use-tab-query-param";
 import { AssignStudentDialog } from "./assign-student-dialog";
+import { EditableSubjectTitle } from "./editable-subject-title";
 import { LessonEditorDialog } from "./lesson-editor-dialog";
 import { LoadLessonsJsonDialog } from "./load-lessons-json-dialog";
 import { LoadYoutubePlaylistDialog } from "./load-youtube-playlist-dialog";
@@ -1032,8 +1033,8 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
         <div className="flex flex-col gap-2">
           <Breadcrumbs items={breadcrumbItems} />
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2">
-              <h1 className="text-xl font-semibold text-gray-900">{subject.name}</h1>
+            <div className="flex min-w-0 items-center gap-3">
+              <EditableSubjectTitle subject={subject} />
               <IsFilledBadge isFilled={subject.is_filled} />
             </div>
             <div className="flex flex-wrap items-center gap-4">
