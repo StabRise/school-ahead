@@ -4,14 +4,17 @@ import re
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+import requests
 from academics import services as academics_services
 from academics.models import Subject, SubjectBlock, Topic
 from academics.services import SubjectMarkdownPlan
 from accounts.models import StudentProfile, User
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Count, F, QuerySet
 from django.utils import timezone
 
+from . import youtube_scrape
 from .models import (
     GradeResult,
     GradingType,
@@ -1063,3 +1066,58 @@ def import_subject_markdown(school_class, plan: SubjectMarkdownPlan) -> SubjectM
         lessons_skipped=lesson_summary.lessons_skipped,
         lessons=lesson_summary.lessons,
     )
+
+
+# --- Lesson icons from YouTube thumbnails: the tutor's "update lesson
+# icons" button on the Subject detail page's Lessons toolbar
+# (update_subject_lesson_icons, bulk/on-demand), and the "Завантажити з
+# YouTube" playlist import (set_lesson_icon_from_content, called per newly
+# created lesson so imported lessons get their icon right away) -----------
+
+YOUTUBE_THUMBNAIL_URL_TEMPLATE = 'https://img.youtube.com/vi/{video_id}/hqdefault.jpg'
+YOUTUBE_THUMBNAIL_REQUEST_TIMEOUT = 15
+
+
+@dataclass
+class UpdateLessonIconsSummary:
+    updated: int = 0
+    skipped: int = 0
+
+
+def _fetch_youtube_thumbnail(video_id: str) -> bytes | None:
+    """None on any network/HTTP failure — a single lesson's bad thumbnail
+    shouldn't fail the whole subject-wide update."""
+    url = YOUTUBE_THUMBNAIL_URL_TEMPLATE.format(video_id=video_id)
+    try:
+        response = requests.get(url, timeout=YOUTUBE_THUMBNAIL_REQUEST_TIMEOUT)
+        response.raise_for_status()
+    except requests.RequestException:
+        return None
+    return response.content
+
+
+def set_lesson_icon_from_content(lesson: Lesson) -> bool:
+    """Sets `lesson`.icon to the thumbnail of the first YouTube video linked
+    from its content, if any and if the download succeeds. Returns whether
+    the icon was set, so callers can tally updated/skipped counts."""
+    video_id = youtube_scrape.extract_video_id(lesson.content)
+    thumbnail = _fetch_youtube_thumbnail(video_id) if video_id else None
+    if thumbnail is None:
+        return False
+    lesson.icon.save(f'{video_id}.jpg', ContentFile(thumbnail), save=True)
+    return True
+
+
+def update_subject_lesson_icons(subject: Subject) -> UpdateLessonIconsSummary:
+    """Sets Lesson.icon to the thumbnail of the first YouTube video linked
+    from that lesson's content, for every lesson in `subject`. Lessons with
+    no YouTube link in their content, or whose thumbnail fails to download,
+    are left untouched and counted as skipped rather than failing the whole
+    run."""
+    summary = UpdateLessonIconsSummary()
+    for lesson in Lesson.objects.filter(topic__subject=subject):
+        if set_lesson_icon_from_content(lesson):
+            summary.updated += 1
+        else:
+            summary.skipped += 1
+    return summary

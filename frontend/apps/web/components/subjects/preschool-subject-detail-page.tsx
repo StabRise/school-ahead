@@ -49,11 +49,46 @@ interface FlatLesson {
   topicTitle: string;
 }
 
-function PreschoolLessonCard({ entry, index }: { entry: FlatLesson; index: number }) {
+// Same lesson -> subject fallback StepIcon uses on the game map/calendar
+// (preschool-ui's game-map.tsx/lesson-bubble.tsx) — lesson.icon (a YouTube
+// thumbnail or tutor upload) wins, falling back to the subject's own icon.
+// When present, it takes over the whole card (image-forward, like a book
+// cover) with just the title captioned below; only a lesson with neither
+// falls back to the plain gradient + lesson-type-glyph card.
+function PreschoolLessonIconCard({ href, icon, title }: { href: string; icon: string; title: string }) {
+  return (
+    <Link
+      href={href}
+      className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-lg transition-transform hover:-translate-y-1 active:scale-95"
+    >
+      <span className="aspect-video w-full overflow-hidden bg-gray-100">
+        {/* eslint-disable-next-line @next/next/no-img-element -- external/user-uploaded URL, not a static asset next/image can optimize */}
+        <img src={icon} alt="" className="h-full w-full object-cover" />
+      </span>
+      <span className="truncate px-2 py-2 text-center text-xs font-bold text-gray-700">{title}</span>
+    </Link>
+  );
+}
+
+function PreschoolLessonCard({
+  entry,
+  index,
+  subjectIcon,
+}: {
+  entry: FlatLesson;
+  index: number;
+  subjectIcon: string | null;
+}) {
   const t = useTranslations("PreschoolSubjectDetail");
   const { lesson, topicTitle } = entry;
   const isAssigned = lesson.student_lesson_id !== null;
   const href = isAssigned ? `/lessons/${lesson.student_lesson_id}` : `/lessons/preview/${lesson.id}`;
+  const icon = lesson.icon ?? subjectIcon;
+
+  if (icon) {
+    return <PreschoolLessonIconCard href={href} icon={icon} title={lesson.title} />;
+  }
+
   const Icon = LESSON_TYPE_ICON[lesson.lesson_type as keyof typeof LESSON_TYPE_ICON] ?? Monitor;
   const gradient = CARD_GRADIENTS[index % CARD_GRADIENTS.length];
 
@@ -77,9 +112,11 @@ function PreschoolLessonCard({ entry, index }: { entry: FlatLesson; index: numbe
 function PreschoolBlockSection({
   label,
   entries,
+  subjectIcon,
 }: {
   label: string | null;
   entries: FlatLesson[];
+  subjectIcon: string | null;
 }) {
   if (entries.length === 0) return null;
 
@@ -88,7 +125,7 @@ function PreschoolBlockSection({
       {label && <h2 className="text-lg font-bold text-gray-900">🎒 {label}</h2>}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         {entries.map((entry, index) => (
-          <PreschoolLessonCard key={entry.lesson.id} entry={entry} index={index} />
+          <PreschoolLessonCard key={entry.lesson.id} entry={entry} index={index} subjectIcon={subjectIcon} />
         ))}
       </div>
     </div>
@@ -209,7 +246,12 @@ export function PreschoolSubjectDetailPage({ subjectId }: { subjectId: number })
             <p className="text-sm font-medium text-gray-500">{t("chooseLessonHint")}</p>
             <div className="flex flex-col gap-6">
               {visibleEntriesByBlock.map(({ group, entries }) => (
-                <PreschoolBlockSection key={group.key} label={group.label} entries={entries} />
+                <PreschoolBlockSection
+                  key={group.key}
+                  label={group.label}
+                  entries={entries}
+                  subjectIcon={subject.icon}
+                />
               ))}
             </div>
           </>

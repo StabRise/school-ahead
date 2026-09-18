@@ -440,6 +440,10 @@ class SubjectLessonOut(Schema):
     scheduled_date: datetime.date | None
     grade_points: int | None
     grade_result: str | None
+    # Preschool subject-detail grid's card icon — the frontend falls back to
+    # the subject's own icon (already fetched separately via SubjectOut) when
+    # this is empty, same lesson -> subject fallback as CalendarItemOut.
+    icon: str | None
 
 
 class LessonPreviewOut(Schema):
@@ -570,3 +574,8 @@ class YoutubeImportOut(Schema):
     # implemented, so only the first ~100 or so got imported. See
     # lessons.youtube_scrape.fetch_playlist_topic.
     truncated: bool
+
+
+class UpdateLessonIconsOut(Schema):
+    updated: int
+    skipped: int
