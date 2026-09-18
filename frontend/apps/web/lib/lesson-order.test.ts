@@ -23,6 +23,7 @@ function item(overrides: Partial<CalendarItemOut> & { id: number }): CalendarIte
     subject_color: null,
     lesson_type: "theory",
     task_content: "",
+    is_self_selected: false,
     ...overrides,
   };
 }

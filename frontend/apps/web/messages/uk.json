@@ -393,6 +393,9 @@
     "columnDate": "Дата",
     "columnGrade": "Оцінка",
     "columnStatus": "Статус",
+    "columnAssignedBy": "Ким призначено",
+    "assignedByStudent": "Учень",
+    "assignedByTutor": "Тьютор",
     "markCompleteLabel": "Позначити виконаним"
   },
   "TutorDashboard": {

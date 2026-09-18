@@ -37,6 +37,11 @@ class CalendarItemOut(Schema):
     # Only non-empty when lesson_type=with_task — shown as the row's task
     # preview. See Lesson.task_content.
     task_content: str
+    # Whether the student picked this lesson themselves (via
+    # lessons.api.start_lesson_today) rather than a tutor assigning it —
+    # see StudentLesson.is_self_selected. Only meaningful (and only shown
+    # by the frontend) for a student with can_do_any_lesson set.
+    is_self_selected: bool
 
 
 class BacklogItemOut(CalendarItemOut):

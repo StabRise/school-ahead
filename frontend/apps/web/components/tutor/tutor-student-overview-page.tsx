@@ -232,6 +232,7 @@ export function TutorStudentOverviewPage({
                       hrefFor={(item) => `/tutor/lessons/${item.lesson_id}`}
                       onMarkComplete={handleMarkComplete}
                       markingCompleteId={markingCompleteId}
+                      showAssignedBy={student.can_do_any_lesson}
                     />
                   )}
                 </>

@@ -42,10 +42,16 @@ export function mergeSimpleRows(lessons: CalendarItemOut[], backlog: BacklogItem
 
 // Shared by the header row and every body row so columns line up like a
 // real table: icon / subject+lesson (flexible) / date / grade / status /
-// action. The trailing action column is always reserved (even when no
-// `onMarkComplete` is passed, e.g. the student's own dashboard) so the
-// other columns stay aligned between a plain and an actionable table.
-const ROW_GRID = "grid grid-cols-[1.25rem_minmax(0,1fr)_5.5rem_3.5rem_10rem_1.75rem] items-center gap-3";
+// [assigned by] / action. The trailing action column is always reserved
+// (even when no `onMarkComplete` is passed, e.g. the student's own
+// dashboard) so the other columns stay aligned between a plain and an
+// actionable table. The "assigned by" column (`showAssignedBy`) is only
+// ever added by the tutor's student-overview page, and only for a student
+// with can_do_any_lesson set — see SimpleLessonTable's own doc comment.
+function rowGrid(showAssignedBy?: boolean): string {
+  const assignedByColumn = showAssignedBy ? "_7rem" : "";
+  return `grid grid-cols-[1.25rem_minmax(0,1fr)_5.5rem_3.5rem_10rem${assignedByColumn}_1.75rem] items-center gap-3`;
+}
 
 // origin_label (backlog rows only) is the lesson's original scheduled day —
 // same field the Standard dashboard/calendar already format as their
@@ -113,6 +119,7 @@ function SimpleRowItem({
   hrefFor,
   onMarkComplete,
   markingCompleteId,
+  showAssignedBy,
 }: {
   item: SimpleRow;
   colorful?: boolean;
@@ -122,6 +129,7 @@ function SimpleRowItem({
   // renders there and this row stays a plain link.
   onMarkComplete?: (item: SimpleRow) => void;
   markingCompleteId?: number;
+  showAssignedBy?: boolean;
 }) {
   const t = useTranslations("LessonWizard");
   const tStatus = useTranslations("LessonStatus");
@@ -141,7 +149,7 @@ function SimpleRowItem({
 
   return (
     <li>
-      <Link href={hrefFor(item)} className={`${ROW_GRID} px-2 py-2 hover:bg-gray-50`}>
+      <Link href={hrefFor(item)} className={`${rowGrid(showAssignedBy)} px-2 py-2 hover:bg-gray-50`}>
         <Icon
           className={`size-4 ${colorful ? (LESSON_TYPE_ICON_COLOR[item.lesson_type] ?? "text-gray-400") : "text-gray-400"}`}
           aria-hidden="true"
@@ -161,6 +169,11 @@ function SimpleRowItem({
           </div>
         ) : (
           <span className="truncate text-xs text-gray-500">{resolveStatusLabel(item.status, tStatus)}</span>
+        )}
+        {showAssignedBy && (
+          <span className="truncate text-xs text-gray-500">
+            {item.is_self_selected ? tTable("assignedByStudent") : tTable("assignedByTutor")}
+          </span>
         )}
         {onMarkComplete && item.status !== "completed" && (
           // Plain <button> (not a nested <a>) — this row is already a Link,
@@ -202,6 +215,7 @@ export function SimpleLessonTable({
   hrefFor = (item) => `/lessons/${item.id}`,
   onMarkComplete,
   markingCompleteId,
+  showAssignedBy,
 }: {
   rows: SimpleRow[];
   emptyMessage: string;
@@ -219,6 +233,11 @@ export function SimpleLessonTable({
   // The row currently mid-mutation, so only its own button disables/spins
   // rather than the whole table.
   markingCompleteId?: number;
+  // Adds a "Учень/Тьютор" column (item.is_self_selected) — only passed by
+  // the tutor's student-overview page, and only for a student with
+  // StudentProfile.can_do_any_lesson set (otherwise every row would always
+  // read "Тьютор", telling the tutor nothing).
+  showAssignedBy?: boolean;
 }) {
   const t = useTranslations("SimpleLessonTable");
   const { sort, toggleSort } = useSortState<SortKey>("date");
@@ -231,7 +250,7 @@ export function SimpleLessonTable({
 
   return (
     <div className="overflow-x-auto">
-      <div className={`${ROW_GRID} min-w-[39rem] px-2 pb-2`}>
+      <div className={`${rowGrid(showAssignedBy)} min-w-[39rem] px-2 pb-2`}>
         <span aria-hidden="true" />
         <SortableHeader
           label={t("columnLesson")}
@@ -257,6 +276,9 @@ export function SimpleLessonTable({
           direction={sort.direction}
           onClick={() => toggleSort("status")}
         />
+        {showAssignedBy && (
+          <span className="text-xs font-medium text-gray-500">{t("columnAssignedBy")}</span>
+        )}
         <span aria-hidden="true" />
       </div>
       <ul className="min-w-[39rem] divide-y divide-gray-100">
@@ -264,6 +286,7 @@ export function SimpleLessonTable({
           <SimpleRowItem
             key={item.id}
             item={item}
+            showAssignedBy={showAssignedBy}
             colorful={colorful}
             hrefFor={hrefFor}
             onMarkComplete={onMarkComplete}

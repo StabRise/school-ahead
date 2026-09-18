@@ -67,6 +67,7 @@ def _calendar_item(request: HttpRequest, student_lesson: StudentLesson) -> Calen
         subject_color=subject.color or None,
         lesson_type=student_lesson.lesson.lesson_type,
         task_content=student_lesson.lesson.task_content,
+        is_self_selected=student_lesson.is_self_selected,
     )
 
 
