@@ -42,6 +42,12 @@ class CalendarItemOut(Schema):
     # see StudentLesson.is_self_selected. Only meaningful (and only shown
     # by the frontend) for a student with can_do_any_lesson set.
     is_self_selected: bool
+    # Whether the student may remove this lesson from their own list right
+    # now (lessons.api.cancel_self_selected_lesson): they picked it
+    # themselves, it isn't finished, and nothing has been submitted or said
+    # on it yet. Computed here so the frontend's minus button never has to
+    # guess the rule — the preschool dashboard's road only shows it when true.
+    can_cancel: bool
 
 
 class BacklogItemOut(CalendarItemOut):

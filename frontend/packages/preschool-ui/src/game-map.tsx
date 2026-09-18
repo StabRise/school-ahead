@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import type { CalendarItemOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import { useCancelSelfSelectedLesson } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import {
   Bee,
   Bluebell,
@@ -276,14 +277,59 @@ function ActiveNode({
   );
 }
 
+// The little minus on a step the child picked themselves: takes it back off
+// the road (deletes its StudentLesson). Only rendered when the backend says
+// `can_cancel` — self-selected, unfinished, nothing submitted or said on it
+// yet (see scheduling.api._calendar_item). Sits *beside* the step's link, not
+// inside it, so a tap here never also opens the lesson. `right` is the
+// step circle's own right edge, so the button hugs its top-right corner.
+function CancelLessonButton({
+  item,
+  right,
+  onCancelled,
+}: {
+  item: CalendarItemOut;
+  right: number;
+  onCancelled?: () => void;
+}) {
+  const t = useTranslations("PreschoolGameMap");
+  const cancelLesson = useCancelSelfSelectedLesson();
+
+  const handleClick = () => {
+    if (!window.confirm(t("cancelConfirm", { title: item.lesson_title }))) return;
+    cancelLesson.mutate(
+      { studentLessonId: item.id },
+      { onSuccess: () => onCancelled?.(), onError: () => window.alert(t("cancelError")) },
+    );
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={cancelLesson.isPending}
+      title={t("cancelButton")}
+      aria-label={t("cancelButton")}
+      className="absolute top-0 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white text-rose-500 shadow-md ring-2 ring-rose-300 transition-transform hover:scale-110 hover:bg-rose-50 disabled:opacity-50"
+      style={{ right }}
+    >
+      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+        <path d="M6 12h12" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+      </svg>
+    </button>
+  );
+}
+
 function StepNode({
   item,
   point,
   isCurrent,
+  onCancelled,
 }: {
   item: CalendarItemOut;
   point: Point;
   isCurrent: boolean;
+  onCancelled?: () => void;
 }) {
   const isCompleted = item.status === "completed";
   const isPendingReview = item.status === "pending_review";
@@ -313,17 +359,29 @@ function StepNode({
   }
 
   return (
-    <Link
-      href={`/lessons/${item.id}`}
-      className="absolute rounded-3xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-      style={wrapperStyle}
-    >
-      <ActiveNode item={item} isCurrent={isCurrent} />
-    </Link>
+    <div className="absolute" style={wrapperStyle}>
+      <Link
+        href={`/lessons/${item.id}`}
+        className="block rounded-3xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      >
+        <ActiveNode item={item} isCurrent={isCurrent} />
+      </Link>
+      {item.can_cancel && (
+        <CancelLessonButton item={item} right={(wrapperStyle.width as number - size) / 2 - 8} onCancelled={onCancelled} />
+      )}
+    </div>
   );
 }
 
-export function PreschoolGameMap({ items }: { items: CalendarItemOut[] }) {
+// `onLessonCancelled` fires after a step's minus button has deleted its
+// lesson, so the caller can reload the road (see student-dashboard.tsx).
+export function PreschoolGameMap({
+  items,
+  onLessonCancelled,
+}: {
+  items: CalendarItemOut[];
+  onLessonCancelled?: () => void;
+}) {
   const t = useTranslations("PreschoolGameMap");
   const [roadRef, width] = useMeasuredWidth(360);
 
@@ -387,7 +445,13 @@ export function PreschoolGameMap({ items }: { items: CalendarItemOut[] }) {
         <TrailDecorations segments={segments} />
 
         {items.map((item, index) => (
-          <StepNode key={item.id} item={item} point={points[index]} isCurrent={index === currentIndex} />
+          <StepNode
+            key={item.id}
+            item={item}
+            point={points[index]}
+            isCurrent={index === currentIndex}
+            onCancelled={onLessonCancelled}
+          />
         ))}
       </div>
     </div>

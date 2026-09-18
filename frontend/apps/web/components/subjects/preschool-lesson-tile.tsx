@@ -38,10 +38,23 @@ export const PRESCHOOL_CARD_GRADIENTS = [
 const TILE_HEIGHT = "h-[8.25rem] sm:h-[10.25rem] lg:h-[13.25rem]";
 const TILE_PICTURE_HEIGHT = "h-24 sm:h-32 lg:h-44";
 
-// href is a plain (already locale-scoped-by-caller) path — same as every
-// other call site of next-intl's Link in this codebase; omit it to render a
-// non-interactive tile (the tutor's read-only "Preschool Preview" tab).
-function CardShell({ href, className, children }: { href?: string; className: string; children: ReactNode }) {
+// Renders the tile's outer element: a Link when `href` is given, a button
+// when `onClick` is (a lesson that has to be created before it can open — see
+// the subject page), or a plain non-interactive div when neither (the tutor's
+// read-only "Preschool Preview" tab). href is a plain (already locale-scoped-by-
+// caller) path — same as every other call site of next-intl's Link in this
+// codebase.
+function CardShell({
+  href,
+  onClick,
+  className,
+  children,
+}: {
+  href?: string;
+  onClick?: () => void;
+  className: string;
+  children: ReactNode;
+}) {
   if (href) {
     return (
       <Link href={href} className={className}>
@@ -49,11 +62,19 @@ function CardShell({ href, className, children }: { href?: string; className: st
       </Link>
     );
   }
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={`${className} w-full text-left`}>
+        {children}
+      </button>
+    );
+  }
   return <div className={className}>{children}</div>;
 }
 
 export interface PreschoolLessonTileProps {
   href?: string;
+  onClick?: () => void;
   icon: string | null;
   subjectIcon: string | null;
   lessonType: string;
@@ -73,6 +94,7 @@ export interface PreschoolLessonTileProps {
 // lesson-type-glyph tile.
 export function PreschoolLessonTile({
   href,
+  onClick,
   icon,
   subjectIcon,
   lessonType,
@@ -87,6 +109,7 @@ export function PreschoolLessonTile({
     return (
       <CardShell
         href={href}
+        onClick={onClick}
         className={`group flex shrink-0 flex-col overflow-hidden rounded-2xl bg-white shadow-lg transition-transform hover:-translate-y-1 active:scale-95 ${TILE_HEIGHT}`}
       >
         <span className={`relative block w-full shrink-0 overflow-hidden bg-gray-100 ${TILE_PICTURE_HEIGHT}`}>
@@ -106,6 +129,7 @@ export function PreschoolLessonTile({
   return (
     <CardShell
       href={href}
+      onClick={onClick}
       className={`group flex shrink-0 flex-col gap-1.5 overflow-hidden rounded-2xl bg-gradient-to-br p-3 text-white shadow-lg transition-transform hover:-translate-y-1 active:scale-95 sm:p-4 ${TILE_HEIGHT} ${gradient}`}
     >
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/25">

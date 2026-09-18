@@ -21,6 +21,7 @@ function item(overrides: Partial<CalendarItemOut> & { id: number }): CalendarIte
     lesson_icon: null,
     subject_icon: null,
     subject_color: null,
+    can_cancel: false,
     lesson_type: "theory",
     task_content: "",
     is_self_selected: false,

@@ -73,6 +73,14 @@ walk through the same path as today's lessons, not a separate screen.
     two fluttering butterflies.
   * everything else actionable → a normal-sized clickable node
     (`CIRCLE_UPCOMING`).
+* **Taking a lesson back off the road:** an actionable node the child picked
+  themselves shows a small minus button on its top-right corner
+  (`CancelLessonButton`, beside the node's link so a tap never also opens the
+  lesson). It appears only when `CalendarItemOut.can_cancel` is true —
+  self-selected, not completed, no submission and no comment (computed in
+  `scheduling/api.py`, matching `DELETE /student-lessons/{id}`,
+  `lessons.api.cancel_self_selected_lesson`). After a confirm it deletes the
+  `StudentLesson` and the dashboard reloads (`onLessonCancelled`).
 * **Icon fallback chain** (`StepIcon`): `lesson.icon` →
   `subject.icon` → `DefaultStepIcon` (a flat cartoon star). The backend
   resolves the first two into `CalendarItemOut.lesson_icon` /
@@ -280,6 +288,11 @@ back to the shelf, the class badge, the subject name and the points badge.
   more load. A card with a picture (`Lesson.icon`, falling back to the
   subject's icon) is the picture with the title under it; one with neither is
   a coloured gradient card.
+* **No preview page:** a lesson the child has no `StudentLesson` for yet (listed
+  only when `StudentProfile.can_do_any_lesson` is set) isn't sent to
+  `/lessons/preview/<id>` as in the other modes. Tapping it creates today's
+  `StudentLesson` straight away (`POST .../lessons/{id}/start-today`, the same
+  call the preview's button makes) and opens the lesson (`StartLessonCard`).
 * **Load as you scroll:** the first 20 cards render, and 20 more are revealed
   whenever a marker below the grid nears the viewport. The whole lesson list
   is still fetched in one request — only rendering is windowed.

@@ -2,17 +2,27 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
 import { Star } from "lucide-react";
 import { useAuthStore } from "@school-ahead/api-client";
 import { Cloud, PreschoolButton, Raccoon, Sun } from "@school-ahead/preschool-ui";
 import { AvatarBadge, useEquippedAvatarLayers } from "@school-ahead/avatar";
 import { useGetSubject, useListSubjectTopics } from "@school-ahead/api-client/browser/academics/academics";
-import { useGetSubjectProgress, useListStudentSubjectLessons } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
+import {
+  getGetNextLessonQueryKey,
+  getGetSubjectProgressQueryKey,
+  getListStudentSubjectLessonsQueryKey,
+  useGetSubjectProgress,
+  useListStudentSubjectLessons,
+  useStartLessonToday,
+} from "@school-ahead/api-client/browser/student-lessons/student-lessons";
+import { getGetTodayQueryKey } from "@school-ahead/api-client/browser/schedule/schedule";
 import type { SubjectLessonOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { groupTopicsByBlock } from "@/components/subjects/group-topics-by-block";
 import { limitAcrossGroups } from "@/lib/limit-across-groups";
 import { isLessonShown } from "@/lib/preschool-lessons-filter";
 import { usePreschoolLessonsFilterStore } from "@/stores/preschool-lessons-filter-store";
+import { useRouter } from "@/i18n/navigation";
 import { PreschoolLessonTile } from "@/components/subjects/preschool-lesson-tile";
 import { PreschoolLessonsFilterButton } from "@/components/subjects/preschool-lessons-filter-button";
 import { ProgressBar } from "@/components/progress-bar";
@@ -37,22 +47,76 @@ interface FlatLesson {
   topicTitle: string;
 }
 
-function PreschoolLessonCard({
+// A lesson the student has no StudentLesson for yet (only listed when they
+// may start any lesson — StudentProfile.can_do_any_lesson). No preview page in
+// preschool mode: tapping it creates today's StudentLesson right away (the
+// same start-today call the preview's button makes) and opens it.
+function StartLessonCard({
   entry,
   index,
+  subjectId,
   subjectIcon,
 }: {
   entry: FlatLesson;
   index: number;
+  subjectId: number;
   subjectIcon: string | null;
 }) {
+  const t = useTranslations("PreschoolSubjectDetail");
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const startToday = useStartLessonToday();
   const { lesson, topicTitle } = entry;
-  const isAssigned = lesson.student_lesson_id !== null;
-  const href = isAssigned ? `/lessons/${lesson.student_lesson_id}` : `/lessons/preview/${lesson.id}`;
+
+  const handleStart = () => {
+    if (startToday.isPending) return;
+    startToday.mutate(
+      { lessonId: lesson.id },
+      {
+        onSuccess: (data) => {
+          queryClient.invalidateQueries({ queryKey: getListStudentSubjectLessonsQueryKey(subjectId) });
+          queryClient.invalidateQueries({ queryKey: getGetNextLessonQueryKey(subjectId) });
+          queryClient.invalidateQueries({ queryKey: getGetSubjectProgressQueryKey(subjectId) });
+          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+          router.push(`/lessons/${data.student_lesson_id}`);
+        },
+        onError: () => window.alert(t("startError")),
+      },
+    );
+  };
 
   return (
     <PreschoolLessonTile
-      href={href}
+      onClick={handleStart}
+      icon={lesson.icon}
+      subjectIcon={subjectIcon}
+      lessonType={lesson.lesson_type}
+      title={lesson.title}
+      topicTitle={topicTitle}
+      index={index}
+    />
+  );
+}
+
+function PreschoolLessonCard({
+  entry,
+  index,
+  subjectId,
+  subjectIcon,
+}: {
+  entry: FlatLesson;
+  index: number;
+  subjectId: number;
+  subjectIcon: string | null;
+}) {
+  const { lesson, topicTitle } = entry;
+  if (lesson.student_lesson_id === null) {
+    return <StartLessonCard entry={entry} index={index} subjectId={subjectId} subjectIcon={subjectIcon} />;
+  }
+
+  return (
+    <PreschoolLessonTile
+      href={`/lessons/${lesson.student_lesson_id}`}
       icon={lesson.icon}
       subjectIcon={subjectIcon}
       lessonType={lesson.lesson_type}
@@ -66,10 +130,12 @@ function PreschoolLessonCard({
 function PreschoolBlockSection({
   label,
   entries,
+  subjectId,
   subjectIcon,
 }: {
   label: string | null;
   entries: FlatLesson[];
+  subjectId: number;
   subjectIcon: string | null;
 }) {
   if (entries.length === 0) return null;
@@ -79,7 +145,13 @@ function PreschoolBlockSection({
       {label && <h2 className="text-lg font-bold text-gray-900">🎒 {label}</h2>}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         {entries.map((entry, index) => (
-          <PreschoolLessonCard key={entry.lesson.id} entry={entry} index={index} subjectIcon={subjectIcon} />
+          <PreschoolLessonCard
+            key={entry.lesson.id}
+            entry={entry}
+            index={index}
+            subjectId={subjectId}
+            subjectIcon={subjectIcon}
+          />
         ))}
       </div>
     </div>
@@ -240,6 +312,7 @@ export function PreschoolSubjectDetailPage({ subjectId }: { subjectId: number })
                   key={group.key}
                   label={group.label}
                   entries={entries}
+                  subjectId={subjectId}
                   subjectIcon={subject.icon}
                 />
               ))}

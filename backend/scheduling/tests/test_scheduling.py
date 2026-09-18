@@ -578,3 +578,62 @@ class TestGenerateClassScheduleApi:
             headers=auth_header(tutor.user),
         )
         assert response.status_code == 400
+
+
+class TestCalendarItemCanCancel:
+    """CalendarItemOut.can_cancel drives the preschool dashboard's minus
+    button — it must match what lessons.api.cancel_self_selected_lesson
+    will actually allow (and be stricter about finished lessons)."""
+
+    def _today_items(self, api_client, auth_header, student):
+        response = api_client.get(
+            f'/schedule/today?date={datetime.date.today().isoformat()}', headers=auth_header(student.user)
+        )
+        assert response.status_code == 200
+        return {item['lesson_id']: item for item in response.data['today']}
+
+    def _student_lesson(self, lesson, student, **extra):
+        return StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date.today(), **extra
+        )
+
+    def test_self_selected_untouched_lesson_can_be_cancelled(self, api_client, auth_header, subject, student):
+        [lesson] = _make_lessons(subject, 1)
+        self._student_lesson(lesson, student, is_self_selected=True)
+
+        assert self._today_items(api_client, auth_header, student)[lesson.id]['can_cancel'] is True
+
+    def test_tutor_assigned_lesson_cannot(self, api_client, auth_header, subject, student):
+        [lesson] = _make_lessons(subject, 1)
+        self._student_lesson(lesson, student, is_self_selected=False)
+
+        assert self._today_items(api_client, auth_header, student)[lesson.id]['can_cancel'] is False
+
+    def test_lesson_with_a_comment_cannot(self, api_client, auth_header, subject, student):
+        from lessons.models import LessonComment
+
+        [lesson] = _make_lessons(subject, 1)
+        student_lesson = self._student_lesson(lesson, student, is_self_selected=True)
+        LessonComment.objects.create(student_lesson=student_lesson, author=student.user, body='Hi')
+
+        assert self._today_items(api_client, auth_header, student)[lesson.id]['can_cancel'] is False
+
+    def test_lesson_with_a_submission_cannot(self, api_client, auth_header, subject, student):
+        from lessons.models import LessonSubmission
+
+        [lesson] = _make_lessons(subject, 1)
+        student_lesson = self._student_lesson(lesson, student, is_self_selected=True)
+        LessonSubmission.objects.create(student_lesson=student_lesson)
+
+        item = self._today_items(api_client, auth_header, student)[lesson.id]
+        assert item['has_submission'] is True
+        assert item['can_cancel'] is False
+
+    def test_completed_lesson_cannot(self, api_client, auth_header, subject, student):
+        [lesson] = _make_lessons(subject, 1)
+        self._student_lesson(
+            lesson, student, is_self_selected=True, status=StudentLessonStatus.COMPLETED,
+            completed_at=datetime.datetime.now(datetime.timezone.utc),
+        )
+
+        assert self._today_items(api_client, auth_header, student)[lesson.id]['can_cancel'] is False
