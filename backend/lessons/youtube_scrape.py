@@ -13,10 +13,18 @@ import requests
 USER_AGENT = 'Mozilla/5.0 (compatible; SchoolAheadScraper/1.0)'
 REQUEST_TIMEOUT = 30
 
-# The playlist page's embedded state — holds the first ~100 videos;
-# playlists longer than that need "continuation" tokens against an
-# undocumented, frequently-changing internal API, not implemented here.
+# The playlist page's embedded state — holds the first ~100 videos plus a
+# "continuation" item carrying a token for the next page (see
+# _fetch_continuation).
 YOUTUBE_INITIAL_DATA_RE = re.compile(r'var ytInitialData = (\{.*?\});</script>', re.DOTALL)
+YOUTUBE_API_KEY_RE = re.compile(r'"INNERTUBE_API_KEY":"([^"]+)"')
+YOUTUBE_CLIENT_VERSION_RE = re.compile(r'"INNERTUBE_CLIENT_VERSION":"([^"]+)"')
+YOUTUBE_BROWSE_URL = 'https://www.youtube.com/youtubei/v1/browse'
+
+# Each continuation page holds ~100 videos and YouTube caps a playlist at
+# 5000, so 50 pages is the real ceiling — this only guards against looping
+# forever if an unexpected response keeps handing back a token.
+MAX_CONTINUATION_PAGES = 60
 
 # Ported from frontend/packages/markdown-editor/src/lib/youtube.ts's
 # YOUTUBE_URL_PATTERN — matches a bare or Markdown-linked YouTube URL
@@ -41,15 +49,19 @@ class ScrapeError(Exception):
     pass
 
 
-def _fetch(url: str) -> str:
+def _make_session() -> requests.Session:
     session = requests.Session()
     session.headers['User-Agent'] = USER_AGENT
     # Without this, a cookie-less request to youtube.com (e.g. from an
     # EU-geolocated IP) gets served the "before you continue to YouTube"
     # GDPR consent interstitial instead of the real page — 200 OK, but with
-    # no ytInitialData, which _extract_playlist_videos then can't find.
-    # Pre-seeding this cookie (the same bypass yt-dlp uses) skips it.
+    # no ytInitialData, which _initial_items then can't find. Pre-seeding
+    # this cookie (the same bypass yt-dlp uses) skips it.
     session.cookies.set('SOCS', 'CAI', domain='.youtube.com')
+    return session
+
+
+def _fetch(session: requests.Session, url: str) -> str:
     try:
         response = session.get(url, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
@@ -58,47 +70,113 @@ def _fetch(url: str) -> str:
     return response.text
 
 
-def _extract_playlist_videos(html_text: str) -> tuple[list[dict], bool]:
-    """Returns (videos, truncated) — `truncated` is True when the page's own
-    "load more" continuation marker is present, meaning the playlist has
-    more videos than fit on this first page (pagination against YouTube's
-    undocumented, frequently-changing internal API isn't implemented)."""
+def _initial_items(html_text: str) -> list[dict]:
     match = YOUTUBE_INITIAL_DATA_RE.search(html_text)
     if not match:
         raise ScrapeError('Could not find playlist data on the page — is this a YouTube playlist URL?')
     data = json.loads(match.group(1))
 
     try:
-        items = (
+        return (
             data['contents']['twoColumnBrowseResultsRenderer']['tabs'][0]['tabRenderer']
             ['content']['sectionListRenderer']['contents'][0]['itemSectionRenderer']['contents']
         )
     except (KeyError, IndexError, TypeError) as exc:
         raise ScrapeError('Unrecognized playlist page structure — YouTube may have changed its markup.') from exc
 
+
+def _parse_items(items: list[dict]) -> tuple[list[dict], str | None]:
+    """Returns (videos, next_page_token) for one page of playlist items —
+    the first page's (from the HTML) and every continuation page's share
+    this shape. next_page_token is None on the last page."""
     videos = []
-    truncated = False
+    token = None
     for item in items:
         lockup = item.get('lockupViewModel')
-        if lockup is None:
-            if 'continuationItemViewModel' in item:
-                truncated = True
-            continue
-        video_id = lockup.get('contentId')
-        title = (lockup.get('metadata') or {}).get('lockupMetadataViewModel', {}).get('title', {}).get('content')
-        if video_id and title:
-            videos.append({'video_id': video_id, 'title': title})
-    return videos, truncated
+        if lockup is not None:
+            video_id = lockup.get('contentId')
+            title = (lockup.get('metadata') or {}).get('lockupMetadataViewModel', {}).get('title', {}).get('content')
+            if video_id and title:
+                videos.append({'video_id': video_id, 'title': title})
+        elif 'continuationItemViewModel' in item or 'continuationItemRenderer' in item:
+            token = _continuation_token(item)
+    return videos, token
+
+
+def _continuation_token(item: dict) -> str:
+    try:
+        if 'continuationItemViewModel' in item:
+            command = item['continuationItemViewModel']['continuationCommand']['innertubeCommand']
+        else:
+            command = item['continuationItemRenderer']['continuationEndpoint']
+        return command['continuationCommand']['token']
+    except (KeyError, TypeError) as exc:
+        raise ScrapeError('Unrecognized "next page" marker — YouTube may have changed its markup.') from exc
+
+
+def _fetch_continuation(
+    session: requests.Session, api_key: str, client_version: str, token: str
+) -> list[dict]:
+    """The next page of a playlist's items, via the same internal browse API
+    the site's own "scroll for more" calls. Undocumented — YouTube can
+    change it, which is why a failure here only truncates the import
+    (see fetch_playlist_topic) instead of failing it."""
+    payload = {
+        'context': {'client': {'clientName': 'WEB', 'clientVersion': client_version, 'hl': 'uk'}},
+        'continuation': token,
+    }
+    try:
+        response = session.post(
+            YOUTUBE_BROWSE_URL, params={'key': api_key, 'prettyPrint': 'false'}, json=payload, timeout=REQUEST_TIMEOUT
+        )
+        response.raise_for_status()
+        data = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        raise ScrapeError(f'Failed to fetch the next page of the playlist: {exc}') from exc
+
+    try:
+        return data['onResponseReceivedActions'][0]['appendContinuationItemsAction']['continuationItems']
+    except (KeyError, IndexError, TypeError) as exc:
+        raise ScrapeError('Unrecognized next-page response — YouTube may have changed its API.') from exc
 
 
 def fetch_playlist_topic(playlist_url: str, topic_name: str) -> tuple[dict, bool]:
     """Returns (topic_data, truncated) — topic_data is TopicOut-shaped,
-    ready for lessons.services.import_topics_and_lessons. Raises
-    ScrapeError on any failure (network, unrecognized page, empty playlist)
-    — callers decide how to surface that (manage.py's CommandError vs.
-    tutoring.api's HttpError 400)."""
-    html_text = _fetch(playlist_url)
-    videos, truncated = _extract_playlist_videos(html_text)
+    ready for lessons.services.import_topics_and_lessons. Follows the
+    playlist's continuation pages (~100 videos each) until the end.
+    `truncated` is True only when that stopped early — a later page failed
+    to load or MAX_CONTINUATION_PAGES was hit — so the videos returned are
+    a prefix of the playlist; re-running the import picks up the rest,
+    since it only adds what's new. Raises ScrapeError on any failure of the
+    first page (network, unrecognized page, empty playlist) — callers decide
+    how to surface that (manage.py's CommandError vs. tutoring.api's
+    HttpError 400)."""
+    session = _make_session()
+    html_text = _fetch(session, playlist_url)
+    videos, token = _parse_items(_initial_items(html_text))
+
+    truncated = False
+    if token:
+        api_key = YOUTUBE_API_KEY_RE.search(html_text)
+        client_version = YOUTUBE_CLIENT_VERSION_RE.search(html_text)
+        if api_key is None or client_version is None:
+            truncated = True
+        else:
+            pages = 0
+            while token:
+                if pages >= MAX_CONTINUATION_PAGES:
+                    truncated = True
+                    break
+                try:
+                    page_videos, token = _parse_items(
+                        _fetch_continuation(session, api_key.group(1), client_version.group(1), token)
+                    )
+                except ScrapeError:
+                    truncated = True
+                    break
+                videos.extend(page_videos)
+                pages += 1
+
     if not videos:
         raise ScrapeError('No videos found on this page — is it a valid, public YouTube playlist URL?')
 

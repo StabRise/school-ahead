@@ -569,10 +569,9 @@ class YoutubeImportOut(Schema):
     topic_name: str
     lessons_created: int
     lessons_skipped: int
-    # True when the playlist has more videos than fit on YouTube's first
-    # page — pagination against its undocumented internal API isn't
-    # implemented, so only the first ~100 or so got imported. See
-    # lessons.youtube_scrape.fetch_playlist_topic.
+    # True only when following the playlist's next pages stopped early (a
+    # page failed to load), so just a prefix of it was imported — re-running
+    # the import adds the rest. See lessons.youtube_scrape.fetch_playlist_topic.
     truncated: bool
 
 

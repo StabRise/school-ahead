@@ -386,12 +386,11 @@ def import_subject_youtube_playlist(request: HttpRequest, subject_id: int, paylo
     with transaction.atomic():
         summary = lesson_services.import_topics_and_lessons(subject, [topic_data])
 
-    # Outside the transaction — each is a network call to fetch the video's
-    # thumbnail (see lesson_services.set_lesson_icon_from_content), and a
-    # failed download just leaves that lesson's icon empty rather than
+    # Outside the transaction — these are network calls to fetch each
+    # video's thumbnail (see lesson_services.set_lesson_icons_from_content),
+    # and a failed download just leaves that lesson's icon empty rather than
     # rolling back the whole import.
-    for lesson in summary.lessons_created:
-        lesson_services.set_lesson_icon_from_content(lesson)
+    lesson_services.set_lesson_icons_from_content(summary.lessons_created)
 
     return YoutubeImportOut(
         topic_id=summary.topics[0].id,
