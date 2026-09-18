@@ -1196,6 +1196,17 @@
     "error": "Не вдалося завантажити предмети.",
     "empty": "Книжок на полиці ще немає."
   },
+  "PreschoolSubjectDetail": {
+    "backToShelf": "До полиці",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити предмет. Спробуйте ще раз.",
+    "pointsLabel": "{count} балів",
+    "courseProgressLabel": "Прогрес за весь курс: {percent}% ({completed}/{total})",
+    "chooseLessonHint": "Обери урок просто натиснувши на картку!",
+    "lessonBadge": "Урок {index}",
+    "noLessons": "Тут поки що немає уроків для тебе.",
+    "allLessonsCompleted": "Усі уроки цього предмета пройдено! 🎉"
+  },
   "TutorAvatarEditor": {
     "title": "Редактор аватарів",
     "loading": "Завантаження...",
