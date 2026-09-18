@@ -84,8 +84,10 @@ class _FakeSession:
         self._html = html
         self._pages = pages  # token -> list of items, or an Exception to raise
         self.posted_tokens = []
+        self.fetched_urls = []
 
     def get(self, url, timeout):
+        self.fetched_urls.append(url)
         return _FakeResponse(text=self._html)
 
     def post(self, url, params, json, timeout):
@@ -208,3 +210,43 @@ def test_blank_topic_name_falls_back_to_base_when_the_title_is_unreadable(monkey
     topic, _ = _fetch(monkeypatch, session, topic_name='')
 
     assert topic['title'] == 'Base'
+
+
+# --- playlist URL: normalizing and the topic description -----------------
+
+
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("https://www.youtube.com/playlist?list=PL123", "https://www.youtube.com/playlist?list=PL123"),
+        # The address bar's form while a playlist plays: a video page, not the list.
+        ("https://www.youtube.com/watch?v=ubKmC4MALAM&list=PL123", "https://www.youtube.com/playlist?list=PL123"),
+        ("https://www.youtube.com/watch?list=PL123&v=abc&index=4", "https://www.youtube.com/playlist?list=PL123"),
+        ("https://youtu.be/ubKmC4MALAM?list=PL123", "https://www.youtube.com/playlist?list=PL123"),
+        ("  https://www.youtube.com/playlist?list=PL123  ", "https://www.youtube.com/playlist?list=PL123"),
+        # No list id — nothing to normalize to.
+        ("https://www.youtube.com/watch?v=ubKmC4MALAM", "https://www.youtube.com/watch?v=ubKmC4MALAM"),
+    ],
+)
+def test_canonical_playlist_url(url, expected):
+    assert youtube_scrape.canonical_playlist_url(url) == expected
+
+
+def test_topic_description_is_the_playlist_url(monkeypatch):
+    session = _FakeSession(_playlist_html([_lockup('aaaaaaaaaaa')]), {})
+
+    topic, _ = _fetch(monkeypatch, session)
+
+    assert topic['description'] == 'https://www.youtube.com/playlist?list=PL1'
+
+
+def test_a_watch_link_is_fetched_and_described_as_the_plain_playlist_url(monkeypatch):
+    session = _FakeSession(_playlist_html([_lockup('aaaaaaaaaaa')]), {})
+    monkeypatch.setattr(youtube_scrape, '_make_session', lambda: session)
+
+    topic, _ = youtube_scrape.fetch_playlist_topic(
+        'https://www.youtube.com/watch?v=ubKmC4MALAM&list=PLSNY-dL1', 'Base'
+    )
+
+    assert session.fetched_urls == ['https://www.youtube.com/playlist?list=PLSNY-dL1']
+    assert topic['description'] == 'https://www.youtube.com/playlist?list=PLSNY-dL1'
