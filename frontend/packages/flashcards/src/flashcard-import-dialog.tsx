@@ -53,7 +53,7 @@ export function FlashcardImportDialog({ fixedSubject }: { fixedSubject?: { id: n
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportCardSetOut | null>(null);
   const importSet = useImportStudentCardSet();
-  const subjectsQuery = useGetMySubjects({ query: { enabled: isStudent && !fixedSubject && open } });
+  const subjectsQuery = useGetMySubjects(undefined, { query: { enabled: isStudent && !fixedSubject && open } });
   const subjects = subjectsQuery.data ?? [];
 
   // Defaults the picker (fixedSubject-less case only) to the first loaded

@@ -1,3 +1,4 @@
+from django.db.models import Exists, OuterRef
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from ninja import File, Form, Router
@@ -56,13 +57,18 @@ def list_class_subjects(request: HttpRequest, class_id: int):
 
 
 @router.get('/my-subjects', response=list[SubjectOut], operation_id='get_my_subjects')
-def my_subjects(request: HttpRequest):
+def my_subjects(request: HttpRequest, has_lessons: bool = False):
     """Subjects for the authenticated student's own class. See
-    docs/interfaces/student/progress.md."""
+    docs/interfaces/student/progress.md. `has_lessons=true` leaves out
+    subjects with no lessons at all — the preschool bookshelf uses it so a
+    child isn't shown books with nothing in them."""
     student = get_own_student_profile(request)
     if student.school_class_id is None:
         return []
-    return Subject.objects.filter(school_class_id=student.school_class_id).select_related('school_class', 'group')
+    subjects = Subject.objects.filter(school_class_id=student.school_class_id).select_related('school_class', 'group')
+    if has_lessons:
+        subjects = subjects.filter(Exists(Topic.objects.filter(subject=OuterRef('pk'), lessons__isnull=False)))
+    return subjects
 
 
 @router.get('/subjects/{subject_id}', response=SubjectOut, operation_id='get_subject')

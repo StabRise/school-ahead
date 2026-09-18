@@ -24,6 +24,13 @@ const BOOK_COLORS = [
 // A book with its subject icon, name and a progress bar on the cover — a
 // bookshelf take on the default view's subject grid, restyled for a
 // 6-year-old. See docs/views/preschool/README.md.
+//
+// Hovering a book blows it up to 2x (raised above its neighbours with z-20)
+// so a child can see it properly. Tailwind gates `group-hover:` behind
+// `@media (hover: hover)`, so touch screens (iPad) skip the enlargement and
+// just get the press-down feedback. The combined hover+press rule keeps the
+// enlarged book from snapping back to normal size mid-click, which the plain
+// press rule would otherwise do (it's emitted after the hover one).
 function Book({ subject }: { subject: SubjectOut }) {
   const progressQuery = useGetSubjectProgress(subject.id);
   const percent = Math.round(Math.min(100, Math.max(0, progressQuery.data?.completed_percent ?? 0)));
@@ -36,23 +43,33 @@ function Book({ subject }: { subject: SubjectOut }) {
       className="group flex w-32 shrink-0 flex-col sm:w-36"
     >
       <div
-        className={`relative flex h-44 flex-col items-center gap-1 rounded-t-xl rounded-b-md bg-gradient-to-b pb-2 pl-5 pr-1.5 pt-1.5 shadow-lg transition-transform group-hover:-translate-y-1 group-active:scale-95 sm:h-48 ${color}`}
+        className={`relative flex h-44 flex-col items-center gap-1 rounded-t-xl rounded-b-md bg-gradient-to-b pb-2 pl-5 pr-1.5 pt-1.5 shadow-lg transition-transform duration-200 group-hover:z-20 group-hover:scale-200 group-active:scale-95 group-hover:group-active:scale-[1.9] sm:h-48 ${color}`}
       >
         <span className="absolute bottom-2 left-2 top-2 w-[3px] rounded bg-white/30" aria-hidden="true" />
         <span className="absolute bottom-2 left-4 top-2 w-[2px] rounded bg-white/20" aria-hidden="true" />
 
-        {/* Takes all the height the name and progress row leave over, out to the right edge. */}
-        <span className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-xl border-2 border-white/80 bg-white shadow">
+        {/* Takes all the height the name and progress row leave over, out to the right edge.
+            The image is absolutely positioned rather than `h-full`: a percentage height
+            inside a flex item isn't reliably resolved by Safari, which would show the
+            image at its natural size, cropped, instead of scaled to cover. */}
+        <span className="relative min-h-0 w-full flex-1 overflow-hidden rounded-xl border-2 border-white/80 bg-white shadow">
           {subject.icon ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={subject.icon} alt="" className="h-full w-full object-cover" />
+            <img src={subject.icon} alt="" className="absolute inset-0 h-full w-full object-cover" />
           ) : (
-            <DefaultStepIcon />
+            <span className="absolute inset-0 flex items-center justify-center">
+              <DefaultStepIcon />
+            </span>
           )}
         </span>
 
-        <span className="line-clamp-2 flex h-8 w-full items-center justify-center text-center text-xs font-extrabold leading-tight text-white drop-shadow">
-          {subject.name}
+        {/* line-clamp needs `display: -webkit-box`, which `flex` on the same
+            element overrides (it's emitted later) and silently disables the
+            clamp — so the flex centering lives on a wrapper instead. */}
+        <span className="flex h-8 w-full items-center justify-center">
+          <span className="line-clamp-2 text-center text-xs font-extrabold leading-tight text-white drop-shadow">
+            {subject.name}
+          </span>
         </span>
 
         <div className="flex w-full items-center gap-1.5 px-1">
@@ -112,7 +129,7 @@ export function PreschoolSubjectsShelf() {
   const t = useTranslations("PreschoolSubjects");
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { data, isLoading, isError } = useGetMySubjects();
+  const { data, isLoading, isError } = useGetMySubjects({ has_lessons: true });
   const { data: subjectGroups } = useListSubjectGroups();
   const allSubjects = useMemo(() => data ?? [], [data]);
 
@@ -130,7 +147,7 @@ export function PreschoolSubjectsShelf() {
   const subjects = activeGroup ? allSubjects.filter((subject) => subject.group_id === activeGroup.id) : allSubjects;
 
   return (
-    <div className="relative flex flex-1 flex-col bg-gradient-to-b from-sky-200 via-emerald-100 to-lime-200">
+    <div className="relative flex flex-1 flex-col overflow-x-clip bg-gradient-to-b from-sky-200 via-emerald-100 to-lime-200">
       <div className="pointer-events-none absolute inset-0">
         <Cloud className="left-6 top-4 h-8 w-14 opacity-90" />
         <Cloud className="right-8 top-8 h-6 w-12 opacity-70" />
@@ -154,7 +171,7 @@ export function PreschoolSubjectsShelf() {
               title={t("allBooks")}
               icon={
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src="/static/subjects/all-books.jpg" alt="" className="h-12 w-12 rounded-xl object-cover" />
+                <img src="/images/all-books.jpg" alt="" className="h-12 w-12 rounded-xl object-cover" />
               }
             />
             <span className="h-10 w-0.5 rounded-full bg-slate-300" aria-hidden="true" />

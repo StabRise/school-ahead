@@ -177,6 +177,42 @@ def test_my_subjects_scoped_to_own_class(api_client, auth_header, school_class, 
     assert [s['name'] for s in response.data] == ['Math']
 
 
+def test_my_subjects_has_lessons_filter_leaves_out_empty_subjects(api_client, auth_header, school_class, subject):
+    from lessons.models import Lesson, LessonType
+
+    with_lessons = Subject.objects.create(school_class=school_class, name='History')
+    topic = Topic.objects.create(subject=with_lessons, title='Antiquity', order_index=1)
+    Lesson.objects.create(
+        topic=topic, order_index=1, title='Egypt', lesson_type=LessonType.THEORY, grading_type='binary'
+    )
+    # A subject with a topic but no lesson in it is just as empty as one with no topics.
+    Topic.objects.create(subject=subject, title='Empty topic', order_index=1)
+    enrolled_user = User.objects.create_user(email='enrolled@example.com', role=Role.STUDENT)
+    StudentProfile.objects.create(user=enrolled_user, school_class=school_class)
+
+    everything = api_client.get('/academics/my-subjects', headers=auth_header(enrolled_user))
+    filtered = api_client.get('/academics/my-subjects?has_lessons=true', headers=auth_header(enrolled_user))
+
+    assert sorted(s['name'] for s in everything.data) == ['History', 'Math']
+    assert [s['name'] for s in filtered.data] == ['History']
+
+
+def test_my_subjects_has_lessons_filter_does_not_duplicate_subjects(api_client, auth_header, school_class, subject):
+    from lessons.models import Lesson, LessonType
+
+    topic = Topic.objects.create(subject=subject, title='T', order_index=1)
+    for index in (1, 2, 3):
+        Lesson.objects.create(
+            topic=topic, order_index=index, title=f'L{index}', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+    enrolled_user = User.objects.create_user(email='enrolled@example.com', role=Role.STUDENT)
+    StudentProfile.objects.create(user=enrolled_user, school_class=school_class)
+
+    response = api_client.get('/academics/my-subjects?has_lessons=true', headers=auth_header(enrolled_user))
+
+    assert [s['name'] for s in response.data] == ['Math']
+
+
 def test_my_subjects_rejects_user_without_student_profile(api_client, auth_header, student_user):
     # student_user has no StudentProfile row at all.
     response = api_client.get('/academics/my-subjects', headers=auth_header(student_user))
