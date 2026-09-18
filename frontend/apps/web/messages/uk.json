@@ -604,7 +604,6 @@
     "planTab": "План",
     "materialsTab": "Матеріали",
     "preschoolPreviewTab": "Preschool перегляд",
-    "preschoolPreviewHint": "Так предмет виглядатиме для учня в режимі Preschool.",
     "preschoolPreviewEmpty": "У цьому предметі ще немає уроків.",
     "noTopics": "Тем ще немає.",
     "noLessonsInTopic": "У цій темі ще немає уроків.",
@@ -1203,7 +1202,9 @@
     "title": "Полиця з книжками",
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити предмети.",
-    "empty": "Книжок на полиці ще немає."
+    "empty": "Книжок на полиці ще немає.",
+    "filterLabel": "Фільтр за категорією:",
+    "allBooks": "Всі книжки"
   },
   "PreschoolSubjectDetail": {
     "backToShelf": "До полиці",

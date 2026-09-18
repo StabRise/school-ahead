@@ -5,7 +5,7 @@ from django.core.validators import FileExtensionValidator
 from django.db import models
 
 from common.models import TimeStampedModel
-from common.storage import subject_icon_upload_to, subject_material_upload_to
+from common.storage import subject_group_icon_upload_to, subject_icon_upload_to, subject_material_upload_to
 
 
 class School(models.Model):
@@ -48,6 +48,10 @@ class SubjectGroup(models.Model):
     class. See Subject.group."""
     name = models.CharField(max_length=255)
     order_index = models.PositiveSmallIntegerField(default=0)
+    # Shown next to the group's name in the preschool bookshelf's category
+    # filter (frontend's PreschoolSubjectsShelf) — optional; the pill just
+    # renders without an image when empty.
+    icon = models.FileField(upload_to=subject_group_icon_upload_to, blank=True)
 
     class Meta:
         ordering = ['order_index', 'name']

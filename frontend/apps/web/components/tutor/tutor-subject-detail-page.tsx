@@ -1213,7 +1213,14 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
             {
               value: "preschool-preview",
               label: t("preschoolPreviewTab"),
-              content: <PreschoolPreviewTab subject={subject} topics={topics} lessons={lessons} />,
+              content: (
+                <PreschoolPreviewTab
+                  subject={subject}
+                  topics={topics}
+                  lessons={lessons}
+                  lessonStudentsByLessonId={lessonStudentsByLessonId}
+                />
+              ),
             },
           ]}
         />

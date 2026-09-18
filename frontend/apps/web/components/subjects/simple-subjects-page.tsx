@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { Group, Ungroup } from "lucide-react";
@@ -13,6 +13,7 @@ import { AttestationTypeBadge } from "@/components/subjects/attestation-type-bad
 import { SimpleEntityIcon } from "@/components/simple/entity-icon";
 import { SortableHeader, useSortState } from "@/components/simple/sortable-header";
 import { subjectGroupLabel } from "@/lib/subject-group-label";
+import { useTabQueryParam } from "@/lib/use-tab-query-param";
 import { useSubjectsGroupedViewStore } from "@/stores/subjects-grouped-view-store";
 import type { SubjectOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 
@@ -80,7 +81,10 @@ export function SimpleSubjectsPage({ colorful }: { colorful?: boolean } = {}) {
   const { sort, toggleSort } = useSortState<SortKey>("name");
   const grouped = useSubjectsGroupedViewStore((state) => state.grouped);
   const setGrouped = useSubjectsGroupedViewStore((state) => state.setGrouped);
-  const [activeTabKey, setActiveTabKey] = useState<string>(UNGROUPED_TAB_KEY);
+  // Mirrored into `?group=<id>` (or `?group=ungrouped`) so a reload or shared
+  // link lands on the same tab. Empty default: with no param the first
+  // available tab is used (see effectiveTabKey below).
+  const [activeTabKey, setActiveTabKey] = useTabQueryParam("", "group");
 
   const subjects = useMemo(() => data ?? [], [data]);
   const groups = useMemo(() => subjectGroups ?? [], [subjectGroups]);
@@ -111,10 +115,6 @@ export function SimpleSubjectsPage({ colorful }: { colorful?: boolean } = {}) {
     });
   }, [subjects, sort, percentBySubjectId]);
 
-  // Tabs are keyed by group id (as a string) plus the always-present
-  // "ungrouped" bucket — falls back to the first available tab whenever
-  // the current selection no longer exists (e.g. right after groups load).
-  const tabKeys = useMemo(() => [...groups.map((g) => String(g.id)), UNGROUPED_TAB_KEY], [groups]);
   const subjectCountByTabKey = useMemo(() => {
     const counts = new Map<string, number>();
     for (const subject of subjects) {
@@ -123,6 +123,21 @@ export function SimpleSubjectsPage({ colorful }: { colorful?: boolean } = {}) {
     }
     return counts;
   }, [subjects]);
+
+  // Tabs are keyed by group id (as a string) plus the "ungrouped" bucket —
+  // but only those this student's class actually has subjects in: groups
+  // are global (not per class), so an empty tab would just be a dead end.
+  // Falls back to the first available tab whenever the current selection
+  // isn't one of them (no `?group=` yet, or a stale/unknown id).
+  const tabGroups = useMemo(
+    () => groups.filter((group) => (subjectCountByTabKey.get(String(group.id)) ?? 0) > 0),
+    [groups, subjectCountByTabKey],
+  );
+  const hasUngroupedTab = (subjectCountByTabKey.get(UNGROUPED_TAB_KEY) ?? 0) > 0;
+  const tabKeys = useMemo(
+    () => [...tabGroups.map((g) => String(g.id)), ...(hasUngroupedTab ? [UNGROUPED_TAB_KEY] : [])],
+    [tabGroups, hasUngroupedTab],
+  );
   const effectiveTabKey = tabKeys.includes(activeTabKey) ? activeTabKey : tabKeys[0];
   const visibleSubjects = grouped
     ? sortedSubjects.filter((subject) =>
@@ -168,7 +183,7 @@ export function SimpleSubjectsPage({ colorful }: { colorful?: boolean } = {}) {
         <div className="flex flex-col gap-2">
           {grouped && (
             <div role="tablist" className="flex flex-wrap gap-1 border-b border-gray-200">
-              {groups.map((group) => (
+              {tabGroups.map((group) => (
                 <button
                   key={group.id}
                   type="button"
@@ -184,19 +199,21 @@ export function SimpleSubjectsPage({ colorful }: { colorful?: boolean } = {}) {
                   {subjectGroupLabel(group.name, subjectCountByTabKey.get(String(group.id)) ?? 0)}
                 </button>
               ))}
-              <button
-                type="button"
-                role="tab"
-                aria-selected={effectiveTabKey === UNGROUPED_TAB_KEY}
-                onClick={() => setActiveTabKey(UNGROUPED_TAB_KEY)}
-                className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${
-                  effectiveTabKey === UNGROUPED_TAB_KEY
-                    ? "border-gray-900 text-gray-900"
-                    : "border-transparent text-gray-500 hover:text-gray-900"
-                }`}
-              >
-                {subjectGroupLabel(t("ungroupedTabLabel"), subjectCountByTabKey.get(UNGROUPED_TAB_KEY) ?? 0)}
-              </button>
+              {hasUngroupedTab && (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={effectiveTabKey === UNGROUPED_TAB_KEY}
+                  onClick={() => setActiveTabKey(UNGROUPED_TAB_KEY)}
+                  className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${
+                    effectiveTabKey === UNGROUPED_TAB_KEY
+                      ? "border-gray-900 text-gray-900"
+                      : "border-transparent text-gray-500 hover:text-gray-900"
+                  }`}
+                >
+                  {subjectGroupLabel(t("ungroupedTabLabel"), subjectCountByTabKey.get(UNGROUPED_TAB_KEY) ?? 0)}
+                </button>
+              )}
             </div>
           )}
 
