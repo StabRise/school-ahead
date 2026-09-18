@@ -12,7 +12,7 @@ from ninja.files import UploadedFile
 from ninja.pagination import paginate
 
 from academics import services as academics_services
-from academics.models import Class, Plan, Subject, SubjectBlock, Topic
+from academics.models import Class, Plan, Subject, SubjectBlock, SubjectGroup, Topic
 from academics.schemas import SubjectOut, SubjectsReorderIn, TopicOut, TopicsReorderIn
 from accounts import services as accounts_services
 from accounts.models import Avatar, AvatarItem, StudentProfile
@@ -82,6 +82,7 @@ from .schemas import (
     TutorFeedItemOut,
     TutorFurnitureItemOut,
     TutorStudentOut,
+    UpdateSubjectIn,
     UpdateTutorFurnitureItemIn,
 )
 
@@ -227,6 +228,45 @@ def list_subject_lessons(request: HttpRequest, subject_id: int):
         .prefetch_related('materials', 'quiz_questions__choices')
         .order_by('topic__order_index', 'order_index')
     )
+
+
+MAX_SUBJECT_ICON_BYTES = 5 * 1024 * 1024
+
+
+@router.patch('/subjects/{subject_id}', response=SubjectOut, operation_id='update_tutor_subject')
+def update_tutor_subject(request: HttpRequest, subject_id: int, payload: UpdateSubjectIn):
+    """Inline rename of a subject from its own detail page. Unlike
+    academics.api.patch_subject (staff-only, dates/blocks/group), this is
+    scoped to tutors assigned to the subject and only touches the name."""
+    require_csrf(request)
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    name = payload.name.strip()
+    if not name:
+        raise HttpError(400, 'Subject name must not be blank')
+    subject = get_object_or_404(Subject.objects.select_related('school_class', 'group'), id=subject_id)
+    subject.name = name
+    subject.save(update_fields=['name'])
+    return subject
+
+
+@router.post('/subjects/{subject_id}/icon', response=SubjectOut, operation_id='upload_tutor_subject_icon')
+def upload_tutor_subject_icon(request: HttpRequest, subject_id: int, file: UploadedFile = File(...)):
+    """Sets (or replaces) a subject's icon from an uploaded image — the
+    clickable icon beside the title on the Subject detail page. The
+    previous file is deleted so replacing doesn't leave orphans in storage."""
+    require_csrf(request)
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    if not (file.content_type or '').startswith('image/'):
+        raise HttpError(400, 'Only image files are supported')
+    if file.size > MAX_SUBJECT_ICON_BYTES:
+        raise HttpError(400, 'Image is too large (max 5 MB)')
+
+    subject = get_object_or_404(Subject.objects.select_related('school_class', 'group'), id=subject_id)
+    previous_icon = subject.icon.name
+    subject.icon.save(file.name, file, save=True)
+    if previous_icon:
+        subject.icon.storage.delete(previous_icon)
+    return subject
 
 
 @router.patch('/subjects/{subject_id}/is-filled', response=SubjectOut, operation_id='set_subject_filled')
@@ -1018,8 +1058,13 @@ def create_tutor_class_subject(request: HttpRequest, class_id: int, payload: Cre
     services.ensure_is_class_teacher(request, class_id)
     school_class = get_object_or_404(Class, id=class_id)
 
+    group = get_object_or_404(SubjectGroup, id=payload.group_id) if payload.group_id is not None else None
     subject = Subject.objects.create(
-        school_class=school_class, name=payload.name, start_date=payload.start_date, due_date=payload.due_date,
+        school_class=school_class,
+        name=payload.name,
+        start_date=payload.start_date,
+        due_date=payload.due_date,
+        group=group,
     )
     subject.color = academics_services.assign_subject_color(subject)
     subject.order_index = academics_services.assign_subject_order_index(subject)

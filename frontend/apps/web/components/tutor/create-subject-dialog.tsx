@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Plus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useListSubjectGroups } from "@school-ahead/api-client/browser/academics/academics";
 import { getGetTutorClassQueryKey, useCreateTutorClassSubject } from "@school-ahead/api-client/browser/tutor/tutor";
 import { useRouter } from "@/i18n/navigation";
 import { DateRangeFields } from "./schedule-period-fields";
@@ -21,7 +22,8 @@ function defaultSchoolYearRange(academicYear: string): { startDate: string; endD
 }
 
 // Opened from the tutor's Class detail page — creates a bare Subject (just
-// a name and a date range) with no topics/lessons yet, for a tutor building
+// a name, a date range and optionally a category/SubjectGroup) with no
+// topics/lessons yet, for a tutor building
 // a curriculum from scratch rather than importing one (see
 // UploadPlanDialog/LoadSubjectMarkdownDialog for those). Navigates straight
 // to the new subject's own detail page afterward, same "create then jump
@@ -35,6 +37,10 @@ export function CreateSubjectDialog({ classId, academicYear }: { classId: number
   const defaultRange = defaultSchoolYearRange(academicYear);
   const [startDate, setStartDate] = useState(defaultRange.startDate);
   const [endDate, setEndDate] = useState(defaultRange.endDate);
+  // "" = no category (Subject.group stays null).
+  const [groupId, setGroupId] = useState("");
+  const { data: subjectGroups } = useListSubjectGroups();
+  const groups = subjectGroups ?? [];
 
   const createSubject = useCreateTutorClassSubject();
 
@@ -44,6 +50,7 @@ export function CreateSubjectDialog({ classId, academicYear }: { classId: number
       setName("");
       setStartDate(defaultRange.startDate);
       setEndDate(defaultRange.endDate);
+      setGroupId("");
     }
   };
 
@@ -54,7 +61,7 @@ export function CreateSubjectDialog({ classId, academicYear }: { classId: number
     if (!name.trim() || !isDateRangeValid) return;
 
     createSubject.mutate(
-      { classId, data: { name, start_date: startDate, due_date: endDate } },
+      { classId, data: { name, start_date: startDate, due_date: endDate, group_id: groupId === "" ? null : Number(groupId) } },
       {
         onSuccess: (created) => {
           queryClient.invalidateQueries({ queryKey: getGetTutorClassQueryKey(classId) });
@@ -95,6 +102,27 @@ export function CreateSubjectDialog({ classId, academicYear }: { classId: number
                 className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
               />
             </div>
+
+            {groups.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <label htmlFor="new-subject-group" className="text-xs font-medium text-gray-700">
+                  {t("groupLabel")}
+                </label>
+                <select
+                  id="new-subject-group"
+                  value={groupId}
+                  onChange={(e) => setGroupId(e.target.value)}
+                  className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
+                >
+                  <option value="">{t("noGroupOption")}</option>
+                  {groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <DateRangeFields
               startDate={startDate}
