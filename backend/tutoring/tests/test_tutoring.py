@@ -970,6 +970,28 @@ class TestImportSubjectYoutubePlaylist:
         def raise_for_status(self):
             pass
 
+    def test_topic_name_is_optional(self, api_client, auth_header, monkeypatch, tutor, subject):
+        """Omitting topic_name reaches the scraper as blank, which it turns
+        into the playlist's own title (see youtube_scrape.fetch_playlist_topic)."""
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        seen = {}
+
+        def _fake(playlist_url, topic_name):
+            seen['topic_name'] = topic_name
+            return self._fake_topic('Назва плейліста')
+
+        monkeypatch.setattr('tutoring.api.youtube_scrape.fetch_playlist_topic', _fake)
+
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/youtube-import',
+            json={'playlist_url': 'https://www.youtube.com/playlist?list=PL123'},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert seen['topic_name'] == ''
+        assert response.data['topic_name'] == 'Назва плейліста'
+
     def test_reruns_only_add_new_videos(self, api_client, auth_header, monkeypatch, tutor, subject):
         """Same playlist scraped twice — the second run reuses the Topic and
         skips the already-imported lesson (import_topics_and_lessons is
@@ -1117,6 +1139,58 @@ class TestUpdateTopicLessonIcons:
         response = api_client.post(
             f'/tutor/topics/{topic.id}/update-lesson-icons', headers=auth_header(tutor.user)
         )
+
+        assert response.status_code == 403
+
+
+class TestUpdateLessonIcon:
+    """Same thumbnail-download monkeypatch as TestUpdateSubjectLessonIcons —
+    the real YouTube CDN isn't hit in tests."""
+
+    class _FakeResponse:
+        def __init__(self, content=b'fake-jpg-bytes'):
+            self.content = content
+
+        def raise_for_status(self):
+            pass
+
+    def _lesson(self, subject, content):
+        topic = Topic.objects.create(subject=subject, title='T', order_index=1)
+        return Lesson.objects.create(
+            topic=topic, order_index=1, title='L', lesson_type=LessonType.THEORY, grading_type='binary',
+            content=content,
+        )
+
+    def test_sets_icon_from_youtube_thumbnail(
+        self, api_client, auth_header, monkeypatch, tutor, subject, settings, tmp_path
+    ):
+        settings.MEDIA_ROOT = tmp_path
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        lesson = self._lesson(subject, 'https://www.youtube.com/watch?v=abcdefghijk')
+        monkeypatch.setattr('lessons.services.requests.get', lambda url, timeout: self._FakeResponse())
+
+        response = api_client.post(f'/tutor/lessons/{lesson.id}/update-icon', headers=auth_header(tutor.user))
+
+        assert response.status_code == 200
+        assert response.data == {'updated': 1, 'skipped': 0}
+        lesson.refresh_from_db()
+        assert lesson.icon.name.endswith('.jpg')
+
+    def test_skipped_when_content_has_no_youtube_link(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        lesson = self._lesson(subject, 'Just plain text.')
+
+        response = api_client.post(f'/tutor/lessons/{lesson.id}/update-icon', headers=auth_header(tutor.user))
+
+        assert response.status_code == 200
+        assert response.data == {'updated': 0, 'skipped': 1}
+        lesson.refresh_from_db()
+        assert not lesson.icon
+
+    def test_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        lesson = self._lesson(subject, 'https://www.youtube.com/watch?v=abcdefghijk')
+
+        response = api_client.post(f'/tutor/lessons/{lesson.id}/update-icon', headers=auth_header(tutor.user))
 
         assert response.status_code == 403
 

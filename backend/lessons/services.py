@@ -1,6 +1,8 @@
 import datetime
 import json
 import re
+from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from decimal import Decimal
 
@@ -1076,6 +1078,10 @@ def import_subject_markdown(school_class, plan: SubjectMarkdownPlan) -> SubjectM
 
 YOUTUBE_THUMBNAIL_URL_TEMPLATE = 'https://img.youtube.com/vi/{video_id}/hqdefault.jpg'
 YOUTUBE_THUMBNAIL_REQUEST_TIMEOUT = 15
+# Thumbnails are downloaded in parallel — importing a big playlist creates
+# hundreds of lessons, and fetching them one after another would keep the
+# request open for minutes.
+YOUTUBE_THUMBNAIL_WORKERS = 8
 
 
 @dataclass
@@ -1108,14 +1114,32 @@ def set_lesson_icon_from_content(lesson: Lesson) -> bool:
     return True
 
 
+def set_lesson_icons_from_content(lessons: Iterable[Lesson]) -> int:
+    """Batch form of set_lesson_icon_from_content — the thumbnails are
+    downloaded concurrently, but saved one by one on this thread (DB and
+    file storage aren't touched from the workers). Returns how many icons
+    were set."""
+    pending = [
+        (lesson, video_id)
+        for lesson in lessons
+        if (video_id := youtube_scrape.extract_video_id(lesson.content))
+    ]
+    with ThreadPoolExecutor(max_workers=YOUTUBE_THUMBNAIL_WORKERS) as pool:
+        thumbnails = list(pool.map(lambda pair: _fetch_youtube_thumbnail(pair[1]), pending))
+
+    updated = 0
+    for (lesson, video_id), thumbnail in zip(pending, thumbnails):
+        if thumbnail is None:
+            continue
+        lesson.icon.save(f'{video_id}.jpg', ContentFile(thumbnail), save=True)
+        updated += 1
+    return updated
+
+
 def _update_lesson_icons(lessons: QuerySet) -> UpdateLessonIconsSummary:
-    summary = UpdateLessonIconsSummary()
-    for lesson in lessons:
-        if set_lesson_icon_from_content(lesson):
-            summary.updated += 1
-        else:
-            summary.skipped += 1
-    return summary
+    lessons = list(lessons)
+    updated = set_lesson_icons_from_content(lessons)
+    return UpdateLessonIconsSummary(updated=updated, skipped=len(lessons) - updated)
 
 
 def update_subject_lesson_icons(subject: Subject) -> UpdateLessonIconsSummary:

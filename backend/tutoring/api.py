@@ -369,7 +369,8 @@ def import_subject_youtube_playlist(request: HttpRequest, subject_id: int, paylo
     """The "📥 Завантажити з YouTube" popup on the Subject detail page —
     scrapes a public YouTube playlist (same algorithm as manage.py's
     tmp_scrape_lessons -Y, see lessons.youtube_scrape) straight into one
-    Topic (get_or_created by `payload.topic_name`, "Base" by default) with
+    Topic (get_or_created by `payload.topic_name`, or by the playlist's own
+    title when that's blank) with
     one theory Lesson per video, via the same import_topics_and_lessons the
     JSON-upload flow uses above — so re-running this against the same
     playlist (or a playlist that grew new videos) only adds what's
@@ -386,12 +387,11 @@ def import_subject_youtube_playlist(request: HttpRequest, subject_id: int, paylo
     with transaction.atomic():
         summary = lesson_services.import_topics_and_lessons(subject, [topic_data])
 
-    # Outside the transaction — each is a network call to fetch the video's
-    # thumbnail (see lesson_services.set_lesson_icon_from_content), and a
-    # failed download just leaves that lesson's icon empty rather than
+    # Outside the transaction — these are network calls to fetch each
+    # video's thumbnail (see lesson_services.set_lesson_icons_from_content),
+    # and a failed download just leaves that lesson's icon empty rather than
     # rolling back the whole import.
-    for lesson in summary.lessons_created:
-        lesson_services.set_lesson_icon_from_content(lesson)
+    lesson_services.set_lesson_icons_from_content(summary.lessons_created)
 
     return YoutubeImportOut(
         topic_id=summary.topics[0].id,
@@ -431,6 +431,23 @@ def update_topic_lesson_icons(request: HttpRequest, topic_id: int):
     services.ensure_is_tutor_for_subject(request, topic.subject_id)
     summary = lesson_services.update_topic_lesson_icons(topic)
     return UpdateLessonIconsOut(updated=summary.updated, skipped=summary.skipped)
+
+
+@router.post(
+    '/lessons/{lesson_id}/update-icon',
+    response=UpdateLessonIconsOut,
+    operation_id='update_tutor_lesson_icon',
+)
+def update_lesson_icon(request: HttpRequest, lesson_id: int):
+    """Same as update_subject_lesson_icons above, for one Lesson — the
+    "load image" button on a lesson's tile in the Preschool Preview tab.
+    `skipped` is 1 (updated 0) when the lesson's content has no YouTube link
+    or the thumbnail couldn't be downloaded."""
+    require_csrf(request)
+    lesson = get_object_or_404(Lesson.objects.select_related('topic'), id=lesson_id)
+    services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
+    updated = lesson_services.set_lesson_icon_from_content(lesson)
+    return UpdateLessonIconsOut(updated=int(updated), skipped=int(not updated))
 
 
 @router.patch('/topics/{topic_id}/block', response=TopicOut, operation_id='set_topic_block')

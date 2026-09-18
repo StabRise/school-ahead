@@ -555,12 +555,11 @@ class ProcessLessonsJsonOut(Schema):
 
 
 class YoutubeImportIn(Schema):
-    # Defaults to "Base" on the frontend — matches manage.py's
-    # tmp_scrape_lessons -Y, which always names the topic "Base" since it
-    # has no separate name input; here a tutor can rename it (e.g. to reuse
-    # an already-existing topic by exact title, see
+    # Blank (the default) names the topic after the playlist itself — see
+    # lessons.youtube_scrape.fetch_playlist_topic. A tutor can instead type a
+    # name, e.g. to reuse an already-existing topic by exact title (see
     # lesson_services.import_topics_and_lessons).
-    topic_name: str
+    topic_name: str = ''
     playlist_url: str
 
 
@@ -569,10 +568,9 @@ class YoutubeImportOut(Schema):
     topic_name: str
     lessons_created: int
     lessons_skipped: int
-    # True when the playlist has more videos than fit on YouTube's first
-    # page — pagination against its undocumented internal API isn't
-    # implemented, so only the first ~100 or so got imported. See
-    # lessons.youtube_scrape.fetch_playlist_topic.
+    # True only when following the playlist's next pages stopped early (a
+    # page failed to load), so just a prefix of it was imported — re-running
+    # the import adds the rest. See lessons.youtube_scrape.fetch_playlist_topic.
     truncated: bool
 
 

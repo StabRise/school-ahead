@@ -1,15 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { Cloud, Sun } from "@school-ahead/preschool-ui";
 import { getListSubjectTopicsQueryKey } from "@school-ahead/api-client/browser/academics/academics";
 import {
   getListTutorSubjectLessonsQueryKey,
   useDeleteTutorLesson,
   useDeleteTutorTopic,
+  useUpdateTutorLessonIcon,
 } from "@school-ahead/api-client/browser/tutor/tutor";
 import type {
   LessonOut,
@@ -20,12 +21,12 @@ import type {
 import { groupTopicsByBlock } from "@/components/subjects/group-topics-by-block";
 import { PreschoolLessonTile } from "@/components/subjects/preschool-lesson-tile";
 
-// Overlays a small delete button on a read-only PreschoolLessonTile — the
-// tile itself stays a pure display component (shared with the real,
-// non-editable student screen), so the delete affordance lives here
-// instead, absolutely positioned over whichever tile variant renders
-// (image-forward or gradient) rather than threading it through the tile's
-// own props.
+// A PreschoolLessonTile linking to the tutor's lesson detail page, with two
+// small buttons in its top-right corner: load the lesson's YouTube
+// thumbnail as its icon, and delete it. The tile itself stays a pure
+// display component (shared with the real student screen), so the buttons
+// live here — absolutely positioned *beside* the tile's link (not inside
+// it) so clicking one never also navigates.
 function PreschoolPreviewLessonTile({
   lesson,
   index,
@@ -42,6 +43,23 @@ function PreschoolPreviewLessonTile({
   const t = useTranslations("TutorSubjectDetail");
   const queryClient = useQueryClient();
   const deleteLesson = useDeleteTutorLesson();
+  const updateIcon = useUpdateTutorLessonIcon();
+
+  const handleLoadImage = () => {
+    updateIcon.mutate(
+      { lessonId: lesson.id },
+      {
+        onSuccess: (data) => {
+          if (data.updated === 0) {
+            window.alert(t("updateLessonIconNoVideo"));
+            return;
+          }
+          queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsQueryKey(subjectId) });
+        },
+        onError: () => window.alert(t("updateLessonIconsError")),
+      },
+    );
+  };
 
   const handleDelete = () => {
     if (!window.confirm(t("deleteLessonConfirm", { title: lesson.title }))) return;
@@ -57,22 +75,39 @@ function PreschoolPreviewLessonTile({
   return (
     <div className="relative">
       <PreschoolLessonTile
+        href={`/tutor/lessons/${lesson.id}`}
         icon={lesson.icon}
         subjectIcon={subjectIcon}
         lessonType={lesson.lesson_type}
         title={lesson.title}
         index={index}
       />
-      <button
-        type="button"
-        onClick={handleDelete}
-        disabled={isAssigned || deleteLesson.isPending}
-        title={isAssigned ? t("deleteLessonDisabledTitle") : t("deleteLessonButton")}
-        aria-label={isAssigned ? t("deleteLessonDisabledTitle") : t("deleteLessonButton")}
-        className="absolute right-1.5 top-1.5 rounded-full bg-black/40 p-1 text-white hover:bg-red-600 disabled:opacity-50 disabled:hover:bg-black/40"
-      >
-        <Trash2 className="size-3" aria-hidden="true" />
-      </button>
+      <div className="absolute right-1.5 top-1.5 flex gap-1">
+        <button
+          type="button"
+          onClick={handleLoadImage}
+          disabled={updateIcon.isPending}
+          title={t("updateLessonIconButton")}
+          aria-label={t("updateLessonIconButton")}
+          className="rounded-full bg-black/40 p-1 text-white hover:bg-sky-600 disabled:opacity-50 disabled:hover:bg-black/40"
+        >
+          {updateIcon.isPending ? (
+            <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+          ) : (
+            <ImagePlus className="size-3" aria-hidden="true" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={isAssigned || deleteLesson.isPending}
+          title={isAssigned ? t("deleteLessonDisabledTitle") : t("deleteLessonButton")}
+          aria-label={isAssigned ? t("deleteLessonDisabledTitle") : t("deleteLessonButton")}
+          className="rounded-full bg-black/40 p-1 text-white hover:bg-red-600 disabled:opacity-50 disabled:hover:bg-black/40"
+        >
+          <Trash2 className="size-3" aria-hidden="true" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -87,12 +122,16 @@ function PreschoolPreviewTopicSection({
   subjectIcon,
   subjectId,
   lessonStudentsByLessonId,
+  collapsed,
+  onToggleCollapsed,
 }: {
   topic: TopicOut;
   lessons: LessonOut[];
   subjectIcon: string | null;
   subjectId: number;
   lessonStudentsByLessonId: Map<number, SubjectLessonStudentOut[]>;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }) {
   const t = useTranslations("TutorSubjectDetail");
   const queryClient = useQueryClient();
@@ -114,7 +153,20 @@ function PreschoolPreviewTopicSection({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="truncate text-sm font-bold text-gray-700">{topic.title}</h3>
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          aria-expanded={!collapsed}
+          title={collapsed ? t("expandTopicButton") : t("collapseTopicButton")}
+          className="flex min-w-0 flex-1 items-center gap-1 rounded text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        >
+          {collapsed ? (
+            <ChevronRight className="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+          ) : (
+            <ChevronDown className="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+          )}
+          <h3 className="m-0 truncate text-sm font-bold text-gray-700">{topic.title}</h3>
+        </button>
         <button
           type="button"
           onClick={handleDeleteTopic}
@@ -127,7 +179,7 @@ function PreschoolPreviewTopicSection({
         </button>
       </div>
       {deleteTopic.isError && <p className="text-xs text-red-600">{t("deleteTopicError")}</p>}
-      {lessons.length === 0 ? (
+      {collapsed ? null : lessons.length === 0 ? (
         <p className="text-xs text-gray-400">{t("noLessonsInTopic")}</p>
       ) : (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
@@ -183,6 +235,18 @@ export function PreschoolPreviewTab({
 
   const blockGroups = useMemo(() => groupTopicsByBlock(topics, subject.blocks), [topics, subject.blocks]);
 
+  // Per-semester and per-topic collapse — absent from the set means
+  // expanded (same convention as the Lessons tab, tutor-subject-detail-
+  // page.tsx). Local to this tab, not shared with that one.
+  const [collapsedBlockKeys, setCollapsedBlockKeys] = useState<Set<string>>(new Set());
+  const [collapsedTopicIds, setCollapsedTopicIds] = useState<Set<number>>(new Set());
+  const toggleIn = <T,>(set: Set<T>, value: T) => {
+    const next = new Set(set);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    return next;
+  };
+
   return (
     <div className="relative flex flex-col overflow-hidden rounded-2xl bg-gradient-to-b from-sky-200 via-emerald-100 to-lime-200">
       <div className="pointer-events-none absolute inset-0">
@@ -195,21 +259,42 @@ export function PreschoolPreviewTab({
           {topics.length === 0 ? (
             <p className="text-center text-sm font-medium text-gray-500">{t("preschoolPreviewEmpty")}</p>
           ) : (
-            blockGroups.map((group) => (
-              <div key={group.key} className="flex flex-col gap-4">
-                {group.label && <h2 className="text-lg font-bold text-gray-900">🎒 {group.label}</h2>}
-                {group.topics.map((topic) => (
-                  <PreschoolPreviewTopicSection
-                    key={topic.id}
-                    topic={topic}
-                    lessons={lessonsByTopicId.get(topic.id) ?? []}
-                    subjectIcon={subject.icon}
-                    subjectId={subject.id}
-                    lessonStudentsByLessonId={lessonStudentsByLessonId}
-                  />
-                ))}
-              </div>
-            ))
+            blockGroups.map((group) => {
+              const blockCollapsed = collapsedBlockKeys.has(group.key);
+              return (
+                <div key={group.key} className="flex flex-col gap-4">
+                  {group.label && (
+                    <button
+                      type="button"
+                      onClick={() => setCollapsedBlockKeys((prev) => toggleIn(prev, group.key))}
+                      aria-expanded={!blockCollapsed}
+                      title={blockCollapsed ? t("expandSemesterButton") : t("collapseSemesterButton")}
+                      className="flex w-fit items-center gap-1 rounded text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                    >
+                      {blockCollapsed ? (
+                        <ChevronRight className="size-5 shrink-0 text-gray-400" aria-hidden="true" />
+                      ) : (
+                        <ChevronDown className="size-5 shrink-0 text-gray-400" aria-hidden="true" />
+                      )}
+                      <h2 className="m-0 text-lg font-bold text-gray-900">🎒 {group.label}</h2>
+                    </button>
+                  )}
+                  {!blockCollapsed &&
+                    group.topics.map((topic) => (
+                      <PreschoolPreviewTopicSection
+                        key={topic.id}
+                        topic={topic}
+                        lessons={lessonsByTopicId.get(topic.id) ?? []}
+                        subjectIcon={subject.icon}
+                        subjectId={subject.id}
+                        lessonStudentsByLessonId={lessonStudentsByLessonId}
+                        collapsed={collapsedTopicIds.has(topic.id)}
+                        onToggleCollapsed={() => setCollapsedTopicIds((prev) => toggleIn(prev, topic.id))}
+                      />
+                    ))}
+                </div>
+              );
+            })
           )}
         </div>
       </div>

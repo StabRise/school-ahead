@@ -538,7 +538,8 @@
   "LoadYoutubePlaylist": {
     "triggerButton": "Завантажити з YouTube",
     "title": "Завантажити з YouTube",
-    "topicNameLabel": "Назва теми",
+    "topicNameLabel": "Назва теми (необов'язково)",
+    "topicNamePlaceholder": "За замовчуванням — назва плейлиста з YouTube",
     "urlLabel": "Посилання на плейлист",
     "importButton": "Завантажити",
     "importing": "Завантаження...",
@@ -546,7 +547,7 @@
     "resultTopic": "Тема: {topic}",
     "lessonsCreated": "Нові уроки: {count}",
     "lessonsSkipped": "Пропущено уроків (вже існували): {count}",
-    "truncatedWarning": "У плейлисті більше відео, ніж вміщує перша сторінка — завантажено лише перші.",
+    "truncatedWarning": "Не вдалося завантажити весь плейлист — імпортовано лише частину відео. Повторіть імпорт, щоб додати решту.",
     "cancelButton": "Скасувати",
     "closeButton": "Закрити"
   },
@@ -635,6 +636,8 @@
     "updateLessonIconsConfirm": "Оновити іконку кожного уроку з посиланням на YouTube мініатюрою його першого відео? Це замінить іконки, встановлені вручну.",
     "updateLessonIconsResult": "Оновлено іконок: {updated}. Пропущено (немає посилання на YouTube): {skipped}.",
     "updateLessonIconsError": "Не вдалося оновити іконки уроків. Спробуйте ще раз.",
+    "updateLessonIconButton": "Завантажити зображення з YouTube",
+    "updateLessonIconNoVideo": "Не вдалося отримати зображення: в уроці немає посилання на YouTube-відео (або мініатюру не вдалося завантажити).",
     "updateTopicLessonIconsButton": "Оновити іконки уроків з YouTube",
     "updateTopicLessonIconsConfirm": "Оновити іконку кожного уроку цієї теми з посиланням на YouTube мініатюрою його першого відео? Це замінить іконки, встановлені вручну.",
     "editAssignmentDateTitle": "Редагувати дату призначення",
