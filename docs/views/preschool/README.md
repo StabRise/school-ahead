@@ -193,8 +193,14 @@ Component: `calendar-view.tsx` → `PreschoolCalendar`. Same
 
 Component: `lesson-view.tsx` → `PreschoolLessonView`. Takes over the whole
 viewport (`fixed inset-0`) — the header hides itself for these routes when
-`interfaceMode === "preschool"` (see `Header.tsx`). A round exit button
-(top-left, links to `/`) is the only way out.
+`interfaceMode === "preschool"` (see `Header.tsx`). A round house button
+(top-left) is the only way out: it goes back to the dashboard (`/`) if the child
+opened the lesson from there, otherwise to the lesson's own subject page
+(`/subjects/<id>`). The destination is decided when it's tapped, from the
+previous in-app route that `RouteTracker` (mounted in the root layout) keeps in
+`sessionStorage` — `lib/route-history.ts`, `lib/lesson-exit.ts`. A lesson can
+be opened from the dashboard's game map, the calendar, a backlog bubble, the
+subject page or the lesson preview, so links aren't tagged individually.
 
 A heart `PreschoolButton` (`FavoriteButton`) sits next to the exit button and
 marks the lesson as one of the child's favourites — `StudentLesson.is_favorite`,

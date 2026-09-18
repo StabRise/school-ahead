@@ -163,7 +163,7 @@ export function PreschoolSubjectsShelf() {
         {groups.length > 0 && (
           <nav
             aria-label={t("filterLabel")}
-            className="flex flex-wrap items-center justify-center gap-3 rounded-[2rem] border-4 border-yellow-200 bg-white/90 px-6 py-4 shadow-xl"
+            className="flex flex-wrap items-center justify-start gap-3 rounded-[2rem] border-4 border-yellow-200 bg-white/90 px-6 py-4 shadow-xl"
           >
             <FilterPill
               href={pathname}

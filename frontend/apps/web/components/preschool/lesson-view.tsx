@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "@/i18n/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { currentLessonExitHref } from "@/lib/lesson-exit";
 import {
   getGetStudentLessonQueryKey,
   useGetStudentLesson,
@@ -31,11 +32,18 @@ const LESSON_TITLE_LANGUAGE = "uk";
 
 type MagicStep = "theory" | "practice";
 
-function ExitButton() {
+// The round house button. Goes back to the dashboard if the child opened the
+// lesson from there, otherwise to the lesson's own subject page — decided when
+// it's tapped, from the route the child came from (lib/lesson-exit.ts), since
+// a lesson can be opened from the dashboard, the subject page, the calendar...
+// `subjectId` is null until the lesson has loaded.
+function ExitButton({ subjectId }: { subjectId: number | null }) {
   const t = useTranslations("PreschoolLesson");
+  const router = useRouter();
   return (
-    <Link
-      href="/"
+    <button
+      type="button"
+      onClick={() => router.push(currentLessonExitHref(subjectId))}
       aria-label={t("exitLabel")}
       className="absolute left-6 top-6 z-20 flex h-16 w-16 items-center justify-center rounded-full bg-white text-orange-600 shadow-xl ring-4 ring-orange-400/50 transition-all duration-200 hover:scale-110 hover:bg-orange-50 hover:ring-orange-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
     >
@@ -48,7 +56,7 @@ function ExitButton() {
           strokeLinejoin="round"
         />
       </svg>
-    </Link>
+    </button>
   );
 }
 
@@ -281,7 +289,7 @@ export function PreschoolLessonView({ studentLessonId }: { studentLessonId: numb
         <Sun className="right-1/4 top-6 h-8 w-8" />
       </div>
 
-      <ExitButton />
+      <ExitButton subjectId={data?.lesson.subject_id ?? null} />
       {data && <FavoriteButton studentLessonId={studentLessonId} isFavorite={data.is_favorite} />}
 
       {isLoading && <p className="relative m-auto text-lg font-medium text-emerald-900">{t("loading")}</p>}
