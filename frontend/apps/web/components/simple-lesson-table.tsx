@@ -49,8 +49,15 @@ export function mergeSimpleRows(lessons: CalendarItemOut[], backlog: BacklogItem
 // ever added by the tutor's student-overview page, and only for a student
 // with can_do_any_lesson set — see SimpleLessonTable's own doc comment.
 function rowGrid(showAssignedBy?: boolean): string {
-  const assignedByColumn = showAssignedBy ? "_7rem" : "";
-  return `grid grid-cols-[1.25rem_minmax(0,1fr)_5.5rem_3.5rem_10rem${assignedByColumn}_1.75rem] items-center gap-3`;
+  // Two complete, unbroken class strings — not one template literal with
+  // the column list spliced together at runtime. Tailwind's build-time
+  // scanner only picks up class names that appear literally intact in the
+  // source text; splitting this arbitrary-value class with `${}` meant
+  // neither variant's `grid-cols-[...]` was ever generated, so every row
+  // silently fell back to a single implicit column (everything stacked).
+  return showAssignedBy
+    ? "grid grid-cols-[1.25rem_minmax(0,1fr)_5.5rem_3.5rem_10rem_7rem_1.75rem] items-center gap-3"
+    : "grid grid-cols-[1.25rem_minmax(0,1fr)_5.5rem_3.5rem_10rem_1.75rem] items-center gap-3";
 }
 
 // origin_label (backlog rows only) is the lesson's original scheduled day —
