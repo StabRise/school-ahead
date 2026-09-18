@@ -49,6 +49,17 @@ from .schemas import (
 router = Router(tags=['student-lessons'], auth=CookieOrBearerJWTAuth())
 
 
+def _absolute_file_url(file_field, request: HttpRequest) -> str | None:
+    """See scheduling/api.py's identical helper — file URLs are host-relative
+    and the frontend is a separate origin (no BFF). Used here (rather than a
+    resolve_icon on SubjectLessonOut) because list_subject_lessons builds
+    each SubjectLessonOut by hand, not via model_validate, so schema
+    resolve_* methods never run."""
+    if not file_field:
+        return None
+    return request.build_absolute_uri(file_field.url)
+
+
 def _get_owned(request: HttpRequest, student_lesson_id: int) -> StudentLesson:
     student_lesson = get_object_or_404(
         StudentLesson.objects.select_related(
@@ -413,6 +424,7 @@ def list_subject_lessons(request: HttpRequest, subject_id: int):
                 scheduled_date=student_lesson.scheduled_date if student_lesson else None,
                 grade_points=student_lesson.grade_points if student_lesson else None,
                 grade_result=student_lesson.grade_result if student_lesson else None,
+                icon=_absolute_file_url(lesson.icon, request),
             )
         )
     return result

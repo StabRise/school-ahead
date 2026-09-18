@@ -50,6 +50,7 @@ from lessons.schemas import (
     LessonsReorderIn,
     LessonUpdateIn,
     ProcessLessonsJsonOut,
+    UpdateLessonIconsOut,
     YoutubeImportIn,
     YoutubeImportOut,
 )
@@ -385,6 +386,13 @@ def import_subject_youtube_playlist(request: HttpRequest, subject_id: int, paylo
     with transaction.atomic():
         summary = lesson_services.import_topics_and_lessons(subject, [topic_data])
 
+    # Outside the transaction — each is a network call to fetch the video's
+    # thumbnail (see lesson_services.set_lesson_icon_from_content), and a
+    # failed download just leaves that lesson's icon empty rather than
+    # rolling back the whole import.
+    for lesson in summary.lessons_created:
+        lesson_services.set_lesson_icon_from_content(lesson)
+
     return YoutubeImportOut(
         topic_id=summary.topics[0].id,
         topic_name=summary.topics[0].title,
@@ -392,6 +400,22 @@ def import_subject_youtube_playlist(request: HttpRequest, subject_id: int, paylo
         lessons_skipped=summary.lessons_skipped,
         truncated=truncated,
     )
+
+
+@router.post(
+    '/subjects/{subject_id}/update-lesson-icons',
+    response=UpdateLessonIconsOut,
+    operation_id='update_tutor_subject_lesson_icons',
+)
+def update_subject_lesson_icons(request: HttpRequest, subject_id: int):
+    """The icon button on the Subject detail page's Lessons toolbar — sets
+    every lesson's icon to the thumbnail of the first YouTube video linked
+    from its content (see lesson_services.update_subject_lesson_icons)."""
+    require_csrf(request)
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    subject = get_object_or_404(Subject, id=subject_id)
+    summary = lesson_services.update_subject_lesson_icons(subject)
+    return UpdateLessonIconsOut(updated=summary.updated, skipped=summary.skipped)
 
 
 @router.patch('/topics/{topic_id}/block', response=TopicOut, operation_id='set_topic_block')

@@ -18,6 +18,24 @@ REQUEST_TIMEOUT = 30
 # undocumented, frequently-changing internal API, not implemented here.
 YOUTUBE_INITIAL_DATA_RE = re.compile(r'var ytInitialData = (\{.*?\});</script>', re.DOTALL)
 
+# Ported from frontend/packages/markdown-editor/src/lib/youtube.ts's
+# YOUTUBE_URL_PATTERN — matches a bare or Markdown-linked YouTube URL
+# (watch/embed/shorts/youtu.be) and captures its 11-character video id.
+YOUTUBE_URL_RE = re.compile(
+    r'https?://(?:www\.)?(?:youtube(?:-nocookie)?\.com/(?:watch\?(?:[^\s)]*&)?v=|embed/|shorts/)|youtu\.be/)'
+    r'([a-zA-Z0-9_-]{11})',
+    re.IGNORECASE,
+)
+
+
+def extract_video_id(content: str) -> str | None:
+    """The first YouTube video id linked from `content` (a Lesson's
+    Markdown content field), or None — used by lesson_services.
+    update_subject_lesson_icons to pick which thumbnail becomes a Lesson's
+    icon."""
+    match = YOUTUBE_URL_RE.search(content)
+    return match.group(1) if match else None
+
 
 class ScrapeError(Exception):
     pass

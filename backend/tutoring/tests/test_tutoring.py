@@ -922,6 +922,54 @@ class TestImportSubjectYoutubePlaylist:
         topic = Topic.objects.get(subject=subject, title='Base')
         assert topic.lessons.filter(title='Video 1').exists()
 
+    def test_sets_lesson_icon_from_video_thumbnail(
+        self, api_client, auth_header, monkeypatch, tutor, subject, settings, tmp_path
+    ):
+        """Each lesson created by the import gets its icon filled from the
+        video's YouTube thumbnail right away (lesson_services.
+        set_lesson_icon_from_content) — the tutor's "update lesson icons"
+        button then only has to cover lessons imported some other way."""
+        settings.MEDIA_ROOT = tmp_path
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        video_url = 'https://www.youtube.com/watch?v=abcdefghijk'
+        fake_topic = (
+            {
+                'title': 'Base',
+                'description': '',
+                'lessons': [
+                    {
+                        'title': 'Video 1',
+                        'lesson_type': 'theory',
+                        'origin_url': video_url,
+                        'youtubes': [video_url],
+                        'pdfs': [],
+                        'content': video_url,
+                        'task_content': '',
+                    },
+                ],
+            },
+            False,
+        )
+        monkeypatch.setattr('tutoring.api.youtube_scrape.fetch_playlist_topic', lambda playlist_url, topic_name: fake_topic)
+        monkeypatch.setattr('lessons.services.requests.get', lambda url, timeout: self._FakeThumbnailResponse())
+
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/youtube-import',
+            json={'topic_name': 'Base', 'playlist_url': 'https://www.youtube.com/playlist?list=PL123'},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        lesson = Topic.objects.get(subject=subject, title='Base').lessons.get(title='Video 1')
+        assert lesson.icon.name.endswith('.jpg')
+
+    class _FakeThumbnailResponse:
+        def __init__(self, content=b'fake-jpg-bytes'):
+            self.content = content
+
+        def raise_for_status(self):
+            pass
+
     def test_reruns_only_add_new_videos(self, api_client, auth_header, monkeypatch, tutor, subject):
         """Same playlist scraped twice — the second run reuses the Topic and
         skips the already-imported lesson (import_topics_and_lessons is
@@ -974,6 +1022,52 @@ class TestImportSubjectYoutubePlaylist:
             headers=auth_header(tutor.user),
         )
 
+        assert response.status_code == 403
+
+
+class TestUpdateSubjectLessonIcons:
+    """The thumbnail download (lessons.services.requests.get) is
+    monkeypatched — the real YouTube CDN isn't hit in tests."""
+
+    class _FakeResponse:
+        def __init__(self, content=b'fake-jpg-bytes'):
+            self.content = content
+
+        def raise_for_status(self):
+            pass
+
+    def test_sets_icon_from_first_youtube_link_and_skips_the_rest(
+        self, api_client, auth_header, monkeypatch, tutor, subject, settings, tmp_path
+    ):
+        settings.MEDIA_ROOT = tmp_path
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='T', order_index=1)
+        with_link = Lesson.objects.create(
+            topic=topic, order_index=1, title='Has video', lesson_type=LessonType.THEORY, grading_type='binary',
+            content='Watch this: https://www.youtube.com/watch?v=abcdefghijk and enjoy.',
+        )
+        without_link = Lesson.objects.create(
+            topic=topic, order_index=2, title='No video', lesson_type=LessonType.THEORY, grading_type='binary',
+            content='Just plain text, no link here.',
+        )
+        monkeypatch.setattr('lessons.services.requests.get', lambda url, timeout: self._FakeResponse())
+
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/update-lesson-icons', headers=auth_header(tutor.user)
+        )
+
+        assert response.status_code == 200
+        assert response.data['updated'] == 1
+        assert response.data['skipped'] == 1
+        with_link.refresh_from_db()
+        without_link.refresh_from_db()
+        assert with_link.icon.name.endswith('.jpg')
+        assert not without_link.icon
+
+    def test_rejected_for_unassigned_tutor(self, api_client, auth_header, tutor, subject):
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/update-lesson-icons', headers=auth_header(tutor.user)
+        )
         assert response.status_code == 403
 
 

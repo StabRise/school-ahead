@@ -1,75 +1,76 @@
-ехнічне завдання (ТЗ): Дитяча розвиваюча гра «Jumping Frogs»
+# Jumping Frogs Game
 
-1. Мета проекту та цільова аудиторія
+A reading/attention preschool minigame. Implementation:
+`frontend/packages/preschool-games/src/jumping-frogs-game.tsx` (component/
+UI) + `lib/jumping-frogs-game.ts` (level generation, no React/DOM). Reuses
+the same syllable-card rendering as the "Казки" (Stories) game
+(`lib/syllable-card.tsx`) and content sourced from `reading-game`'s own
+consonant-folder convention (`public/static/letters/`, see
+`reading/README.md`).
 
-Назва продукту: «Jumping Frogs»
+## 1. Concept
 
-Призначення: Дитяча аркадна мінігра для розвитку навичок читання, уваги та координації.
+A frog crosses a river by hopping across `ROWS_PER_LEVEL` (10) rows of lily
+pads. A target word is shown, split into syllable cards, in the header for
+the whole level. Each row offers 3 word choices (also rendered as syllable
+cards); tapping the one matching the target hops the frog onto it. Reaching
+the far bank celebrates and starts a new word/level.
 
-Цільова аудиторія: Діти дошкільного та молодшого шкільного віку (4–7 років).
+## 2. Play area & camera
 
-2. Візуальний стиль та інтерфейс (UI/UX)
+Modeled as `SLOT_COUNT = ROWS_PER_LEVEL + 2` fixed vertical slots: slot 0 is
+the start bank, slots 1–10 the lily-pad rows, the last slot the finish bank
+— so hopping onto the far bank after the last row reuses the exact same
+jump/pan animation as an ordinary row hop. Only 4 slots are visible at once
+(`VISIBLE_SLOTS`); the camera pans smoothly as the frog advances, matching
+the brief's "3 rows + a bank visible at a time, scrolling as it climbs"
+description. Each row has 3 lily pads (`COLUMN_PERCENTS`); answer cards are
+only shown on the row the frog is currently choosing between — passed rows'
+lily pads go bare (or show a decorative pink water-lily flower, no answer
+choices), and cards fade in on the new active row as the previous row's
+disappear.
 
-Стилістика: Яскравий мультяшний дизайн
+## 3. Choosing & feedback
 
-Верхня панель: Фірмова плашка у верхній частині екрана, де відображається слово на картках:
-(зображення Мавпа)  { Ма-в-па }
+- **Wrong pick:** the frog stays put (no jump). The tapped word is spoken
+  aloud first, then a muffled "pouf" error sound plays, then that lily pad's
+  card disappears — that option is gone for the rest of the round; only
+  not-yet-tried options remain.
+- **Correct pick:** a success sound plays, the frog animates a jump onto
+  that lily pad, and the camera pans up to the next row.
+- **Level finish:** after the last row, a large celebration animation
+  (fireworks, ~4.2s) plays, then a new target word/level starts. A signed-in
+  student earns a diamond via `useDiamondMilestoneReward` →
+  `POST /api/auth/me/jumping-frogs-reward`.
 
-Ігрова зона (Вертикальний скрол):
+## 4. Audio
 
-На екрані одночасно видимі три ряди: 
-може бути: 
-1) берег + 3 ряди кувшинок (на початку гри)
-2) 4 ряди водних лілій (кувшинок).
-3) 3 ряди кувшинок і берег (коли жабка майже пройшла на інший перег)
+Light background music (toggleable, shared `MusicToggleButton`/
+`useBackgroundMusic` convention with the other minigames). Words are spoken
+on tap/appearance in Ukrainian — a real recording is used if the target
+word's audio folder has one, otherwise TTS, mutable independently in
+settings. Distinct sound effects for jumps, successful hops, and the
+error "pouf."
 
-У міру просування жабки вгору екран плавно скролиться. Середина гри повністю заповнена ліліями, а на фініші відкривається протилежний берег річки.
+## 5. Word content & syllable splitting
 
-Щоб пройти рівень - потрібно проскочити 10 кувшинок.
+Words are sourced from `frontend/apps/web/public/static/letters/` (same
+consonant-folder convention as the reading/cards games), where each
+picture's filename is the word itself. `splitUkrainianSyllables`
+(`lib/jumping-frogs-game.ts`) breaks a word into syllable cards the same way
+as the "Казки" game's own card syntax — grouping a consonant with its
+following vowel — e.g. Мавпа → `Ма-в-па`, Яблуко → `Я-б-лу-ко`, Торт →
+`То-р-т`, Маяк → `Ма-я-к`.
 
-в ряді є 3 варіанти листя кувшинок з написаними словами (на цю букву, коли вибрана в налаштуванняї буква. Чи рандомними словами, якщо рандомна буква. Написані за допомогою карток, як в грі stories)
+## 6. Settings (`stores/jumping-frogs-store.ts`, persisted to `localStorage`)
 
-Картки видно тільки на тому ряді, куди жабка має зараз стрибнути. На інших рядах — просто латаття, або іноді рожеві квітки водяних лілій (декоративно, без варіантів відповіді). Коли жабка вірно вибрала картку і стрибнула, картки на пройденому ряді зникають, а на наступному (де дитина обирає зараз) плавно з'являються.
-
-3. Ігрова механіка та геймплей
-
-Старт: Жабка стоїть на нижньому березі річки. Знизу починається ігрове поле з варіантами слів на листочках.
-
-Вибір та обробка натисків:
-
-Неправильний вибір (клік не по тій лілії): Жабка залишається на місці, не робить стрибок. Спочатку вголос озвучується обраний склад/слово, потім спрацьовує кумедний звук-помилка (глухе «пук»), і аж після цього обрана картка зникає — цей листок більше не можна обрати в цьому раунді, лишаються тільки ще не спробувані варіанти.
-
-Правильний вибір (клік по потрібній лілії): Спрацьовує веселий звуковий ефект успіху. Жабка робить анімований стрибок на обраний листок, а камера плавно переміщується вгору до наступного ряду.
-
-Фініш рівня: Після проходження всіх рядів і досягнення протилежного берега спрацьовує анімація перемоги (салют великого розміру), після чого відкривається нове слово.
-Якщо юзер - студент, то він отримує діамант за проходження. 
-
-4. Аудіосупровід
-
-Фонова легка та весела музика (яку можна вимкнути - reuse commponent same to other games)
-
-Озвучення слів голосом при натисканні або появі (укр мова. якщо папка містить mp3 цього слова - то використовуй його, як ні tts). Озвучення можна вимкнути в налаштуваннях.
-
-Специфічні звукові ефекти для стрибків, успішних ходів та помилок («пук» при блокуванні невірної лілії).
-
-5 Details
-слова з папки frontend/apps/web/public/static/letters
-в налаштуваннях можна вибрати літеру (рендом на літеру) або рендомне слово на будь яку букву
-назва малюнка = слово
-
-1) слово зверху пиши по карткам: 
-наприклад 
-(зображення Мавпа)  { Ма-в-па }
-
-рендери картки як в грі games/stories
-
-2) на кувшинках пиши слово картками { Ма-в-па } - але вже без зображення
-
-3) алгоритм розбивки слова: 1 приголосний і 1 наступний голосний групуються в картку
-Мавпа - { Ма-в-па }
-Яблуко { Я - б - лу - ко }
-Торт { То - р -т }
-Маяк  { Ма - я - к }
-
-4) всі налаштування зберігай кліент сайд в zustand 
-як в інших іграх
+- **Letter mode:** `fixed` (always play the chosen consonant, default `М`)
+  or `random` (re-rolls the active consonant to a random available one at
+  the start of every level).
+- **Difficulty (1–3):** `1` = bare letters, `2` = open consonant+vowel
+  syllables, `3` = whole words (`buildLetterLevel`/`buildSyllableLevel`/
+  `buildLevel` in `lib/jumping-frogs-game.ts`). Defaults to `3` (words), the
+  game's original shipped behavior.
+- **Mute:** silences the spoken word only — jump/miss/celebration sound
+  effects are unaffected, same convention as the Cards game's own `muted`
+  setting.

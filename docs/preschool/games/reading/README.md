@@ -1,46 +1,77 @@
-1. Назва проєкту
-Інтерактивна вебгра на базі механіки Drag-and-Drop).
-для дошкілят.
-Тому має бути приваблива і яскрава
+# Reading Game — "Склади" (Syllables)
 
-2. Мета гри
-Українська мова!
-Закріпити навичку виділення першого звука у словах та навчитися співвідносити слова-картинки з базовими складами: приголосний і голосний 
-(наприклад: МА, МО, МУ, МЕ).
-голосні букви завжди червоні, приголосні - сині
+The first game in the `docs/preschool/games/reading` series, alongside
+"Картки" (Cards, see `Cards.md`) and "Казки" (Stories, see `Stories.md`).
+Component: `frontend/packages/preschool-games/src/reading-game.tsx` →
+`ReadingGame`, pure logic in `lib/reading-game.ts`.
 
-3 Наташтування
-- можна вибрати кількість складів . Від 3 до 9
-додаються в порядку голосної 
-А О У Е И І Я Ю Є
-- приголосний. По замовчуванню М, список впорядкований за абеткою — доступні лише приголосні які є в папці frontend/public/static/letters
-- чи підписувати картки з картинками: true/false.
-- налаштування писати великими чи малими (строчными) буквами
-- гучність музики з папки frontend/public/static/music і чи вмикати її чи ні (рандомний файл, міняти рандомно коли закінчилась)
+## 1. Concept
 
-4. Інтерфейс та ігрові елементи
+An interactive web game for preschoolers, built on a tap/drag mechanic —
+bright and appealing by design. Reinforces Ukrainian first-sound
+recognition and teaches matching picture-words to their basic
+consonant+vowel syllable (e.g. МА, МО, МУ, МЕ). Vowel letters are always
+rendered red, consonants always blue — a convention shared with the Cards
+and Stories games' syllable-card rendering.
 
-Ігрове поле: Розділене на дві зони.
+## 2. Content
 
-Зверху рядок з картками з складами
-напр МА, МО, МУ, МЕ
+Picture cards load automatically from `frontend/apps/web/public/static/
+letters/<Consonant>/` — each image's filename is the word itself (e.g. Мак,
+Муха, Мороз, Мед, Морозиво for consonant `М`). There can be more picture
+cards than syllable slots. No hardcoded vocabulary — adding a word is a
+filesystem change (drop an image in the right consonant folder), same
+folder-driven convention the Cards and Stories games use.
 
-Знизу рухомі картки-ілюстрації із зображеннями та підписами 
-(Мак, Муха, Мороз, Мед, Морозиво - загружаються автоматично з папки приголосної літери) - їх може більше ніж складів.
-Назва малюнка співпадає з написом
+## 3. Interface
 
-5. Механіка та сценарій гри
+The play area splits into two zones:
 
-Старт: Дитина бачить на екрані розкладені елементи. 
+- **Top row:** syllable cards for the active consonant (e.g. МА, МО, МУ,
+  МЕ).
+- **Bottom:** movable picture cards with captions, loaded from the
+  consonant's folder. Slot/card size scales with how many syllables are on
+  screen (`MIN_SLOT_REM`/`MAX_SLOT_REM` in `reading-game.tsx`) — fewer
+  syllables render bigger, easier to grab; more shrink to still fit.
 
-Дія (Drag-and-Drop): Дитина затискає картку із зображенням (наприклад, МЕД) і перетягує її до одного зі складів.
+## 4. Mechanics
 
-Валідація (Перевірка):
+1. The child picks up a picture card (e.g. МЕД) and drags/taps it onto a
+   syllable.
+2. **Match:** if the card's word starts with that syllable (first two
+   letters), it snaps into place, a bell chime plays, and TTS speaks the
+   full syllable-then-word ("Ма — мед!"). Only the first two letters of the
+   word need to match the syllable.
+3. **No match:** the card smoothly returns to its starting position with a
+   light hint sound.
+4. **Level complete:** once every card has been matched, a bright
+   celebration animation plays and the game offers to move on to the next
+   consonant.
 
-Успіх: Якщо картка наближається до правильного складу, вона «прилипає» до нього, спрацьовує приємний звук (дзвіночок), а аудіосинтезатор промовляє склад повністю Ма - ма! Мак
-Важливе співпадіння 2 перших букв слова зі складом.
+## 5. Reward
 
-Помилка: Якщо дитина намагається покласти картку туди, де немає збігу за першим звуком, картка плавно повертається на вихідну позицію з легким звуком-підказкою.
+A diamond is added to the student's `accounts.StudentProfile.
+diamond_balance_cache` on level completion, via `POST
+/api/auth/me/reading-game-reward` (`accounts.services.
+award_reading_game_diamond`) — flies to the header's diamond badge, same
+`useDiamondMilestoneReward` (`mode: "level"`) pattern the other minigames
+use.
 
-Завершення рівня: Коли всі можливі зв'язки встановлені, гра вітає дитину яскравою анімацією та пропонує перейти до наступної приголосної.
-diamond додається до акаунта дитини accounts.StudentProfile.diamond_balance_cache - ефектно пролітає до правого кута хедера.
+## 6. Settings (`stores/reading-game-store.ts`, persisted to `localStorage`)
+
+- **Syllable count** — `3`–`9` (`MIN_SYLLABLE_COUNT`/`MAX_SYLLABLE_COUNT`),
+  default `4`. Vowels are added in a fixed order: А О У Е И І Я Ю Є.
+- **Consonant** — default `М`; the picker list is alphabetically ordered
+  and limited to consonants that actually have a folder under
+  `public/static/letters/`.
+- **Show captions** — whether picture cards display their word caption
+  (default on).
+- **Uppercase** — write syllables/captions in uppercase vs. lowercase
+  (default uppercase).
+- **Muted** — silences the spoken syllable/word; success/error chimes still
+  play regardless.
+
+Background music plays from `public/static/music/` (a random file, with a
+new random pick when one finishes), toggleable independently — see the
+shared `useBackgroundMusic`/`MusicToggleButton` convention the rest of this
+game package uses.

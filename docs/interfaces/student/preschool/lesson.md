@@ -1,3 +1,10 @@
+# Preschool Lesson View — Original Design Brief
+
+> This is the original design brief this feature was built from — kept
+> for history, not fully in sync with the implementation. See
+> [`docs/views/preschool/README.md`](../../../views/preschool/README.md)
+> §4 for what's actually built.
+
 ## Atmosphere and Environment
 
 * **Fullscreen Fairytale Mode:** The dashboard interface disappears. The child enters a cozy "forest clearing."

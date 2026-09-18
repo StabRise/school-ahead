@@ -1,6 +1,7 @@
 import datetime
 
 import pytest
+from django.core.files.base import ContentFile
 
 from academics.models import Class, School, Subject, Topic
 from accounts.models import Role, StudentProfile, User
@@ -401,6 +402,24 @@ def test_list_subject_lessons_includes_unassigned_lessons(
     assert unassigned_row['status'] is None
     assert unassigned_row['task_content'] == 'Do exercises'
     assert unassigned_row['scheduled_date'] is None
+
+
+def test_list_subject_lessons_resolves_icon_as_absolute_url(
+    api_client, auth_header, topic, student, student_lesson, settings, tmp_path
+):
+    """Powers the preschool subject-detail grid's card icon — see
+    lessons.schemas.SubjectLessonOut.icon."""
+    settings.MEDIA_ROOT = tmp_path
+    student_lesson.lesson.icon.save('icon.png', ContentFile(b'icon-bytes'), save=True)
+
+    response = api_client.get(
+        f'/student-lessons/subjects/{topic.subject_id}/lessons', headers=auth_header(student.user)
+    )
+    assert response.status_code == 200
+
+    [row] = response.data
+    assert row['icon'].startswith('http')
+    assert row['icon'].endswith('.png')
 
 
 def test_list_topic_lessons_paginated_and_scoped_to_own_student(

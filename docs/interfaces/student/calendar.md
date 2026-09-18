@@ -1,37 +1,48 @@
-# Functional Specification: Weekly Calendar (Student Main Screen)
+# Weekly Calendar
 
-## 1. Overview
-The Weekly Calendar serves as the primary dashboard for students on the Ahead platform. It provides a comprehensive, time-oriented view of the student's academic schedule, balancing active daily planning with robust backlog management to ensure continuity and prevent academic debt accumulation ("tails").
+Documents what's actually built, as of this writing — the shipped screen
+diverges from the original spec in two ways: it's not fixed to a
+Monday-Sunday week (a period switcher), and there's no dedicated "Backlog
+Block" panel here (overdue lessons stay on their own original date column
+instead — see `today.md` for where a merged backlog view actually lives).
 
----
+## 1. Where it lives
 
-## 2. Screen Layout & Core Components
+`/calendar` → `StudentCalendarView`
+(`components/calendar/student-calendar-view.tsx`) → `SimpleCalendar`
+(`components/calendar/simple-calendar.tsx`, `colorful` on outside Simple
+mode; preschool mode gets its own `PreschoolCalendar` — see
+`docs/views/preschool/README.md` §3). The same `SimpleCalendar` component
+also renders inside the tutor's per-student overview page (`studentId`
+prop switches it to `GET /tutor/students/{id}/calendar` and makes lessons
+drag-to-reschedule/deletable instead of just clickable).
 
-### 2.1. Header & Navigation Toolbar
-* **Week Selector:** Displays the current active date range (e.g., *Oct 2 – Oct 8, 2026*).
-* **Navigation Controls:**
-    * "Previous Week" and "Next Week" arrow buttons to browse historical records or future assignments.
-    * "Today" quick-jump button to instantly re-center the calendar on the current week.
-* **Progress Summary Bar:** A compact visual indicator displaying the proportion of completed lessons versus total scheduled lessons for the active week.
+## 2. Header controls
 
-### 2.2. Weekly Grid (Days of the Week)
-* **Structure:** A responsive multi-column layout representing the active week from Monday through Sunday.
-* **Day Columns:** Each column corresponds to a specific calendar day, displaying its date and day name.
-* **Lesson Cards:** Individual lessons scheduled for a given day are rendered as interactive cards inside the respective column.
-* **Card Details & Indicators:**
-    * Subject name and lesson title.
-    * Time or order index.
-    * Current status badge (color-coded for *Assigned*, *In Progress*, *Need Help*, *Pending Review*, or *Completed*).
-    * Direct click-through action to open the lesson workspace.
+* **Period switcher** — 4 days / a week (7, default) / 10 days
+  (`PeriodSwitcher`), not a fixed weekly grid. The 7-day period stays
+  Monday-aligned; 4- and 10-day periods are a rolling window starting from
+  today.
+* **Navigation** — previous/next (shifts the range by the period length)
+  and a "today" jump back to `defaultRangeStart`.
+* **Progress summary** — an "X/Y completed" bar for the visible range
+  (`useGetWeeklyProgress`-style aggregation inline in the component).
+* **Lesson filter switcher** — all lessons vs. not-completed-only,
+  narrowing what renders per day column.
 
-### 2.3. Backlog Block ("Tails" Prevention Section)
-* **Purpose:** A dedicated, persistent interface panel located alongside or above the weekly grid designed to capture incomplete past work.
-* **Automatic Transfer Mechanism:** If a lesson passes its scheduled date without reaching a *Completed* state, the system automatically migrates it into the Backlog block.
-* **Visual Representation:** Backlog items display their original scheduled date indicators (e.g., *Mon #4*, *Tue #2*) to preserve context.
-* **Flexibility & Catch-Up:** Students can access these items at any time to clear academic backlogs without disrupting their current weekly schedule flow.
+## 3. Grid and lesson placement
 
----
+One column per day in the active range. A lesson renders **only on its own
+`scheduled_date` column** — an overdue lesson is not moved into today's
+column; it stays on the day it was due, styled in dark red, so browsing
+back to an earlier range is how a student re-surfaces it. Each card shows
+subject/lesson title, a type icon, and a `StatusBadge` (Default mode) or
+plain label (Simple mode); clicking opens `/lessons/{id}` and (if the
+lesson was `Assigned`) the backend transitions it to `In Progress`.
 
-## 3. User Interactions & Behavioral Rules
-1. **Week Switching:** Changing the week updates the grid content dynamically via asynchronous requests, displaying the corresponding lessons for that timeframe.
-2. **Opening a Lesson:** Clicking a lesson card (either from the weekly grid or the backlog block) redirects the student to the lesson execution screen and triggers the automatic backend state transition to *In Progress* (if previously *Assigned*).
+## 4. Tutor-only affordances (shared component)
+
+When `studentId` is set (tutor viewing a student), the same grid gains
+drag-and-drop rescheduling (`RescheduleDialog`), an "add lesson to this
+day" action (`AddDayLessonDialog`), and per-lesson delete — none of which
+render for a student viewing their own calendar.

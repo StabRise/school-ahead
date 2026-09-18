@@ -53,18 +53,86 @@ Reschedule lives in `scheduling`, not here, though it still calls `lessons.servi
 | GET /calendar?week_start=YYYY-MM-DD | Mon–Sun grid of `StudentLesson` for the student |
 | GET /today?date=YYYY-MM-DD | Numbered daily list + Backlog section beneath |
 | GET /backlog | Flat overdue-incomplete list, labeled with origin weekday + ordinal |
-| POST /subjects/{id}/generate-calendar | Enqueue a `django-q` task that generates the calendar (202 Accepted) |
-| POST /subjects/{id}/recalculate-calendar | Same, re-run after date/order changes (202 Accepted) |
+| POST /subjects/{id}/generate-calendar | Runs calendar generation synchronously, inline in the request (200 OK, not a queued job — see `08-calendar-generation.md`) |
+| POST /subjects/{id}/recalculate-calendar | Same, re-run after date/order changes (200 OK) |
 | POST /student-lessons/{id}/reschedule | Move a single lesson to a specific date; sets `is_manually_scheduled=True`; delegates the row write to `lessons.services` |
 
 See `08-calendar-generation.md` for the full generation/recalculation algorithm.
 
-## `progress` — `/api/subjects/*`, `/api/progress/*`
+## `achievements` — `/api/achievements/*`
+
+The `progress` router shown in older versions of this doc (`GET /subjects/{id}/progress`, `GET /progress/achievements`) was never built — no ledger, no per-subject aggregation endpoint. What exists instead:
 
 | Method & Path | Purpose |
 |---|---|
-| GET /subjects/{id}/progress | Completion %, avg grade, diamond balance, per-block breakdown |
-| GET /progress/achievements | Student's earned achievements/badges |
+| GET /subjects | Every subject's completion % + its matching `ProgressBadge` tier, for "Мої досягнення" |
+
+Diamond balance itself comes back on `GET /api/auth/me` (`UserOut.diamond_balance`), not a `progress`/`achievements` endpoint — see `docs/core/gamification.md` §2–3.
+
+## `house` — `/api/house/*`
+
+| Method & Path | Purpose |
+|---|---|
+| GET /furniture | Catalog with per-item ownership/placement state |
+| POST /furniture/{id}/purchase | Deduct Diamonds, create `FurniturePurchase` + default-transform `PlacedFurnitureItem` |
+| POST /furniture/{id}/place | Place an owned-but-unplaced item |
+| PATCH /furniture/{id}/placement | Update position/rotation/scale (drag gizmo) |
+| DELETE /furniture/{id}/placement | "Put away" — remove the `PlacedFurnitureItem` row |
+| GET /room-style | Current wall/floor color |
+| PATCH /room-style | Update wall/floor color |
+
+## `preschool` — `/api/preschool/*`
+
+| Method & Path | Purpose |
+|---|---|
+| GET /stories | Published stories (public, `auth=None`) |
+| GET /stories/{slug} | One published story's content (public) |
+| GET /tutor/stories, /tutor/stories/{id} | Tutor's editing list/detail — every story, published or not |
+| POST /tutor/stories | Create a new (unpublished) story |
+| POST /tutor/stories/import | Import a story from an uploaded ZIP (matching the static `story.md` bundle format) |
+| PATCH /tutor/stories/{id} | Edit title/content/publish state |
+| DELETE /tutor/stories/{id} | Delete a story (and its assets) |
+| GET /tutor/stories/{id}/export | Export as a ZIP |
+| POST/DELETE /tutor/stories/{id}/assets... | Upload/remove an embedded image/audio/video asset |
+
+## `tasks` — `/api/tasks/*`
+
+| Method & Path | Purpose |
+|---|---|
+| GET /subjects/{id} | List Tasks across a subject's topics |
+| GET /tasks/{id} | One Task's detail |
+| POST /tasks/{id}/submission | Submit/overwrite a free-text/file answer |
+| POST /tasks | Create a Task (tutor) |
+| PATCH /tasks/{id} | Edit a Task (tutor) |
+| DELETE /tasks/{id} | Delete a Task (tutor) |
+| POST /tasks/{id}/complete | Mark done |
+| DELETE /tasks/{id}/complete | Un-mark done |
+
+## `cards` — `/api/cards/*`
+
+| Method & Path | Purpose |
+|---|---|
+| POST / | Add one flashcard |
+| POST /import | Bulk-import a `set.json` deck |
+| PATCH /{id} | Update a card's translation/definition |
+| GET /groups | List the Group (Subject) level of the student's card tree |
+| GET /groups/{id}/sets, /sets/{id} | Set (Topic) / card-list drill-down |
+| DELETE /{id} | Delete a card |
+
+## `dictionary` — `/api/dictionary/*`
+
+| Method & Path | Purpose |
+|---|---|
+| GET / | List the student's saved dictionary items |
+| POST / | Save a 1–5 word selection (with source sentence) |
+| PATCH /{id} | Update translation or status (new/in_progress/known) |
+| DELETE /{id} | Remove an item |
+
+## `tts` — `/api/tts/*`
+
+| Method & Path | Purpose |
+|---|---|
+| GET /voices | `(language, profile) -> voice_id` map for the frontend's client-side Piper TTS |
 
 ## `tutoring` — `/api/tutor/*`
 

@@ -1,37 +1,62 @@
-# Task Specification: Subject Details & Topic Workspace Implementation
+# Subject Detail & Topic Workspace
 
-## 1. User Story & Objective
-As a student, I want to click on any subject in my subjects list (`/uk/subjects`) to navigate to its dedicated detail page. This page should cleanly organize the subject's metadata, resources, and curriculum into tabs—including a subject-level completion progress tracker—allowing me to select specific topics, view their details on a dedicated sub-page, and check a paginated list of lessons with their statuses and scores.
+Documents what's actually built, as of this writing — the original spec's
+3-tab layout (Overview / Recommended Resources / Topics, with a separate
+topic detail sub-page) shipped differently: 5 tabs, no dedicated
+"Overview" tab, and the topic curriculum is inline rather than requiring
+a navigation.
 
----
+## 1. Routing
 
-## 2. Requirements Breakdown
+* `/subjects/{subjectId}` → `SubjectDetailPage`
+  (`components/subjects/subject-detail-page.tsx`), which branches on
+  `interfaceMode`: `preschool` renders `PreschoolSubjectDetailPage` (a
+  flat grid of big lesson cards, not covered here); everything else
+  renders `SimpleSubjectDetailPage` with `colorful` on for Default mode,
+  off for Simple mode.
+* `/subjects/{subjectId}/topics/{topicId}` → `TopicDetailPage`
+  (`components/subjects/topic-detail-page.tsx`) **exists and is fully
+  built** (header, progress bar, paginated lesson table) but is currently
+  **unreferenced** — nothing in the app links to it. `SimpleSubjectDetailPage`
+  renders each topic's lessons inline instead (see §3), so this route is
+  reachable only by typing the URL directly.
 
-### A. Navigation & Routing
-* **Source View:** `http://localhost:3000/uk/subjects` (Subject List).
-* **Action:** Wrap each subject card or name in an interactive link.
-* **Destination Route:** `http://localhost:3000/uk/subjects/[subjectId]`
-* **Topic Route:** Clicking a specific topic inside the subject's topics tab navigates to a dedicated page: `http://localhost:3000/uk/subjects/[subjectId]/topics/[topicId]`
+## 2. Header (not a separate "Overview" tab)
 
-### B. Subject Detail Page Layout (Tabs)
-The subject detail workspace must implement a tabbed interface (e.g., using Radix UI Tabs or Shadcn components) to segment information effectively:
+Above the tabs: subject name as `<h1>`, overall completion percent + a
+`ProgressBar` (from `GET /academics/{id}/progress` via
+`useGetSubjectProgress`), the tutor's name if set, and an
+`AttestationTypeBadge` if the subject has one. `subject.description` and
+`subject.recommended_resources` (both real `TextField`s on the `Subject`
+model) are **not rendered anywhere in the student UI** — fetched by the
+API but currently unused on this screen.
 
-* **Tab 1: Overview / Info**
-    * Displays the subject `name` as a primary heading.
-    * **Progress Indicator:** A visual progress bar and percentage value representing the `% of completed` lessons for that specific subject.
-    * Renders the subject `description`.
-* **Tab 2: Recommended Resources**
-    * Renders the `recommended_resources` field (supporting markdown or rich text block formatting).
-* **Tab 3: Topics**
-    * Displays the list of curriculum topics belonging to this subject, with each item acting as a navigational link to its respective topic details page.
+## 3. The five tabs (`components/subjects/simple-subject-detail-page.tsx`)
 
-### C. Topic Details & Lesson Workspace (Dedicated Page)
-When navigating to a specific topic page (`/uk/subjects/[subjectId]/topics/[topicId]`), the view must render:
+| Tab | Content |
+|---|---|
+| **Lessons** (default) | A "next lesson" quick-link, then every `Topic` grouped by `SubjectBlock` (`groupTopicsByBlock`), each topic rendered inline as an accordion-like section (`SimpleTopicSection`) listing its lessons with icon, title, status/grade — not a link out to `TopicDetailPage`. Block and topic headings carry scroll-anchor ids (`subjectBlockAnchorId`/`subjectTopicAnchorId`) for deep-linking. |
+| **Tasks** | `TasksTabContent` — per-`Topic` `tasks.Task` practice-work items (see `docs/architecture/01-backend-apps.md`'s `tasks` app section), with one overall completed/total progress bar from `GET /tasks/subjects/{id}/progress`. |
+| **Plan** | `SemesterPlan` — an expandable list of the subject's `SubjectBlock`s (start/due dates, markdown description), shared verbatim with the tutor's subject detail page. |
+| **Materials** | `SubjectMaterials` — tutor-uploaded PDF attachments at the subject level (view/download links only for students; tutors get upload/delete). Also shared with the tutor's subject page. |
+| **Cards** | `CardsTabContent` — the student's personal flashcard sets for this subject (`cards` app — see `docs/architecture/01-backend-apps.md`), grouped by topic, reusing the same `Topic`/`Lesson` grouping as the Lessons tab where a card is tied to a real lesson. |
 
-* **Topic Header:** Topic `name` and `description`.
-* **Progress Indicator:** A visual progress bar and percentage value representing `% of completed` lessons for that specific topic.
-* **Paginated Lessons Table:** A clean, structured data table containing:
-    * **Lesson Name (`name`):** Clickable link redirecting to the lesson execution workspace.
-    * **Status (`status`):** Visual badge indicating current state (*Assigned*, *In Progress*, *Need Help*, *Pending Review*, *Completed*).
-    * **Score (`score`):** Displaying earned points (e.g., *12/12*) or a pass/fail indicator (or a dash `—` if unearned/not graded yet).
-    * **Pagination Controls:** Standard table pagination handling large lists of lessons per topic seamlessly.
+The active tab is persisted in the URL query string (`useTabQueryParam`),
+not just component state.
+
+## 4. Lesson rows and status
+
+Each lesson row (`SimpleSubjectLessonRow`) shows a type icon
+(colored in Default mode, gray in Simple), title, and — once assigned —
+either a `StatusBadge` (Default mode) or a plain status label (Simple
+mode). Clicking a lesson navigates to `/lessons/{id}` (the wizard — see
+`lesson.md`).
+
+## 5. `TopicDetailPage` (unreferenced, but accurate if reached directly)
+
+Topic name + description, a `ProgressBar` for that topic's completion
+percent (`GET /student-lessons/topics/{id}/progress`), and a paginated
+table (Lesson / Block / Status / Score columns, prev/next buttons) from
+`GET /student-lessons/topics/{id}/lessons`. Matches the original spec's
+description closely — it's just not currently wired into the primary
+navigation flow.

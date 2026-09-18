@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Copy,
   GripVertical,
+  Image as ImageIcon,
   Monitor,
   Pencil,
   Plus,
@@ -32,6 +33,7 @@ import {
   useSetSubjectAttestationType,
   useSetSubjectFilled,
   useSetTopicBlock,
+  useUpdateTutorSubjectLessonIcons,
 } from "@school-ahead/api-client/browser/tutor/tutor";
 import {
   getListSubjectTasksQueryKey,
@@ -202,6 +204,43 @@ function DeleteLessonButton({
       className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
     >
       <Trash2 className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
+// The Lessons toolbar's icon button (not a Dialog trigger) — bulk-sets
+// every lesson's icon in the subject to the thumbnail of the first
+// YouTube video linked from its content (see lesson_services.
+// update_subject_lesson_icons). Confirmed first since it silently
+// overwrites any icon a tutor already set by hand.
+function UpdateLessonIconsButton({ subjectId, onUpdated }: { subjectId: number; onUpdated: () => void }) {
+  const t = useTranslations("TutorSubjectDetail");
+  const updateIcons = useUpdateTutorSubjectLessonIcons();
+
+  const handleClick = () => {
+    if (!window.confirm(t("updateLessonIconsConfirm"))) return;
+    updateIcons.mutate(
+      { subjectId },
+      {
+        onSuccess: (data) => {
+          onUpdated();
+          window.alert(t("updateLessonIconsResult", { updated: data.updated, skipped: data.skipped }));
+        },
+        onError: () => window.alert(t("updateLessonIconsError")),
+      },
+    );
+  };
+
+  return (
+    <button
+      type="button"
+      title={t("updateLessonIconsButton")}
+      aria-label={t("updateLessonIconsButton")}
+      onClick={handleClick}
+      disabled={updateIcons.isPending}
+      className="shrink-0 rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+    >
+      <ImageIcon className="h-4 w-4" />
     </button>
   );
 }
@@ -1017,6 +1056,7 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                       />
                       <LoadLessonsJsonDialog subjectId={subjectId} />
                       <LoadYoutubePlaylistDialog subjectId={subjectId} />
+                      <UpdateLessonIconsButton subjectId={subjectId} onUpdated={handleLessonListChanged} />
                     </div>
                   </div>
 
