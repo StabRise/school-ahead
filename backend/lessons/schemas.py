@@ -576,4 +576,8 @@ class YoutubeImportOut(Schema):
 
 class UpdateLessonIconsOut(Schema):
     updated: int
+    # No YouTube link in the lesson's content, or the thumbnail couldn't be
+    # downloaded.
     skipped: int
+    # Left untouched because they already had an icon (bulk endpoints only).
+    already_had_icon: int = 0

@@ -227,7 +227,7 @@ function UpdateLessonIconsButton({ subjectId, onUpdated }: { subjectId: number; 
       {
         onSuccess: (data) => {
           onUpdated();
-          window.alert(t("updateLessonIconsResult", { updated: data.updated, skipped: data.skipped }));
+          window.alert(t("updateLessonIconsResult", { updated: data.updated, kept: data.already_had_icon ?? 0, skipped: data.skipped }));
         },
         onError: () => window.alert(t("updateLessonIconsError")),
       },
@@ -263,7 +263,7 @@ function UpdateTopicLessonIconsButton({ topicId, onUpdated }: { topicId: number;
       {
         onSuccess: (data) => {
           onUpdated();
-          window.alert(t("updateLessonIconsResult", { updated: data.updated, skipped: data.skipped }));
+          window.alert(t("updateLessonIconsResult", { updated: data.updated, kept: data.already_had_icon ?? 0, skipped: data.skipped }));
         },
         onError: () => window.alert(t("updateLessonIconsError")),
       },

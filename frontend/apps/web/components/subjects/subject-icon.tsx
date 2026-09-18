@@ -12,8 +12,10 @@ const ICON_COLORS = [
 
 export function SubjectIcon({ id, name, iconUrl }: { id: number; name: string; iconUrl?: string | null }) {
   if (iconUrl) {
+    // `block`: a plain inline span ignores its width/height, which showed the
+    // image at its natural size wherever the parent isn't a flex container.
     return (
-      <span className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+      <span className="block h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-gray-100">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={iconUrl} alt="" className="h-full w-full object-cover" />
       </span>
