@@ -538,7 +538,8 @@
   "LoadYoutubePlaylist": {
     "triggerButton": "Завантажити з YouTube",
     "title": "Завантажити з YouTube",
-    "topicNameLabel": "Назва теми",
+    "topicNameLabel": "Назва теми (необов'язково)",
+    "topicNamePlaceholder": "За замовчуванням — назва плейлиста з YouTube",
     "urlLabel": "Посилання на плейлист",
     "importButton": "Завантажити",
     "importing": "Завантаження...",

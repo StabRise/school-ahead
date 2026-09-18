@@ -12,8 +12,6 @@ import {
 } from "@school-ahead/api-client/browser/tutor/tutor";
 import type { YoutubeImportOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 
-const DEFAULT_TOPIC_NAME = "Base";
-
 // Opened from the tutor's Subject detail page — scrapes a public YouTube
 // playlist server-side (same algorithm as manage.py's tmp_scrape_lessons
 // -Y, see backend's lessons/youtube_scrape.py) straight into one Topic
@@ -24,7 +22,7 @@ export function LoadYoutubePlaylistDialog({ subjectId }: { subjectId: number }) 
   const t = useTranslations("LoadYoutubePlaylist");
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [topicName, setTopicName] = useState(DEFAULT_TOPIC_NAME);
+  const [topicName, setTopicName] = useState("");
   const [playlistUrl, setPlaylistUrl] = useState("");
   const [result, setResult] = useState<YoutubeImportOut | null>(null);
 
@@ -33,7 +31,7 @@ export function LoadYoutubePlaylistDialog({ subjectId }: { subjectId: number }) 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (!next) {
-      setTopicName(DEFAULT_TOPIC_NAME);
+      setTopicName("");
       setPlaylistUrl("");
       setResult(null);
     }
@@ -41,10 +39,10 @@ export function LoadYoutubePlaylistDialog({ subjectId }: { subjectId: number }) 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!topicName.trim() || !playlistUrl.trim()) return;
+    if (!playlistUrl.trim()) return;
 
     importPlaylist.mutate(
-      { subjectId, data: { topic_name: topicName, playlist_url: playlistUrl } },
+      { subjectId, data: { topic_name: topicName.trim(), playlist_url: playlistUrl } },
       {
         onSuccess: (data) => {
           setResult(data);
@@ -98,7 +96,7 @@ export function LoadYoutubePlaylistDialog({ subjectId }: { subjectId: number }) 
                 <input
                   id="youtube-topic-name"
                   type="text"
-                  required
+                  placeholder={t("topicNamePlaceholder")}
                   value={topicName}
                   onChange={(e) => setTopicName(e.target.value)}
                   className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
@@ -133,7 +131,7 @@ export function LoadYoutubePlaylistDialog({ subjectId }: { subjectId: number }) 
                 </Dialog.Close>
                 <button
                   type="submit"
-                  disabled={!topicName.trim() || !playlistUrl.trim() || importPlaylist.isPending}
+                  disabled={!playlistUrl.trim() || importPlaylist.isPending}
                   className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                 >
                   {importPlaylist.isPending ? t("importing") : t("importButton")}

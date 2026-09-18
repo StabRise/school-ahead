@@ -369,7 +369,8 @@ def import_subject_youtube_playlist(request: HttpRequest, subject_id: int, paylo
     """The "📥 Завантажити з YouTube" popup on the Subject detail page —
     scrapes a public YouTube playlist (same algorithm as manage.py's
     tmp_scrape_lessons -Y, see lessons.youtube_scrape) straight into one
-    Topic (get_or_created by `payload.topic_name`, "Base" by default) with
+    Topic (get_or_created by `payload.topic_name`, or by the playlist's own
+    title when that's blank) with
     one theory Lesson per video, via the same import_topics_and_lessons the
     JSON-upload flow uses above — so re-running this against the same
     playlist (or a playlist that grew new videos) only adds what's

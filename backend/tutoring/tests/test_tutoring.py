@@ -970,6 +970,28 @@ class TestImportSubjectYoutubePlaylist:
         def raise_for_status(self):
             pass
 
+    def test_topic_name_is_optional(self, api_client, auth_header, monkeypatch, tutor, subject):
+        """Omitting topic_name reaches the scraper as blank, which it turns
+        into the playlist's own title (see youtube_scrape.fetch_playlist_topic)."""
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        seen = {}
+
+        def _fake(playlist_url, topic_name):
+            seen['topic_name'] = topic_name
+            return self._fake_topic('Назва плейліста')
+
+        monkeypatch.setattr('tutoring.api.youtube_scrape.fetch_playlist_topic', _fake)
+
+        response = api_client.post(
+            f'/tutor/subjects/{subject.id}/youtube-import',
+            json={'playlist_url': 'https://www.youtube.com/playlist?list=PL123'},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert seen['topic_name'] == ''
+        assert response.data['topic_name'] == 'Назва плейліста'
+
     def test_reruns_only_add_new_videos(self, api_client, auth_header, monkeypatch, tutor, subject):
         """Same playlist scraped twice — the second run reuses the Topic and
         skips the already-imported lesson (import_topics_and_lessons is

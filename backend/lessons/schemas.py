@@ -555,12 +555,11 @@ class ProcessLessonsJsonOut(Schema):
 
 
 class YoutubeImportIn(Schema):
-    # Defaults to "Base" on the frontend — matches manage.py's
-    # tmp_scrape_lessons -Y, which always names the topic "Base" since it
-    # has no separate name input; here a tutor can rename it (e.g. to reuse
-    # an already-existing topic by exact title, see
+    # Blank (the default) names the topic after the playlist itself — see
+    # lessons.youtube_scrape.fetch_playlist_topic. A tutor can instead type a
+    # name, e.g. to reuse an already-existing topic by exact title (see
     # lesson_services.import_topics_and_lessons).
-    topic_name: str
+    topic_name: str = ''
     playlist_url: str
 
 

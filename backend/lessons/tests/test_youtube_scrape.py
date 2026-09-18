@@ -53,10 +53,12 @@ def _continuation(token):
     }}}}
 
 
-def _playlist_html(items, *, with_api_config=True):
+def _playlist_html(items, *, with_api_config=True, title=None):
     data = {'contents': {'twoColumnBrowseResultsRenderer': {'tabs': [{'tabRenderer': {'content': {
         'sectionListRenderer': {'contents': [{'itemSectionRenderer': {'contents': items}}]},
     }}}]}}}
+    if title is not None:
+        data['metadata'] = {'playlistMetadataRenderer': {'title': title}}
     config = '"INNERTUBE_API_KEY":"test-key","INNERTUBE_CLIENT_VERSION":"2.1"' if with_api_config else ''
     return f'<script>{config}</script><script>var ytInitialData = {json.dumps(data)};</script>'
 
@@ -98,9 +100,9 @@ class _FakeSession:
         ]})
 
 
-def _fetch(monkeypatch, session):
+def _fetch(monkeypatch, session, topic_name='Base'):
     monkeypatch.setattr(youtube_scrape, '_make_session', lambda: session)
-    return youtube_scrape.fetch_playlist_topic('https://www.youtube.com/playlist?list=PL1', 'Base')
+    return youtube_scrape.fetch_playlist_topic('https://www.youtube.com/playlist?list=PL1', topic_name)
 
 
 def test_follows_continuation_pages_until_the_last_one(monkeypatch):
@@ -171,3 +173,38 @@ def test_stops_at_the_page_cap_instead_of_looping_forever(monkeypatch):
     assert len(topic['lessons']) == 3
     assert truncated is True
     assert session.posted_tokens == ['t1', 't2']
+
+
+# --- topic naming --------------------------------------------------------
+
+
+def test_blank_topic_name_uses_the_playlist_title(monkeypatch):
+    session = _FakeSession(_playlist_html([_lockup('aaaaaaaaaaa')], title='Уроки малювання'), {})
+
+    topic, _ = _fetch(monkeypatch, session, topic_name='')
+
+    assert topic['title'] == 'Уроки малювання'
+
+
+def test_whitespace_only_topic_name_counts_as_blank(monkeypatch):
+    session = _FakeSession(_playlist_html([_lockup('aaaaaaaaaaa')], title='Уроки малювання'), {})
+
+    topic, _ = _fetch(monkeypatch, session, topic_name='   ')
+
+    assert topic['title'] == 'Уроки малювання'
+
+
+def test_explicit_topic_name_wins_over_the_playlist_title(monkeypatch):
+    session = _FakeSession(_playlist_html([_lockup('aaaaaaaaaaa')], title='Уроки малювання'), {})
+
+    topic, _ = _fetch(monkeypatch, session, topic_name='Малювання')
+
+    assert topic['title'] == 'Малювання'
+
+
+def test_blank_topic_name_falls_back_to_base_when_the_title_is_unreadable(monkeypatch):
+    session = _FakeSession(_playlist_html([_lockup('aaaaaaaaaaa')]), {})
+
+    topic, _ = _fetch(monkeypatch, session, topic_name='')
+
+    assert topic['title'] == 'Base'

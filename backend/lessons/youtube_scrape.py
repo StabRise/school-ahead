@@ -26,6 +26,10 @@ YOUTUBE_BROWSE_URL = 'https://www.youtube.com/youtubei/v1/browse'
 # forever if an unexpected response keeps handing back a token.
 MAX_CONTINUATION_PAGES = 60
 
+# Topic name used when the caller gives none and the playlist's own title
+# can't be read either.
+DEFAULT_TOPIC_NAME = 'Base'
+
 # Ported from frontend/packages/markdown-editor/src/lib/youtube.ts's
 # YOUTUBE_URL_PATTERN — matches a bare or Markdown-linked YouTube URL
 # (watch/embed/shorts/youtu.be) and captures its 11-character video id.
@@ -55,7 +59,7 @@ def _make_session() -> requests.Session:
     # Without this, a cookie-less request to youtube.com (e.g. from an
     # EU-geolocated IP) gets served the "before you continue to YouTube"
     # GDPR consent interstitial instead of the real page — 200 OK, but with
-    # no ytInitialData, which _initial_items then can't find. Pre-seeding
+    # no ytInitialData, which _initial_data then can't find. Pre-seeding
     # this cookie (the same bypass yt-dlp uses) skips it.
     session.cookies.set('SOCS', 'CAI', domain='.youtube.com')
     return session
@@ -70,12 +74,14 @@ def _fetch(session: requests.Session, url: str) -> str:
     return response.text
 
 
-def _initial_items(html_text: str) -> list[dict]:
+def _initial_data(html_text: str) -> dict:
     match = YOUTUBE_INITIAL_DATA_RE.search(html_text)
     if not match:
         raise ScrapeError('Could not find playlist data on the page — is this a YouTube playlist URL?')
-    data = json.loads(match.group(1))
+    return json.loads(match.group(1))
 
+
+def _initial_items(data: dict) -> list[dict]:
     try:
         return (
             data['contents']['twoColumnBrowseResultsRenderer']['tabs'][0]['tabRenderer']
@@ -83,6 +89,16 @@ def _initial_items(html_text: str) -> list[dict]:
         )
     except (KeyError, IndexError, TypeError) as exc:
         raise ScrapeError('Unrecognized playlist page structure — YouTube may have changed its markup.') from exc
+
+
+def _playlist_title(data: dict) -> str | None:
+    """The playlist's own name, from the page metadata (with the SEO
+    microformat block as a second source) — None if neither is there."""
+    candidates = (
+        (data.get('metadata') or {}).get('playlistMetadataRenderer', {}).get('title'),
+        (data.get('microformat') or {}).get('microformatDataRenderer', {}).get('title'),
+    )
+    return next((title.strip() for title in candidates if isinstance(title, str) and title.strip()), None)
 
 
 def _parse_items(items: list[dict]) -> tuple[list[dict], str | None]:
@@ -140,9 +156,11 @@ def _fetch_continuation(
         raise ScrapeError('Unrecognized next-page response — YouTube may have changed its API.') from exc
 
 
-def fetch_playlist_topic(playlist_url: str, topic_name: str) -> tuple[dict, bool]:
+def fetch_playlist_topic(playlist_url: str, topic_name: str = '') -> tuple[dict, bool]:
     """Returns (topic_data, truncated) — topic_data is TopicOut-shaped,
-    ready for lessons.services.import_topics_and_lessons. Follows the
+    ready for lessons.services.import_topics_and_lessons. The topic is named
+    `topic_name`, or — when that's blank — after the playlist itself
+    (DEFAULT_TOPIC_NAME if its title can't be read). Follows the
     playlist's continuation pages (~100 videos each) until the end.
     `truncated` is True only when that stopped early — a later page failed
     to load or MAX_CONTINUATION_PAGES was hit — so the videos returned are
@@ -153,7 +171,8 @@ def fetch_playlist_topic(playlist_url: str, topic_name: str) -> tuple[dict, bool
     HttpError 400)."""
     session = _make_session()
     html_text = _fetch(session, playlist_url)
-    videos, token = _parse_items(_initial_items(html_text))
+    data = _initial_data(html_text)
+    videos, token = _parse_items(_initial_items(data))
 
     truncated = False
     if token:
@@ -192,4 +211,5 @@ def fetch_playlist_topic(playlist_url: str, topic_name: str) -> tuple[dict, bool
             'content': video_url,
             'task_content': '',
         })
-    return {'title': topic_name, 'description': '', 'lessons': lessons}, truncated
+    title = topic_name.strip() or _playlist_title(data) or DEFAULT_TOPIC_NAME
+    return {'title': title, 'description': '', 'lessons': lessons}, truncated
