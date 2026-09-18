@@ -133,6 +133,11 @@ class StudentLesson(TimeStampedModel):
     )
     scheduled_date = models.DateField(db_index=True)
     is_manually_scheduled = models.BooleanField(default=False)
+    # True when the student picked this lesson themselves via
+    # lessons.api.start_lesson_today (StudentProfile.can_do_any_lesson),
+    # false for every tutor-assigned or auto-scheduled row — see
+    # lessons.services.assign_student.
+    is_self_selected = models.BooleanField(default=False)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     grade_points = models.PositiveSmallIntegerField(null=True, blank=True)

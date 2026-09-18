@@ -58,6 +58,7 @@ def _user_out(request: HttpRequest, user) -> UserOut:
         equipped_headwear_items=equipped['headwear'],
         equipped_accessory_items=equipped['accessory'],
         diamond_balance=student_profile.diamond_balance_cache if student_profile else None,
+        can_do_any_lesson=student_profile.can_do_any_lesson if student_profile else None,
     )
 
 

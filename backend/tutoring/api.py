@@ -68,6 +68,7 @@ from .schemas import (
     LessonStudentOut,
     PlanOut,
     ResolveNeedHelpIn,
+    SetCanDoAnyLessonIn,
     SetSubjectAttestationTypeIn,
     SetSubjectFilledIn,
     SetTopicBlockIn,
@@ -186,6 +187,7 @@ def _tutor_student_out(
         equipped_clothing_items=equipped['clothing'],
         equipped_headwear_items=equipped['headwear'],
         equipped_accessory_items=equipped['accessory'],
+        can_do_any_lesson=student.can_do_any_lesson,
     )
 
 
@@ -720,13 +722,16 @@ def assign_lesson_to_student(request: HttpRequest, lesson_id: int, payload: Assi
 
 @router.delete('/student-lessons/{student_lesson_id}', operation_id='delete_tutor_student_lesson')
 def delete_student_lesson(request: HttpRequest, student_lesson_id: int, response: HttpResponse):
-    """Removes a StudentLesson assignment — only while it's still Assigned
-    (the student hasn't touched it yet), from a tutor's "View calendar" page
+    """Removes a StudentLesson assignment — while it's still Assigned, or
+    In Progress with no submission yet, from a tutor's "View calendar" page
     for that student."""
     require_csrf(request)
     student_lesson = _get_scoped_student_lesson(request, student_lesson_id)
-    if student_lesson.status != StudentLessonStatus.ASSIGNED:
-        raise HttpError(409, 'Can only remove a lesson while it is still Assigned')
+    if student_lesson.status == StudentLessonStatus.IN_PROGRESS:
+        if student_lesson.submissions.exists():
+            raise HttpError(409, 'Cannot remove a lesson that already has a submission')
+    elif student_lesson.status != StudentLessonStatus.ASSIGNED:
+        raise HttpError(409, 'Can only remove a lesson while it is Assigned or In Progress')
     student_lesson.delete()
     response.status_code = 204
     return response
@@ -765,6 +770,26 @@ def get_student(request: HttpRequest, student_id: int):
         StudentProfile.objects.select_related('user', 'school_class', 'equipped_avatar'), id=student_id
     )
     services.ensure_is_tutor_for_class(request, student.school_class_id)
+    return _tutor_student_out(student, request, with_avatar=True)
+
+
+@router.patch(
+    '/students/{student_id}/can-do-any-lesson',
+    response=TutorStudentOut,
+    operation_id='set_student_can_do_any_lesson',
+)
+def set_student_can_do_any_lesson(request: HttpRequest, student_id: int, payload: SetCanDoAnyLessonIn):
+    """Tutor-toggled flag letting this student open/start any lesson in
+    their class's subjects, not just ones assigned to them — see
+    StudentProfile.can_do_any_lesson and lessons.api.preview_lesson/
+    start_lesson_today."""
+    require_csrf(request)
+    student = get_object_or_404(
+        StudentProfile.objects.select_related('user', 'school_class', 'equipped_avatar'), id=student_id
+    )
+    services.ensure_is_tutor_for_class(request, student.school_class_id)
+    student.can_do_any_lesson = payload.can_do_any_lesson
+    student.save(update_fields=['can_do_any_lesson'])
     return _tutor_student_out(student, request, with_avatar=True)
 
 

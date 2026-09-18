@@ -16,6 +16,10 @@ class CalendarItemOut(Schema):
     topic_order_index: int
     lesson_order_index: int
     status: str
+    # Whether the student has submitted work for this lesson yet — lets the
+    # tutor's calendar only offer to remove an In Progress lesson before any
+    # submission exists. See lessons.models.LessonSubmission.
+    has_submission: bool
     scheduled_date: datetime.date
     completed_at: datetime.datetime | None
     is_completed_ahead: bool
@@ -33,6 +37,11 @@ class CalendarItemOut(Schema):
     # Only non-empty when lesson_type=with_task — shown as the row's task
     # preview. See Lesson.task_content.
     task_content: str
+    # Whether the student picked this lesson themselves (via
+    # lessons.api.start_lesson_today) rather than a tutor assigning it —
+    # see StudentLesson.is_self_selected. Only meaningful (and only shown
+    # by the frontend) for a student with can_do_any_lesson set.
+    is_self_selected: bool
 
 
 class BacklogItemOut(CalendarItemOut):

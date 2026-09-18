@@ -91,6 +91,9 @@ class UserOut(Schema):
     equipped_accessory_items: list[AvatarItemOut] = []
     # Only set for role=student — see docs/core/progress.md section 2.
     diamond_balance: int | None = None
+    # Only set for role=student — StudentProfile.can_do_any_lesson, see
+    # lessons.api.preview_lesson/start_lesson_today.
+    can_do_any_lesson: bool | None = None
 
 
 class MeOut(Schema):

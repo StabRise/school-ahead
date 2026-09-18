@@ -26,6 +26,7 @@ describe("useAuthStore", () => {
       equippedHeadwearItems: [],
       equippedAccessoryItems: [],
       diamondBalance: null,
+      canDoAnyLesson: null,
     };
 
     useAuthStore.getState().setUser(user);

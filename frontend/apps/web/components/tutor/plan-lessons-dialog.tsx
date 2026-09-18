@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import * as Dialog from "@radix-ui/react-dialog";
+import { CalendarRange } from "lucide-react";
 import { useGetTutorClass, useListTutorClasses } from "@school-ahead/api-client/browser/tutor/tutor";
 import { useSchedulingApiGenerateClassSchedule } from "@school-ahead/api-client/browser/schedule/schedule";
 import type { GenerateClassScheduleOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
@@ -71,9 +72,11 @@ export function PlanLessonsDialog({ classId }: { classId: number }) {
       <Dialog.Trigger asChild>
         <button
           type="button"
-          className="shrink-0 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          title={t("triggerButton")}
+          aria-label={t("triggerButton")}
+          className="flex shrink-0 items-center justify-center rounded-md border border-gray-300 p-2 text-gray-700 hover:bg-gray-50"
         >
-          📅 {t("triggerButton")}
+          <CalendarRange className="h-4 w-4" aria-hidden="true" />
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>

@@ -145,6 +145,13 @@ class StudentProfile(models.Model):
     )
     enrolled_at = models.DateField(null=True, blank=True)
     diamond_balance_cache = models.PositiveIntegerField(default=0)
+    # Tutor-set flag: lets this student open and start ANY Lesson in their
+    # class's subjects, not just ones a tutor has assigned them — see
+    # lessons.api.preview_lesson/start_lesson_today and the Subject detail
+    # page's "not assigned yet" lesson rows. Off by default: a lesson
+    # without a StudentLesson row stays unopenable, same as before this
+    # flag existed.
+    can_do_any_lesson = models.BooleanField(default=False)
     # Denormalized "% of the student's whole class curriculum completed" —
     # every Lesson across every Subject in `school_class`, not just this
     # student's assigned ones. Refreshed on every lesson completion (see

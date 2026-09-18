@@ -9,7 +9,15 @@ from academics import services as academics_services
 from academics.models import Class, School, Subject, Topic
 from accounts.models import Role, StudentProfile, TutorProfile, User
 from house.models import FurnitureItem, FurnitureTexture
-from lessons.models import Lesson, LessonType, QuizChoice, QuizQuestion, StudentLesson, StudentLessonStatus
+from lessons.models import (
+    Lesson,
+    LessonSubmission,
+    LessonType,
+    QuizChoice,
+    QuizQuestion,
+    StudentLesson,
+    StudentLessonStatus,
+)
 from tutoring.models import TutorSubjectAssignment
 from tutoring.services import get_tutor_subject_ids
 
@@ -1232,6 +1240,7 @@ class TestAssignStudent:
 
         sl = StudentLesson.objects.get(student=student, lesson=lesson)
         assert sl.is_manually_scheduled is True
+        assert sl.is_self_selected is False
 
     def test_assign_lesson_to_already_assigned_student_conflicts(
         self, api_client, auth_header, tutor, subject, student
@@ -1286,6 +1295,51 @@ class TestAssignStudent:
         assert response.status_code == 404
 
 
+class TestSetStudentCanDoAnyLesson:
+    def test_tutor_can_enable_flag(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        assert student.can_do_any_lesson is False
+
+        response = api_client.patch(
+            f'/tutor/students/{student.id}/can-do-any-lesson',
+            json={'can_do_any_lesson': True},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['can_do_any_lesson'] is True
+        student.refresh_from_db()
+        assert student.can_do_any_lesson is True
+
+    def test_tutor_can_disable_flag(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        student.can_do_any_lesson = True
+        student.save(update_fields=['can_do_any_lesson'])
+
+        response = api_client.patch(
+            f'/tutor/students/{student.id}/can-do-any-lesson',
+            json={'can_do_any_lesson': False},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['can_do_any_lesson'] is False
+        student.refresh_from_db()
+        assert student.can_do_any_lesson is False
+
+    def test_rejected_for_unassigned_tutor(self, api_client, auth_header, student):
+        user = User.objects.create_user(email='outside-tutor@example.com', role=Role.TUTOR)
+        outside_tutor = TutorProfile.objects.create(user=user)
+
+        response = api_client.patch(
+            f'/tutor/students/{student.id}/can-do-any-lesson',
+            json={'can_do_any_lesson': True},
+            headers=auth_header(outside_tutor.user),
+        )
+
+        assert response.status_code == 403
+
+
 class TestDeleteStudentLesson:
     def test_delete_assigned_student_lesson(self, api_client, auth_header, tutor, subject, student):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
@@ -1303,7 +1357,25 @@ class TestDeleteStudentLesson:
         assert response.status_code == 204
         assert not StudentLesson.objects.filter(id=sl.id).exists()
 
-    def test_delete_rejected_when_not_assigned(self, api_client, auth_header, tutor, subject, student):
+    def test_delete_rejected_when_pending_review(self, api_client, auth_header, tutor, subject, student):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        sl = StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+            status=StudentLessonStatus.PENDING_REVIEW,
+        )
+
+        response = api_client.delete(f'/tutor/student-lessons/{sl.id}', headers=auth_header(tutor.user))
+
+        assert response.status_code == 409
+        assert StudentLesson.objects.filter(id=sl.id).exists()
+
+    def test_delete_in_progress_student_lesson_without_submission(
+        self, api_client, auth_header, tutor, subject, student
+    ):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
         topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
         lesson = Lesson.objects.create(
@@ -1313,6 +1385,25 @@ class TestDeleteStudentLesson:
             student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
             status=StudentLessonStatus.IN_PROGRESS,
         )
+
+        response = api_client.delete(f'/tutor/student-lessons/{sl.id}', headers=auth_header(tutor.user))
+
+        assert response.status_code == 204
+        assert not StudentLesson.objects.filter(id=sl.id).exists()
+
+    def test_delete_rejected_when_in_progress_with_submission(
+        self, api_client, auth_header, tutor, subject, student
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='points'
+        )
+        sl = StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date(2026, 1, 10),
+            status=StudentLessonStatus.IN_PROGRESS,
+        )
+        LessonSubmission.objects.create(student_lesson=sl)
 
         response = api_client.delete(f'/tutor/student-lessons/{sl.id}', headers=auth_header(tutor.user))
 

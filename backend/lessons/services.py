@@ -600,16 +600,20 @@ def sync_scheduled_lesson(student: StudentProfile, lesson: Lesson, scheduled_dat
     return student_lesson
 
 
-def assign_student(lesson: Lesson, student: StudentProfile, scheduled_date) -> StudentLesson:
+def assign_student(
+    lesson: Lesson, student: StudentProfile, scheduled_date, *, is_self_selected: bool = False
+) -> StudentLesson:
     """A tutor manually assigning a lesson to a student who doesn't already
-    have it (tutoring.api.assign_lesson_to_student) — unlike
-    sync_scheduled_lesson this is create-only (never touches an existing
-    row) and always marks the result manually scheduled, same as
+    have it (tutoring.api.assign_lesson_to_student), or a student picking
+    one themselves (lessons.api.start_lesson_today, `is_self_selected=True`)
+    — unlike sync_scheduled_lesson this is create-only (never touches an
+    existing row) and always marks the result manually scheduled, same as
     reschedule(), so later calendar recalculation never silently moves it."""
     if StudentLesson.objects.filter(student=student, lesson=lesson).exists():
         raise InvalidTransition('Student already has this lesson assigned')
     return StudentLesson.objects.create(
-        student=student, lesson=lesson, scheduled_date=scheduled_date, is_manually_scheduled=True
+        student=student, lesson=lesson, scheduled_date=scheduled_date,
+        is_manually_scheduled=True, is_self_selected=is_self_selected,
     )
 
 

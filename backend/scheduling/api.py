@@ -56,6 +56,7 @@ def _calendar_item(request: HttpRequest, student_lesson: StudentLesson) -> Calen
         topic_order_index=student_lesson.lesson.topic.order_index,
         lesson_order_index=student_lesson.lesson.order_index,
         status=student_lesson.status,
+        has_submission=student_lesson.submissions.exists(),
         scheduled_date=student_lesson.scheduled_date,
         completed_at=student_lesson.completed_at,
         is_completed_ahead=is_ahead,
@@ -66,6 +67,7 @@ def _calendar_item(request: HttpRequest, student_lesson: StudentLesson) -> Calen
         subject_color=subject.color or None,
         lesson_type=student_lesson.lesson.lesson_type,
         task_content=student_lesson.lesson.task_content,
+        is_self_selected=student_lesson.is_self_selected,
     )
 
 

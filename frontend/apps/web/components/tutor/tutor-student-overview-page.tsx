@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { BookOpen, User } from "lucide-react";
+import { User } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  getGetTutorStudentQueryKey,
   useGetTutorStudent,
-  useListTutorStudentAchievements,
   useMarkTutorStudentLessonComplete,
+  useSetStudentCanDoAnyLesson,
 } from "@school-ahead/api-client/browser/tutor/tutor";
 import {
   getGetTutorStudentBacklogQueryKey,
@@ -17,12 +18,12 @@ import {
 } from "@school-ahead/api-client/browser/schedule/schedule";
 import { AvatarBadge, type AvatarLayer } from "@school-ahead/avatar";
 import type { TutorStudentOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
-import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { ProgressBar } from "@/components/progress-bar";
 import { SimpleCalendar } from "@/components/calendar/simple-calendar";
 import { mergeSimpleRows, SimpleLessonTable } from "@/components/simple-lesson-table";
+import { SubjectProgressList } from "@/components/subject-progress-list";
 import { Tabs } from "@/components/tabs";
 import { isoOf, todayIso } from "@/lib/dates";
 
@@ -72,52 +73,41 @@ function equippedLayersFromStudent(student: TutorStudentOut): AvatarLayer[] {
   ];
 }
 
-// "Статистика" tab — one progress bar per subject in the student's class,
-// same shape as the student's own dashboard's collapsible stats section
-// (components/simple-dashboard.tsx's SimpleSubjectStats), just fed from the
-// tutor-scoped achievements endpoint instead of the self-scoped one.
-function SubjectStatsTab({ studentId }: { studentId: number }) {
+// Tutor-toggled flag letting this student open/start any lesson in their
+// class's subjects, not just ones assigned to them — StudentProfile.
+// can_do_any_lesson, powers the "not assigned yet" rows on the student's
+// own Subject detail page and the "Я хочу зробити це сьогодні" flow. Same
+// checkbox-toggle pattern as IsFilledToggle (tutor-subject-detail-page.tsx).
+function CanDoAnyLessonToggle({ studentId, student }: { studentId: number; student: TutorStudentOut }) {
   const t = useTranslations("TutorStudentOverview");
-  const { data, isLoading, isError } = useListTutorStudentAchievements(studentId);
-  const subjects = data ?? [];
+  const queryClient = useQueryClient();
+  const setCanDoAnyLesson = useSetStudentCanDoAnyLesson();
 
-  if (isLoading) {
-    return <p className="text-sm text-gray-500">{t("loading")}</p>;
-  }
-  if (isError) {
-    return <p className="text-sm text-red-600">{t("error")}</p>;
-  }
-  if (subjects.length === 0) {
-    return <p className="text-sm text-gray-500">{t("noSubjects")}</p>;
-  }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCanDoAnyLesson.mutate(
+      { studentId, data: { can_do_any_lesson: e.target.checked } },
+      {
+        onSuccess: (data) => {
+          queryClient.setQueryData(getGetTutorStudentQueryKey(studentId), data);
+        },
+      },
+    );
+  };
 
   return (
-    <ul className="flex flex-col gap-3">
-      {subjects.map((subject) => (
-        <li key={subject.subject_id}>
-          <div className="mb-1 flex items-center justify-between gap-2 text-xs text-gray-500">
-            <Link
-              href={`/tutor/students/${studentId}/subjects/${subject.subject_id}`}
-              className="min-w-0 truncate text-gray-700 hover:underline"
-            >
-              {subject.subject_name}
-            </Link>
-            <span className="flex shrink-0 items-center gap-2">
-              <Link
-                href={`/tutor/subjects/${subject.subject_id}`}
-                title={t("viewSubjectButton")}
-                aria-label={t("viewSubjectButton")}
-                className="rounded-md p-1 text-gray-400 hover:bg-gray-50 hover:text-gray-700"
-              >
-                <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
-              </Link>
-              <span>{Math.round(subject.completed_percent)}%</span>
-            </span>
-          </div>
-          <ProgressBar percent={subject.completed_percent} colorful />
-        </li>
-      ))}
-    </ul>
+    <div className="flex items-center gap-2">
+      <label className="flex items-center gap-2 text-sm text-gray-700">
+        <input
+          type="checkbox"
+          checked={student.can_do_any_lesson}
+          onChange={handleChange}
+          disabled={setCanDoAnyLesson.isPending}
+          className="h-4 w-4 rounded border-gray-300"
+        />
+        {t("canDoAnyLessonLabel")}
+      </label>
+      {setCanDoAnyLesson.isError && <span className="text-sm text-red-600">{t("canDoAnyLessonError")}</span>}
+    </div>
   );
 }
 
@@ -219,6 +209,7 @@ export function TutorStudentOverviewPage({
             <h1 className="text-xl font-semibold text-gray-900">{student.name}</h1>
             <p className="text-sm text-gray-500">{student.class_name}</p>
             <ProgressBar percent={student.completed_percent} label={t("completedLabel")} colorful />
+            <CanDoAnyLessonToggle studentId={studentId} student={student} />
           </div>
         </div>
 
@@ -241,6 +232,7 @@ export function TutorStudentOverviewPage({
                       hrefFor={(item) => `/tutor/lessons/${item.lesson_id}`}
                       onMarkComplete={handleMarkComplete}
                       markingCompleteId={markingCompleteId}
+                      showAssignedBy={student.can_do_any_lesson}
                     />
                   )}
                 </>
@@ -256,7 +248,7 @@ export function TutorStudentOverviewPage({
               value: "stats",
               label: t("statsTab"),
               href: `/tutor/students/${studentId}/stats`,
-              content: <SubjectStatsTab studentId={studentId} />,
+              content: <SubjectProgressList studentId={studentId} colorful />,
             },
           ]}
         />

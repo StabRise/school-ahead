@@ -40,10 +40,10 @@ class StudentProfileAdmin(admin.ModelAdmin):
     """Admin configuration for StudentProfile model."""
 
     list_display = (
-        "user", "school_class", "enrolled_at", "diamond_balance_cache", "interface_mode", "equipped_avatar",
-        "clothing_items_display", "headwear_items_display", "accessory_items_display",
+        "user", "school_class", "enrolled_at", "diamond_balance_cache", "interface_mode", "can_do_any_lesson",
+        "equipped_avatar", "clothing_items_display", "headwear_items_display", "accessory_items_display",
     )
-    list_filter = ("school_class", "enrolled_at", "interface_mode", "equipped_avatar")
+    list_filter = ("school_class", "enrolled_at", "interface_mode", "can_do_any_lesson", "equipped_avatar")
     search_fields = ("user__email", "user__first_name", "user__last_name")
     autocomplete_fields = ("user", "school_class", "equipped_avatar")
     filter_horizontal = ("equipped_clothing_items", "equipped_headwear_items", "equipped_accessory_items", "unlocked_items")

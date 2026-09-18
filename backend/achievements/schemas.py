@@ -33,6 +33,14 @@ class SubjectAchievementOut(Schema):
     subject_name: str
     subject_icon: str | None
     subject_color: str
+    # Subject.order_index — the "default" sort for the "Прогрес по
+    # предметах" list (frontend/apps/web/components/subject-progress-list.tsx).
+    order_index: int
+    # Subject.group, for the list's grouped view — None/0 for a subject
+    # with no SubjectGroup assigned.
+    group_id: int | None
+    group_name: str | None
+    group_order_index: int
     completed_count: int
     total_count: int
     completed_percent: float

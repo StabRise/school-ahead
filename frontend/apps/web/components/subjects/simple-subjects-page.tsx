@@ -12,6 +12,7 @@ import { ProgressBar } from "@/components/progress-bar";
 import { AttestationTypeBadge } from "@/components/subjects/attestation-type-badge";
 import { SimpleEntityIcon } from "@/components/simple/entity-icon";
 import { SortableHeader, useSortState } from "@/components/simple/sortable-header";
+import { subjectGroupLabel } from "@/lib/subject-group-label";
 import { useSubjectsGroupedViewStore } from "@/stores/subjects-grouped-view-store";
 import type { SubjectOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 
@@ -114,6 +115,14 @@ export function SimpleSubjectsPage({ colorful }: { colorful?: boolean } = {}) {
   // "ungrouped" bucket — falls back to the first available tab whenever
   // the current selection no longer exists (e.g. right after groups load).
   const tabKeys = useMemo(() => [...groups.map((g) => String(g.id)), UNGROUPED_TAB_KEY], [groups]);
+  const subjectCountByTabKey = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const subject of subjects) {
+      const key = subject.group_id === null ? UNGROUPED_TAB_KEY : String(subject.group_id);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
+  }, [subjects]);
   const effectiveTabKey = tabKeys.includes(activeTabKey) ? activeTabKey : tabKeys[0];
   const visibleSubjects = grouped
     ? sortedSubjects.filter((subject) =>
@@ -172,7 +181,7 @@ export function SimpleSubjectsPage({ colorful }: { colorful?: boolean } = {}) {
                       : "border-transparent text-gray-500 hover:text-gray-900"
                   }`}
                 >
-                  {group.name}
+                  {subjectGroupLabel(group.name, subjectCountByTabKey.get(String(group.id)) ?? 0)}
                 </button>
               ))}
               <button
@@ -186,7 +195,7 @@ export function SimpleSubjectsPage({ colorful }: { colorful?: boolean } = {}) {
                     : "border-transparent text-gray-500 hover:text-gray-900"
                 }`}
               >
-                {t("ungroupedTabLabel")}
+                {subjectGroupLabel(t("ungroupedTabLabel"), subjectCountByTabKey.get(UNGROUPED_TAB_KEY) ?? 0)}
               </button>
             </div>
           )}

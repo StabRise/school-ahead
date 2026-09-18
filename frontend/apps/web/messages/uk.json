@@ -383,7 +383,6 @@
     "backlogHint": "Уроки, які не завершено вчасно",
     "backlogOrigin": "Дата: {label}",
     "statisticsSectionTitle": "Статистика",
-    "statsTitle": "Прогрес по предметах",
     "weeklyProgressTitle": "Виконано за тиждень",
     "weeklyPercentLabel": "% тижня виконано",
     "expandLesson": "Розгорнути",
@@ -394,6 +393,9 @@
     "columnDate": "Дата",
     "columnGrade": "Оцінка",
     "columnStatus": "Статус",
+    "columnAssignedBy": "Ким призначено",
+    "assignedByStudent": "Учень",
+    "assignedByTutor": "Тьютор",
     "markCompleteLabel": "Позначити виконаним"
   },
   "TutorDashboard": {
@@ -419,6 +421,7 @@
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити предмети. Спробуйте ще раз.",
     "empty": "Вам ще не призначено жодного предмета.",
+    "classTabLabel": "Клас {name}",
     "topicsCount": "{count, plural, one {# тема} few {# теми} many {# тем} other {# теми}}",
     "lessonsCount": "{count, plural, one {# урок} few {# уроки} many {# уроків} other {# уроку}}"
   },
@@ -427,16 +430,23 @@
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити класи. Спробуйте ще раз.",
     "empty": "У вас ще немає класів.",
+    "classTitle": "Клас {name}",
     "classTeacherLabel": "Класний керівник",
     "classTeacherUnset": "не призначено",
     "youAreClassTeacher": "Ви — класний керівник",
     "studentsCount": "{count, plural, one {# учень} few {# учні} many {# учнів} other {# учня}}",
-    "subjectsCount": "{count, plural, one {# предмет} few {# предмети} many {# предметів} other {# предмета}}"
+    "subjectsCount": "{count, plural, one {# предмет} few {# предмети} many {# предметів} other {# предмета}}",
+    "columnClass": "Клас",
+    "columnYear": "Навчальний рік",
+    "columnTeacher": "Класний керівник",
+    "columnStudents": "Учні",
+    "columnSubjects": "Предмети"
   },
   "TutorClassDetail": {
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити клас. Спробуйте ще раз.",
     "breadcrumbMyClasses": "Мої класи",
+    "classTitle": "Клас {name}",
     "classTeacherLabel": "Класний керівник",
     "classTeacherUnset": "не призначено",
     "youAreClassTeacher": "Ви — класний керівник",
@@ -444,7 +454,7 @@
     "noSubjects": "Ви ще не викладаєте жодного предмета в цьому класі.",
     "studentsTitle": "Учні",
     "noStudents": "У цьому класі ще немає учнів.",
-    "viewCalendarLink": "Переглянути календар →",
+    "viewCalendarButton": "Переглянути календар",
     "topicsCount": "{count, plural, one {# тема} few {# теми} many {# тем} other {# теми}}",
     "lessonsCount": "{count, plural, one {# урок} few {# уроки} many {# уроків} other {# уроку}}",
     "workloadLabel": "Навантаження: {value} уроків/тиж",
@@ -466,8 +476,8 @@
     "noLessonsToday": "На сьогодні уроків не заплановано",
     "calendarTab": "Календар",
     "statsTab": "Статистика по предметах",
-    "noSubjects": "У цього учня немає предметів",
-    "viewSubjectButton": "Перейти до предмета"
+    "canDoAnyLessonLabel": "Може самостійно обирати будь-який урок",
+    "canDoAnyLessonError": "Не вдалося зберегти. Спробуйте ще раз."
   },
   "PlanLessons": {
     "triggerButton": "Запланувати уроки на період",
@@ -504,7 +514,7 @@
     "cancelButton": "Скасувати"
   },
   "LoadLessonsJson": {
-    "triggerButton": "Завантажити уроки з JSON",
+    "triggerButton": "Імпортувати уроки з JSON",
     "title": "Завантажити уроки з JSON",
     "stepOfTotal": "Крок {step} з 2",
     "nameLabel": "Назва",
@@ -541,7 +551,7 @@
     "closeButton": "Закрити"
   },
   "UploadPlan": {
-    "triggerButton": "Завантажити план",
+    "triggerButton": "Імпортувати план предметів",
     "title": "Завантажити план предметів",
     "description": "Текстовий файл: «Назва предмета», потім «N семестр», потім текст плану — і так для кожного предмета.",
     "fileLabel": "Файл (.md, .txt)",
@@ -557,7 +567,7 @@
     "blocksUpdated": "Оновлено семестрів: {count}"
   },
   "LoadSubjectMarkdown": {
-    "triggerButton": "Завантажити предмет з Markdown",
+    "triggerButton": "Імпортувати предмет з Markdown",
     "title": "Завантажити предмет з Markdown",
     "description": "Markdown-файл одного предмета: заголовок (Subject/SubjectBlocks/Description), потім розділи «## Тема» з уроками.",
     "fileLabel": "Файл (.md, .txt)",
@@ -607,8 +617,9 @@
     "dragLessonHandleLabel": "Перетягнути урок",
     "expandTopicButton": "Розгорнути тему",
     "collapseTopicButton": "Згорнути тему",
+    "expandSemesterButton": "Розгорнути семестр",
+    "collapseSemesterButton": "Згорнути семестр",
     "lessonReorderError": "Не вдалося змінити порядок уроків. Спробуйте ще раз.",
-    "shuffleLessonsButton": "Перемішати уроки",
     "noStudentsAssigned": "Не призначено жодному учню",
     "notAssignedToStudent": "Не призначено",
     "assignToStudentButton": "Призначити учню",
@@ -629,7 +640,6 @@
     "deleteAssignmentError": "Не вдалося видалити призначення. Спробуйте ще раз.",
     "selectStudentLabel": "Учень",
     "selectStudentPlaceholder": "Оберіть учня",
-    "submitButton": "Показати",
     "viewStudentSubjectButton": "Сторінка учня по предмету",
     "tasksTab": "Завдання",
     "noTasks": "Завдань ще немає.",
@@ -748,6 +758,9 @@
     "error": "Не вдалося завантажити урок.",
     "showSynopsisButton": "Показати конспект",
     "hideSynopsisButton": "Сховати конспект",
+    "cancelSelfSelectedButton": "Я не буду сьогодні робити",
+    "cancelSelfSelectedConfirm": "Скасувати цей урок? Ви обрали його самостійно — його буде видалено.",
+    "cancelSelfSelectedError": "Не вдалося скасувати урок. Спробуйте ще раз.",
     "synopsisPanelLabel": "Конспект",
     "synopsisSaving": "Зберігається...",
     "synopsisResizeHandleLabel": "Змінити ширину колонок",
@@ -899,6 +912,21 @@
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити досягнення. Спробуйте ще раз.",
     "empty": "Предметів ще немає."
+  },
+  "SubjectProgress": {
+    "title": "Прогрес по предметах",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити дані. Спробуйте ще раз.",
+    "empty": "Предметів ще немає.",
+    "groupedViewLabel": "Групувати предмети",
+    "ungroupedViewLabel": "Показати всі предмети списком",
+    "ungroupedGroupLabel": "Без групи",
+    "sortLabel": "Сортування",
+    "sortDefault": "За порядком",
+    "sortName": "За назвою",
+    "sortProgressAsc": "За прогресом (зростання)",
+    "sortProgressDesc": "За прогресом (спадання)",
+    "viewSubjectButton": "Перейти до предмета"
   },
   "AvatarPlacementEditor": {
     "rotateItem": "Повернути",
@@ -1056,6 +1084,15 @@
     "saveButton": "Зберегти",
     "cancelButton": "Скасувати"
   },
+  "LessonPreview": {
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити урок. Спробуйте ще раз.",
+    "taskContentTitle": "Завдання",
+    "startTodayButton": "Я хочу зробити це сьогодні",
+    "starting": "Створюємо урок...",
+    "startError": "Не вдалося розпочати урок. Спробуйте ще раз.",
+    "continueButton": "Продовжити урок"
+  },
   "SubjectPlan": {
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити план предмета. Спробуйте ще раз.",
@@ -1158,6 +1195,17 @@
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити предмети.",
     "empty": "Книжок на полиці ще немає."
+  },
+  "PreschoolSubjectDetail": {
+    "backToShelf": "До полиці",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити предмет. Спробуйте ще раз.",
+    "pointsLabel": "{count} балів",
+    "courseProgressLabel": "Прогрес за весь курс: {percent}% ({completed}/{total})",
+    "chooseLessonHint": "Обери урок просто натиснувши на картку!",
+    "lessonBadge": "Урок {index}",
+    "noLessons": "Тут поки що немає уроків для тебе.",
+    "allLessonsCompleted": "Усі уроки цього предмета пройдено! 🎉"
   },
   "TutorAvatarEditor": {
     "title": "Редактор аватарів",

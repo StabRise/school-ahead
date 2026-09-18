@@ -12,7 +12,6 @@ import {
   Monitor,
   Pencil,
   Plus,
-  Shuffle,
   type LucideIcon,
   Trash2,
   UserPlus,
@@ -53,6 +52,7 @@ import { SimplePageContainer } from "@/components/simple/page-container";
 import { Tabs } from "@/components/tabs";
 import { groupTopicsByBlock } from "@/components/subjects/group-topics-by-block";
 import { subjectBlockAnchorId, subjectTopicAnchorId } from "@/components/subjects/subject-anchors";
+import { IsFilledBadge } from "@/components/subjects/is-filled-badge";
 import { SemesterPlan } from "@/components/subjects/semester-plan";
 import { SubjectMaterials } from "@/components/subjects/subject-materials";
 import { groupTasksByTopicId, TaskListSection } from "@/components/subjects/task-list";
@@ -687,10 +687,11 @@ function TopicSection({
             trigger={
               <button
                 type="button"
-                className="flex items-center gap-1 rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                title={t("addLessonButton")}
+                aria-label={t("addLessonButton")}
+                className="flex items-center rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-50"
               >
-                <Plus className="h-3 w-3" />
-                {t("addLessonButton")}
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             }
           />
@@ -698,9 +699,11 @@ function TopicSection({
             type="button"
             onClick={handleDelete}
             disabled={deleteTopic.isPending}
-            className="rounded-md border border-red-300 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+            title={t("deleteTopicButton")}
+            aria-label={t("deleteTopicButton")}
+            className="flex items-center rounded-md border border-red-300 p-1.5 text-red-700 hover:bg-red-50 disabled:opacity-50"
           >
-            🗑️ {t("deleteTopicButton")}
+            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -773,13 +776,7 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
     queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsQueryKey(subjectId) });
   };
 
-  const [draftStudentId, setDraftStudentId] = useState<number | "">("");
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
-
-  const handleStudentFilterSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSelectedStudentId(draftStudentId === "" ? null : draftStudentId);
-  };
 
   const lessonsByTopicId = useMemo(() => {
     const map = new Map<number, LessonOut[]>();
@@ -804,6 +801,21 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
         next.delete(topicId);
       } else {
         next.add(topicId);
+      }
+      return next;
+    });
+  };
+
+  // Per-semester (BlockGroup) collapse — same absent-means-expanded
+  // convention as collapsedTopicIds above, keyed by BlockGroup.key.
+  const [collapsedBlockKeys, setCollapsedBlockKeys] = useState<Set<string>>(new Set());
+  const toggleBlockCollapsed = (key: string) => {
+    setCollapsedBlockKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
       }
       return next;
     });
@@ -919,31 +931,6 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
     );
   };
 
-  // "Перемешати уроки" — randomizes each topic's own lesson order (never
-  // moves a lesson to a different topic, just like handleLessonDrop within
-  // one topic) via one Fisher-Yates shuffle per topic, then sends every
-  // topic's new order_index in a single reorderLessons call.
-  const handleShuffleLessons = () => {
-    const items = [...lessonsByTopicId.entries()].flatMap(([topicId, topicLessons]) => {
-      const shuffled = [...topicLessons];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-      return shuffled.map((lesson, index) => ({ id: lesson.id, topic_id: topicId, order_index: index + 1 }));
-    });
-    if (items.length === 0) return;
-
-    reorderLessons.mutate(
-      { subjectId, data: { items } },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsQueryKey(subjectId) });
-        },
-      },
-    );
-  };
-
   const isLoading = subjectQuery.isLoading || topicsQuery.isLoading || lessonsQuery.isLoading;
   const isError = subjectQuery.isError || topicsQuery.isError || lessonsQuery.isError;
 
@@ -967,7 +954,10 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
         <div className="flex flex-col gap-2">
           <Breadcrumbs items={breadcrumbItems} />
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-xl font-semibold text-gray-900">{subject.name}</h1>
+            <div className="flex min-w-0 items-center gap-2">
+              <h1 className="text-xl font-semibold text-gray-900">{subject.name}</h1>
+              <IsFilledBadge isFilled={subject.is_filled} />
+            </div>
             <div className="flex flex-wrap items-center gap-4">
               <AttestationTypeSelect subject={subject} subjectId={subjectId} />
               <IsFilledToggle subject={subject} subjectId={subjectId} />
@@ -1002,57 +992,37 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
               label: t("lessonsTab"),
               content: (
                 <div className="flex flex-col gap-5">
-                  <div className="flex flex-wrap items-center justify-end gap-1">
-                    <PlanSubjectLessonsDialog
-                      classId={subject.school_class_id}
-                      subjectId={subjectId}
-                      subjectName={subject.name}
-                    />
-                    <LoadLessonsJsonDialog subjectId={subjectId} />
-                    <LoadYoutubePlaylistDialog subjectId={subjectId} />
-                    <button
-                      type="button"
-                      title={t("shuffleLessonsButton")}
-                      aria-label={t("shuffleLessonsButton")}
-                      onClick={handleShuffleLessons}
-                      disabled={reorderLessons.isPending}
-                      className="shrink-0 rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <select
+                      aria-label={t("selectStudentLabel")}
+                      value={selectedStudentId ?? ""}
+                      onChange={(e) =>
+                        setSelectedStudentId(e.target.value === "" ? null : Number(e.target.value))
+                      }
+                      className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-700"
                     >
-                      <Shuffle className="h-4 w-4" />
-                    </button>
+                      <option value="">{t("selectStudentPlaceholder")}</option>
+                      {classStudents.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <div className="flex flex-wrap items-center gap-1">
+                      <PlanSubjectLessonsDialog
+                        classId={subject.school_class_id}
+                        subjectId={subjectId}
+                        subjectName={subject.name}
+                      />
+                      <LoadLessonsJsonDialog subjectId={subjectId} />
+                      <LoadYoutubePlaylistDialog subjectId={subjectId} />
+                    </div>
                   </div>
 
                   {(reorderTopics.isError || reorderLessons.isError) && (
                     <p className="text-xs text-red-600">{t("lessonReorderError")}</p>
                   )}
-
-                  <form onSubmit={handleStudentFilterSubmit} className="flex flex-wrap items-end gap-2">
-                    <div className="flex flex-col gap-1">
-                      <label htmlFor="student-filter" className="text-xs font-medium text-gray-700">
-                        {t("selectStudentLabel")}
-                      </label>
-                      <select
-                        id="student-filter"
-                        value={draftStudentId}
-                        onChange={(e) => setDraftStudentId(e.target.value === "" ? "" : Number(e.target.value))}
-                        className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-700"
-                      >
-                        <option value="">{t("selectStudentPlaceholder")}</option>
-                        {classStudents.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={draftStudentId === ""}
-                      className="rounded-md bg-gray-900 px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-                    >
-                      {t("submitButton")}
-                    </button>
-                  </form>
 
                   {topics.length === 0 ? (
                     <p className="text-sm text-gray-500">{t("noTopics")}</p>
@@ -1060,6 +1030,7 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                     <div className="flex flex-col gap-6">
                       {blockGroups.map((group) => {
                         const isDropTarget = group.key !== "unassigned";
+                        const blockCollapsed = collapsedBlockKeys.has(group.key);
                         return (
                           <div
                             key={group.key}
@@ -1075,12 +1046,25 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                           >
                             {group.label && (
                               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                                <h2
-                                  id={subjectBlockAnchorId(group.label)}
-                                  className="scroll-mt-20 text-base font-semibold text-gray-900"
+                                <button
+                                  type="button"
+                                  onClick={() => toggleBlockCollapsed(group.key)}
+                                  aria-expanded={!blockCollapsed}
+                                  title={blockCollapsed ? t("expandSemesterButton") : t("collapseSemesterButton")}
+                                  className="flex items-center gap-1 rounded text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                                 >
-                                  {group.label}
-                                </h2>
+                                  {blockCollapsed ? (
+                                    <ChevronRight className="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+                                  ) : (
+                                    <ChevronDown className="size-4 shrink-0 text-gray-400" aria-hidden="true" />
+                                  )}
+                                  <h2
+                                    id={subjectBlockAnchorId(group.label)}
+                                    className="m-0 scroll-mt-20 text-base font-semibold text-gray-900"
+                                  >
+                                    {group.label}
+                                  </h2>
+                                </button>
                                 {group.workload !== null && (
                                   <span className="text-xs text-gray-500">
                                     {t("workloadLabel", { value: group.workload.toFixed(2) })}
@@ -1088,7 +1072,8 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                                 )}
                               </div>
                             )}
-                            {group.topics.length === 0 ? (
+                            {!blockCollapsed &&
+                              (group.topics.length === 0 ? (
                               <p className="text-sm text-gray-400">{t("emptySemesterHint")}</p>
                             ) : (
                               group.topics.map((topic) => (
@@ -1122,7 +1107,7 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
                                   onLessonListChanged={handleLessonListChanged}
                                 />
                               ))
-                            )}
+                            ))}
                           </div>
                         );
                       })}

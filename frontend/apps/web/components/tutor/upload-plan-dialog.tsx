@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Upload } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetTutorClassQueryKey, useUploadTutorClassPlan } from "@school-ahead/api-client/browser/tutor/tutor";
 import type { ImportPlanOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
@@ -51,10 +51,11 @@ export function UploadPlanDialog({ classId }: { classId: number }) {
       <Dialog.Trigger asChild>
         <button
           type="button"
-          className="flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          title={t("triggerButton")}
+          aria-label={t("triggerButton")}
+          className="flex shrink-0 items-center justify-center rounded-md border border-gray-300 p-2 text-gray-700 hover:bg-gray-50"
         >
-          <Upload className="h-4 w-4" />
-          {t("triggerButton")}
+          <ClipboardList className="h-4 w-4" aria-hidden="true" />
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>
