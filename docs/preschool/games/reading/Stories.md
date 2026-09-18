@@ -1,139 +1,134 @@
-1. Назва проєкту
+# Reading Game — "Казки" (Stories)
 
-"Казки" — третя гра в серії docs/preschool/games/reading, поряд зі
-"Складами" (packages/preschool-games/src/reading-game.tsx) і "Картками"
-(Cards.md, packages/preschool-games/src/cards-game.tsx). Дитина читає коротку
-казку, у якій окремі складні слова розбито на склади — ті самі склади,
-якими вона вже маніпулює в іграх "Склади"/"Картки" (голосна буква
-червона, приголосна синя, як у frontend/public/static/syllables).
+The third game in the `docs/preschool/games/reading` series, alongside
+"Склади" (Syllables, `packages/preschool-games/src/reading-game.tsx`) and
+"Картки" (Cards, `Cards.md`, `packages/preschool-games/src/
+cards-game.tsx`). The child reads a short story in which selected hard
+words are broken into syllable cards — the same syllable cards they
+already manipulate in the "Склади"/"Картки" games (vowel letter red,
+consonant blue, as in `frontend/apps/web/public/static/syllables`).
 
-2. Мета гри
+## 1. Goal
 
-Українська мова! Перенести навичку впізнавання окремого складу
-(ігри "Склади"/"Картки") у контекст зв'язного тексту: дитина бачить
-казку, а важкі слова показані по складах, щоб можна було прочитати їх
-"по частинах". Гра суто текстова/візуальна — без озвучення.
+Ukrainian language! Carry syllable-recognition skill (from "Склади"/
+"Картки") into the context of connected text: the child sees a story, with
+hard words shown broken into syllables so they can be read "piece by
+piece." Purely a text/visual game — no read-aloud narration.
 
-3. Контент
+## 2. Content
 
-Кожна казка — своя папка frontend/public/static/stories/<назва
-казки>/, а в ній:
+Each story is its own folder, `frontend/apps/web/public/static/stories/
+<story name>/`, containing:
 
-- story.md — сам текст, звичайний Markdown (заголовки, **жирний**,
-  *курсив*, списки, цитати — усе працює): перший рядок(и) —
-  заголовок(и) (`# 🐰 Назва казки`, можна ще додатковий рядок вище,
-  наприклад `### автор/джерело` — стане підзаголовком), решта —
-  довільний Markdown-текст;
-- будь-які файли-картинки поруч (наприклад img1.jpeg) — фотографії
-  намальованих від руки карток (той самий підхід, що й у
-  frontend/public/static/syllables — намалювати на папері,
-  сфотографувати, див. backend/lessons/management/commands/
-  slice_flashcard_grid.py);
-- cover.<png|jpg|jpeg|webp> — обкладинка книжки для екрана вибору
-  (напр. frontend/public/static/stories/Рукавичка/cover.png).
-  Необов'язковий — без нього картка показує 📖 замість обкладинки.
-- background.mp3 — фонова музика під час читання саме цієї казки.
-  Необов'язковий — без нього просто нема кнопки-перемикача (§4); як і
-  з обкладинкою, немає окремої перевірки на сервері, чи файл існує —
-  відсутній файл просто не програється.
+- **`story.md`** — the story text, plain Markdown (headings, **bold**,
+  *italic*, lists, blockquotes — all supported): the first line(s) are the
+  title (`# 🐰 Story Title`, optionally with an extra line above it, e.g.
+  `### author/source`, which becomes a subtitle); the rest is free-form
+  Markdown.
+- **any image files** alongside (e.g. `img1.jpeg`) — photographs of
+  hand-drawn cards (same approach as `public/static/syllables`: draw on
+  paper, photograph, see `backend/lessons/management/commands/
+  slice_flashcard_grid.py`).
+- **`cover.<png|jpg|jpeg|webp>`** — the book cover shown on the story
+  picker (e.g. `frontend/apps/web/public/static/stories/Рукавичка/
+  cover.png`). Optional — without one, the card shows 📖 instead of a
+  cover.
+- **`background.mp3`** — background music while reading this specific
+  story. Optional — without one there's simply no toggle button (§4); like
+  the cover, there's no server-side check for whether the file exists — a
+  missing file just doesn't play.
 
-Назва папки — це і є назва казки в списку вибору (якщо в story.md
-немає заголовка `#`). Складне слово в story.md можна показати двома
-способами (обидва — через фігурні дужки):
+The folder name is the story's name in the picker list (unless `story.md`
+has its own `#` heading). A hard word in `story.md` can be shown two ways
+(both via curly braces):
 
-- `{ві - н}`, `{К - ВІ - Т - КА}` — склади текстом, через дефіс
-  (регістр і кількість складів довільні, один склад може бути і
-  просто приголосною літерою без голосної). Кожен склад намальований
-  так само, як картки з
-  frontend/public/static/syllables/<Приголосна>/<склад>.png — якщо
-  такий файл є (склад із двох літер, приголосна+голосна), береться
-  саме ця картинка; якщо ні (одна гола приголосна), склад просто
-  показується кольоровими літерами.
-- `{ img1.jpeg }` — ім'я файлу картинки з тієї ж папки замість
-  складу(ів). Можна використати як ціле слово (`{ img1.jpeg }` саме
-  собою) або як один зі складів у переліку через дефіс
-  (`{К - img1.jpeg - Т - КА}`) — головне, щоб сама назва файлу не
-  містила дефіс, якщо вона стоїть серед інших складів (бо дефіс —
-  роздільник складів); окремо взята (весь вміст `{...}` — лише назва
-  файлу) може містити дефіс без проблем.
-- `{ koza.mp3 }` — ім'я звукового файлу з тієї ж папки замість
-  цілого слова (лише окремою групою, не як один зі складів у переліку)
-  — маленька кнопка-динамік програє цей запис вимови по натисканню,
-  без повноекранного перегляду.
-- `{ 1.avi }` — ім'я відеофайлу з тієї ж папки замість цілого слова
-  (та сама умова — лише окремою групою), той самий підхід, що й
-  `{ img1.jpeg }`, тільки замість нерухомої картинки — короткий
-  відеофрагмент, що зациклено програється.
+- **`{ві - н}`**, **`{К - ВІ - Т - КА}`** — syllables as text, hyphen
+  separated (case and syllable count are free-form; a single syllable can
+  also be a bare consonant with no vowel). Each syllable is drawn the same
+  way as the cards in `frontend/apps/web/public/static/syllables/
+  <Consonant>/<syllable>.png` — if that file exists (a two-letter
+  consonant+vowel syllable), that exact picture is used; if not (a bare
+  consonant), the syllable is just shown as colored letters.
+- **`{ img1.jpeg }`** — an image filename from the same folder, in place of
+  a syllable (or syllables). Can stand for a whole word on its own (`{
+  img1.jpeg }` by itself) or as one syllable among others in a hyphenated
+  list (`{К - img1.jpeg - Т - КА}`) — the only rule is the filename itself
+  can't contain a hyphen when it's inside a hyphenated list (since a hyphen
+  is the syllable separator); standing alone (the entire `{...}` content is
+  just the filename), a hyphen in the filename is fine.
+- **`{ koza.mp3 }`** — an audio filename from the same folder, in place of
+  a whole word (only as its own standalone group, never mixed into a
+  hyphenated syllable list) — a small speaker button plays this recording
+  on tap, no fullscreen view.
+- **`{ 1.avi }`** — a video filename from the same folder, in place of a
+  whole word (same standalone-group rule), same approach as `{ img1.jpeg
+  }` except it's a short looping video clip instead of a still image.
 
-Нові казки додаються без зміни коду — досить покласти нову папку з
-story.md (і потрібними картинками поруч) у
-frontend/public/static/stories/.
+New stories are added with no code change — just drop a new folder with
+`story.md` (and any needed images) into `frontend/apps/web/public/static/
+stories/`.
 
-4. Інтерфейс та ігрові елементи
+## 3. Interface
 
-Екран 1 — вибір тексту: ряд книжок прямо на тлі гри (без додаткової
-рамки навколо — лише одна рамка на екран, як і в інших іграх) — у
-кожної квадратна обкладинка (cover.<ext>, або 📖, якщо обкладинки ще
-нема) з назвою під нею; книжка помітно збільшується, коли на неї
-навести курсор. Спільний компонент
-frontend/packages/preschool-games/src/story-book.tsx (StoryBook) — той
-самий і тут, і в грі-нагороді після уроків
-(packages/preschool-games/src/game-choice.tsx), бо обидва місця
-показують той самий екран вибору казки. Дитина натискає на обкладинку
-і переходить до другого екрана.
+**Screen 1 — story picker:** a row of books directly on the game
+background (no extra frame around it — only one frame per screen, same
+convention every game here uses) — each with a square cover
+(`cover.<ext>`, or 📖 if none exists yet) and a title underneath; a book
+noticeably enlarges on hover. Shared component:
+`frontend/packages/preschool-games/src/story-book.tsx` (`StoryBook`) — the
+same component used both here and in the post-lesson reward game picker
+(`packages/preschool-games/src/game-choice.tsx`), since both places show
+the same story-picker screen. Tapping a cover advances to screen 2.
 
-Екран 2 — "листок" з казкою: кругла кнопка-іконка "📚" зверху (з
-тултіпом "До вибору книжок") повертає до екрана 1, далі — назва казки
-і текст. Гра без загального озвучення тексту — жодної кнопки "читати
-вголос" чи режиму "без звуку" немає; окреме `{...}`-слово може мати
-власний звуковий файл (див. §3) — це щоразу свідомий вибір автора
-казки, а не автоматичне озвучення.
+**Screen 2 — the story "page":** a round icon button "📚" at the top (with
+a "Back to book picker" tooltip) returns to screen 1, followed by the
+story title and text. No overall text-to-speech narration — there's no
+"read aloud" button or a "muted" mode; an individual `{...}` word can have
+its own audio file (§2), which is always a deliberate choice by the
+story's author, not automatic narration.
 
-Якщо в папці казки є background.mp3 (§3), поруч із "📚" з'являється ще
-одна кругла кнопка ("🎵"/"🔇") — вмикає/вимикає цю фонову музику,
-циклічно програвану на тлі; для казки без такого файлу кнопки просто
-нема (packages/preschool-games/src/lib/use-story-background-music.ts).
+If the story's folder has a `background.mp3` (§2), a second round button
+("🎵"/"🔇") appears next to "📚" — toggles that background music, looped;
+for a story without that file, the button simply isn't there
+(`packages/preschool-games/src/lib/use-story-background-music.ts`).
 
-Гра публічна за /games/stories[/<казка>] — доступна й незалогіненому
-відвідувачу (усі ігри під /games публічні, див. middleware.ts's
-PUBLIC_PATHS; посилання "Вчуся Читати" в шапці сайту для
-незалогіненого відвідувача веде саме сюди, див. components/header.tsx).
-Кожна казка має власне посилання (StoriesGamePage приймає basePath —
-packages/preschool-games/src/stories-game.tsx), тож на конкретну казку
-можна поділитись напряму, з входом в акаунт чи без нього.
+The game is public at `/games/stories[/<story>]` — reachable by a signed-out
+visitor too (every game under `/games` is public, see `middleware.ts`'s
+`PUBLIC_PATHS`; the "Вчуся Читати" ("Learning to Read") link in the site
+header for a signed-out visitor leads exactly here, see
+`components/header.tsx`). Each story has its own link
+(`StoriesGamePage` takes a `basePath` — `packages/preschool-games/src/
+stories-game.tsx`), so a specific story can be shared directly, signed in
+or not.
 
-5. Механіка та сценарія гри
+## 4. Mechanics
 
-Кожне `{...}`-слово, крім самостійного звукового файлу (§3 — той просто
-кнопка-програвач, без спливного вікна), дитина натискає, і воно
-відкривається на весь екран: рядок карток (зі складів, з картинки-файлу
-чи з обох) — більшим (у 2.5 рази більшим, ніж у тексті), самостійний
-відеофайл — так само на весь екран, зі звуком (на відміну від маленької
-картки в тексті, яка через політику браузера завжди без звуку) і
-власними кнопками керування (пауза/перемотування/звук). Закрити спливне
-вікно можна дотиком будь-де по ньому, кнопкою "✕", клавішею Esc або
-пробілом.
+Every `{...}` word except a standalone audio file (§2 — that's just a play
+button, no popup) opens fullscreen on tap: a row of cards (from syllables,
+an image file, or both) rendered 2.5× larger than in the text; a
+standalone video file likewise opens fullscreen, with sound (unlike the
+small in-text card, which the browser's autoplay policy always keeps
+muted) and its own controls (pause/seek/volume). The popup closes by
+tapping anywhere on it, the "✕" button, Esc, or Space.
 
-Кнопка "📚" і — для залогінених учнів — зірочки в правому верхньому
-куті завжди на місці, навіть коли текст казки прокручений донизу
-(вони поза зоною прокрутки, packages/preschool-games/src/
-stories-game.tsx's StoryPage).
+The "📚" button and — for signed-in students — the star counter in the
+top-right corner stay fixed in place even when the story text is scrolled
+down (they sit outside the scroll area, `packages/preschool-games/src/
+stories-game.tsx`'s `StoryPage`).
 
-6. Нагорода
+## 5. Reward
 
-Лише для залогіненого учня — анонімний відвідувач так само гортає
-казку і відкриває картки, просто без акаунта, якому нараховувати
-Діамант (немає навіть лічильника зірочок для нього). Кожне відкрите
-слово-картка зі складів/букв (§5) додає 1 зірочку в лічильник у
-верхньому правому куті ("⭐ N/5") — сама лише картинка чи відео без
-жодного складу (`{ img1.jpeg }`, `{ 1.avi }`) не рахується, бо це не
-слово для читання; кожні 5 зірочок — 💎 діамант, що летить у шапку сайту (той
-самий `@school-ahead/preschool-ui`'s flying-diamond.tsx, що й у грі
-"Потяг"/"Склади"), через POST /auth/me/stories-game-reward
-(accounts.services.award_stories_game_diamond) — реалізовано через
-спільний useDiamondMilestoneReward
-(packages/preschool-games/src/kit/), як і решта ігор. Лічильник —
-сесійний (обнуляється, коли відкриваєш іншу казку чи перезавантажуєш
-сторінку), без серверної перевірки — той самий підхід довіри фронтенду,
-що й в інших
-міні-іграх, див. docs/core/gamification.md.
+Signed-in students only — an anonymous visitor can browse stories and open
+cards the same way, just with no account to award a Diamond to (there
+isn't even a star counter for them). Each opened syllable/letter word-card
+(§4) adds 1 star to the top-right counter ("⭐ N/5") — a bare image or
+video with no syllables (`{ img1.jpeg }`, `{ 1.avi }`) doesn't count, since
+it isn't a word to read. Every 5 stars awards 💎 1 Diamond, flying to the
+site header (the same `@school-ahead/preschool-ui`'s `flying-diamond.tsx`
+used by the Trains/Syllables games), via `POST /auth/me/stories-game-reward`
+(`accounts.services.award_stories_game_diamond`) — implemented through the
+shared `useDiamondMilestoneReward` (`packages/preschool-games/src/kit/`),
+same as every other minigame. The counter is session-only (resets when
+opening a different story or reloading the page), with no server-side
+verification — the same client-trust approach as every other minigame, see
+`docs/core/gamification.md`.

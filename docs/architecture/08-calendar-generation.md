@@ -18,7 +18,7 @@ Nothing runs on a schedule or on save. Generation only runs when a tutor/admin c
 
 ## Algorithm
 
-Runs as a `lessons.services` function, invoked from a `django-q` task enqueued by the `scheduling` router (`02-data-model.md`, decision 6):
+Runs synchronously, inline in the request — `scheduling.api.generate_calendar` calls `scheduling.services.generate_calendar_for_subject` directly and returns its result. Not a `django-q` task; `django-q` isn't installed or used anywhere in this codebase despite being listed as a planned dependency in earlier docs (see `02-data-model.md`, decision 6):
 
 1. For the given `Subject`, take its `Topic`s in current `order_index` order.
 2. Flatten to their `Lesson`s, each Topic's Lessons in their own `order_index` order.
@@ -34,6 +34,10 @@ Runs as a `lessons.services` function, invoked from a `django-q` task enqueued b
 
 Same algorithm as generation, re-triggered after `start_date`/`due_date`/topic-order changes, via `POST /api/schedule/subjects/{id}/recalculate-calendar`. Same skip rules apply (step 5 above).
 
+## Class-level bulk generation
+
+`POST /api/schedule/classes/{class_id}/generate-schedule` runs generation across every subject in a class in one call, rather than one subject at a time — same underlying algorithm and skip rules, just a bulk entry point for the "Завантажити план" (load curriculum plan) admin flow. Not in the original design; verified directly against `scheduling/api.py`.
+
 ## Trigger flow
 
 ```mermaid
@@ -41,17 +45,13 @@ sequenceDiagram
     participant T as Tutor (subject admin page)
     participant S as scheduling router
     participant A as academics.Subject
-    participant Q as django-q task
     participant L as lessons.services
 
     T->>S: POST /subjects/{id}/generate-calendar
     S->>A: read start_date, due_date, topics (order_index)
-    S->>S: validate start_date < due_date
-    S->>Q: enqueue generate_calendar_for_subject(subject_id)
-    S-->>T: 202 Accepted {task_id}
-    Q->>L: generate_calendar_for_subject(subject)
+    S->>L: generate_calendar_for_subject(subject) — called inline, synchronously
     L->>L: for each enrolled student: create/update StudentLesson rows (skip completed / is_manually_scheduled)
-    Q-->>Q: task completes
+    S-->>T: 200 OK {result} (same request/response cycle)
     T->>S: GET /calendar?week_start=... (follow-up)
     S-->>T: generated week distribution
 ```
@@ -59,7 +59,7 @@ sequenceDiagram
 ## Design decisions beyond the literal doc text
 
 - `is_manually_scheduled` and the completed/manually-scheduled skip rule are this design's answer to a question the source doc leaves open — see `07-open-questions.md` for the "Recalculation vs. manual overrides" caveat.
-- Running generation as a background `django-q` task (rather than inline) is a scalability decision: it potentially touches `topics_in_subject × lessons_per_topic × students_in_class` rows.
+- Running generation inline rather than as a background job is a simplicity tradeoff — it potentially touches `topics_in_subject × lessons_per_topic × students_in_class` rows per request, which could become a latency concern at scale, but nothing in the current implementation queues it off the request path.
 
 ---
 [← Back to Overview](00-overview.md)

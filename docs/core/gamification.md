@@ -22,8 +22,10 @@ topic/semester earning and now links back here).
 | Pressing the matching key in the trains minigame | 1 letter; every 10 letters → +1 | `frontend/packages/preschool-games/src/trains-game.tsx`, `POST /auth/me/trains-game-reward` |
 | Opening a syllable/word card inside a story in the "Казки" minigame | 1 star; every 5 stars → +1 | `frontend/packages/preschool-games/src/stories-game.tsx`, `POST /auth/me/stories-game-reward` — logged-in students only |
 | Tapping the falling card matching the target syllable in the "Картки" minigame | 1 star; every 10 stars → +1 | `frontend/packages/preschool-games/src/cards-game.tsx`, `POST /auth/me/cards-game-reward` |
-| Completing every question of the multiplication-table minigame's 15-question session with at least 1 heart left | +1 | `frontend/packages/preschool-games/src/multiplication-game.tsx`, `POST /auth/me/multiplication-game-reward` |
+| Completing every question of the multiplication-table minigame's 15-question session with at least 1 heart left | +1 | `frontend/packages/preschool-games/src/math-game.tsx`, `POST /auth/me/multiplication-game-reward` |
 | Mixing a cocktail correctly in the "Magic Cocktail" minigame | +1, once per round | `frontend/packages/preschool-games/src/cocktail-game.tsx`, `POST /auth/me/cocktail-game-reward` |
+| Clearing one level of the "Машинки" (Cars) minigame | +1 | `frontend/packages/preschool-games/src/cars-game.tsx`, `POST /auth/me/cars-game-reward` |
+| Clearing one level of the "Jumping Frogs" minigame | +1 | `frontend/packages/preschool-games/src/jumping-frogs-game.tsx`, `POST /auth/me/jumping-frogs-reward` |
 
 The four lesson-level rows all route through the single
 `lessons.services.mark_completed` — auto-graded quiz pass, theory
@@ -40,14 +42,16 @@ game's three rows are documented in full in `docs/preschool/games/balloon
 game/README.md`; every other minigame reward shares one implementation,
 `useDiamondMilestoneReward`
 (`frontend/packages/preschool-games/src/kit/use-diamond-milestone-reward.ts`),
-covering both this "count" shape (N items → 1 Diamond) and Reading's/
-the multiplication game's "level" shape (clear a level, or finish a session
-→ 1 Diamond). All six minigames are public at `/games` (see `middleware.ts`'s
-`PUBLIC_PATHS`) — an anonymous visitor can play every one, they just never
-trigger the reward mutation, since
-`useDiamondMilestoneReward` reads the signed-in student off `useAuthStore`
-and no-ops the server call (and the Diamond flight animation) when there
-isn't one.
+covering both this "count" shape (N items → 1 Diamond) and the "level"
+shape used by Reading, the multiplication game, Cars, and Jumping Frogs
+(clear a level, or finish a session → 1 Diamond). All nine minigames
+(`frontend/packages/preschool-games/src/`: balloon pop, trains, reading,
+cards, stories, math/multiplication, cocktail, cars, jumping frogs) are
+public at `/games` (see `middleware.ts`'s `PUBLIC_PATHS`) — an anonymous
+visitor can play every one, they just never trigger the reward mutation,
+since `useDiamondMilestoneReward` reads the signed-in student off
+`useAuthStore` and no-ops the server call (and the Diamond flight
+animation) when there isn't one.
 
 ## 2. Storage
 
@@ -89,20 +93,23 @@ bonuses specifically, not a general ledger.
 
 ## 4. Spending
 
-The avatar wardrobe shop (`docs/core/avatar.md` §2.2) is the one spend path
-actually built: `AvatarItem.price` (0 = free), checked and deducted in
-`accounts.services.purchase_avatar_item` — one conditional `UPDATE`
-(`diamond_balance_cache__gte=item.price`) so two concurrent purchases can't
-both succeed off a stale balance, same pattern as the earning side's atomic
-`F()` updates. The unlock is recorded on `StudentProfile.unlocked_items`
-(never touched by equip), so switching companions and back doesn't lose
-access to anything already bought. Frontend: `components/profile/
-avatar-wardrobe.tsx` — trying on a priced, not-yet-unlocked item opens a
-confirm-purchase dialog; too little balance opens `NotEnoughDiamondsDialog`
-instead.
+Two independent shops spend Diamonds, sharing only the currency:
 
-`docs/core/avatar.md`'s home-decoration shop (§2.3) is spec only — nothing
-under it is built yet.
+- **Avatar wardrobe** (`docs/core/avatar.md` §2): `AvatarItem.price`
+  (0 = free), checked and deducted in
+  `accounts.services.purchase_avatar_item` — one conditional `UPDATE`
+  (`diamond_balance_cache__gte=item.price`) so two concurrent purchases
+  can't both succeed off a stale balance, same pattern as the earning
+  side's atomic `F()` updates. The unlock is recorded on
+  `StudentProfile.unlocked_items` (never touched by equip), so switching
+  companions and back doesn't lose access to anything already bought.
+  Frontend: `frontend/packages/avatar/src/avatar-wardrobe.tsx` — trying on
+  a priced, not-yet-unlocked item opens a confirm-purchase dialog; too
+  little balance opens `NotEnoughDiamondsDialog` instead.
+- **House/furniture shop** (`docs/core/avatar.md` §4): `FurnitureItem.price`,
+  same conditional-`UPDATE` pattern, via `backend/house` — a separate app
+  from the avatar system, not a sub-feature of it (see that doc). Frontend:
+  `frontend/packages/house-3d/`.
 
 ## 5. Not gamification-by-diamonds, but adjacent
 

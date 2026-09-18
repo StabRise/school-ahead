@@ -1,4 +1,5 @@
 # Interface Language & Localization
 
 * **Primary Language:** Ukrainian (`uk`) is the core operational language of the platform.
-* **Internationalization (i18n) Readiness:** The application architecture is built with future localization in mind. All interface texts, system notifications, course materials, and UI labels are decoupled from the codebase using translation keys (e.g., via standard i18n frameworks), allowing for seamless integration of additional languages in future updates.
+* **Internationalization (i18n) Readiness:** The application uses `next-intl`, with every route prefixed by locale (`/uk/...`). `frontend/apps/web/i18n/routing.ts` defines `locales: ["uk"]` and `defaultLocale: "uk"` — `uk` is the only shipped locale today, but the routing/translation-key setup is in place from day one for adding more (a locale is added there and as a new `frontend/apps/web/messages/<locale>.json` file). All interface texts, system notifications, and UI labels are decoupled from the codebase using translation keys rather than hardcoded strings.
+* **Content vs. UI text:** This covers interface chrome only — course/curriculum content (subject descriptions, lesson materials) is authored directly in Ukrainian as data, not translated via message keys, since it's Ukrainian curriculum content rather than app UI.

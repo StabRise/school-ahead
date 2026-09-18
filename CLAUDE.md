@@ -28,7 +28,7 @@ react-hook-form
 Folder: /backend
 
 Django Ninja,
-postgres, django-q
+postgres
 pytest
 uv - package manager
 ruff - rust lint
@@ -55,17 +55,38 @@ github actions
 - [Student Progress & "Ahead" Mode](docs/core/progress.md)
 - [Gamification: Diamonds](docs/core/gamification.md)
 - [Academic Dates and Schedule Planning](docs/core/schedule_planning.md)
+- [Avatar Customization & Home Decoration](docs/core/avatar.md)
 
 ## Student Interface
 
 - [Weekly Calendar (Student Main Screen)](docs/interfaces/student/calendar.md)
-- [Lesson Screen Structure (Wizard)](docs/interfaces/student/lesson.md)
+- [Lesson Screen Structure](docs/interfaces/student/lesson.md)
 - [Subject Progress Screen](docs/interfaces/student/progress.md)
-- [Student's Daily View ("Day View")](docs/interfaces/student/today.md)
+- [Student's Daily View ("Today")](docs/interfaces/student/today.md)
+- [Subject Detail & Topic Workspace](docs/interfaces/student/subjects.md)
+- ["My Subjects" — Student Dashboard & Subjects List](docs/interfaces/student/subjects_list.md)
+- [Preschool Lesson View — Original Design Brief](docs/interfaces/student/preschool/lesson.md)
 
 ## Tutor Interface
 
-- [Tutor Main Screen ("Rapid Response Dashboard")](docs/interfaces/tutor/main.md)
+- [Tutor Main Screen](docs/interfaces/tutor/main.md)
+
+## Preschool Mode
+
+- [Preschool View — what's actually built](docs/views/preschool/README.md)
+- [Preschool View — original design brief (historical)](docs/views/preschool/ideas.md)
+
+### Preschool Minigames
+
+- [Balloon Pop Game](<docs/preschool/games/balloon game/README.md>)
+- [Cards — study flashcards (grades 7-8)](docs/preschool/games/cards.md)
+- [Cars Game ("Машинки" / Parking Math)](docs/preschool/games/cars.md)
+- [Magic Cocktail Game](docs/preschool/games/cocktail.md)
+- [Jumping Frogs Game](docs/preschool/games/jumping-frogs.md)
+- [Math Runner Game](docs/preschool/games/multiplication.md)
+- [Reading Game — "Склади" (Syllables)](docs/preschool/games/reading/README.md)
+- [Reading Game — "Картки" (Cards)](docs/preschool/games/reading/Cards.md)
+- [Reading Game — "Казки" (Stories)](docs/preschool/games/reading/Stories.md)
 
 ## Architecture
 

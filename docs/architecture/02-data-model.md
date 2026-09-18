@@ -10,15 +10,15 @@ These go beyond — or in one case, are now directly confirmed by — what `/doc
 
 2. **Backlog is computed at query time, never persisted.** Backlog = `StudentLesson.objects.filter(student=X, status != completed, scheduled_date < today)`. The "Mon #4" origin label (per `docs/interfaces/student/calendar.md` and `today.md`) is derived at read time from the weekday + ordinal position among that day's lessons, using whatever `scheduled_date` currently holds — this is no longer a fixed original date, since `docs/core/schedule_planning.md` allows it to move (see decision 5). Avoids a persisted-record/source-of-truth drift risk.
 
-3. **Diamonds are an append-only ledger (`DiamondLedgerEntry`), not a running counter.** Needs an audit trail, needs to support negative correction entries (e.g. a tutor downgrades a grade post-award), and per-subject/per-block balances are derivable via `SUM(...)`. A `StudentProfile.diamond_balance_cache` may exist purely as a perf-optimization cache refreshed by a `django-q` task, but the ledger is the source of truth. **Not yet true in practice** — lesson-completion diamonds are implemented as a direct increment of `diamond_balance_cache` (no ledger, no `progress` app), so none of the audit-trail/correction/per-subject-breakdown properties above actually hold yet. See `docs/core/progress.md` section 2.
+3. **Diamonds were originally designed as an append-only ledger (`DiamondLedgerEntry`), not a running counter** — for an audit trail, negative correction entries (e.g. a tutor downgrades a grade post-award), and per-subject/per-block balances derivable via `SUM(...)`. **This was never built.** There is no ledger table and no `progress` app anywhere in the codebase; `StudentProfile.diamond_balance_cache` is a plain running integer, incremented directly by every diamond-awarding code path with no per-award record beyond two idempotency-guard tables (`TopicCompletionBonus`, `SemesterCompletionBonus`). None of the audit-trail/correction/per-subject-breakdown properties this decision describes actually exist. See `docs/core/progress.md` §2 and `docs/core/gamification.md` for what's actually built, and `01-backend-apps.md`'s `achievements` section for the (unrelated) app that exists instead.
 
 4. **`Topic.subject_block` is the source of truth for block membership, not a per-`StudentLesson` field.** A Topic belongs to exactly one `SubjectBlock` (even split across the subject's blocks, in `order_index` order — same rule as `SubjectBlock` count itself), and every `Lesson` under it — and so every student's `StudentLesson` for that lesson — inherits that block. `academics.services.assign_topics_to_blocks` recomputes the assignment from scratch (no override concept) whenever topics or blocks change: topic create/update/delete/reorder, or `block_count` changing via `ensure_subject_blocks`. This superseded an earlier design where `StudentLesson` carried its own immutable `subject_block` FK, assigned per-lesson during calendar generation — moving it onto `Topic` keeps it structural (owned by `academics`, no per-student state) and guarantees every lesson in a topic reports the same block consistently.
 
 5. **`StudentLesson.scheduled_date` is mutable, not immutable.** It's set by calendar generation, can be overwritten by forced recalculation, and can be moved for a single lesson via manual tutor reschedule (`docs/core/schedule_planning.md`). To keep recalculation from silently clobbering a tutor's deliberate manual move — or a student's completed history — `StudentLesson` carries `is_manually_scheduled` (boolean, default `False`, set `True` by the manual-reschedule endpoint), and the recalculation algorithm skips any `StudentLesson` that is `status == completed` or has `is_manually_scheduled == True`. This is a design decision beyond what the doc states literally — see `08-calendar-generation.md` — and the doc's own ambiguity (does forced recalculation intend to override manual moves too?) is listed in `07-open-questions.md`.
 
-6. **Calendar generation runs as a background `django-q` task**, not inline in the request/response cycle — see `08-calendar-generation.md`. This gives the CLAUDE.md-declared `django-q` dependency its first concrete use in this design.
+6. **Calendar generation was originally designed to run as a background `django-q` task, but runs synchronously instead.** `scheduling.api.generate_calendar`/`recalculate_calendar` call `scheduling.services.generate_calendar_for_subject` directly, inline in the request/response cycle — see `08-calendar-generation.md`. `django-q` is not installed in this codebase (no `django_q` reference anywhere in `backend/`, not in `INSTALLED_APPS`) despite being listed as a planned dependency elsewhere.
 
-7. **Admins are auto-provisioned a `TutorProfile` and assigned as tutor to every `Subject`, by default.** A `role == admin` `User` is not naturally a tutor, but `TutorSubjectAssignment.tutor` FKs to `TutorProfile` — so rather than special-casing admin in every tutor-scope query, `tutoring.services` (see `01-backend-apps.md`) auto-creates a `TutorProfile` for each admin and a `TutorSubjectAssignment` row linking it to every `Subject`, keeping `get_tutor_subject_ids` a single code path for tutors and admins alike. Two `post_save` triggers keep this in sync: a new `Subject` gets every existing admin assigned; a `User` newly granted `role == admin` gets assigned to every existing `Subject`. Whether an admin's auto-assignment can be manually revoked (`TutorSubjectAssignment.is_active = False`) without it being silently re-created is listed as an open question in `07-open-questions.md`.
+7. **Admins are auto-provisioned a `TutorProfile` and assigned as tutor to every `Subject`, by default — and a `Class.class_teacher` is auto-assigned tutor of every `Subject` under their class.** A `role == admin` `User` is not naturally a tutor, but `TutorSubjectAssignment.tutor` FKs to `TutorProfile` — so rather than special-casing admin in every tutor-scope query, `tutoring.services` (see `01-backend-apps.md`) auto-creates a `TutorProfile` for each admin and a `TutorSubjectAssignment` row linking it to every `Subject`, keeping `get_tutor_subject_ids` a single code path for tutors and admins alike; the same `get_or_create` pattern auto-assigns a class's homeroom teacher to every subject under that class. Three `post_save`/`pre_save` triggers keep this in sync (`tutoring/signals.py`): a new `Subject` gets every existing admin **and** its class's teacher assigned; a `User` newly granted `role == admin` gets assigned to every existing `Subject`. **Revocation is resolved**, not open: every trigger uses `get_or_create(tutor=..., subject=...)`, which only fills a missing row and never touches `is_active` on one that already exists — so setting `TutorSubjectAssignment.is_active = False` sticks and is never silently reactivated.
 
 ## ERD 1 — Curriculum & Organization
 
@@ -51,13 +51,40 @@ erDiagram
     Lesson ||--o{ StudentLesson : instantiated_as
     StudentLesson ||--o{ LessonSubmission : has
     StudentLesson ||--o{ StudentLessonStatusEvent : logs
-    StudentProfile ||--o{ DiamondLedgerEntry : earns
-    Subject ||--o{ DiamondLedgerEntry : "earned in"
-    StudentProfile ||--o{ StudentAchievement : earns
-    Achievement ||--o{ StudentAchievement : "awarded as"
     TutorProfile ||--o{ TutorSubjectAssignment : "assigned to"
     Subject ||--o{ TutorSubjectAssignment : "assigned tutors"
 ```
+
+`diamond_balance_cache` lives directly on `StudentProfile` (a plain counter, not a ledger — see decision 3), so there's no separate diamond entity to diagram. `ProgressBadge` (`achievements`) has no FK to `StudentProfile` at all — it's computed on the fly from a subject's completion %, not earned/stored per student. See ERD 3 below for the gamification-extension apps' actual entities.
+
+## ERD 3 — Gamification & extension apps
+
+The seven apps added after the original design (`achievements`, `house`, `preschool`, `tasks`, `cards`, `dictionary`, `tts` — see `01-backend-apps.md`) each own a small, mostly self-contained set of entities:
+
+```mermaid
+erDiagram
+    StudentProfile ||--o{ FurniturePurchase : owns
+    StudentProfile ||--o{ PlacedFurnitureItem : places
+    StudentProfile ||--o| RoomStyle : has
+    FurnitureItem ||--o{ FurnitureTexture : has
+    FurnitureItem ||--o{ FurniturePurchase : "purchased as"
+    FurnitureItem ||--o{ PlacedFurnitureItem : "placed as"
+    TutorProfile ||--o{ Story : authors
+    Story ||--o{ StoryAsset : has
+    Topic ||--o{ Task : has
+    StudentProfile ||--o{ TaskCompletion : marks
+    StudentProfile ||--o{ TaskSubmission : submits
+    Task ||--o{ TaskCompletion : "completed as"
+    Task ||--o{ TaskSubmission : "answered as"
+    StudentProfile ||--o{ StudentCard : saves
+    StudentProfile ||--o{ StudentCustomTopic : creates
+    StudentCustomTopic ||--o{ StudentCustomLesson : has
+    Lesson ||--o{ StudentCard : "filed under"
+    StudentCustomLesson ||--o{ StudentCard : "filed under"
+    StudentProfile ||--o{ DictionaryItem : saves
+```
+
+(`ProgressBadge` and `TtsVoiceSetting` have no FKs to any of the above — both are standalone lookup/config tables — so they're omitted from the diagram; see their field summaries below.)
 
 ## Field-level model definitions
 
@@ -143,17 +170,53 @@ Minimal MVP quiz modeling (see `07-open-questions.md` for depth caveats). `QuizQ
 ### `lessons.StudentLessonStatusEvent` (audit log — powers the tutor Need-Help feed)
 `student_lesson` (FK, related_name `status_events`) · `from_status` · `to_status` · `actor` (FK → User, null = system transition) · `note` (TextField, blank) · `created_at` (indexed).
 
-### `progress.DiamondLedgerEntry`
-`student` (FK) · `subject` (FK, null) · `student_lesson` (FK, null) · `subject_block` (FK, null — semester-close bonus) · `amount` (signed Integer) · `reason` (choices: lesson_completed/completed_ahead/block_closed/manual_adjustment) · `created_at`.
-
-### `progress.Achievement`
-`code` (unique) · `name` · `description` · `icon_key` (frontend icon token) · `created_at`.
-
-### `progress.StudentAchievement`
-`student` (FK) · `achievement` (FK) · `subject_block` (FK, null) · `earned_at`. `unique_together(student, achievement, subject_block)`.
-
 ### `tutoring.TutorSubjectAssignment`
 `tutor` (FK → `accounts.TutorProfile`, related_name `assignments`) · `subject` (FK → `academics.Subject`, related_name `tutor_assignments`) · `assigned_at` (auto_now_add) · `is_active` (Boolean, default True). `unique_together(tutor, subject)`.
+
+### `achievements.ProgressBadge`
+`name` · `icon` (CharField(8), a single emoji, blank) · `level` (PositiveSmallInt, unique) · `min_percent` / `max_percent` (PositiveSmallInt — tier boundaries against a subject's overall lesson-completion %). No FK to `StudentProfile` — badges are computed per-request from live completion %, not earned/persisted.
+
+### `house.FurnitureItem`
+`key` (SlugField, unique) · `name` · `model_file` (FileField, `.obj`/`.stl` only) · `material_file` (FileField, `.mtl`, blank — the `.obj`'s optional sidecar material) · `thumbnail_image` (FileField — flat 2D shop-grid icon) · `price` (PositiveInteger, default 0) · `surface` (choices: floor/wall/ceiling — which room surface it snaps to) · `default_position_x/y/z`, `default_rotation_x/y/z`, `default_scale` (Float — transform applied at purchase time, then freely draggable) · `order_index` · `is_active`.
+
+### `house.FurnitureTexture`
+`item` (FK, related_name `textures`) · `file` (FileField) · `original_filename` (CharField — a `.mtl`'s `map_Kd`/etc. directives reference textures by their pre-upload filename, which storage always renames; this keeps that original name resolvable).
+
+### `house.FurniturePurchase`
+`student_profile` (FK) · `item` (FK, related_name `purchases`) · `purchased_at` (auto_now_add). `unique_together(student_profile, item)`. Free items (`price == 0`) need no row here.
+
+### `house.PlacedFurnitureItem`
+`student_profile` (FK) · `item` (FK, related_name `placements`) · `position_x/y/z`, `rotation_x/y/z` (Float) · `scale` (Float, default 1.0). `unique_together(student_profile, item)` — row existence means "currently placed"; deleted on "put away".
+
+### `house.RoomStyle`
+`student_profile` (O2O, related_name `room_style`) · `wall_color` / `floor_color` (CharField(7), `#rrggbb`). Created lazily on first read/write, not backfilled — defaults double as "never touched it".
+
+### `preschool.Story`
+`title` · `subtitle` (blank) · `cover_image` (FileField, blank) · `content` (TextField, blank — same `{...}` card-group Markdown syntax the frontend's static `story.md` files use) · `is_published` (Boolean, default False — gates the public/game-facing endpoints only, not the tutor editing surface) · `created_by` (FK → `accounts.TutorProfile`, `SET_NULL`, null) · `slug` (SlugField, unique — Cyrillic-transliterated from `title` once at creation, never auto-updated on later title edits, since the public game route is keyed on it).
+
+### `preschool.StoryAsset`
+`story` (FK, related_name `assets`) · `file` (FileField, image/audio/video, validated extension list) · `original_filename` (blank, default `''`).
+
+### `tasks.Task`
+`topic` (FK → `academics.Topic`, related_name `tasks`) · `title` · `kind` (choices: markdown/image) · `content` (TextField, blank — set iff `kind == markdown`) · `image` (FileField, blank — set iff `kind == image`) · `order_index`. No per-student assignment.
+
+### `tasks.TaskCompletion`
+`student` (FK) · `task` (FK, related_name `completions`) · `completed_at` (auto_now_add). `unique_together(student, task)` — existence is the done signal; deleted (not flagged) to un-mark.
+
+### `tasks.TaskSubmission`
+`task` (FK, related_name `submissions`) · `student` (FK) · `text` (TextField, blank) · `file` (FileField, blank) · `updated_at` (auto_now). `unique_together(student, task)` — resubmission overwrites in place, no history, no grading.
+
+### `cards.StudentCustomTopic` / `cards.StudentCustomLesson`
+Personal, non-`academics.Topic`/`Lesson` set/category structure for an imported flashcard deck whose titles didn't resolve to real curriculum. `StudentCustomTopic`: `student` (FK) · `subject` (FK → `academics.Subject` — still tied to a real subject so the cards show on that subject's Картки tab) · `title`. `unique_together(student, subject, title)`. `StudentCustomLesson`: `topic` (FK, related_name `lessons`) · `title` · `order_index`. `unique_together(topic, title)`.
+
+### `cards.StudentCard`
+`student` (FK) · `lesson` (FK → `lessons.Lesson`, null) · `custom_lesson` (FK → `StudentCustomLesson`, null) · `term` · `translation` · `definition` (TextField, blank — example sentence) · `order_index`. `CheckConstraint` enforces exactly one of `lesson`/`custom_lesson` set.
+
+### `dictionary.DictionaryItem`
+`student` (FK, related_name `dictionary_items`) · `text` (CharField(255) — 1–5 words, enforced server-side) · `lang` (choices, shared `lessons.MaterialLanguage`) · `translation` · `sample` / `sample_translation` (TextField — the source sentence, for context) · `status` (choices: new/in_progress/known, default new) · `created_at`. No FK to source material — survives it being edited/deleted.
+
+### `tts.TtsVoiceSetting`
+`language` (choices, shared `lessons.QuizLanguage`) · `profile` (choices: short/sentence) · `voice_id` (choices, Piper voice catalog). `unique_together(language, profile)`. Standalone config, not tied to any student/lesson row.
 
 ## Field/status vocabulary consistency
 

@@ -11,18 +11,15 @@ graph TB
     Django["Django Ninja API"]
     PG[("PostgreSQL")]
     Google["Google Identity Services"]
-    Q["django-q worker (calendar generation)"]
 
     Browser -->|"page loads (cookie sent, shared parent domain)"| Next
     Browser -->|"cross-site fetch, credentials: include (Orval hooks)"| Django
     Next -->|"Orval client (server), Authorization: Bearer <token from cookie>"| Django
     Browser -.->|"Google sign-in (ID token)"| Google
     Django --> PG
-    Django -->|"enqueue task"| Q
-    Q --> PG
 ```
 
-Django Ninja is the only service that talks to Postgres. There is no BFF/proxy layer — but the Orval-generated client is called from **both** sides of Next.js: from the browser (React Query hooks, cookie-authenticated) and from Next.js's own server (Server Components / Route Handlers / Server Actions, Bearer-authenticated), reusing the **same** JWT the browser already holds rather than issuing a separate one. See `05-auth-flow.md` for exactly how a single cookie authenticates both call paths. Long-running work (calendar generation) runs in a `django-q` worker, not inline in the request/response cycle (see `08-calendar-generation.md`).
+Django Ninja is the only service that talks to Postgres. There is no BFF/proxy layer — but the Orval-generated client is called from **both** sides of Next.js: from the browser (React Query hooks, cookie-authenticated) and from Next.js's own server (Server Components / Route Handlers / Server Actions, Bearer-authenticated), reusing the **same** JWT the browser already holds rather than issuing a separate one. See `05-auth-flow.md` for exactly how a single cookie authenticates both call paths. Calendar generation — the one operation originally planned to run as background work — actually runs synchronously, inline in the request/response cycle; `django-q` is not installed or used anywhere in this codebase (see `08-calendar-generation.md`).
 
 ## Stack summary
 
@@ -37,14 +34,14 @@ Django Ninja is the only service that talks to Postgres. There is no BFF/proxy l
 | Frontend testing | Vitest |
 | Backend framework | Django + Django Ninja |
 | Backend database | PostgreSQL |
-| Backend background jobs | django-q |
+| Backend background jobs | none — `django-q` was planned but was never installed/used; all work (including calendar generation) runs inline in the request |
 | Backend testing | pytest |
 | Backend tooling | uv, ruff, ty |
 | Auth | Google social auth, JWT (Django-issued httpOnly cross-site cookies, no BFF) |
 
 ## Cross-cutting principles
 
-1. **Domain-driven Django apps.** One app per bounded domain (`accounts`, `academics`, `lessons`, `tutoring`, `progress`, `scheduling`), not one app per user role and not a single monolithic app. See `01-backend-apps.md`.
+1. **Domain-driven Django apps.** One app per bounded domain — `accounts`, `academics`, `lessons`, `tutoring`, `scheduling`, plus the gamification/extension apps `achievements`, `house`, `preschool`, `tasks`, `cards`, `dictionary`, `tts` — not one app per user role and not a single monolithic app. (The originally-planned `progress` app, shown in older versions of this doc, was never built — see `01-backend-apps.md`.) See `01-backend-apps.md` for the full app list and dependency diagram.
 2. **Frontend calls Django directly — no BFF, but the Orval client runs on both sides of Next.js.** Client Components use the Orval-generated React Query hooks straight from the browser (cross-origin, `credentials: 'include'`). Server Components, Route Handlers, and Server Actions call the *same* generated client with a server-side mutator that reads the JWT out of the incoming request's cookie (`next/headers`) and sends it as `Authorization: Bearer`. Both paths authenticate as the same user with the same token — Django never issues Next.js a separate credential. Tokens still never reach client-side JavaScript. See `05-auth-flow.md`.
 3. **Curriculum vs. per-student progress is a hard split.** `Lesson` (template) and `StudentLesson` (per-student instance) are different tables, confirmed directly by `docs/core/lessons.md`'s "Core Domain Components" section. See `02-data-model.md`.
 4. **Single writer per table.** Every write to `StudentLesson` — status transitions, grading, and scheduling — goes through `lessons`'s service layer, even when the triggering endpoint lives in another app (e.g. `scheduling` or `tutoring`). See `01-backend-apps.md` and `02-data-model.md`.

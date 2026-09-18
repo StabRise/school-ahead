@@ -1,77 +1,81 @@
-1. Назва проєкту
+# Reading Game — "Картки" (Cards)
 
-"Картки" — друга гра в серії docs/preschool/games/reading, поряд зі
-"Складами" (README.md, packages/preschool-games/src/reading-game.tsx) і
-"Казками" (Stories.md, packages/preschool-games/src/stories-game.tsx).
-Component: frontend/packages/preschool-games/src/cards-game.tsx → CardsGame.
-На відміну від "Складів" (Drag-and-Drop), тут кожна картка — вже
-готове зображення (склад + малюнок предмета в одному файлі), тож гра
-зводиться до "слухай і впізнавай", а не "перетягуй".
+The second game in the `docs/preschool/games/reading` series, alongside
+"Склади" (Syllables, `README.md`, `packages/preschool-games/src/
+reading-game.tsx`) and "Казки" (Stories, `Stories.md`, `packages/
+preschool-games/src/stories-game.tsx`). Component:
+`frontend/packages/preschool-games/src/cards-game.tsx` → `CardsGame`.
+Unlike "Склади" (drag-and-drop), each card here is already a finished
+image (syllable + object picture baked into one file), so the game is
+"listen and recognize," not "drag."
 
-2. Мета гри
+## 1. Goal
 
-Українська мова! Закріпити впізнавання складу (приголосний + голосний)
-через багаторазове прослуховування картки (режим "Навчання") і
-перевірку впізнавання на слух серед кількох варіантів (режим "Гра").
+Ukrainian language! Reinforce syllable (consonant + vowel) recognition
+through repeated listening to a card ("Навчання"/Learning mode) and testing
+recognition by ear among several options ("Гра"/Game mode).
 
-3. Контент
+## 2. Content
 
-Картки лежать у frontend/public/static/syllables/<Приголосна>/
-<склад>.png — кожен файл уже містить і напис складу (голосна буква
-червона, приголосна синя), і малюнок предмета, що починається на цей
-склад (напр. ба.png → БА + баранець), намальований і сфотографований
-так само, як в docs/preschool/games/reading/Stories.md §3 (див.
-backend/lessons/management/commands/slice_flashcard_grid.py). Поруч
-лежить words.json — відповідність "склад": "назва предмета" (напр.
-"ба": "баран"). Приголосна доступна як рівень (GET
-/api/cards-game-modes), лише якщо в її папці є words.json — щойно
-нарізані аркуші без нього (row0_colN.png) ще не готові й не
-показуються в грі.
+Cards live at `frontend/apps/web/public/static/syllables/<Consonant>/
+<syllable>.png` — each file already contains both the syllable's written
+form (vowel letter red, consonant blue) and a picture of an object starting
+with that syllable (e.g. `ba.png` → БА + a little ram/lamb). Drawn and
+photographed the same way as described in `docs/preschool/games/reading/
+Stories.md` §3 (see `backend/lessons/management/commands/
+slice_flashcard_grid.py`). A `words.json` sits alongside, mapping
+`"syllable": "object name"` (e.g. `"ба": "баран"`). A consonant is only
+available as a level (`GET /api/cards-game-modes`) if its folder has a
+`words.json` — freshly sliced sheets with no `words.json` yet
+(`row0_colN.png`) aren't ready and don't show up in the game.
 
-4. Інтерфейс та ігрові елементи
+## 3. Interface
 
-Кнопка налаштувань (⚙️) зліва зверху:
-- вибір приголосної (лише ті, для яких є words.json);
-- підписувати картки назвою предмета: true/false;
-- без звуку: true/false.
+Settings button (⚙️, top-left):
 
-Перемикач "Гра"/"Навчання" — кругла пігулка справа знизу (той самий
-патерн, що й у balloon-pop-game.tsx), показується лише коли для
-обраної приголосної є картки.
+- consonant picker (only consonants that have a `words.json`);
+- label cards with the object's name: on/off;
+- mute: on/off.
 
-5. Режим "Навчання" (CardsLevel)
+A "Гра"/"Навчання" (Game/Learning) toggle — a round pill switch bottom-right
+(same pattern as `balloon-pop-game.tsx`) — only shows once the selected
+consonant actually has cards.
 
-Сітка карток обраної приголосної (шість карток — голосні А О У Е И
-І), той самий компонент BalloonLearningCards, що й на "learning"
-екрані гри "Кульки" (packages/preschool-games/src/balloon-learning-cards.tsx).
-Дитина натискає на картку → лунає склад, а потім — назва предмета на
-малюнку; повторний дотик просто повторює звук. Коли дитина торкнулась
-усіх карток приголосної хоча б раз — святкова анімація (🎉) з кнопками
-"Ще раз" і "Далі: <наступна приголосна>".
+## 4. Learning mode (`CardsLevel`)
 
-6. Режим "Гра" / "Перевірка знань" (CardsFallingGame)
+A grid of the selected consonant's cards (six cards — vowels А О У Е И І),
+the same `BalloonLearningCards` component used on the Balloon Pop game's
+own "learning" screen (`packages/preschool-games/src/
+balloon-learning-cards.tsx`). Tapping a card plays the syllable, then the
+pictured object's name; tapping again just repeats the sound. Once the
+child has touched every card for that consonant at least once, a
+celebration animation (🎉) shows with "Again" and "Next: <next consonant>"
+buttons.
 
-Картки приголосної безперервно падають зверху вниз (той самий
-падаючий рух, що й кульки в balloon-pop-game.tsx — спавн з інтервалом,
-до 10 карток на екрані одночасно, 8-13 секунд на падіння). Зверху —
-цільовий склад (кольоровими літерами, як у "Складах") зі кнопкою "🔊"
-щоб повторити; лунає він і на слух одразу після вибору. Дитина
-натискає на картку, що падає:
-- якщо склад збігається з цільовим — приємний звук, зірочки-частинки
-  розлітаються з місця дотику, рахунок у правому верхньому куті
-  зростає, і обирається новий цільовий склад;
-- якщо ні — м'який звук "не так", картка просто зникає, без штрафу;
-- картка, що долетіла донизу непоміченою, теж просто зникає, без
-  штрафу.
+## 5. Game mode / "knowledge check" (`CardsFallingGame`)
 
-Рахунок і ціль — сесійні (обнуляються при зміні приголосної чи
-перезаході в екран); без серверної перевірки правильних відповідей.
+The consonant's cards fall continuously from top to bottom (the same
+falling motion as the balloons in `balloon-pop-game.tsx` — spawn on an
+interval, up to 10 cards on screen at once, 8–13 seconds to fall). A target
+syllable shows at the top (in the same colored-letter style as "Склади")
+with a "🔊" button to repeat it; it's also spoken aloud immediately once a
+target is chosen. The child taps a falling card:
 
-Кожні 10 зірочок (DIAMOND_MILESTONE_STARS) нараховують 1 Діамант через
-POST /auth/me/cards-game-reward — той самий "count"-патерн, що й у
-"Потяга"/"Кульок"/"Казок" (docs/core/gamification.md), на відміну від
-"Складів", де Діамант дається за завершення рівня. Лише для
-автентифікованого учня — анонімний відвідувач (усі ігри публічні під
-/games, див. middleware.ts) так само бачить, як зростає рахунок, але
-Діамант не нараховується (див. useDiamondMilestoneReward у
-frontend/packages/preschool-games/src/kit/).
+- **matches the target syllable** — a pleasant sound, star particles burst
+  from the tap point, the score in the top-right corner increases, and a
+  new target syllable is chosen;
+- **doesn't match** — a soft "wrong" sound, the card just disappears, no
+  penalty;
+- **reaches the bottom unnoticed** — also just disappears, no penalty.
+
+Score and target are session-only (reset on changing consonant or
+re-entering the screen) — no server-side answer verification.
+
+Every 10 stars (`DIAMOND_MILESTONE_STARS`) award 1 Diamond via `POST
+/auth/me/cards-game-reward` — the same "count" pattern as the Trains,
+Balloon Pop, and Stories games (`docs/core/gamification.md`), unlike
+"Склади," where the Diamond is awarded on level completion. Logged-in
+students only — an anonymous visitor (every game is public under `/games`,
+see `middleware.ts`) still watches their score climb, they just don't earn
+a Diamond for it (see `useDiamondMilestoneReward` in
+`frontend/packages/preschool-games/src/kit/`).
