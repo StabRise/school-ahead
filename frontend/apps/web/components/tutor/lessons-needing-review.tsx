@@ -13,6 +13,7 @@ import {
 } from "@school-ahead/api-client/browser/tutor/tutor";
 import type { NeedReviewLessonOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { PreschoolLessonTile } from "@/components/subjects/preschool-lesson-tile";
+import { useDialogs } from "@/components/dialogs/app-dialogs";
 
 // One of the small round buttons down a card's right edge — same look as the
 // corner buttons on the tutor's Preschool Preview tiles.
@@ -51,6 +52,7 @@ function CornerButton({
 // parent, so pressing one never also opens the lesson.
 function NeedsReviewTile({ lesson, onChanged }: { lesson: NeedReviewLessonOut; onChanged: () => void }) {
   const t = useTranslations("TutorDashboard");
+  const dialogs = useDialogs();
   const tSubject = useTranslations("TutorSubjectDetail");
   const markFixed = useSetTutorLessonNeedReview();
   const deleteLesson = useDeleteTutorLesson();
@@ -59,7 +61,7 @@ function NeedsReviewTile({ lesson, onChanged }: { lesson: NeedReviewLessonOut; o
   const handleFixed = () =>
     markFixed.mutate(
       { lessonId: lesson.id, data: { need_review: false } },
-      { onSuccess: onChanged, onError: () => window.alert(t("needsReviewFixedError")) },
+      { onSuccess: onChanged, onError: () => dialogs.error(t("needsReviewFixedError")) },
     );
 
   // A lesson students have can still be deleted, but their copies (and any
@@ -67,14 +69,14 @@ function NeedsReviewTile({ lesson, onChanged }: { lesson: NeedReviewLessonOut; o
   // the request says `force` (without it the backend refuses, see
   // tutoring.api.delete_lesson).
   const isAssigned = lesson.student_count > 0;
-  const handleDelete = () => {
+  const handleDelete = async () => {
     const confirmation = isAssigned
       ? t("needsReviewDeleteAssignedConfirm", { title: lesson.title, count: lesson.student_count })
       : tSubject("deleteLessonConfirm", { title: lesson.title });
-    if (!window.confirm(confirmation)) return;
+    if (!(await dialogs.confirm({ message: confirmation, tone: "danger" }))) return;
     deleteLesson.mutate(
       { lessonId: lesson.id, params: isAssigned ? { force: true } : undefined },
-      { onSuccess: onChanged, onError: () => window.alert(tSubject("deleteLessonError")) },
+      { onSuccess: onChanged, onError: () => dialogs.error(tSubject("deleteLessonError")) },
     );
   };
 
@@ -84,12 +86,12 @@ function NeedsReviewTile({ lesson, onChanged }: { lesson: NeedReviewLessonOut; o
       {
         onSuccess: (data) => {
           if (data.updated === 0) {
-            window.alert(tSubject("updateLessonIconNoVideo"));
+            dialogs.alert(tSubject("updateLessonIconNoVideo"));
             return;
           }
           onChanged();
         },
-        onError: () => window.alert(tSubject("updateLessonIconsError")),
+        onError: () => dialogs.error(tSubject("updateLessonIconsError")),
       },
     );
 

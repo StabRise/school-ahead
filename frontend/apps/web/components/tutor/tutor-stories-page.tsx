@@ -14,6 +14,7 @@ import type { StoryOut } from "@school-ahead/api-client/browser/schoolAheadAPI.s
 import { Link, useRouter } from "@/i18n/navigation";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { SimpleEntityIcon } from "@/components/simple/entity-icon";
+import { useDialogs } from "@/components/dialogs/app-dialogs";
 
 // Same Notion-style, monochrome, borderless row list as TutorSubjectsPage —
 // each row links to its own edit page (/tutor/stories/[storyId], a real
@@ -90,21 +91,22 @@ function ViewInGameButton({ story }: { story: StoryOut }) {
 
 function DeleteStoryButton({ story }: { story: StoryOut }) {
   const t = useTranslations("TutorStories");
+  const dialogs = useDialogs();
   const queryClient = useQueryClient();
   const deleteStory = useDeleteTutorPreschoolStory();
 
   // Row is wrapped in a Link (see StoryRow) — stop the click from also
   // navigating, same reasoning as tutor-subject-detail-page.tsx's
   // DeleteLessonButton.
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!window.confirm(t("confirmDelete", { title: story.title }))) return;
+    if (!(await dialogs.confirm({ message: t("confirmDelete", { title: story.title }), tone: "danger" }))) return;
     deleteStory.mutate(
       { storyId: story.id },
       {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: getListTutorPreschoolStoriesQueryKey() }),
-        onError: () => window.alert(t("deleteError")),
+        onError: () => dialogs.error(t("deleteError")),
       },
     );
   };
@@ -159,6 +161,7 @@ function StoryRow({ story }: { story: StoryOut }) {
 // up) into the DB.
 function ImportStoryButton() {
   const t = useTranslations("TutorStories");
+  const dialogs = useDialogs();
   const router = useRouter();
   const queryClient = useQueryClient();
   const importStory = useImportTutorPreschoolStory();
@@ -175,7 +178,7 @@ function ImportStoryButton() {
           queryClient.invalidateQueries({ queryKey: getListTutorPreschoolStoriesQueryKey() });
           router.push(`/tutor/stories/${story.id}`);
         },
-        onError: () => window.alert(t("importError")),
+        onError: () => dialogs.error(t("importError")),
       },
     );
   };

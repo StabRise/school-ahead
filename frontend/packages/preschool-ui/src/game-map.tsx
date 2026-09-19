@@ -277,6 +277,14 @@ function ActiveNode({
   );
 }
 
+// The app's modal dialogs, passed in — this package can't import app code, and
+// the browser's own alert/confirm are what the app's dialogs replace. See
+// apps/web/components/dialogs/app-dialogs.tsx.
+export interface GameMapDialogs {
+  confirm: (message: string) => Promise<boolean>;
+  error: (message: string) => Promise<void>;
+}
+
 // The little minus on a step the child picked themselves: takes it back off
 // the road (deletes its StudentLesson). Only rendered when the backend says
 // `can_cancel` — self-selected, unfinished, nothing submitted or said on it
@@ -286,20 +294,22 @@ function ActiveNode({
 function CancelLessonButton({
   item,
   right,
+  dialogs,
   onCancelled,
 }: {
   item: CalendarItemOut;
   right: number;
+  dialogs: GameMapDialogs;
   onCancelled?: () => void;
 }) {
   const t = useTranslations("PreschoolGameMap");
   const cancelLesson = useCancelSelfSelectedLesson();
 
-  const handleClick = () => {
-    if (!window.confirm(t("cancelConfirm", { title: item.lesson_title }))) return;
+  const handleClick = async () => {
+    if (!(await dialogs.confirm(t("cancelConfirm", { title: item.lesson_title })))) return;
     cancelLesson.mutate(
       { studentLessonId: item.id },
-      { onSuccess: () => onCancelled?.(), onError: () => window.alert(t("cancelError")) },
+      { onSuccess: () => onCancelled?.(), onError: () => dialogs.error(t("cancelError")) },
     );
   };
 
@@ -324,11 +334,13 @@ function StepNode({
   item,
   point,
   isCurrent,
+  dialogs,
   onCancelled,
 }: {
   item: CalendarItemOut;
   point: Point;
   isCurrent: boolean;
+  dialogs: GameMapDialogs;
   onCancelled?: () => void;
 }) {
   const isCompleted = item.status === "completed";
@@ -367,7 +379,12 @@ function StepNode({
         <ActiveNode item={item} isCurrent={isCurrent} />
       </Link>
       {item.can_cancel && (
-        <CancelLessonButton item={item} right={(wrapperStyle.width as number - size) / 2 - 8} onCancelled={onCancelled} />
+        <CancelLessonButton
+          item={item}
+          right={(wrapperStyle.width as number - size) / 2 - 8}
+          dialogs={dialogs}
+          onCancelled={onCancelled}
+        />
       )}
     </div>
   );
@@ -377,9 +394,11 @@ function StepNode({
 // lesson, so the caller can reload the road (see student-dashboard.tsx).
 export function PreschoolGameMap({
   items,
+  dialogs,
   onLessonCancelled,
 }: {
   items: CalendarItemOut[];
+  dialogs: GameMapDialogs;
   onLessonCancelled?: () => void;
 }) {
   const t = useTranslations("PreschoolGameMap");
@@ -450,6 +469,7 @@ export function PreschoolGameMap({
             item={item}
             point={points[index]}
             isCurrent={index === currentIndex}
+            dialogs={dialogs}
             onCancelled={onLessonCancelled}
           />
         ))}

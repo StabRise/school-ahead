@@ -109,6 +109,18 @@ Pages that want an authenticated initial render (e.g. `/calendar`, the tutor das
 
 shadcn/ui components generated into `frontend/apps/web/components/ui/`, composed into feature components under `frontend/apps/web/components/<domain>/` (e.g. `components/lesson-wizard/`, `components/subjects/`, `components/preschool/`), using Radix primitives underneath per shadcn convention. Forms use React Hook Form + Zod resolvers. Cross-cutting/reusable UI that isn't app-specific lives in the shared packages above instead (`preschool-ui`, `avatar`, `house-3d`, `flashcards`, `markdown-editor`).
 
+## Messages and confirmations: `useDialogs()`
+
+Never call `window.alert` / `window.confirm`. `components/dialogs/app-dialogs.tsx` is the one modal for messages and yes/no questions (a Radix Dialog, mounted once by `DialogProvider` in `app/providers.tsx`); components get it from `useDialogs()` and await the answer:
+
+```tsx
+const dialogs = useDialogs();
+if (!(await dialogs.confirm({ message: t("deleteConfirm"), tone: "danger" }))) return;
+deleteThing.mutate(vars, { onError: () => dialogs.error(t("deleteError")) });
+```
+
+`alert` shows a message, `error` the same titled as a failure, and `confirm` resolves `true` only when confirmed (`tone: "danger"` makes the button red, for deletions; Cancel is focused first so a stray Enter can't confirm one). Unlike the native ones they don't block the page, so a request made while a dialog is open waits its turn (`lib/dialog-queue.ts`). A shared package can't import app code, so it takes the functions as a prop instead — see `PreschoolGameMap`'s `dialogs`.
+
 ## Lesson wizard state
 
 The wizard's step index, draft answers, and dirty flag are local `useState` in `lesson-wizard.tsx` (not a Zustand store — see above), naturally reset on remount when navigating between lessons. Submitting a step (start / submit-quiz / confirm-understanding / submit-task / request-help / resubmit) is a React Query mutation against the corresponding `lessons` endpoint (`04-api-design.md`); on success, the step index advances and the relevant queries are invalidated. The preschool persona uses its own parallel wizard-shaped component (`PreschoolLessonView`, see `docs/views/preschool/README.md` §4) rather than sharing this one.

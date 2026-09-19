@@ -6,6 +6,7 @@ import { useGetToday } from "@school-ahead/api-client/browser/schedule/schedule"
 import { sortLessonItems } from "@/lib/lesson-order";
 import { PreschoolGameMap } from "@school-ahead/preschool-ui";
 import { PreschoolCelebration } from "@school-ahead/preschool-games";
+import { useDialogs } from "@/components/dialogs/app-dialogs";
 import { SimpleDashboard } from "@/components/simple-dashboard";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { useAuthStore } from "@school-ahead/api-client";
@@ -36,6 +37,17 @@ export function StudentDashboard() {
   const isPreschool = interfaceMode === "preschool";
   const isSimple = interfaceMode === "simple";
   const { data, isLoading, isError, refetch } = useGetToday({ date: toLocalIsoDate(new Date()) });
+
+  const dialogs = useDialogs();
+  // The road's minus button asks and reports through the app's dialogs; a
+  // step is only ever removed, so a question there is always a "danger" one.
+  const mapDialogs = useMemo(
+    () => ({
+      confirm: (message: string) => dialogs.confirm({ message, tone: "danger" }),
+      error: (message: string) => dialogs.error(message),
+    }),
+    [dialogs],
+  );
 
   const lessons = useMemo(() => sortLessonItems(data?.today ?? []), [data?.today]);
   const backlog = useMemo(() => sortLessonItems(data?.backlog ?? []), [data?.backlog]);
@@ -70,7 +82,7 @@ export function StudentDashboard() {
             {/* No separate backlog section here — tails are already walked
                 into `roadItems` above, so listing them again would just
                 duplicate what's on the road. See docs/views/preschool/README.md. */}
-            {!isLoading && !isError && <PreschoolGameMap items={roadItems} onLessonCancelled={() => refetch()} />}
+            {!isLoading && !isError && <PreschoolGameMap items={roadItems} dialogs={mapDialogs} onLessonCancelled={() => refetch()} />}
           </div>
         )}
       </div>

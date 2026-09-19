@@ -73,6 +73,7 @@ import { PreschoolPreviewTab } from "./preschool-preview-tab";
 import { RescheduleAssignmentDialog } from "./reschedule-assignment-dialog";
 import { TaskEditorDialog } from "./task-editor-dialog";
 import { LoadTasksMarkdownDialog } from "./load-tasks-markdown-dialog";
+import { useDialogs } from "@/components/dialogs/app-dialogs";
 
 // Rendered as a Dialog's `trigger` (AssignStudentDialog, RescheduleAssignmentDialog),
 // which Dialog.Trigger asChild clones its own onClick/ref/aria-* props onto —
@@ -113,15 +114,16 @@ const DialogTriggerIconButton = forwardRef<
 // comment) before confirming and firing the mutation.
 function DeleteAssignmentButton({ studentLessonId, onDeleted }: { studentLessonId: number; onDeleted: () => void }) {
   const t = useTranslations("TutorSubjectDetail");
+  const dialogs = useDialogs();
   const deleteAssignment = useDeleteTutorStudentLesson();
 
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!window.confirm(t("deleteAssignmentConfirm"))) return;
+    if (!(await dialogs.confirm({ message: t("deleteAssignmentConfirm"), tone: "danger" }))) return;
     deleteAssignment.mutate(
       { studentLessonId },
-      { onSuccess: onDeleted, onError: () => window.alert(t("deleteAssignmentError")) },
+      { onSuccess: onDeleted, onError: () => dialogs.error(t("deleteAssignmentError")) },
     );
   };
 
@@ -146,6 +148,7 @@ function DeleteAssignmentButton({ studentLessonId, onDeleted }: { studentLessonI
 // "#N" title-numbering rule the new lesson's title follows.
 function DuplicateLessonButton({ lessonId, onDuplicated }: { lessonId: number; onDuplicated: () => void }) {
   const t = useTranslations("TutorSubjectDetail");
+  const dialogs = useDialogs();
   const duplicateLesson = useDuplicateTutorLesson();
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -153,7 +156,7 @@ function DuplicateLessonButton({ lessonId, onDuplicated }: { lessonId: number; o
     e.stopPropagation();
     duplicateLesson.mutate(
       { lessonId },
-      { onSuccess: onDuplicated, onError: () => window.alert(t("duplicateLessonError")) },
+      { onSuccess: onDuplicated, onError: () => dialogs.error(t("duplicateLessonError")) },
     );
   };
 
@@ -188,13 +191,14 @@ function DeleteLessonButton({
   onDeleted: () => void;
 }) {
   const t = useTranslations("TutorSubjectDetail");
+  const dialogs = useDialogs();
   const deleteLesson = useDeleteTutorLesson();
 
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!window.confirm(t("deleteLessonConfirm", { title }))) return;
-    deleteLesson.mutate({ lessonId }, { onSuccess: onDeleted, onError: () => window.alert(t("deleteLessonError")) });
+    if (!(await dialogs.confirm({ message: t("deleteLessonConfirm", { title }), tone: "danger" }))) return;
+    deleteLesson.mutate({ lessonId }, { onSuccess: onDeleted, onError: () => dialogs.error(t("deleteLessonError")) });
   };
 
   return (
@@ -218,18 +222,19 @@ function DeleteLessonButton({
 // overwrites any icon a tutor already set by hand.
 function UpdateLessonIconsButton({ subjectId, onUpdated }: { subjectId: number; onUpdated: () => void }) {
   const t = useTranslations("TutorSubjectDetail");
+  const dialogs = useDialogs();
   const updateIcons = useUpdateTutorSubjectLessonIcons();
 
-  const handleClick = () => {
-    if (!window.confirm(t("updateLessonIconsConfirm"))) return;
+  const handleClick = async () => {
+    if (!(await dialogs.confirm({ message: t("updateLessonIconsConfirm") }))) return;
     updateIcons.mutate(
       { subjectId },
       {
         onSuccess: (data) => {
           onUpdated();
-          window.alert(t("updateLessonIconsResult", { updated: data.updated, kept: data.already_had_icon ?? 0, skipped: data.skipped }));
+          dialogs.alert(t("updateLessonIconsResult", { updated: data.updated, kept: data.already_had_icon ?? 0, skipped: data.skipped }));
         },
-        onError: () => window.alert(t("updateLessonIconsError")),
+        onError: () => dialogs.error(t("updateLessonIconsError")),
       },
     );
   };
@@ -254,18 +259,19 @@ function UpdateLessonIconsButton({ subjectId, onUpdated }: { subjectId: number; 
 // deleteTopicButton) rather than the toolbar's.
 function UpdateTopicLessonIconsButton({ topicId, onUpdated }: { topicId: number; onUpdated: () => void }) {
   const t = useTranslations("TutorSubjectDetail");
+  const dialogs = useDialogs();
   const updateIcons = useUpdateTutorTopicLessonIcons();
 
-  const handleClick = () => {
-    if (!window.confirm(t("updateTopicLessonIconsConfirm"))) return;
+  const handleClick = async () => {
+    if (!(await dialogs.confirm({ message: t("updateTopicLessonIconsConfirm") }))) return;
     updateIcons.mutate(
       { topicId },
       {
         onSuccess: (data) => {
           onUpdated();
-          window.alert(t("updateLessonIconsResult", { updated: data.updated, kept: data.already_had_icon ?? 0, skipped: data.skipped }));
+          dialogs.alert(t("updateLessonIconsResult", { updated: data.updated, kept: data.already_had_icon ?? 0, skipped: data.skipped }));
         },
-        onError: () => window.alert(t("updateLessonIconsError")),
+        onError: () => dialogs.error(t("updateLessonIconsError")),
       },
     );
   };
@@ -288,11 +294,12 @@ function UpdateTopicLessonIconsButton({ topicId, onUpdated }: { topicId: number;
 // assignment to block deletion on, so this is unconditional.
 function DeleteTaskButton({ taskId, title, onDeleted }: { taskId: number; title: string; onDeleted: () => void }) {
   const t = useTranslations("TutorSubjectDetail");
+  const dialogs = useDialogs();
   const deleteTask = useDeleteTask();
 
-  const handleClick = () => {
-    if (!window.confirm(t("deleteTaskConfirm", { title }))) return;
-    deleteTask.mutate({ taskId }, { onSuccess: onDeleted, onError: () => window.alert(t("deleteTaskError")) });
+  const handleClick = async () => {
+    if (!(await dialogs.confirm({ message: t("deleteTaskConfirm", { title }), tone: "danger" }))) return;
+    deleteTask.mutate({ taskId }, { onSuccess: onDeleted, onError: () => dialogs.error(t("deleteTaskError")) });
   };
 
   return (
@@ -691,11 +698,12 @@ function TopicSection({
   onLessonListChanged: () => void;
 }) {
   const t = useTranslations("TutorSubjectDetail");
+  const dialogs = useDialogs();
   const queryClient = useQueryClient();
   const deleteTopic = useDeleteTutorTopic();
 
-  const handleDelete = () => {
-    if (!window.confirm(t("deleteTopicConfirm", { title: topic.title, count: lessons.length }))) return;
+  const handleDelete = async () => {
+    if (!(await dialogs.confirm({ message: t("deleteTopicConfirm", { title: topic.title, count: lessons.length }), tone: "danger" }))) return;
 
     deleteTopic.mutate(
       { topicId: topic.id },

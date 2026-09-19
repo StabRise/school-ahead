@@ -25,6 +25,7 @@ import { CreateSubjectDialog } from "./create-subject-dialog";
 import { LoadSubjectMarkdownDialog } from "./load-subject-markdown-dialog";
 import { PlanLessonsDialog } from "./plan-lessons-dialog";
 import { UploadPlanDialog } from "./upload-plan-dialog";
+import { useDialogs } from "@/components/dialogs/app-dialogs";
 
 // Drag handle sits outside the Link — same reasoning as the lesson row on
 // the tutor's Subject detail page: native drag-inside-anchor semantics are
@@ -122,6 +123,7 @@ function StudentRow({ student }: { student: TutorStudentOut }) {
 
 function RecalculateWorkloadButton({ classId }: { classId: number }) {
   const t = useTranslations("TutorClassDetail");
+  const dialogs = useDialogs();
   const queryClient = useQueryClient();
   const recalculate = useRecalculateClassWorkload();
 
@@ -132,7 +134,7 @@ function RecalculateWorkloadButton({ classId }: { classId: number }) {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetTutorClassQueryKey(classId) });
         },
-        onError: () => window.alert(t("recalculateWorkloadError")),
+        onError: () => dialogs.error(t("recalculateWorkloadError")),
       },
     );
   };

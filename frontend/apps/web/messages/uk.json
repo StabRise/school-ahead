@@ -86,6 +86,14 @@
     "guestSubtitle": "Гейміфікована платформа для домашнього навчання.",
     "cta": "Увійти"
   },
+  "Dialog": {
+    "alertTitle": "Повідомлення",
+    "errorTitle": "Помилка",
+    "confirmTitle": "Підтвердіть дію",
+    "okButton": "Гаразд",
+    "confirmButton": "Підтвердити",
+    "cancelButton": "Скасувати"
+  },
   "PreschoolGameMap": {
     "title": "Пригодницька стежка",
     "empty": "На сьогодні уроків немає. Час для гри!",

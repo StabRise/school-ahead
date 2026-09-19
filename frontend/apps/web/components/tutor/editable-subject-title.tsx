@@ -13,6 +13,7 @@ import {
 } from "@school-ahead/api-client/browser/tutor/tutor";
 import type { SubjectOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { SubjectIcon } from "@/components/subjects/subject-icon";
+import { useDialogs } from "@/components/dialogs/app-dialogs";
 
 // The Subject detail page's title: the subject's icon on the left (click it
 // to pick a new image) and its name, editable in place (pencil -> input,
@@ -21,6 +22,7 @@ import { SubjectIcon } from "@/components/subjects/subject-icon";
 // academics PATCH is staff-only.
 export function EditableSubjectTitle({ subject }: { subject: SubjectOut }) {
   const t = useTranslations("TutorSubjectDetail");
+  const dialogs = useDialogs();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
@@ -56,7 +58,7 @@ export function EditableSubjectTitle({ subject }: { subject: SubjectOut }) {
           invalidate();
           setEditing(false);
         },
-        onError: () => window.alert(t("subjectNameError")),
+        onError: () => dialogs.error(t("subjectNameError")),
       },
     );
   };
@@ -68,7 +70,7 @@ export function EditableSubjectTitle({ subject }: { subject: SubjectOut }) {
     if (!file) return;
     uploadIcon.mutate(
       { subjectId: subject.id, data: { file } },
-      { onSuccess: invalidate, onError: () => window.alert(t("subjectIconError")) },
+      { onSuccess: invalidate, onError: () => dialogs.error(t("subjectIconError")) },
     );
   };
 

@@ -34,6 +34,7 @@ import { ResolveNeedHelpButton } from "./resolve-need-help-button";
 import { StepSwitcher, type WizardStep } from "./step-switcher";
 import { PageContainer } from "@/components/page-container";
 import { Link, useRouter, usePathname } from "@/i18n/navigation";
+import { useDialogs } from "@/components/dialogs/app-dialogs";
 
 const WIZARD_STEPS: WizardStep[] = ["materials", "readingMaterials", "assessment", "comments", "explanation"];
 
@@ -193,6 +194,7 @@ function initialStepForStatus(status: string): WizardStep | null {
 
 export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   const t = useTranslations("LessonWizard");
+  const dialogs = useDialogs();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -294,8 +296,8 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   // (lessons.api.cancel_self_selected_lesson).
   const canCancelSelfSelected =
     data.is_self_selected && data.submissions.length === 0 && (comments ?? []).length === 0;
-  const handleCancelSelfSelected = () => {
-    if (!window.confirm(t("cancelSelfSelectedConfirm"))) return;
+  const handleCancelSelfSelected = async () => {
+    if (!(await dialogs.confirm({ message: t("cancelSelfSelectedConfirm"), tone: "danger" }))) return;
     cancelLesson.mutate(
       { studentLessonId },
       { onSuccess: () => router.push(`/subjects/${data.lesson.subject_id}`) },

@@ -17,6 +17,7 @@ import type { TutorFurnitureItemOut } from "@school-ahead/api-client/browser/sch
 import { FurniturePreview, type FurnitureSurface } from "@school-ahead/house-3d";
 import { PageContainer } from "@/components/page-container";
 import { AvatarEditorSlider } from "@school-ahead/avatar";
+import { useDialogs } from "@/components/dialogs/app-dialogs";
 
 const SCALE_RANGE = { min: 0.1, max: 5, step: 0.05 };
 const ROTATION_RANGE = { min: -Math.PI, max: Math.PI, step: 0.01 };
@@ -116,6 +117,7 @@ function FurnitureThumb({ item }: { item: TutorFurnitureItemOut }) {
 
 export function TutorFurnitureEditorPage() {
   const t = useTranslations("TutorFurnitureEditor");
+  const dialogs = useDialogs();
   const queryClient = useQueryClient();
   const { data: items, isLoading, isError } = useListTutorFurniture();
   const createItem = useCreateTutorFurnitureItem();
@@ -178,9 +180,9 @@ export function TutorFurnitureEditorPage() {
     );
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!item) return;
-    if (!window.confirm(t("confirmDelete", { name: item.name }))) return;
+    if (!(await dialogs.confirm({ message: t("confirmDelete", { name: item.name }), tone: "danger" }))) return;
     deleteItem.mutate(
       { itemId: item.id },
       {

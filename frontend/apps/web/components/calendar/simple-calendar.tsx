@@ -34,6 +34,7 @@ import { LESSON_TYPE_ICON, LESSON_TYPE_ICON_COLOR } from "@/components/simple/le
 import { formatGradeLabel, resolveStatusLabel } from "@/components/simple/format";
 import { StatusBadge } from "@/components/status-badge";
 import type { CalendarItemOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import { useDialogs } from "@/components/dialogs/app-dialogs";
 
 type PeriodLength = 4 | 7 | 10;
 const PERIODS: PeriodLength[] = [4, 7, 10];
@@ -396,6 +397,7 @@ export function SimpleCalendar({
   bare,
 }: { studentId?: number; colorful?: boolean; bare?: boolean } = {}) {
   const t = useTranslations("Calendar");
+  const dialogs = useDialogs();
   const queryClient = useQueryClient();
   const isTutorView = studentId !== undefined;
 
@@ -463,8 +465,8 @@ export function SimpleCalendar({
     );
   };
 
-  const handleDeleteStudentLesson = (item: CalendarItemOut) => {
-    if (!window.confirm(t("removeLessonConfirm", { title: item.lesson_title }))) return;
+  const handleDeleteStudentLesson = async (item: CalendarItemOut) => {
+    if (!(await dialogs.confirm({ message: t("removeLessonConfirm", { title: item.lesson_title }), tone: "danger" }))) return;
     deleteStudentLesson.mutate({ studentLessonId: item.id }, { onSuccess: () => invalidateCalendar() });
   };
 

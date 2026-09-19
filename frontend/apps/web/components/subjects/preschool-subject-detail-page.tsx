@@ -26,6 +26,7 @@ import { useRouter } from "@/i18n/navigation";
 import { PreschoolLessonTile } from "@/components/subjects/preschool-lesson-tile";
 import { PreschoolLessonsFilterButton } from "@/components/subjects/preschool-lessons-filter-button";
 import { ProgressBar } from "@/components/progress-bar";
+import { useDialogs } from "@/components/dialogs/app-dialogs";
 
 // The student's dressed companion — same CompanionAvatar idiom as
 // game-map.tsx/calendar-view.tsx (preschool-ui), just kept local here since
@@ -63,6 +64,7 @@ function StartLessonCard({
   subjectIcon: string | null;
 }) {
   const t = useTranslations("PreschoolSubjectDetail");
+  const dialogs = useDialogs();
   const router = useRouter();
   const queryClient = useQueryClient();
   const startToday = useStartLessonToday();
@@ -80,7 +82,7 @@ function StartLessonCard({
           queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
           router.push(`/lessons/${data.student_lesson_id}`);
         },
-        onError: () => window.alert(t("startError")),
+        onError: () => dialogs.error(t("startError")),
       },
     );
   };

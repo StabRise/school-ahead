@@ -19,6 +19,7 @@ import { SimplePageContainer } from "@/components/simple/page-container";
 import { FileDropzone } from "@/components/file-dropzone";
 import { StoryMarkdownEditor } from "@school-ahead/markdown-editor/story";
 import { StoryAssetSidebar } from "@/components/tutor/story-asset-sidebar";
+import { useDialogs } from "@/components/dialogs/app-dialogs";
 
 // How often unsaved edits get auto-saved (see the effect below) — a plain
 // interval rather than debouncing every keystroke, so a tutor mid-sentence
@@ -50,6 +51,7 @@ function downloadUrl(storyId: number): string {
 // asset sidebar, publish/delete, "view in game" — stays hidden until then.
 function StoryForm({ story, onDeleted }: { story: StoryDetailOut | null; onDeleted: () => void }) {
   const t = useTranslations("TutorStories");
+  const dialogs = useDialogs();
   const router = useRouter();
   const queryClient = useQueryClient();
   const createStory = useCreateTutorPreschoolStory();
@@ -151,9 +153,9 @@ function StoryForm({ story, onDeleted }: { story: StoryDetailOut | null; onDelet
     );
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!savedStory) return;
-    if (!window.confirm(t("confirmDelete", { title: savedStory.title }))) return;
+    if (!(await dialogs.confirm({ message: t("confirmDelete", { title: savedStory.title }), tone: "danger" }))) return;
     deleteStory.mutate(
       { storyId: savedStory.id },
       {
@@ -161,7 +163,7 @@ function StoryForm({ story, onDeleted }: { story: StoryDetailOut | null; onDelet
           queryClient.invalidateQueries({ queryKey: getListPreschoolStoriesQueryKey() });
           onDeleted();
         },
-        onError: () => window.alert(t("deleteError")),
+        onError: () => dialogs.error(t("deleteError")),
       },
     );
   };
