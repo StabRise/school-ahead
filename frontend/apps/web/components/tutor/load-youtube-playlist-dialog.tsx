@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Video } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getListSubjectTopicsQueryKey } from "@school-ahead/api-client/browser/academics/academics";
+import { getListSubjectTopicsQueryKey, useListSubjectTopics } from "@school-ahead/api-client/browser/academics/academics";
 import {
   getListTutorSubjectLessonsQueryKey,
   useImportTutorSubjectYoutubePlaylist,
@@ -28,6 +28,15 @@ export function LoadYoutubePlaylistDialog({ subjectId }: { subjectId: number }) 
   const [result, setResult] = useState<YoutubeImportOut | null>(null);
 
   const importPlaylist = useImportTutorSubjectYoutubePlaylist();
+
+  // The subject's existing topics, offered as suggestions on the topic field:
+  // typing a new name makes a new topic, picking (or typing) an existing
+  // title puts the lessons into that topic — the import matches by exact title.
+  const topicsQuery = useListSubjectTopics(subjectId);
+  const topicTitles = useMemo(
+    () => Array.from(new Set((topicsQuery.data ?? []).map((topic) => topic.title))),
+    [topicsQuery.data],
+  );
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
@@ -112,11 +121,18 @@ export function LoadYoutubePlaylistDialog({ subjectId }: { subjectId: number }) 
                 <input
                   id="youtube-topic-name"
                   type="text"
+                  list="youtube-topic-options"
+                  autoComplete="off"
                   placeholder={t("topicNamePlaceholder")}
                   value={topicName}
                   onChange={(e) => setTopicName(e.target.value)}
                   className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
                 />
+                <datalist id="youtube-topic-options">
+                  {topicTitles.map((title) => (
+                    <option key={title} value={title} />
+                  ))}
+                </datalist>
               </div>
 
               {importPlaylist.isError && <p className="text-sm text-red-600">{t("importError")}</p>}

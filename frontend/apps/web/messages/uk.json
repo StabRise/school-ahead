@@ -558,7 +558,7 @@
     "triggerButton": "Завантажити з YouTube",
     "title": "Завантажити з YouTube",
     "topicNameLabel": "Назва теми (необов'язково)",
-    "topicNamePlaceholder": "Порожньо: назва плейлиста; для одного відео — «Base»",
+    "topicNamePlaceholder": "Введіть назву або оберіть зі списку. Порожньо: назва плейлиста, а для одного відео — «Base»",
     "urlLabel": "Посилання на плейлист або відео",
     "importButton": "Завантажити",
     "importing": "Завантаження...",
