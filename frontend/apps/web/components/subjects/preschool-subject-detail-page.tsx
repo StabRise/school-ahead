@@ -270,12 +270,7 @@ export function PreschoolSubjectDetailPage({ subjectId }: { subjectId: number })
                 position="static"
                 className="shrink-0"
               />
-              <div className="flex flex-col gap-1">
-                <span className="w-fit rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-sky-700">
-                  {subject.class_name}
-                </span>
-                <h1 className="text-xl font-extrabold text-purple-800 sm:text-2xl">{subject.name} ✨</h1>
-              </div>
+              <h1 className="text-xl font-extrabold text-purple-800 sm:text-2xl">{subject.name} ✨</h1>
             </div>
 
             <div className="flex items-center gap-3">
