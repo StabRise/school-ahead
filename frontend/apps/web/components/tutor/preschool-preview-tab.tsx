@@ -20,6 +20,7 @@ import type {
 } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { groupTopicsByBlock } from "@/components/subjects/group-topics-by-block";
 import { PreschoolLessonTile } from "@/components/subjects/preschool-lesson-tile";
+import { useDialogs } from "@/components/dialogs/app-dialogs";
 
 // A PreschoolLessonTile linking to the tutor's lesson detail page, with two
 // small buttons in its top-right corner: load the lesson's YouTube
@@ -41,6 +42,7 @@ function PreschoolPreviewLessonTile({
   isAssigned: boolean;
 }) {
   const t = useTranslations("TutorSubjectDetail");
+  const dialogs = useDialogs();
   const queryClient = useQueryClient();
   const deleteLesson = useDeleteTutorLesson();
   const updateIcon = useUpdateTutorLessonIcon();
@@ -51,23 +53,23 @@ function PreschoolPreviewLessonTile({
       {
         onSuccess: (data) => {
           if (data.updated === 0) {
-            window.alert(t("updateLessonIconNoVideo"));
+            dialogs.alert(t("updateLessonIconNoVideo"));
             return;
           }
           queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsQueryKey(subjectId) });
         },
-        onError: () => window.alert(t("updateLessonIconsError")),
+        onError: () => dialogs.error(t("updateLessonIconsError")),
       },
     );
   };
 
-  const handleDelete = () => {
-    if (!window.confirm(t("deleteLessonConfirm", { title: lesson.title }))) return;
+  const handleDelete = async () => {
+    if (!(await dialogs.confirm({ message: t("deleteLessonConfirm", { title: lesson.title }), tone: "danger" }))) return;
     deleteLesson.mutate(
       { lessonId: lesson.id },
       {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: getListTutorSubjectLessonsQueryKey(subjectId) }),
-        onError: () => window.alert(t("deleteLessonError")),
+        onError: () => dialogs.error(t("deleteLessonError")),
       },
     );
   };
@@ -134,11 +136,12 @@ function PreschoolPreviewTopicSection({
   onToggleCollapsed: () => void;
 }) {
   const t = useTranslations("TutorSubjectDetail");
+  const dialogs = useDialogs();
   const queryClient = useQueryClient();
   const deleteTopic = useDeleteTutorTopic();
 
-  const handleDeleteTopic = () => {
-    if (!window.confirm(t("deleteTopicConfirm", { title: topic.title, count: lessons.length }))) return;
+  const handleDeleteTopic = async () => {
+    if (!(await dialogs.confirm({ message: t("deleteTopicConfirm", { title: topic.title, count: lessons.length }), tone: "danger" }))) return;
     deleteTopic.mutate(
       { topicId: topic.id },
       {

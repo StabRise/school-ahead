@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { useHydrateAuthStore } from "@school-ahead/api-client";
+import { DialogProvider } from "@/components/dialogs/app-dialogs";
 import { useHydrateTtsVoiceSettings } from "@/lib/use-hydrate-tts-voice-settings";
 
 // NOTE: run `bun run orval:generate` (with the Django backend up) before
@@ -25,7 +26,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthHydrator>
-        <TtsVoiceSettingsHydrator>{children}</TtsVoiceSettingsHydrator>
+        <TtsVoiceSettingsHydrator>
+          <DialogProvider>{children}</DialogProvider>
+        </TtsVoiceSettingsHydrator>
       </AuthHydrator>
     </QueryClientProvider>
   );

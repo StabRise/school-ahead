@@ -17,6 +17,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { SimpleEntityIcon } from "@/components/simple/entity-icon";
 import { formatShortDate } from "@/components/simple/format";
+import { LessonsNeedingReview } from "@/components/tutor/lessons-needing-review";
 import { MyStudentsSidebar } from "@/components/tutor/my-students-sidebar";
 
 const UPDATED_AT_FORMAT = new Intl.DateTimeFormat("uk-UA", {
@@ -250,7 +251,7 @@ export function TutorDashboard() {
           </select>
         </div>
 
-        {/* Center: Потрібна допомога / На перевірці, stacked */}
+        {/* Center: Потрібна допомога / На перевірці / Уроки з проблемами, stacked */}
         <div className="flex min-w-0 flex-1 flex-col gap-8">
           {resolveNeedHelp.isError && <p className="text-sm text-red-600">{t("markHelpedError")}</p>}
 
@@ -273,6 +274,7 @@ export function TutorDashboard() {
             emptyLabel={t("pendingReviewEmpty")}
             errorLabel={t("error")}
           />
+          <LessonsNeedingReview subjectId={subjectId} classId={classId} />
         </div>
 
         {/* Right: Мої учні, visually set apart from the white page background */}

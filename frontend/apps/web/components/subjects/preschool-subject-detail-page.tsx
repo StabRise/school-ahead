@@ -26,6 +26,7 @@ import { useRouter } from "@/i18n/navigation";
 import { PreschoolLessonTile } from "@/components/subjects/preschool-lesson-tile";
 import { PreschoolLessonsFilterButton } from "@/components/subjects/preschool-lessons-filter-button";
 import { ProgressBar } from "@/components/progress-bar";
+import { useDialogs } from "@/components/dialogs/app-dialogs";
 
 // The student's dressed companion — same CompanionAvatar idiom as
 // game-map.tsx/calendar-view.tsx (preschool-ui), just kept local here since
@@ -63,6 +64,7 @@ function StartLessonCard({
   subjectIcon: string | null;
 }) {
   const t = useTranslations("PreschoolSubjectDetail");
+  const dialogs = useDialogs();
   const router = useRouter();
   const queryClient = useQueryClient();
   const startToday = useStartLessonToday();
@@ -80,7 +82,7 @@ function StartLessonCard({
           queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
           router.push(`/lessons/${data.student_lesson_id}`);
         },
-        onError: () => window.alert(t("startError")),
+        onError: () => dialogs.error(t("startError")),
       },
     );
   };
@@ -270,12 +272,7 @@ export function PreschoolSubjectDetailPage({ subjectId }: { subjectId: number })
                 position="static"
                 className="shrink-0"
               />
-              <div className="flex flex-col gap-1">
-                <span className="w-fit rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-sky-700">
-                  {subject.class_name}
-                </span>
-                <h1 className="text-xl font-extrabold text-purple-800 sm:text-2xl">{subject.name} ✨</h1>
-              </div>
+              <h1 className="text-xl font-extrabold text-purple-800 sm:text-2xl">{subject.name} ✨</h1>
             </div>
 
             <div className="flex items-center gap-3">

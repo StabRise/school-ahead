@@ -243,6 +243,55 @@ def test_set_favorite_rejects_non_owner(api_client, auth_header, other_student, 
     assert student_lesson.is_favorite is False
 
 
+def test_lessons_dont_need_review_by_default(api_client, auth_header, student, student_lesson):
+    response = api_client.get(f'/student-lessons/{student_lesson.id}', headers=auth_header(student.user))
+
+    assert response.data['lesson']['need_review'] is False
+
+
+def test_report_problem_flags_the_lesson_for_review(api_client, auth_header, student, student_lesson):
+    response = api_client.post(f'/student-lessons/{student_lesson.id}/report-problem', headers=auth_header(student.user))
+
+    assert response.status_code == 204
+    student_lesson.lesson.refresh_from_db()
+    assert student_lesson.lesson.need_review is True
+    # The flag is on the lesson itself, so the lesson payload reports it too.
+    fetched = api_client.get(f'/student-lessons/{student_lesson.id}', headers=auth_header(student.user))
+    assert fetched.data['lesson']['need_review'] is True
+
+
+def test_report_problem_is_idempotent(api_client, auth_header, student, student_lesson):
+    headers = auth_header(student.user)
+
+    for _ in range(2):
+        response = api_client.post(f'/student-lessons/{student_lesson.id}/report-problem', headers=headers)
+        assert response.status_code == 204
+
+    student_lesson.lesson.refresh_from_db()
+    assert student_lesson.lesson.need_review is True
+
+
+def test_report_problem_only_flags_that_lesson(api_client, auth_header, topic, student, student_lesson):
+    other = Lesson.objects.create(
+        topic=topic, order_index=2, title='Other', lesson_type=LessonType.THEORY, grading_type='binary'
+    )
+
+    api_client.post(f'/student-lessons/{student_lesson.id}/report-problem', headers=auth_header(student.user))
+
+    other.refresh_from_db()
+    assert other.need_review is False
+
+
+def test_report_problem_rejects_non_owner(api_client, auth_header, other_student, student_lesson):
+    response = api_client.post(
+        f'/student-lessons/{student_lesson.id}/report-problem', headers=auth_header(other_student.user)
+    )
+
+    assert response.status_code == 403
+    student_lesson.lesson.refresh_from_db()
+    assert student_lesson.lesson.need_review is False
+
+
 def test_start_and_confirm_understanding_flow(api_client, auth_header, student, student_lesson):
     headers = auth_header(student.user)
 

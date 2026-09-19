@@ -11,6 +11,7 @@ import {
   useListSubjectMaterials,
 } from "@school-ahead/api-client/browser/academics/academics";
 import { FileDropzone } from "@/components/file-dropzone";
+import { useDialogs } from "@/components/dialogs/app-dialogs";
 
 // Subject-level PDF materials tab — a plain list of tutor-uploaded PDFs the
 // student can view/download via direct link, same idiom as LessonAttachment
@@ -22,6 +23,7 @@ import { FileDropzone } from "@/components/file-dropzone";
 // same as SemesterPlan.
 export function SubjectMaterials({ subjectId, canManage = false }: { subjectId: number; canManage?: boolean }) {
   const t = useTranslations("SubjectMaterials");
+  const dialogs = useDialogs();
   const queryClient = useQueryClient();
   const materialsQuery = useListSubjectMaterials(subjectId);
   const addMaterial = useAddSubjectMaterial();
@@ -51,9 +53,9 @@ export function SubjectMaterials({ subjectId, canManage = false }: { subjectId: 
     );
   };
 
-  const handleDelete = (materialId: number) => {
-    if (!window.confirm(t("deleteConfirm"))) return;
-    deleteMaterial.mutate({ materialId }, { onSuccess: invalidate, onError: () => window.alert(t("deleteError")) });
+  const handleDelete = async (materialId: number) => {
+    if (!(await dialogs.confirm({ message: t("deleteConfirm"), tone: "danger" }))) return;
+    deleteMaterial.mutate({ materialId }, { onSuccess: invalidate, onError: () => dialogs.error(t("deleteError")) });
   };
 
   if (materialsQuery.isLoading) {

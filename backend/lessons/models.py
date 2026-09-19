@@ -72,6 +72,13 @@ class Lesson(TimeStampedModel):
     # subject's icon, then a frontend default, when empty. See
     # docs/interfaces/preschool.md.
     icon = models.FileField(upload_to=lesson_icon_upload_to, blank=True)
+    # Set when a student reports a problem with the lesson itself (the video
+    # is unavailable, ...) with the warning button on the preschool lesson
+    # screen — see lessons.api.report_problem. Lives on the Lesson, not the
+    # StudentLesson: it's the lesson that needs fixing, whoever hit the
+    # problem. Tutors see the flagged lessons on their dashboard and clear the
+    # flag once fixed (tutoring.api.set_lesson_need_review).
+    need_review = models.BooleanField(default=False)
 
     class Meta:
         unique_together = [('topic', 'order_index')]

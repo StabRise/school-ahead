@@ -152,6 +152,22 @@ def set_favorite(request: HttpRequest, student_lesson_id: int, payload: SetFavor
     return student_lesson
 
 
+@router.post(
+    '/{student_lesson_id}/report-problem',
+    response={204: None},
+    operation_id='report_lesson_problem',
+)
+def report_problem(request: HttpRequest, student_lesson_id: int):
+    """The warning button on the preschool lesson screen — "something's wrong
+    with this lesson" (the video won't play, ...). Flags the *lesson* for a
+    tutor to look at (Lesson.need_review). Idempotent: reporting again, by
+    this or another student, just leaves it flagged."""
+    require_csrf(request)
+    student_lesson = _get_owned(request, student_lesson_id)
+    Lesson.objects.filter(pk=student_lesson.lesson_id).update(need_review=True)
+    return Status(204, None)
+
+
 @router.post('/{student_lesson_id}/start', response=StudentLessonOut, operation_id='start_lesson')
 def start(request: HttpRequest, student_lesson_id: int):
     require_csrf(request)

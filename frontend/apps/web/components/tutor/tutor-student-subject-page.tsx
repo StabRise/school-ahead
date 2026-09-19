@@ -26,6 +26,7 @@ import { formatGradeLabel, formatShortDate } from "@/components/simple/format";
 import { StatusBadge } from "@/components/status-badge";
 import { AssignStudentDialog } from "./assign-student-dialog";
 import { RescheduleAssignmentDialog } from "./reschedule-assignment-dialog";
+import { useDialogs } from "@/components/dialogs/app-dialogs";
 
 // Rendered as RescheduleAssignmentDialog's `trigger`, which Dialog.Trigger
 // asChild clones its own onClick/ref/aria-* props onto — must forward all
@@ -62,15 +63,16 @@ const DialogTriggerIconButton = forwardRef<
 // the mutation.
 function RemoveAssignmentButton({ studentLessonId, onDeleted }: { studentLessonId: number; onDeleted: () => void }) {
   const t = useTranslations("TutorSubjectDetail");
+  const dialogs = useDialogs();
   const deleteAssignment = useDeleteTutorStudentLesson();
 
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!window.confirm(t("deleteAssignmentConfirm"))) return;
+    if (!(await dialogs.confirm({ message: t("deleteAssignmentConfirm"), tone: "danger" }))) return;
     deleteAssignment.mutate(
       { studentLessonId },
-      { onSuccess: onDeleted, onError: () => window.alert(t("deleteAssignmentError")) },
+      { onSuccess: onDeleted, onError: () => dialogs.error(t("deleteAssignmentError")) },
     );
   };
 

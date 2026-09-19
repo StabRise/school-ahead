@@ -84,6 +84,35 @@ class TutorFeedItemOut(Schema):
     updated_at: datetime.datetime
 
 
+class NeedReviewLessonOut(Schema):
+    """A lesson a student reported a problem with — one row of the tutor
+    dashboard's "lessons that need review" section."""
+
+    id: int
+    title: str
+    lesson_type: str
+    # Lesson.order_index within its topic (1-based) — the number on a card
+    # that has no picture.
+    order_index: int
+    topic_title: str
+    subject_id: int
+    subject_name: str
+    class_id: int
+    class_name: str
+    # The lesson's own icon and its subject's (the card falls back from one to
+    # the other), as absolute URLs — null when not set.
+    icon: str | None
+    subject_icon: str | None
+    # How many students have this lesson (StudentLessons) — deleting it takes
+    # their copies (and any work on them) with it, so the dashboard warns first
+    # (tutoring.api.delete_lesson, `force`).
+    student_count: int
+
+
+class SetNeedReviewIn(Schema):
+    need_review: bool
+
+
 class TutorStudentOut(Schema):
     id: int
     name: str
