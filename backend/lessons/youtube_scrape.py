@@ -67,13 +67,25 @@ def canonical_playlist_url(url: str) -> str:
     return f'https://www.youtube.com/playlist?list={list_ids[0]}' if list_ids else url
 
 
+def _is_mix_list(list_id: str) -> bool:
+    """YouTube's auto-generated "Mix" (radio) for a video — `list=RD…`, the
+    tail of a link like `watch?v=X&list=RDX&start_radio=1` — is not a real
+    playlist: its page has no playlist data to scrape. (`RDCLAK…` are the
+    exception: real, public YouTube Music playlists.)"""
+    return list_id.startswith('RD') and not list_id.startswith('RDCLAK')
+
+
 def is_single_video_url(url: str) -> bool:
     """A link to one video rather than a playlist: it names a video (any of
-    the watch/embed/shorts/youtu.be forms) and carries no `list=` id. With a
-    `list=` id the link is treated as its playlist, whichever video it points
-    at (see canonical_playlist_url)."""
+    the watch/embed/shorts/youtu.be forms) and carries either no `list=` id or
+    only an auto-generated Mix's (see _is_mix_list), which is just that video
+    with suggestions attached. With a real `list=` id the link is treated as
+    its playlist, whichever video it points at (see canonical_playlist_url)."""
     url = url.strip()
-    return 'list' not in parse_qs(urlparse(url).query) and extract_video_id(url) is not None
+    if extract_video_id(url) is None:
+        return False
+    list_ids = parse_qs(urlparse(url).query).get('list', [])
+    return all(_is_mix_list(list_id) for list_id in list_ids)
 
 
 def _fetch_video_title(session: requests.Session, video_url: str) -> str:
@@ -232,9 +244,11 @@ def fetch_playlist_topic(playlist_url: str, topic_name: str = '') -> tuple[dict,
     first page (network, unrecognized page, empty playlist) — callers decide
     how to surface that (manage.py's CommandError vs. tutoring.api's
     HttpError 400)."""
-    playlist_url = canonical_playlist_url(playlist_url)
+    # A single video first — before the link is rewritten to its playlist,
+    # which would throw the video away.
     if is_single_video_url(playlist_url):
         return _fetch_video_topic(playlist_url, topic_name)
+    playlist_url = canonical_playlist_url(playlist_url)
 
     session = _make_session()
     html_text = _fetch(session, playlist_url)

@@ -279,6 +279,10 @@ def _video_session(title='Ходить гарбуз по городу'):
         "https://www.youtube.com/shorts/QLNRbUsVHAM",
         "https://www.youtube.com/embed/QLNRbUsVHAM",
         "  https://www.youtube.com/watch?v=QLNRbUsVHAM&t=30s  ",
+        # An auto-generated Mix (radio) is just the video with suggestions attached.
+        "https://www.youtube.com/watch?v=QLNRbUsVHAM&list=RDQLNRbUsVHAM&start_radio=1&t=24s",
+        "https://www.youtube.com/watch?v=QLNRbUsVHAM&list=RDMM",
+        "https://www.youtube.com/watch?v=QLNRbUsVHAM&list=RDGMEMabc123",
     ],
 )
 def test_single_video_links_are_recognised(url):
@@ -293,6 +297,11 @@ def test_single_video_links_are_recognised(url):
         "https://www.youtube.com/watch?v=QLNRbUsVHAM&list=PL123",
         "https://youtu.be/QLNRbUsVHAM?list=PL123",
         "https://www.example.com/page",
+        # Real playlists whose ids merely start like a Mix's.
+        "https://www.youtube.com/watch?v=QLNRbUsVHAM&list=RDCLAK5uy_abc",
+        "https://www.youtube.com/watch?v=QLNRbUsVHAM&list=OLAK5uy_abc",
+        # A Mix's own page names no video to fall back on.
+        "https://www.youtube.com/playlist?list=RDQLNRbUsVHAM",
     ],
 )
 def test_playlist_and_other_links_are_not_single_videos(url):
@@ -351,4 +360,19 @@ def test_a_video_link_never_touches_the_playlist_page(monkeypatch):
 
     _fetch_url(monkeypatch, session, 'https://www.youtube.com/watch?v=QLNRbUsVHAM', topic_name='')
 
+    assert session.fetched_urls == []
+
+
+def test_a_mix_link_imports_just_the_video_it_names(monkeypatch):
+    session = _video_session('Я Лисичка Я Сестричка')
+    url = 'https://www.youtube.com/watch?v=siwIKN1UC70&list=RDsiwIKN1UC70&start_radio=1&t=24s'
+
+    topic, truncated = _fetch_url(monkeypatch, session, url, topic_name='')
+
+    assert topic['title'] == 'Base'
+    assert truncated is False
+    [lesson] = topic['lessons']
+    assert lesson['title'] == 'Я Лисичка Я Сестричка'
+    # Just the video: no list, no radio, no timestamp.
+    assert lesson['content'] == 'https://www.youtube.com/watch?v=siwIKN1UC70'
     assert session.fetched_urls == []

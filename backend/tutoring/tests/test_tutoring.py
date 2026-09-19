@@ -1185,6 +1185,25 @@ class TestImportSubjectYoutubePlaylist:
         assert lesson.content == 'https://www.youtube.com/watch?v=QLNRbUsVHAM'
         assert lesson.icon.name.endswith('.jpg')
 
+    def test_a_mix_link_imports_the_video_it_names(
+        self, api_client, auth_header, monkeypatch, tutor, subject, settings, tmp_path
+    ):
+        """watch?v=X&list=RDX&start_radio=1 — YouTube's auto-generated Mix, not
+        a real playlist — used to fail; it's just video X."""
+        settings.MEDIA_ROOT = tmp_path
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = self._import_video(
+            api_client, auth_header, tutor, subject, monkeypatch, self._VideoSession(),
+            playlist_url='https://www.youtube.com/watch?v=siwIKN1UC70&list=RDsiwIKN1UC70&start_radio=1&t=24s',
+        )
+
+        assert response.status_code == 200
+        assert response.data['lessons_created'] == 1
+        lesson = Topic.objects.get(subject=subject, title='Base').lessons.get()
+        assert lesson.content == 'https://www.youtube.com/watch?v=siwIKN1UC70'
+        assert lesson.icon.name.endswith('.jpg')
+
     def test_a_video_link_goes_into_the_named_topic(
         self, api_client, auth_header, monkeypatch, tutor, subject, settings, tmp_path
     ):
