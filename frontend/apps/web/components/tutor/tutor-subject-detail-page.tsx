@@ -1070,6 +1070,37 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
           )}
         </div>
 
+        {/* The student filter and the lessons' icon buttons sit above the tab strip,
+            not inside the Lessons tab, so they stay put whichever tab is open. */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <select
+            aria-label={t("selectStudentLabel")}
+            value={selectedStudentId ?? ""}
+            onChange={(e) =>
+              setSelectedStudentId(e.target.value === "" ? null : Number(e.target.value))
+            }
+            className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-700"
+          >
+            <option value="">{t("selectStudentPlaceholder")}</option>
+            {classStudents.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+
+          <div className="flex flex-wrap items-center gap-1">
+            <PlanSubjectLessonsDialog
+              classId={subject.school_class_id}
+              subjectId={subjectId}
+              subjectName={subject.name}
+            />
+            <LoadLessonsJsonDialog subjectId={subjectId} />
+            <LoadYoutubePlaylistDialog subjectId={subjectId} />
+            <UpdateLessonIconsButton subjectId={subjectId} onUpdated={handleLessonListChanged} />
+          </div>
+        </div>
+
         <Tabs
           value={activeTab}
           onValueChange={setActiveTab}
@@ -1079,35 +1110,6 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
               label: t("lessonsTab"),
               content: (
                 <div className="flex flex-col gap-5">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <select
-                      aria-label={t("selectStudentLabel")}
-                      value={selectedStudentId ?? ""}
-                      onChange={(e) =>
-                        setSelectedStudentId(e.target.value === "" ? null : Number(e.target.value))
-                      }
-                      className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-700"
-                    >
-                      <option value="">{t("selectStudentPlaceholder")}</option>
-                      {classStudents.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-
-                    <div className="flex flex-wrap items-center gap-1">
-                      <PlanSubjectLessonsDialog
-                        classId={subject.school_class_id}
-                        subjectId={subjectId}
-                        subjectName={subject.name}
-                      />
-                      <LoadLessonsJsonDialog subjectId={subjectId} />
-                      <LoadYoutubePlaylistDialog subjectId={subjectId} />
-                      <UpdateLessonIconsButton subjectId={subjectId} onUpdated={handleLessonListChanged} />
-                    </div>
-                  </div>
-
                   {(reorderTopics.isError || reorderLessons.isError) && (
                     <p className="text-xs text-red-600">{t("lessonReorderError")}</p>
                   )}
