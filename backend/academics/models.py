@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from django.db import models
 
+from common.images import SUBJECT_GROUP_ICON_SIDE, SUBJECT_ICON_SIDE, icon_thumbnail_field
 from common.models import TimeStampedModel
 from common.storage import subject_group_icon_upload_to, subject_icon_upload_to, subject_material_upload_to
 
@@ -57,6 +58,8 @@ class SubjectGroup(models.Model):
     # filter (frontend's PreschoolSubjectsShelf) — optional; the pill just
     # renders without an image when empty.
     icon = models.FileField(upload_to=subject_group_icon_upload_to, blank=True)
+    # What the API sends in place of `icon` — see common/images.py.
+    icon_thumbnail = icon_thumbnail_field(SUBJECT_GROUP_ICON_SIDE)
 
     class Meta:
         ordering = ['order_index', 'name']
@@ -99,6 +102,8 @@ class Subject(TimeStampedModel):
     # icon -> subject icon -> a frontend-side default. See
     # docs/interfaces/preschool.md.
     icon = models.FileField(upload_to=subject_icon_upload_to, blank=True)
+    # What the API sends in place of `icon` — see common/images.py.
+    icon_thumbnail = icon_thumbnail_field(SUBJECT_ICON_SIDE)
     # Left-border accent on lesson cards — auto-assigned from
     # colors.SUBJECT_COLOR_PALETTE on create (services.assign_subject_color),
     # unique within the subject's own school_class. Blank only for subjects

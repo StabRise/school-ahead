@@ -2,6 +2,7 @@ from django.http import HttpRequest
 
 from academics.models import Subject
 from accounts.models import StudentProfile
+from common.images import icon_url
 from lessons import services as lesson_services
 from lessons.models import Lesson, StudentLesson
 
@@ -18,14 +19,6 @@ def get_badge_for_percent(percent: float) -> ProgressBadge | None:
         ProgressBadge.objects.filter(min_percent__lte=percent, max_percent__gte=percent).order_by('-level').first()
         or ProgressBadge.objects.order_by('level').first()
     )
-
-
-def _absolute_file_url(file_field, request: HttpRequest) -> str | None:
-    """See academics/schemas.py's identical helper — file URLs are
-    host-relative and the frontend is a separate origin (no BFF)."""
-    if not file_field:
-        return None
-    return request.build_absolute_uri(file_field.url)
 
 
 def list_subject_achievements(student: StudentProfile, request: HttpRequest) -> list[SubjectAchievementOut]:
@@ -54,7 +47,7 @@ def list_subject_achievements(student: StudentProfile, request: HttpRequest) -> 
             SubjectAchievementOut(
                 subject_id=subject.id,
                 subject_name=subject.name,
-                subject_icon=_absolute_file_url(subject.icon, request),
+                subject_icon=icon_url(subject, request),
                 subject_color=subject.color,
                 order_index=subject.order_index,
                 group_id=subject.group_id,

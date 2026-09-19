@@ -4,6 +4,7 @@ from academics.models import Class, Subject
 from accounts.models import StudentProfile
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
+from common.images import icon_url
 from common.permissions import get_own_student_profile
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
@@ -30,14 +31,6 @@ from .schemas import (
 )
 
 router = Router(tags=['schedule'], auth=CookieOrBearerJWTAuth())
-
-
-def _absolute_file_url(file_field, request: HttpRequest) -> str | None:
-    """See lessons/schemas.py's identical helper — file URLs are
-    host-relative and the frontend is a separate origin (no BFF)."""
-    if not file_field:
-        return None
-    return request.build_absolute_uri(file_field.url)
 
 
 def _calendar_item(request: HttpRequest, student_lesson: StudentLesson) -> CalendarItemOut:
@@ -74,8 +67,8 @@ def _calendar_item(request: HttpRequest, student_lesson: StudentLesson) -> Calen
         is_completed_ahead=is_ahead,
         grade_points=student_lesson.grade_points,
         grade_result=student_lesson.grade_result,
-        lesson_icon=_absolute_file_url(student_lesson.lesson.icon, request),
-        subject_icon=_absolute_file_url(subject.icon, request),
+        lesson_icon=icon_url(student_lesson.lesson, request),
+        subject_icon=icon_url(subject, request),
         subject_color=subject.color or None,
         lesson_type=student_lesson.lesson.lesson_type,
         task_content=student_lesson.lesson.task_content,
