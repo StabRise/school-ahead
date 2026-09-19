@@ -1,6 +1,6 @@
-"""Scrapes a public YouTube playlist into the TopicOut/LessonOut-shaped dict
-lessons.services.import_topics_and_lessons expects — one topic, one theory
-lesson per video. Shared by manage.py's tmp_scrape_lessons -Y (writes it to
+"""Scrapes a public YouTube playlist — or a single video — into the
+TopicOut/LessonOut-shaped dict lessons.services.import_topics_and_lessons
+expects: one topic, one theory lesson per video. Shared by manage.py's tmp_scrape_lessons -Y (writes it to
 a JSON file for later review/import) and the tutor's "Завантажити з
 YouTube" popup on the Subject detail page (tutoring.api.
 import_subject_youtube_playlist, which imports it immediately)."""
@@ -21,6 +21,8 @@ YOUTUBE_INITIAL_DATA_RE = re.compile(r'var ytInitialData = (\{.*?\});</script>',
 YOUTUBE_API_KEY_RE = re.compile(r'"INNERTUBE_API_KEY":"([^"]+)"')
 YOUTUBE_CLIENT_VERSION_RE = re.compile(r'"INNERTUBE_CLIENT_VERSION":"([^"]+)"')
 YOUTUBE_BROWSE_URL = 'https://www.youtube.com/youtubei/v1/browse'
+# Public, no API key: answers a video URL with its title (and embed details).
+YOUTUBE_OEMBED_URL = 'https://www.youtube.com/oembed'
 
 # Each continuation page holds ~100 videos and YouTube caps a playlist at
 # 5000, so 50 pages is the real ceiling — this only guards against looping
@@ -63,6 +65,62 @@ def canonical_playlist_url(url: str) -> str:
     url = url.strip()
     list_ids = parse_qs(urlparse(url).query).get('list')
     return f'https://www.youtube.com/playlist?list={list_ids[0]}' if list_ids else url
+
+
+def _is_mix_list(list_id: str) -> bool:
+    """YouTube's auto-generated "Mix" (radio) for a video — `list=RD…`, the
+    tail of a link like `watch?v=X&list=RDX&start_radio=1` — is not a real
+    playlist: its page has no playlist data to scrape. (`RDCLAK…` are the
+    exception: real, public YouTube Music playlists.)"""
+    return list_id.startswith('RD') and not list_id.startswith('RDCLAK')
+
+
+def is_single_video_url(url: str) -> bool:
+    """A link to one video rather than a playlist: it names a video (any of
+    the watch/embed/shorts/youtu.be forms) and carries either no `list=` id or
+    only an auto-generated Mix's (see _is_mix_list), which is just that video
+    with suggestions attached. With a real `list=` id the link is treated as
+    its playlist, whichever video it points at (see canonical_playlist_url)."""
+    url = url.strip()
+    if extract_video_id(url) is None:
+        return False
+    list_ids = parse_qs(urlparse(url).query).get('list', [])
+    return all(_is_mix_list(list_id) for list_id in list_ids)
+
+
+def _fetch_video_title(session: requests.Session, video_url: str) -> str:
+    try:
+        response = session.get(
+            YOUTUBE_OEMBED_URL, params={'url': video_url, 'format': 'json'}, timeout=REQUEST_TIMEOUT
+        )
+        response.raise_for_status()
+        title = response.json().get('title')
+    except (requests.RequestException, ValueError, AttributeError) as exc:
+        raise ScrapeError(f'Could not load that video — is it a valid, public YouTube link? ({exc})') from exc
+    if not isinstance(title, str) or not title.strip():
+        raise ScrapeError('Could not read that video\'s title.')
+    return title.strip()
+
+
+def _fetch_video_topic(video_url: str, topic_name: str) -> tuple[dict, bool]:
+    """A topic holding just the one lesson for a single video — named after
+    the video, its content the canonical watch link (which is also what lets
+    lesson_services.set_lesson_icon_from_content fetch the thumbnail). The
+    topic is `topic_name`, or DEFAULT_TOPIC_NAME when blank: a lone video has
+    no playlist title to borrow."""
+    video_id = extract_video_id(video_url)
+    watch_url = f'https://www.youtube.com/watch?v={video_id}'
+    title = _fetch_video_title(_make_session(), watch_url)
+    lesson = {
+        'title': title,
+        'lesson_type': 'theory',
+        'origin_url': watch_url,
+        'youtubes': [watch_url],
+        'pdfs': [],
+        'content': watch_url,
+        'task_content': '',
+    }
+    return {'title': topic_name.strip() or DEFAULT_TOPIC_NAME, 'description': '', 'lessons': [lesson]}, False
 
 
 def _make_session() -> requests.Session:
@@ -170,7 +228,10 @@ def _fetch_continuation(
 
 def fetch_playlist_topic(playlist_url: str, topic_name: str = '') -> tuple[dict, bool]:
     """Returns (topic_data, truncated) — topic_data is TopicOut-shaped,
-    ready for lessons.services.import_topics_and_lessons. The topic is named
+    ready for lessons.services.import_topics_and_lessons. A link to a single
+    video (is_single_video_url) makes one lesson, titled after the video, in a
+    topic named `topic_name` or DEFAULT_TOPIC_NAME (see _fetch_video_topic).
+    For a playlist the topic is named
     `topic_name`, or — when that's blank — after the playlist itself
     (DEFAULT_TOPIC_NAME if its title can't be read), and its description is
     the playlist's URL (canonical_playlist_url) so a tutor can find the
@@ -183,7 +244,12 @@ def fetch_playlist_topic(playlist_url: str, topic_name: str = '') -> tuple[dict,
     first page (network, unrecognized page, empty playlist) — callers decide
     how to surface that (manage.py's CommandError vs. tutoring.api's
     HttpError 400)."""
+    # A single video first — before the link is rewritten to its playlist,
+    # which would throw the video away.
+    if is_single_video_url(playlist_url):
+        return _fetch_video_topic(playlist_url, topic_name)
     playlist_url = canonical_playlist_url(playlist_url)
+
     session = _make_session()
     html_text = _fetch(session, playlist_url)
     data = _initial_data(html_text)

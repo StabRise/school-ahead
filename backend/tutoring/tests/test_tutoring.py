@@ -1136,6 +1136,114 @@ class TestImportSubjectYoutubePlaylist:
             'https://www.youtube.com/playlist?list=PL123'
         )
 
+    class _VideoSession:
+        """Stands in for the scraper's requests session: only the oEmbed
+        lookup a single-video link makes (the video's title)."""
+
+        headers = {}
+
+        def __init__(self, *, title='Ходить гарбуз по городу', error=None):
+            self._title = title
+            self._error = error
+
+        def get(self, url, timeout, params=None):
+            title, error = self._title, self._error
+
+            class _Response:
+                def raise_for_status(self):
+                    if error:
+                        raise error
+
+                def json(self):
+                    return {'title': title}
+
+            return _Response()
+
+    def _import_video(self, api_client, auth_header, tutor, subject, monkeypatch, session, **payload):
+        monkeypatch.setattr('lessons.youtube_scrape._make_session', lambda: session)
+        monkeypatch.setattr('lessons.services.requests.get', lambda url, timeout: self._FakeThumbnailResponse())
+        return api_client.post(
+            f'/tutor/subjects/{subject.id}/youtube-import',
+            json={'playlist_url': 'https://www.youtube.com/watch?v=QLNRbUsVHAM', **payload},
+            headers=auth_header(tutor.user),
+        )
+
+    def test_a_video_link_makes_one_lesson_named_after_the_video_with_its_thumbnail(
+        self, api_client, auth_header, monkeypatch, tutor, subject, settings, tmp_path
+    ):
+        settings.MEDIA_ROOT = tmp_path
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = self._import_video(api_client, auth_header, tutor, subject, monkeypatch, self._VideoSession())
+
+        assert response.status_code == 200
+        assert response.data['topic_name'] == 'Base'
+        assert response.data['lessons_created'] == 1
+        assert response.data['truncated'] is False
+        lesson = Topic.objects.get(subject=subject, title='Base').lessons.get()
+        assert lesson.title == 'Ходить гарбуз по городу'
+        assert lesson.content == 'https://www.youtube.com/watch?v=QLNRbUsVHAM'
+        assert lesson.icon.name.endswith('.jpg')
+
+    def test_a_mix_link_imports_the_video_it_names(
+        self, api_client, auth_header, monkeypatch, tutor, subject, settings, tmp_path
+    ):
+        """watch?v=X&list=RDX&start_radio=1 — YouTube's auto-generated Mix, not
+        a real playlist — used to fail; it's just video X."""
+        settings.MEDIA_ROOT = tmp_path
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = self._import_video(
+            api_client, auth_header, tutor, subject, monkeypatch, self._VideoSession(),
+            playlist_url='https://www.youtube.com/watch?v=siwIKN1UC70&list=RDsiwIKN1UC70&start_radio=1&t=24s',
+        )
+
+        assert response.status_code == 200
+        assert response.data['lessons_created'] == 1
+        lesson = Topic.objects.get(subject=subject, title='Base').lessons.get()
+        assert lesson.content == 'https://www.youtube.com/watch?v=siwIKN1UC70'
+        assert lesson.icon.name.endswith('.jpg')
+
+    def test_a_video_link_goes_into_the_named_topic(
+        self, api_client, auth_header, monkeypatch, tutor, subject, settings, tmp_path
+    ):
+        settings.MEDIA_ROOT = tmp_path
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+
+        response = self._import_video(
+            api_client, auth_header, tutor, subject, monkeypatch, self._VideoSession(), topic_name='Пісні'
+        )
+
+        assert response.data['topic_name'] == 'Пісні'
+        assert Topic.objects.get(subject=subject, title='Пісні').lessons.count() == 1
+        assert not Topic.objects.filter(subject=subject, title='Base').exists()
+
+    def test_importing_the_same_video_again_adds_nothing(
+        self, api_client, auth_header, monkeypatch, tutor, subject, settings, tmp_path
+    ):
+        settings.MEDIA_ROOT = tmp_path
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        self._import_video(api_client, auth_header, tutor, subject, monkeypatch, self._VideoSession())
+
+        response = self._import_video(api_client, auth_header, tutor, subject, monkeypatch, self._VideoSession())
+
+        assert response.data['lessons_created'] == 0
+        assert response.data['lessons_skipped'] == 1
+        assert Topic.objects.get(subject=subject, title='Base').lessons.count() == 1
+
+    def test_a_video_that_cannot_be_loaded_is_a_bad_request(
+        self, api_client, auth_header, monkeypatch, tutor, subject
+    ):
+        import requests
+
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        session = self._VideoSession(error=requests.HTTPError('400 Bad Request'))
+
+        response = self._import_video(api_client, auth_header, tutor, subject, monkeypatch, session)
+
+        assert response.status_code == 400
+        assert not Topic.objects.filter(subject=subject).exists()
+
     def test_topic_name_is_optional(self, api_client, auth_header, monkeypatch, tutor, subject):
         """Omitting topic_name reaches the scraper as blank, which it turns
         into the playlist's own title (see youtube_scrape.fetch_playlist_topic)."""
