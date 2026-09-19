@@ -20,11 +20,11 @@ from pilkit.processors import ResizeToFit
 logger = logging.getLogger(__name__)
 
 # Longest side, in px, of each icon's thumbnail — about twice what the frontend
-# draws it at, for retina screens. A group's icon is a 48px filter pill
+# draws it at, for retina screens. A group's icon is an 88px filter pill
 # (subjects-shelf.tsx); a subject's is a book cover (up to ~144px, enlarged to
 # ~290px on hover) and a lesson's a card picture (up to ~320px, see
 # preschool-lesson-tile.tsx). Smaller originals are never scaled up.
-SUBJECT_GROUP_ICON_SIDE = 96
+SUBJECT_GROUP_ICON_SIDE = 176
 SUBJECT_ICON_SIDE = 320
 LESSON_ICON_SIDE = 320
 
@@ -55,4 +55,3 @@ def icon_url(instance, request) -> str | None:
         url = instance.icon.url
     # File URLs are host-relative and the frontend is a separate origin (no BFF).
     return request.build_absolute_uri(url) if request is not None else url
-
