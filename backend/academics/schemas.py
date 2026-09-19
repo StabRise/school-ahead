@@ -2,6 +2,8 @@ import datetime
 
 from ninja import Schema
 
+from common.images import icon_url
+
 
 def _absolute_file_url(file_field, context: dict) -> str | None:
     """See lessons/schemas.py's identical helper — file URLs are
@@ -44,7 +46,7 @@ class SubjectGroupOut(Schema):
 
     @staticmethod
     def resolve_icon(obj, context):
-        return _absolute_file_url(obj.icon, context)
+        return icon_url(obj, context.get('request'))
 
 
 class SubjectBlockOut(Schema):
@@ -93,7 +95,7 @@ class SubjectOut(Schema):
 
     @staticmethod
     def resolve_icon(obj, context):
-        return _absolute_file_url(obj.icon, context)
+        return icon_url(obj, context.get('request'))
 
     @staticmethod
     def resolve_teacher_name(obj):
@@ -119,7 +121,7 @@ class PublicSubjectOut(Schema):
 
     @staticmethod
     def resolve_icon(obj, context):
-        return _absolute_file_url(obj.icon, context)
+        return icon_url(obj, context.get('request'))
 
 
 class SubjectMaterialOut(Schema):

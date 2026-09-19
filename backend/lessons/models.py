@@ -1,5 +1,6 @@
 from academics.models import Subject, SubjectBlock, Topic
 from accounts.models import StudentProfile, User
+from common.images import LESSON_ICON_SIDE, icon_thumbnail_field
 from common.models import TimeStampedModel
 from common.storage import (
     lesson_attachment_upload_to,
@@ -72,6 +73,8 @@ class Lesson(TimeStampedModel):
     # subject's icon, then a frontend default, when empty. See
     # docs/interfaces/preschool.md.
     icon = models.FileField(upload_to=lesson_icon_upload_to, blank=True)
+    # What the API sends in place of `icon` — see common/images.py.
+    icon_thumbnail = icon_thumbnail_field(LESSON_ICON_SIDE)
     # Set when a student reports a problem with the lesson itself (the video
     # is unavailable, ...) with the warning button on the preschool lesson
     # screen — see lessons.api.report_problem. Lives on the Lesson, not the

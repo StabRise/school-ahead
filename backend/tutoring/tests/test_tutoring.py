@@ -698,6 +698,31 @@ class TestUploadTutorSubjectIcon:
         assert (tmp_path / subject.icon.name).exists()
         assert not first_path.exists()
 
+    def test_replacing_deletes_the_previous_thumbnail_too(
+        self, api_client, auth_header, tutor, subject, settings, tmp_path
+    ):
+        import io
+
+        from PIL import Image
+
+        def png(size):
+            out = io.BytesIO()
+            Image.new('RGB', size, (10, 120, 200)).save(out, 'PNG')
+            return self._image('icon.png', out.getvalue())
+
+        settings.MEDIA_ROOT = tmp_path
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        thumbnails = lambda: sorted((tmp_path / 'CACHE').rglob('*.png'))  # noqa: E731
+
+        # The response carries the thumbnail's URL, which is what makes it.
+        self._upload(api_client, auth_header, tutor, subject, png((900, 900)))
+        (first_thumbnail,) = thumbnails()
+
+        self._upload(api_client, auth_header, tutor, subject, png((800, 800)))
+
+        (second_thumbnail,) = thumbnails()
+        assert second_thumbnail != first_thumbnail
+
     def test_non_image_is_rejected(self, api_client, auth_header, tutor, subject, settings, tmp_path):
         settings.MEDIA_ROOT = tmp_path
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)

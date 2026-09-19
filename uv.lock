@@ -407,6 +407,18 @@ wheels = [
 ]
 
 [[package]]
+name = "django-appconf"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d1/a2/e58bec8d7941b914af52a67c35b5709eceed2caa2848f28437f1666ed668/django_appconf-1.2.0.tar.gz", hash = "sha256:15a88d60dd942d6059f467412fe4581db632ef03018a3c183fb415d6fc9e5cec", size = 16127, upload-time = "2025-11-08T15:46:27.304Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e8/e6/4c34d94dfb74bbcbc489606e61f1924933de30d22c593dd1f429f35fbd7f/django_appconf-1.2.0-py3-none-any.whl", hash = "sha256:b81bce5ef0ceb9d84df48dfb623a32235d941c78cc5e45dbb6947f154ea277f4", size = 6500, upload-time = "2025-11-08T15:46:25.957Z" },
+]
+
+[[package]]
 name = "django-cors-headers"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -426,6 +438,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/57/e1/4c4ddcf6e90f023e89edb1d92f9a7fffce61ad4b691df497f2f5c0be6e26/django_environ-0.14.0.tar.gz", hash = "sha256:b6c48d93b9d2ff8a3ea14099e90c35aa4f101c1b4d5f262dfee0d27b06742ed7", size = 60417, upload-time = "2026-06-18T22:49:55.847Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1a/fe/67b423fc30f16d10259e901320fbc121746bf168aaaad9043e6ebb0110c1/django_environ-0.14.0-py3-none-any.whl", hash = "sha256:8dbe8a57f0a540ab8abd6f54f230de5e99e3a2c9d797cb9caecb037bca3d47d8", size = 20934, upload-time = "2026-06-18T22:49:54.355Z" },
+]
+
+[[package]]
+name = "django-imagekit"
+version = "6.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django-appconf" },
+    { name = "pilkit" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f2/81/c84c01d49457d589d339217402cdaa7853492dcf47c5575c55bb5b8eb482/django_imagekit-6.1.1.tar.gz", hash = "sha256:3d254c163fda1aeb163ea2c79399f9892c12a0c2ce881059e450ad7fe930a017", size = 65570, upload-time = "2026-09-15T22:17:26.037Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/7b/807277df8641c9b5422b7a91fb33f68c01edd0e74f49af86bce0f1120a56/django_imagekit-6.1.1-py3-none-any.whl", hash = "sha256:211765099e1c435c2b1d4664621c7cdf91aa0a3394de8fc1053b89e468000d53", size = 67748, upload-time = "2026-09-15T22:17:24.59Z" },
 ]
 
 [[package]]
@@ -702,6 +727,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/7d/fa/3944b40b07da9ce895c0e6303a5ab7d53da063554f534556b134a54d6093/packaging-26.3.tar.gz", hash = "sha256:94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79", size = 313412, upload-time = "2026-08-04T18:15:28.737Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl", hash = "sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c", size = 129956, upload-time = "2026-08-04T18:15:27.159Z" },
+]
+
+[[package]]
+name = "pilkit"
+version = "3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pillow" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b9/a5/bbe12d2c9dc06e29224c45a2cd7aa0ce923648588b6a15aadfee150bbd0c/pilkit-3.0.tar.gz", hash = "sha256:f6719e8cc0482e5447f5cb94f18b949d8e604ea9673a9b019c74d41b779e4eab", size = 402342, upload-time = "2023-09-27T22:47:18.638Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/de/ec/877b84b82cbcba6203e39d068cecfdbcfb61de69260cb851ea11be9b67f3/pilkit-3.0-py3-none-any.whl", hash = "sha256:fe1707b0411a1d0cbf9ad3986779fa5a346cec4582a188740924aa39f504d117", size = 20073, upload-time = "2023-09-27T22:47:16.285Z" },
 ]
 
 [[package]]
@@ -1222,6 +1259,7 @@ dependencies = [
     { name = "django" },
     { name = "django-cors-headers" },
     { name = "django-environ" },
+    { name = "django-imagekit" },
     { name = "django-mcp-server" },
     { name = "django-ninja" },
     { name = "django-ninja-jwt" },
@@ -1250,6 +1288,7 @@ requires-dist = [
     { name = "django", specifier = ">=6.1" },
     { name = "django-cors-headers", specifier = ">=4.9.0" },
     { name = "django-environ", specifier = ">=0.14.0" },
+    { name = "django-imagekit", specifier = ">=6.1.1" },
     { name = "django-mcp-server", specifier = ">=0.5.7" },
     { name = "django-ninja", specifier = ">=1.6.3" },
     { name = "django-ninja-jwt", specifier = ">=5.4.5" },

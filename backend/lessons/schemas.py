@@ -1,6 +1,7 @@
 import datetime
 
 from achievements.schemas import BlockProgressOut, ProgressBadgeOut
+from common.images import icon_url
 from ninja import Schema
 
 
@@ -80,7 +81,7 @@ class LessonOut(Schema):
 
     @staticmethod
     def resolve_icon(obj, context):
-        return _absolute_file_url(obj.icon, context)
+        return icon_url(obj, context.get('request'))
 
     @staticmethod
     def resolve_quiz_questions(obj):

@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'ninja_apikey',
     'rest_framework',
     'mcp_server',
+    'imagekit',
     'common',
     'accounts',
     'academics',
