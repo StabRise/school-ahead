@@ -1469,6 +1469,40 @@ class TestLessonsNeedingReview:
         assert row['subject_id'] == subject.id
         assert row['topic_title'] == 'Topic'
         assert row['class_name'] == subject.school_class.name
+        assert row['lesson_type'] == 'theory'
+        assert row['order_index'] == 1
+        assert row['icon'] is None
+        assert row['subject_icon'] is None
+        assert row['student_count'] == 0
+
+    def test_reports_icons_as_absolute_urls(self, api_client, auth_header, tutor, subject, settings, tmp_path):
+        from django.core.files.base import ContentFile
+
+        settings.MEDIA_ROOT = tmp_path
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        subject.icon.save('subject.png', ContentFile(b'subject-bytes'), save=True)
+        lesson = self._lesson(subject, 'Broken')
+        lesson.icon.save('lesson.png', ContentFile(b'lesson-bytes'), save=True)
+
+        [row] = self._list(api_client, auth_header, tutor).data
+
+        assert row['icon'].startswith('http') and row['icon'].endswith('.png')
+        assert row['subject_icon'].startswith('http') and row['subject_icon'].endswith('.png')
+        assert row['icon'] != row['subject_icon']
+
+    def test_reports_how_many_students_have_the_lesson(
+        self, api_client, auth_header, tutor, subject, student, other_student
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        assigned = self._lesson(subject, 'Assigned', order_index=1)
+        free = self._lesson(subject, 'Free', order_index=2)
+        for one in (student, other_student):
+            StudentLesson.objects.create(student=one, lesson=assigned, scheduled_date=datetime.date.today())
+
+        rows = {row['id']: row for row in self._list(api_client, auth_header, tutor).data}
+
+        assert rows[assigned.id]['student_count'] == 2
+        assert rows[free.id]['student_count'] == 0
 
     def test_can_be_filtered_by_subject(self, api_client, auth_header, tutor, subject, other_subject):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
@@ -2567,6 +2601,36 @@ class TestDeleteLesson:
         response = api_client.delete(f'/tutor/lessons/{lesson.id}', headers=auth_header(tutor.user))
 
         assert response.status_code == 409
+        assert Lesson.objects.filter(id=lesson.id).exists()
+
+    def test_force_deletes_an_assigned_lesson_together_with_its_student_lessons(
+        self, api_client, auth_header, tutor, subject, student
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+        student_lesson = StudentLesson.objects.create(
+            student=student, lesson=lesson, scheduled_date=datetime.date.today(), status=StudentLessonStatus.ASSIGNED
+        )
+
+        response = api_client.delete(f'/tutor/lessons/{lesson.id}?force=true', headers=auth_header(tutor.user))
+
+        assert response.status_code == 204
+        assert not Lesson.objects.filter(id=lesson.id).exists()
+        assert not StudentLesson.objects.filter(id=student_lesson.id).exists()
+        assert Topic.objects.filter(id=topic.id).exists()
+
+    def test_force_does_not_bypass_the_tutor_check(self, api_client, auth_header, tutor, subject):
+        topic = Topic.objects.create(subject=subject, title='Fractions', order_index=1)
+        lesson = Lesson.objects.create(
+            topic=topic, order_index=1, title='Intro', lesson_type=LessonType.THEORY, grading_type='binary'
+        )
+
+        response = api_client.delete(f'/tutor/lessons/{lesson.id}?force=true', headers=auth_header(tutor.user))
+
+        assert response.status_code == 403
         assert Lesson.objects.filter(id=lesson.id).exists()
 
 

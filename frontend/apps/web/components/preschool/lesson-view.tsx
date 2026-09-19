@@ -110,9 +110,11 @@ function FavoriteButton({ studentLessonId, isFavorite }: { studentLessonId: numb
   );
 }
 
-// The warning beside the heart — "something's wrong with this lesson" (the
+// The warning in the bottom-left corner — "something's wrong with this lesson" (the
 // video won't play, ...). Flags the lesson for a tutor (Lesson.need_review,
-// shown on the tutor dashboard). Once flagged it turns into a green check and
+// shown on the tutor dashboard). Pinned to the screen (a fixed corner, like
+// PreschoolButton's other presets) so it's always there, far from the exit and
+// heart at the top so it isn't tapped by mistake. Once flagged it turns into a green check and
 // does nothing more: reporting is one-way for a child, and a lesson someone
 // else already flagged shows as reported too — the tutor knows. Flips at once,
 // like the heart, and rolls back if the request fails.
@@ -139,8 +141,7 @@ function ReportProblemButton({ studentLessonId, isReported }: { studentLessonId:
       label={isReported ? t("problemReportedLabel") : t("reportProblemLabel")}
       ringColorClassName={isReported ? "ring-emerald-400" : "ring-amber-400"}
       sizeClassName="h-16 w-16"
-      position="static"
-      className="absolute left-[12.5rem] top-6"
+      position="bottom-left"
       onClick={handleClick}
     />
   );

@@ -215,16 +215,21 @@ marks the lesson as one of the child's favourites — `StudentLesson.is_favorite
 set through `PATCH /student-lessons/{id}/favorite`. The heart flips at once
 and is rolled back if the request fails.
 
-Beside the heart is a ⚠️ `PreschoolButton` (`ReportProblemButton`) for "something
-is wrong with this lesson" (the video won't play, ...). Tapping it sets
+A ⚠️ `PreschoolButton` (`ReportProblemButton`), pinned to the bottom-left corner
+of the screen, is for "something is wrong with this lesson" (the video won't play, ...). Tapping it sets
 `Lesson.need_review` through `POST /student-lessons/{id}/report-problem` — the
 flag is on the *lesson*, not the student's copy, since it's the lesson that needs
 fixing — and the button turns into a green ✅ (also shown for a lesson someone
 else already flagged). Tutors see flagged lessons in the "Уроки з проблемами"
 section of their dashboard (`lessons-needing-review.tsx`, `GET
 /tutor/lessons-needing-review`, filtered by the dashboard's subject and class
-selectors) and clear the flag with "Проблему виправлено" (`PATCH
-/tutor/lessons/{id}/need-review`).
+selectors) as the same `PreschoolLessonTile` cards a child sees: the card opens
+`/tutor/lessons/{id}`, and small buttons down its right edge mark the problem
+fixed (`PATCH /tutor/lessons/{id}/need-review`), delete the lesson or — only while the lesson has no picture — load its
+YouTube thumbnail. Deleting a lesson students have asks for a stronger confirmation
+(it names how many students, and that their work goes with it) and is sent with
+`?force=true`; without `force`, `DELETE /tutor/lessons/{id}` still answers 409 for
+an assigned lesson, as everywhere else.
 
 Two steps, held as local state (not persisted — purely a client-side
 "which panel" toggle, same as the default `LessonWizard`'s

@@ -661,6 +661,7 @@ def list_lessons_needing_review(request: HttpRequest, subject: int | None = None
     lessons = (
         Lesson.objects.filter(need_review=True, topic__subject_id__in=services.get_tutor_subject_ids(request.auth))
         .select_related('topic__subject__school_class')
+        .annotate(student_count=Count('student_lessons'))
         .order_by(
             'topic__subject__school_class__order_index',
             'topic__subject__name',
@@ -676,11 +677,16 @@ def list_lessons_needing_review(request: HttpRequest, subject: int | None = None
         NeedReviewLessonOut(
             id=lesson.id,
             title=lesson.title,
+            lesson_type=lesson.lesson_type,
+            order_index=lesson.order_index,
             topic_title=lesson.topic.title,
             subject_id=lesson.topic.subject_id,
             subject_name=lesson.topic.subject.name,
             class_id=lesson.topic.subject.school_class_id,
             class_name=lesson.topic.subject.school_class.name,
+            icon=_absolute_file_url(lesson.icon, request),
+            subject_icon=_absolute_file_url(lesson.topic.subject.icon, request),
+            student_count=lesson.student_count,
         )
         for lesson in lessons
     ]
@@ -737,15 +743,19 @@ def update_lesson(request: HttpRequest, lesson_id: int, payload: LessonUpdateIn)
 
 
 @router.delete('/lessons/{lesson_id}', operation_id='delete_tutor_lesson')
-def delete_lesson(request: HttpRequest, lesson_id: int, response: HttpResponse):
+def delete_lesson(request: HttpRequest, lesson_id: int, response: HttpResponse, force: bool = False):
     """Deletes a single Lesson — from the tutor's Subject detail page. Unlike
     delete_tutor_topic above, this refuses to delete a lesson that's already
     assigned to a student (any StudentLesson row, regardless of status) —
-    removing it would also silently wipe that student's progress/grade."""
+    removing it would also wipe that student's progress/grade — unless the
+    caller passes `force=true`, which deletes it anyway (its StudentLessons,
+    and their submissions and comments, go with it). Only a caller that has
+    already warned the tutor about that should send it — see the tutor
+    dashboard's "lessons that need review" section."""
     require_csrf(request)
     lesson = get_object_or_404(Lesson.objects.select_related('topic__subject_block'), id=lesson_id)
     services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
-    if StudentLesson.objects.filter(lesson_id=lesson_id).exists():
+    if not force and StudentLesson.objects.filter(lesson_id=lesson_id).exists():
         raise HttpError(409, 'Cannot delete a lesson that is assigned to a student')
     block = lesson.topic.subject_block
     lesson.delete()
