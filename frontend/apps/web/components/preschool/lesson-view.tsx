@@ -8,6 +8,7 @@ import { currentLessonExitHref } from "@/lib/lesson-exit";
 import {
   getGetStudentLessonQueryKey,
   useGetStudentLesson,
+  useReportLessonProblem,
   useSetStudentLessonFavorite,
 } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import type { StudentLessonOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
@@ -104,6 +105,42 @@ function FavoriteButton({ studentLessonId, isFavorite }: { studentLessonId: numb
       sizeClassName="h-16 w-16"
       position="static"
       className="absolute left-28 top-6"
+      onClick={handleClick}
+    />
+  );
+}
+
+// The warning beside the heart — "something's wrong with this lesson" (the
+// video won't play, ...). Flags the lesson for a tutor (Lesson.need_review,
+// shown on the tutor dashboard). Once flagged it turns into a green check and
+// does nothing more: reporting is one-way for a child, and a lesson someone
+// else already flagged shows as reported too — the tutor knows. Flips at once,
+// like the heart, and rolls back if the request fails.
+function ReportProblemButton({ studentLessonId, isReported }: { studentLessonId: number; isReported: boolean }) {
+  const t = useTranslations("PreschoolLesson");
+  const queryClient = useQueryClient();
+  const reportProblem = useReportLessonProblem();
+
+  const showReported = (value: boolean) =>
+    queryClient.setQueryData<StudentLessonOut>(
+      getGetStudentLessonQueryKey(studentLessonId),
+      (studentLesson) => studentLesson && { ...studentLesson, lesson: { ...studentLesson.lesson, need_review: value } },
+    );
+
+  const handleClick = () => {
+    if (isReported || reportProblem.isPending) return;
+    showReported(true);
+    reportProblem.mutate({ studentLessonId }, { onError: () => showReported(false) });
+  };
+
+  return (
+    <PreschoolButton
+      icon={isReported ? "✅" : "⚠️"}
+      label={isReported ? t("problemReportedLabel") : t("reportProblemLabel")}
+      ringColorClassName={isReported ? "ring-emerald-400" : "ring-amber-400"}
+      sizeClassName="h-16 w-16"
+      position="static"
+      className="absolute left-[12.5rem] top-6"
       onClick={handleClick}
     />
   );
@@ -291,6 +328,7 @@ export function PreschoolLessonView({ studentLessonId }: { studentLessonId: numb
 
       <ExitButton subjectId={data?.lesson.subject_id ?? null} />
       {data && <FavoriteButton studentLessonId={studentLessonId} isFavorite={data.is_favorite} />}
+      {data && <ReportProblemButton studentLessonId={studentLessonId} isReported={data.lesson.need_review} />}
 
       {isLoading && <p className="relative m-auto text-lg font-medium text-emerald-900">{t("loading")}</p>}
       {isError && <p className="relative m-auto text-lg font-medium text-red-700">{t("error")}</p>}

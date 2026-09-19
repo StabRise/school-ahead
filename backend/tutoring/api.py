@@ -67,8 +67,10 @@ from .schemas import (
     ImportPlanOut,
     ImportSubjectMarkdownOut,
     LessonStudentOut,
+    NeedReviewLessonOut,
     PlanOut,
     ResolveNeedHelpIn,
+    SetNeedReviewIn,
     SetCanDoAnyLessonIn,
     SetSubjectAttestationTypeIn,
     SetSubjectFilledIn,
@@ -643,6 +645,59 @@ def create_lesson(request: HttpRequest, payload: LessonCreateIn):
         task_content=payload.task_content,
         synopsis=payload.synopsis,
     )
+
+
+# Not "/lessons/needing-review": that would collide with "/lessons/{lesson_id}".
+@router.get(
+    '/lessons-needing-review',
+    response=list[NeedReviewLessonOut],
+    operation_id='list_tutor_lessons_needing_review',
+)
+def list_lessons_needing_review(request: HttpRequest, subject: int | None = None, class_id: int | None = None):
+    """Lessons a student flagged with the preschool lesson screen's warning
+    button (Lesson.need_review), in the tutor's own subjects — the "lessons
+    that need review" section of the tutor dashboard. Filterable by subject
+    and class like the dashboard's other feeds."""
+    lessons = (
+        Lesson.objects.filter(need_review=True, topic__subject_id__in=services.get_tutor_subject_ids(request.auth))
+        .select_related('topic__subject__school_class')
+        .order_by(
+            'topic__subject__school_class__order_index',
+            'topic__subject__name',
+            'topic__order_index',
+            'order_index',
+        )
+    )
+    if subject is not None:
+        lessons = lessons.filter(topic__subject_id=subject)
+    if class_id is not None:
+        lessons = lessons.filter(topic__subject__school_class_id=class_id)
+    return [
+        NeedReviewLessonOut(
+            id=lesson.id,
+            title=lesson.title,
+            topic_title=lesson.topic.title,
+            subject_id=lesson.topic.subject_id,
+            subject_name=lesson.topic.subject.name,
+            class_id=lesson.topic.subject.school_class_id,
+            class_name=lesson.topic.subject.school_class.name,
+        )
+        for lesson in lessons
+    ]
+
+
+@router.patch('/lessons/{lesson_id}/need-review', response=LessonOut, operation_id='set_tutor_lesson_need_review')
+def set_lesson_need_review(request: HttpRequest, lesson_id: int, payload: SetNeedReviewIn):
+    """Clears (or sets) Lesson.need_review — the tutor dashboard's "problem
+    fixed" button. Sets rather than toggles, so a double click can't flip it."""
+    require_csrf(request)
+    lesson = get_object_or_404(
+        Lesson.objects.select_related('topic__subject__school_class', 'topic__subject_block'), id=lesson_id
+    )
+    services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
+    lesson.need_review = payload.need_review
+    lesson.save(update_fields=['need_review'])
+    return lesson
 
 
 @router.get('/lessons/{lesson_id}', response=LessonOut, operation_id='get_tutor_lesson')

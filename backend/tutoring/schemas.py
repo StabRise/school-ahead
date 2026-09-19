@@ -84,6 +84,23 @@ class TutorFeedItemOut(Schema):
     updated_at: datetime.datetime
 
 
+class NeedReviewLessonOut(Schema):
+    """A lesson a student reported a problem with — one row of the tutor
+    dashboard's "lessons that need review" section."""
+
+    id: int
+    title: str
+    topic_title: str
+    subject_id: int
+    subject_name: str
+    class_id: int
+    class_name: str
+
+
+class SetNeedReviewIn(Schema):
+    need_review: bool
+
+
 class TutorStudentOut(Schema):
     id: int
     name: str

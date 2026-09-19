@@ -71,6 +71,8 @@ class LessonOut(Schema):
     topic_title: str
     subject_block_label: str | None
     icon: str | None
+    # Lesson.need_review — a student reported a problem with it.
+    need_review: bool
 
     @staticmethod
     def resolve_materials(obj):

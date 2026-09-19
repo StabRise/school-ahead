@@ -1436,6 +1436,93 @@ class TestUpdateLessonIcon:
         assert response.status_code == 403
 
 
+class TestLessonsNeedingReview:
+    """Lessons a student flagged with the preschool lesson screen's warning
+    button — the tutor dashboard's "lessons that need review" section."""
+
+    def _lesson(self, subject, title, *, need_review=True, order_index=1):
+        topic = Topic.objects.get_or_create(subject=subject, title='Topic', defaults={'order_index': 1})[0]
+        return Lesson.objects.create(
+            topic=topic, order_index=order_index, title=title, lesson_type=LessonType.THEORY,
+            grading_type='binary', need_review=need_review,
+        )
+
+    def _list(self, api_client, auth_header, tutor, query=''):
+        return api_client.get(f'/tutor/lessons-needing-review{query}', headers=auth_header(tutor.user))
+
+    def test_lists_only_flagged_lessons_in_the_tutors_subjects(
+        self, api_client, auth_header, tutor, subject, other_subject
+    ):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        flagged = self._lesson(subject, 'Broken video', order_index=1)
+        self._lesson(subject, 'Fine', need_review=False, order_index=2)
+        # Flagged, but in a subject this tutor doesn't teach.
+        self._lesson(other_subject, 'Not mine')
+
+        response = self._list(api_client, auth_header, tutor)
+
+        assert response.status_code == 200
+        assert [row['id'] for row in response.data] == [flagged.id]
+        row = response.data[0]
+        assert row['title'] == 'Broken video'
+        assert row['subject_name'] == 'Math'
+        assert row['subject_id'] == subject.id
+        assert row['topic_title'] == 'Topic'
+        assert row['class_name'] == subject.school_class.name
+
+    def test_can_be_filtered_by_subject(self, api_client, auth_header, tutor, subject, other_subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=other_subject)
+        in_math = self._lesson(subject, 'Math one')
+        self._lesson(other_subject, 'History one')
+
+        response = self._list(api_client, auth_header, tutor, f'?subject={subject.id}')
+
+        assert [row['id'] for row in response.data] == [in_math.id]
+
+    def test_can_be_filtered_by_class(self, api_client, auth_header, tutor, subject, school_class):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        flagged = self._lesson(subject, 'Broken')
+
+        assert [r['id'] for r in self._list(api_client, auth_header, tutor, f'?class_id={school_class.id}').data] == [
+            flagged.id
+        ]
+        assert self._list(api_client, auth_header, tutor, '?class_id=999999').data == []
+
+    def test_empty_when_nothing_is_flagged(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        self._lesson(subject, 'Fine', need_review=False)
+
+        assert self._list(api_client, auth_header, tutor).data == []
+
+    def test_clearing_the_flag_takes_the_lesson_off_the_list(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        lesson = self._lesson(subject, 'Broken')
+
+        response = api_client.patch(
+            f'/tutor/lessons/{lesson.id}/need-review', json={'need_review': False}, headers=auth_header(tutor.user)
+        )
+
+        assert response.status_code == 200
+        assert response.data['need_review'] is False
+        lesson.refresh_from_db()
+        assert lesson.need_review is False
+        assert self._list(api_client, auth_header, tutor).data == []
+
+    def test_clearing_is_rejected_for_a_tutor_not_assigned_to_the_subject(
+        self, api_client, auth_header, tutor, subject
+    ):
+        lesson = self._lesson(subject, 'Broken')
+
+        response = api_client.patch(
+            f'/tutor/lessons/{lesson.id}/need-review', json={'need_review': False}, headers=auth_header(tutor.user)
+        )
+
+        assert response.status_code == 403
+        lesson.refresh_from_db()
+        assert lesson.need_review is True
+
+
 class TestLessonDetail:
     def test_get_lesson(self, api_client, auth_header, tutor, subject):
         TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
