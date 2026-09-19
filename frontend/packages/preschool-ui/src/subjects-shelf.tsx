@@ -104,9 +104,17 @@ function StudentBook({ subject }: { subject: ShelfSubject }) {
   return <BookCover subject={subject} percent={percent} />;
 }
 
-// A filter pill is a real link (`?group=<id>`, none for "all") rather than
-// local state, so a reload or shared URL lands on the same category — the
-// preschool counterpart of the `?tab=` convention (use-tab-query-param.ts).
+// The picture in an icon-only filter pill. Big, with next to no pill around it —
+// and the pill and the frame around the row share its `rounded-xl` corners
+// — the backend's thumbnail for a group's icon (SUBJECT_GROUP_ICON_SIDE in
+// backend/common/images.py) is twice this, for retina screens.
+const FILTER_ICON_CLASS = "h-22 w-22 rounded-xl object-cover";
+
+// A filter pill is a real link (`?group=<id>`, none when no group is chosen)
+// rather than local state, so a reload or shared URL lands on the same
+// category — the preschool counterpart of the `?tab=` convention
+// (use-tab-query-param.ts). A pill is a toggle: the chosen one links back to
+// the bare page.
 function FilterPill({
   href,
   active,
@@ -131,8 +139,8 @@ function FilterPill({
       aria-label={title}
       aria-current={active ? "true" : undefined}
       className={`flex items-center gap-2 text-base font-extrabold transition-colors ${
-        iconOnly ? "rounded-2xl p-1.5" : "rounded-full py-1.5 pl-2 pr-4"
-      } ${active ? "bg-indigo-600 text-white shadow-lg" : "bg-slate-100 text-slate-800 hover:bg-slate-200"}`}
+        iconOnly ? "rounded-xl p-0" : "rounded-full py-1.5 pl-2 pr-4"
+      } ${active ? "bg-indigo-600 text-white shadow-lg ring-2 ring-indigo-600" : "bg-slate-100 text-slate-800 hover:bg-slate-200"}`}
     >
       {icon}
       {children}
@@ -161,8 +169,8 @@ function SubjectsShelf({
 
   // Groups are global (not per class), so only offer the ones this
   // student's class actually has a subject in — an empty category would
-  // just be a dead-end tab. Subjects without a group appear under "all
-  // books" only.
+  // just be a dead-end tab. Subjects without a group show only while no
+  // group is chosen.
   const groups = useMemo(() => {
     const usedGroupIds = new Set(allSubjects.map((subject) => subject.group_id));
     return (subjectGroups ?? []).filter((group) => usedGroupIds.has(group.id));
@@ -190,28 +198,20 @@ function SubjectsShelf({
         {groups.length > 0 && (
           <nav
             aria-label={t("filterLabel")}
-            className="flex flex-wrap items-center justify-start gap-3 rounded-[2rem] border-4 border-yellow-200 bg-white/90 px-6 py-4 shadow-xl"
+            className="flex flex-wrap items-center justify-start gap-0.5 rounded-xl border-4 border-yellow-200 bg-white/90 px-1.5 py-1 shadow-xl"
           >
-            <FilterPill
-              href={pathname}
-              active={activeGroup === null}
-              title={t("allBooks")}
-              icon={
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src="/images/all-books.jpg" alt="" className="h-12 w-12 rounded-xl object-cover" />
-              }
-            />
-            <span className="h-10 w-0.5 rounded-full bg-slate-300" aria-hidden="true" />
             {groups.map((group) => (
               <FilterPill
                 key={group.id}
-                href={`${pathname}?group=${group.id}`}
+                // The active group's pill links back to the bare page, so tapping
+                // it again clears the filter and every book shows.
+                href={activeGroup?.id === group.id ? pathname : `${pathname}?group=${group.id}`}
                 active={activeGroup?.id === group.id}
                 title={group.name}
                 icon={
                   group.icon ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={group.icon} alt="" className="h-12 w-12 rounded-xl object-cover" />
+                    <img src={group.icon} alt="" className={FILTER_ICON_CLASS} />
                   ) : undefined
                 }
               >
