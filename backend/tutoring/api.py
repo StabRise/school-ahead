@@ -13,7 +13,7 @@ from ninja.pagination import paginate
 
 from academics import services as academics_services
 from academics.models import Class, Plan, Subject, SubjectBlock, SubjectGroup, Topic
-from academics.schemas import SubjectOut, SubjectsReorderIn, TopicOut, TopicsReorderIn
+from academics.schemas import SubjectGroupsReorderIn, SubjectOut, SubjectsReorderIn, TopicOut, TopicsReorderIn
 from accounts import services as accounts_services
 from accounts.models import Avatar, AvatarItem, StudentProfile
 from accounts.schemas import (
@@ -1179,6 +1179,30 @@ def reorder_class_subjects(request: HttpRequest, class_id: int, payload: Subject
         updated.append(subject)
 
     Subject.objects.bulk_update(updated, ['order_index', 'group'])
+    return {'updated': len(updated)}
+
+
+@router.patch('/subject-groups/reorder', operation_id='reorder_tutor_subject_groups')
+def reorder_subject_groups(request: HttpRequest, payload: SubjectGroupsReorderIn):
+    """Bulk-updates SubjectGroup.order_index — powers drag-and-drop group
+    reordering on the tutor's Class detail page. Unlike a subject's order
+    (per class, and only the tutor's own subjects), a group is global — the
+    same order applies in every class and in the students' bookshelf filter —
+    so this is open to any tutor, like the other catalogs every tutor shares
+    (see common.permissions.ensure_is_tutor)."""
+    require_csrf(request)
+    ensure_is_tutor(request)
+    groups_by_id = {g.id: g for g in SubjectGroup.objects.filter(id__in=[item.id for item in payload.items])}
+
+    updated = []
+    for item in payload.items:
+        group = groups_by_id.get(item.id)
+        if group is None:
+            raise HttpError(404, f'Subject group {item.id} not found')
+        group.order_index = item.order_index
+        updated.append(group)
+
+    SubjectGroup.objects.bulk_update(updated, ['order_index'])
     return {'updated': len(updated)}
 
 

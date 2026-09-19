@@ -183,6 +183,15 @@ class SubjectsReorderIn(Schema):
     items: list[SubjectOrderIn]
 
 
+class SubjectGroupOrderIn(Schema):
+    id: int
+    order_index: int
+
+
+class SubjectGroupsReorderIn(Schema):
+    items: list[SubjectGroupOrderIn]
+
+
 class SchoolIn(Schema):
     name: str
     locale_default: str = 'uk'
