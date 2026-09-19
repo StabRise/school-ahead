@@ -4,14 +4,19 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { Calendar, ChevronDown, ChevronRight, Crown, GripVertical, RefreshCw } from "lucide-react";
-import type { AssignmentOut, TutorStudentOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import type {
+  AssignmentOut,
+  SubjectGroupOut,
+  TutorStudentOut,
+} from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import {
   getGetTutorClassQueryKey,
   useGetTutorClass,
   useRecalculateClassWorkload,
   useReorderTutorClassSubjects,
+  useReorderTutorSubjectGroups,
 } from "@school-ahead/api-client/browser/tutor/tutor";
-import { useListSubjectGroups } from "@school-ahead/api-client/browser/academics/academics";
+import { getListSubjectGroupsQueryKey, useListSubjectGroups } from "@school-ahead/api-client/browser/academics/academics";
 import { Link } from "@/i18n/navigation";
 import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { IsFilledBadge } from "@/components/subjects/is-filled-badge";
@@ -19,6 +24,7 @@ import { AttestationTypeBadge } from "@/components/subjects/attestation-type-bad
 import { SimpleEntityIcon } from "@/components/simple/entity-icon";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { Tabs } from "@/components/tabs";
+import { moveGroup } from "@/lib/move-group";
 import { subjectGroupLabel } from "@/lib/subject-group-label";
 import { useTabQueryParam } from "@/lib/use-tab-query-param";
 import { CreateSubjectDialog } from "./create-subject-dialog";
@@ -165,7 +171,9 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
   const { data, isLoading, isError } = useGetTutorClass(classId);
   const groupsQuery = useListSubjectGroups();
   const reorderSubjects = useReorderTutorClassSubjects();
+  const reorderGroups = useReorderTutorSubjectGroups();
   const [draggedSubjectId, setDraggedSubjectId] = useState<number | null>(null);
+  const [draggedGroupId, setDraggedGroupId] = useState<number | null>(null);
   const [collapsedSectionKeys, setCollapsedSectionKeys] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useTabQueryParam("subjects");
 
@@ -259,6 +267,38 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
     );
   };
 
+  // Drops a group onto another group's section (it takes that group's place)
+  // or onto the "ungrouped" section (it goes last). Unlike a subject's order,
+  // a group's is global — every class and the students' bookshelf filter show
+  // the same one — so this changes it everywhere. The list is reordered on
+  // screen at once and put back if the request fails, rather than waiting
+  // for the server to answer.
+  const handleGroupDrop = (targetGroupId: number | null) => {
+    if (draggedGroupId === null) return;
+    const groups = groupsQuery.data ?? [];
+    const order = moveGroup(
+      groups.map((group) => group.id),
+      draggedGroupId,
+      targetGroupId,
+    );
+    setDraggedGroupId(null);
+    if (!order) return;
+
+    const queryKey = getListSubjectGroupsQueryKey();
+    const previous = queryClient.getQueryData<SubjectGroupOut[]>(queryKey);
+    queryClient.setQueryData<SubjectGroupOut[]>(
+      queryKey,
+      order.map((id, index) => ({ ...groups.find((group) => group.id === id)!, order_index: index })),
+    );
+    reorderGroups.mutate(
+      { data: { items: order.map((id, index) => ({ id, order_index: index })) } },
+      {
+        onError: () => queryClient.setQueryData(queryKey, previous),
+        onSettled: () => queryClient.invalidateQueries({ queryKey }),
+      },
+    );
+  };
+
   if (isLoading) {
     return <p className="p-6 text-sm text-gray-500">{t("loading")}</p>;
   }
@@ -315,6 +355,7 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
               content: (
                 <div className="flex flex-col gap-3">
                   {reorderSubjects.isError && <p className="text-xs text-red-600">{t("subjectReorderError")}</p>}
+                  {reorderGroups.isError && <p className="text-xs text-red-600">{t("groupReorderError")}</p>}
                   {data.subjects.length === 0 ? (
                     <p className="text-sm text-gray-500">{t("noSubjects")}</p>
                   ) : (
@@ -328,32 +369,57 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
                             <div
                               key={sectionKey}
                               onDragOver={(e) => {
-                                if (draggedSubjectId !== null) e.preventDefault();
+                                if (draggedSubjectId !== null || draggedGroupId !== null) e.preventDefault();
                               }}
                               onDrop={(e) => {
+                                if (draggedGroupId !== null) {
+                                  e.preventDefault();
+                                  handleGroupDrop(section.groupId);
+                                  return;
+                                }
                                 if (draggedSubjectId === null) return;
                                 e.preventDefault();
                                 handleSubjectDrop(section.groupId, null);
                               }}
-                              className="flex flex-col gap-1"
+                              className={`flex flex-col gap-1 ${draggedGroupId !== null && draggedGroupId === section.groupId ? "opacity-40" : ""}`}
                             >
                               {section.label && (
-                                <button
-                                  type="button"
-                                  onClick={() => toggleSectionCollapsed(sectionKey)}
-                                  aria-expanded={!collapsed}
-                                  title={collapsed ? t("expandGroupButton") : t("collapseGroupButton")}
-                                  className="flex items-center gap-1 rounded px-1.5 py-1 text-left hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-                                >
-                                  {collapsed ? (
-                                    <ChevronRight className="size-3.5 shrink-0 text-gray-400" aria-hidden="true" />
-                                  ) : (
-                                    <ChevronDown className="size-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+                                <div className="flex items-center gap-0.5">
+                                  {/* A group can be dragged by its handle, outside the collapse
+                                      button for the same reason as the subject row's handle. Not
+                                      the "ungrouped" section, and pointless with a single group. */}
+                                  {section.groupId !== null && (groupsQuery.data?.length ?? 0) > 1 && (
+                                    <span
+                                      draggable
+                                      onDragStart={(e) => {
+                                        e.dataTransfer.effectAllowed = "move";
+                                        setDraggedGroupId(section.groupId);
+                                      }}
+                                      onDragEnd={() => setDraggedGroupId(null)}
+                                      title={t("dragGroupHandleLabel")}
+                                      aria-label={t("dragGroupHandleLabel")}
+                                      className="shrink-0 cursor-grab rounded p-1 text-gray-300 hover:text-gray-500 active:cursor-grabbing"
+                                    >
+                                      <GripVertical className="size-3.5" aria-hidden="true" />
+                                    </span>
                                   )}
-                                  <h3 className="text-xs font-semibold text-gray-500">
-                                    {subjectGroupLabel(section.label, section.subjects.length)}
-                                  </h3>
-                                </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleSectionCollapsed(sectionKey)}
+                                    aria-expanded={!collapsed}
+                                    title={collapsed ? t("expandGroupButton") : t("collapseGroupButton")}
+                                    className="flex items-center gap-1 rounded px-1.5 py-1 text-left hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                                  >
+                                    {collapsed ? (
+                                      <ChevronRight className="size-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+                                    ) : (
+                                      <ChevronDown className="size-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+                                    )}
+                                    <h3 className="text-xs font-semibold text-gray-500">
+                                      {subjectGroupLabel(section.label, section.subjects.length)}
+                                    </h3>
+                                  </button>
+                                </div>
                               )}
                               {!collapsed &&
                                 (section.subjects.length === 0 ? (

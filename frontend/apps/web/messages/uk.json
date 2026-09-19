@@ -480,11 +480,13 @@
     "recalculateWorkloadButton": "Перерахувати навантаження",
     "recalculateWorkloadError": "Не вдалося перерахувати навантаження. Спробуйте ще раз.",
     "dragSubjectHandleLabel": "Перетягнути предмет",
+    "dragGroupHandleLabel": "Перетягнути групу",
     "ungroupedLabel": "Без групи",
     "emptyGroupHint": "Перетягніть сюди предмет",
     "expandGroupButton": "Розгорнути групу",
     "collapseGroupButton": "Згорнути групу",
-    "subjectReorderError": "Не вдалося змінити порядок предметів. Спробуйте ще раз."
+    "subjectReorderError": "Не вдалося змінити порядок предметів. Спробуйте ще раз.",
+    "groupReorderError": "Не вдалося змінити порядок груп. Спробуйте ще раз."
   },
   "TutorStudentOverview": {
     "loading": "Завантаження...",
