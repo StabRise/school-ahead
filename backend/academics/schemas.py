@@ -106,6 +106,22 @@ class SubjectOut(Schema):
         return ', '.join(names) or None
 
 
+class PublicSubjectOut(Schema):
+    """A subject as a visitor who isn't signed in sees it (academics.public_api).
+    Deliberately much smaller than SubjectOut: no teacher_name (it falls back
+    to the tutor's e-mail address), dates, attestation or workload — only
+    what the preschool-style bookshelf and subject page draw."""
+
+    id: int
+    name: str
+    icon: str | None
+    group_id: int | None
+
+    @staticmethod
+    def resolve_icon(obj, context):
+        return _absolute_file_url(obj.icon, context)
+
+
 class SubjectMaterialOut(Schema):
     id: int
     subject_id: int

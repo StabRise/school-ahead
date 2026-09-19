@@ -56,6 +56,7 @@ github actions
 - [Gamification: Diamonds](docs/core/gamification.md)
 - [Academic Dates and Schedule Planning](docs/core/schedule_planning.md)
 - [Avatar Customization & Home Decoration](docs/core/avatar.md)
+- [Public Access — browsing without signing in](docs/core/public_access.md)
 
 ## Student Interface
 

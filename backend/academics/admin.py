@@ -25,10 +25,11 @@ class SchoolAdmin(admin.ModelAdmin):
 @admin.register(Class)
 class ClassAdmin(admin.ModelAdmin):
     """Admin configuration for Class model."""
-    list_display = ("name", "school", "academic_year", "order_index", "class_teacher", "created_at")
+    list_display = ("name", "school", "academic_year", "order_index", "is_public", "class_teacher", "created_at")
     list_filter = (
         "school",
         "academic_year",
+        "is_public",
         # A class with no homeroom teacher yet can't have a tutor upload a
         # plan for it (tutoring.services.ensure_is_class_teacher) — this
         # surfaces those at a glance instead of clicking through each one.

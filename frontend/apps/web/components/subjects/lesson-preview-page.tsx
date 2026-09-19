@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { Monitor } from "lucide-react";
-import { useAuthStore } from "@school-ahead/api-client";
+import { useAuthStore, useIsGuest } from "@school-ahead/api-client";
 import { PreschoolButton } from "@school-ahead/preschool-ui";
 import {
   getGetNextLessonQueryKey,
@@ -18,6 +18,7 @@ import { Breadcrumbs, type BreadcrumbItem } from "@/components/breadcrumbs";
 import { Card } from "@/components/card";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { LessonContent } from "@/components/lesson-wizard/lesson-content";
+import { PreschoolPublicLessonView } from "@/components/preschool/public-lesson-view";
 import { LESSON_TYPE_ICON } from "@/components/simple/lesson-type-icon";
 import { subjectTopicAnchorId } from "@/components/subjects/subject-anchors";
 
@@ -35,7 +36,7 @@ const CONTENT_TYPE_LABEL_KEY: Record<string, string> = {
 // straight into the real lesson wizard at /lessons/{student_lesson_id} —
 // same content component (LessonContent) the tutor's own lesson preview
 // (components/tutor/tutor-lesson-detail-page.tsx) uses.
-export function LessonPreviewPage({ lessonId }: { lessonId: number }) {
+function StudentLessonPreviewPage({ lessonId }: { lessonId: number }) {
   const t = useTranslations("LessonPreview");
   const tSubject = useTranslations("SubjectDetail");
   const router = useRouter();
@@ -136,4 +137,17 @@ export function LessonPreviewPage({ lessonId }: { lessonId: number }) {
       </div>
     </SimplePageContainer>
   );
+}
+
+// `/lessons/preview/[lessonId]` is also one of the few public routes (see
+// lib/public-paths.ts): a visitor who isn't signed in gets the lesson's
+// content, read-only, in the preschool look — see docs/core/public_access.md.
+// Nothing is fetched until we know which of the two they are.
+export function LessonPreviewPage({ lessonId }: { lessonId: number }) {
+  const isResolved = useAuthStore((state) => state.isResolved);
+  const isGuest = useIsGuest();
+
+  if (!isResolved) return null;
+  if (isGuest) return <PreschoolPublicLessonView lessonId={lessonId} />;
+  return <StudentLessonPreviewPage lessonId={lessonId} />;
 }

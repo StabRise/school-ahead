@@ -10,6 +10,14 @@ describe("useAuthStore", () => {
     expect(useAuthStore.getState().user).toBeNull();
   });
 
+  it("isn't resolved until a user is set or the store is cleared", () => {
+    useAuthStore.setState({ user: null, isResolved: false });
+    expect(useAuthStore.getState().isResolved).toBe(false);
+
+    useAuthStore.getState().clear();
+    expect(useAuthStore.getState().isResolved).toBe(true);
+  });
+
   it("sets and clears the user", () => {
     const user = {
       id: 1,

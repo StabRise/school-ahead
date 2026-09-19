@@ -295,9 +295,13 @@ stacked underneath, centered.
 ### Subject page (`/subjects/[id]`)
 
 Component: `preschool-subject-detail-page.tsx` → `PreschoolSubjectDetailPage`
-(the bookshelf at `/subjects`, `subjects-shelf.tsx`, leads here). One flat grid
-of lesson cards grouped by semester block, headed by a 🏠 `PreschoolButton`
-back to the shelf, the class badge, the subject name and the points badge.
+(the bookshelf at `/subjects`, `subjects-shelf.tsx`, leads here). One grid
+of lesson cards with one tab per topic (big pill buttons, scrolling sideways
+when there are many; hidden when only one topic has lessons to show), headed by
+a 🏠 `PreschoolButton` back to the shelf, the class badge, the subject name and
+the points badge. Semester blocks (`SubjectBlock`) are not shown here. The open
+topic is kept in `?topic=<id>`, so coming back from a lesson lands on the same
+tab; a topic with no lessons left under the current filter gets no tab.
 
 * **Cards** (`PreschoolLessonTile`) have one fixed height per breakpoint —
   never derived from their content or picture, so they don't change size as
@@ -309,8 +313,9 @@ back to the shelf, the class badge, the subject name and the points badge.
   `/lessons/preview/<id>` as in the other modes. Tapping it creates today's
   `StudentLesson` straight away (`POST .../lessons/{id}/start-today`, the same
   call the preview's button makes) and opens the lesson (`StartLessonCard`).
-* **Load as you scroll:** the first 20 cards render, and 20 more are revealed
-  whenever a marker below the grid nears the viewport. The whole lesson list
+* **Load as you scroll:** the first 20 cards of the open topic render, and 20 more
+  are revealed whenever a marker below the grid nears the viewport (switching tabs
+  starts over at 20). The whole lesson list
   is still fetched in one request — only rendering is windowed.
 * **Which lessons show** is chosen with the ⚙️ in the top-right corner (same
   look as the games' settings gear) and kept in a persisted zustand store
