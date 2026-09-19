@@ -78,15 +78,22 @@ class _FakeResponse:
 
 
 class _FakeSession:
-    def __init__(self, html, pages):
+    def __init__(self, html, pages, oembed=None):
         self.headers = {}
         self.cookies = requests.cookies.RequestsCookieJar()
         self._html = html
         self._pages = pages  # token -> list of items, or an Exception to raise
+        self._oembed = oembed  # what the oEmbed endpoint answers: a dict, or an Exception to raise
         self.posted_tokens = []
         self.fetched_urls = []
+        self.oembed_requests = []
 
-    def get(self, url, timeout):
+    def get(self, url, timeout, params=None):
+        if url == youtube_scrape.YOUTUBE_OEMBED_URL:
+            self.oembed_requests.append(params)
+            if isinstance(self._oembed, Exception):
+                raise self._oembed
+            return _FakeResponse(payload=self._oembed)
         self.fetched_urls.append(url)
         return _FakeResponse(text=self._html)
 
@@ -100,6 +107,11 @@ class _FakeSession:
         return _FakeResponse(payload={'onResponseReceivedActions': [
             {'appendContinuationItemsAction': {'continuationItems': page}},
         ]})
+
+
+def _fetch_url(monkeypatch, session, url, topic_name=''):
+    monkeypatch.setattr(youtube_scrape, '_make_session', lambda: session)
+    return youtube_scrape.fetch_playlist_topic(url, topic_name)
 
 
 def _fetch(monkeypatch, session, topic_name='Base'):
@@ -250,3 +262,93 @@ def test_a_watch_link_is_fetched_and_described_as_the_plain_playlist_url(monkeyp
 
     assert session.fetched_urls == ['https://www.youtube.com/playlist?list=PLSNY-dL1']
     assert topic['description'] == 'https://www.youtube.com/playlist?list=PLSNY-dL1'
+
+
+# --- a single video link -------------------------------------------------
+
+
+def _video_session(title='Ходить гарбуз по городу'):
+    return _FakeSession('', {}, oembed={'title': title})
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.youtube.com/watch?v=QLNRbUsVHAM",
+        "https://youtu.be/QLNRbUsVHAM",
+        "https://www.youtube.com/shorts/QLNRbUsVHAM",
+        "https://www.youtube.com/embed/QLNRbUsVHAM",
+        "  https://www.youtube.com/watch?v=QLNRbUsVHAM&t=30s  ",
+    ],
+)
+def test_single_video_links_are_recognised(url):
+    assert youtube_scrape.is_single_video_url(url) is True
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.youtube.com/playlist?list=PL123",
+        # A video link that also names a playlist is that playlist.
+        "https://www.youtube.com/watch?v=QLNRbUsVHAM&list=PL123",
+        "https://youtu.be/QLNRbUsVHAM?list=PL123",
+        "https://www.example.com/page",
+    ],
+)
+def test_playlist_and_other_links_are_not_single_videos(url):
+    assert youtube_scrape.is_single_video_url(url) is False
+
+
+def test_a_video_link_makes_one_lesson_named_after_the_video_in_base(monkeypatch):
+    session = _video_session('Ходить гарбуз по городу')
+
+    topic, truncated = _fetch_url(monkeypatch, session, 'https://www.youtube.com/watch?v=QLNRbUsVHAM', topic_name='')
+
+    assert topic['title'] == 'Base'
+    assert topic['description'] == ''
+    assert truncated is False
+    [lesson] = topic['lessons']
+    assert lesson['title'] == 'Ходить гарбуз по городу'
+    assert lesson['lesson_type'] == 'theory'
+    # The canonical watch link — what the thumbnail (the lesson's icon) is taken from.
+    assert lesson['content'] == 'https://www.youtube.com/watch?v=QLNRbUsVHAM'
+    assert extract_video_id(lesson['content']) == 'QLNRbUsVHAM'
+    assert session.oembed_requests == [{'url': 'https://www.youtube.com/watch?v=QLNRbUsVHAM', 'format': 'json'}]
+
+
+def test_a_video_link_goes_into_the_named_topic(monkeypatch):
+    topic, _ = _fetch_url(monkeypatch, _video_session(), 'https://www.youtube.com/watch?v=QLNRbUsVHAM', topic_name='Пісні')
+
+    assert topic['title'] == 'Пісні'
+
+
+def test_a_whitespace_topic_name_counts_as_blank_for_a_video(monkeypatch):
+    topic, _ = _fetch_url(monkeypatch, _video_session(), 'https://www.youtube.com/watch?v=QLNRbUsVHAM', topic_name='   ')
+
+    assert topic['title'] == 'Base'
+
+
+def test_short_links_are_normalised_to_the_watch_link(monkeypatch):
+    topic, _ = _fetch_url(monkeypatch, _video_session(), 'https://youtu.be/QLNRbUsVHAM?si=abc', topic_name='')
+
+    assert topic['lessons'][0]['content'] == 'https://www.youtube.com/watch?v=QLNRbUsVHAM'
+
+
+def test_a_video_that_cannot_be_loaded_is_an_error(monkeypatch):
+    session = _FakeSession('', {}, oembed=requests.HTTPError('400 Bad Request'))
+
+    with pytest.raises(youtube_scrape.ScrapeError):
+        _fetch_url(monkeypatch, session, 'https://www.youtube.com/watch?v=QLNRbUsVHAM', topic_name='')
+
+
+def test_a_video_without_a_title_is_an_error(monkeypatch):
+    with pytest.raises(youtube_scrape.ScrapeError):
+        _fetch_url(monkeypatch, _video_session(title='   '), 'https://www.youtube.com/watch?v=QLNRbUsVHAM', topic_name='')
+
+
+def test_a_video_link_never_touches_the_playlist_page(monkeypatch):
+    session = _video_session()
+
+    _fetch_url(monkeypatch, session, 'https://www.youtube.com/watch?v=QLNRbUsVHAM', topic_name='')
+
+    assert session.fetched_urls == []

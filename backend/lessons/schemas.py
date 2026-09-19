@@ -574,6 +574,8 @@ class YoutubeImportIn(Schema):
     # name, e.g. to reuse an already-existing topic by exact title (see
     # lesson_services.import_topics_and_lessons).
     topic_name: str = ''
+    # A playlist link — or a single video's (the field kept its original name;
+    # see lessons.youtube_scrape.is_single_video_url).
     playlist_url: str
 
 

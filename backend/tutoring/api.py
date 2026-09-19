@@ -409,7 +409,9 @@ def process_lessons_json(request: HttpRequest, lessons_json_id: int):
 )
 def import_subject_youtube_playlist(request: HttpRequest, subject_id: int, payload: YoutubeImportIn):
     """The "📥 Завантажити з YouTube" popup on the Subject detail page —
-    scrapes a public YouTube playlist (same algorithm as manage.py's
+    given a link to a single video instead, it makes just that one lesson
+    (titled after the video, icon from its thumbnail) in the named topic, or in
+    "Base" when none is named. Otherwise it scrapes a public YouTube playlist (same algorithm as manage.py's
     tmp_scrape_lessons -Y, see lessons.youtube_scrape) straight into one
     Topic (get_or_created by `payload.topic_name`, or by the playlist's own
     title when that's blank) with
