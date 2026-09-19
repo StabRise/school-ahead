@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useGetMySubjects, useListSubjectGroups } from "@school-ahead/api-client/browser/academics/academics";
+import { useListPublicSubjects } from "@school-ahead/api-client/browser/public/public";
 import { useGetSubjectProgress } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import type { SubjectOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { Cloud, Sun, DefaultStepIcon } from "./decorations";
@@ -21,9 +22,16 @@ const BOOK_COLORS = [
   "from-cyan-400 to-cyan-600",
 ];
 
-// A book with its subject icon, name and a progress bar on the cover — a
-// bookshelf take on the default view's subject grid, restyled for a
-// 6-year-old. See docs/views/preschool/README.md.
+// What a book needs from a subject — both SubjectOut (a student's own class)
+// and PublicSubjectOut (a visitor who isn't signed in) fit.
+type ShelfSubject = Pick<SubjectOut, "id" | "name" | "icon" | "group_id">;
+
+// A book with its subject icon, name and (for a signed-in student) a progress
+// bar on the cover — a bookshelf take on the default view's subject grid,
+// restyled for a 6-year-old. See docs/views/preschool/README.md.
+//
+// `percent` is null when there is no progress to show (a visitor who isn't
+// signed in has none), which leaves the bar off the cover.
 //
 // Hovering a book blows it up to 2x (raised above its neighbours with z-20)
 // so a child can see it properly. Tailwind gates `group-hover:` behind
@@ -31,9 +39,7 @@ const BOOK_COLORS = [
 // just get the press-down feedback. The combined hover+press rule keeps the
 // enlarged book from snapping back to normal size mid-click, which the plain
 // press rule would otherwise do (it's emitted after the hover one).
-function Book({ subject }: { subject: SubjectOut }) {
-  const progressQuery = useGetSubjectProgress(subject.id);
-  const percent = Math.round(Math.min(100, Math.max(0, progressQuery.data?.completed_percent ?? 0)));
+function BookCover({ subject, percent }: { subject: ShelfSubject; percent: number | null }) {
   const color = BOOK_COLORS[subject.id % BOOK_COLORS.length];
 
   return (
@@ -72,21 +78,30 @@ function Book({ subject }: { subject: SubjectOut }) {
           </span>
         </span>
 
-        <div className="flex w-full items-center gap-1.5 px-1">
-          <div
-            role="progressbar"
-            aria-valuenow={percent}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            className="h-3 flex-1 overflow-hidden rounded-full bg-black/25"
-          >
-            <div className="h-full rounded-full bg-amber-300 transition-[width]" style={{ width: `${percent}%` }} />
+        {percent !== null && (
+          <div className="flex w-full items-center gap-1.5 px-1">
+            <div
+              role="progressbar"
+              aria-valuenow={percent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              className="h-3 flex-1 overflow-hidden rounded-full bg-black/25"
+            >
+              <div className="h-full rounded-full bg-amber-300 transition-[width]" style={{ width: `${percent}%` }} />
+            </div>
+            <span className="w-8 text-right text-[11px] font-extrabold text-white drop-shadow">{percent}%</span>
           </div>
-          <span className="w-8 text-right text-[11px] font-extrabold text-white drop-shadow">{percent}%</span>
-        </div>
+        )}
       </div>
     </Link>
   );
+}
+
+// The student's own book: the cover plus how far through the subject they are.
+function StudentBook({ subject }: { subject: ShelfSubject }) {
+  const progressQuery = useGetSubjectProgress(subject.id);
+  const percent = Math.round(Math.min(100, Math.max(0, progressQuery.data?.completed_percent ?? 0)));
+  return <BookCover subject={subject} percent={percent} />;
 }
 
 // A filter pill is a real link (`?group=<id>`, none for "all") rather than
@@ -125,13 +140,24 @@ function FilterPill({
   );
 }
 
-export function PreschoolSubjectsShelf() {
+// The shelf itself — the category filter and the books — for whichever
+// subjects it is handed. The two exports below only differ in where those come
+// from and whether a book shows progress.
+function SubjectsShelf({
+  subjects: allSubjects,
+  isLoading,
+  isError,
+  showProgress,
+}: {
+  subjects: ShelfSubject[];
+  isLoading: boolean;
+  isError: boolean;
+  showProgress: boolean;
+}) {
   const t = useTranslations("PreschoolSubjects");
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { data, isLoading, isError } = useGetMySubjects({ has_lessons: true });
   const { data: subjectGroups } = useListSubjectGroups();
-  const allSubjects = useMemo(() => data ?? [], [data]);
 
   // Groups are global (not per class), so only offer the ones this
   // student's class actually has a subject in — an empty category would
@@ -155,7 +181,8 @@ export function PreschoolSubjectsShelf() {
       </div>
 
       <div className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 p-4 sm:p-6">
-        <h1 className="text-center text-2xl font-extrabold text-emerald-900">{t("title")}</h1>
+        {/* No visible heading, but the page keeps its <h1> for screen readers. */}
+        <h1 className="sr-only">{t("title")}</h1>
 
         {isLoading && <p className="text-center text-sm font-medium text-emerald-800">{t("loading")}</p>}
         {isError && <p className="text-center text-sm font-medium text-red-700">{t("error")}</p>}
@@ -204,7 +231,7 @@ export function PreschoolSubjectsShelf() {
             <ul className="flex flex-wrap justify-center gap-x-4 gap-y-6">
               {subjects.map((subject) => (
                 <li key={subject.id}>
-                  <Book subject={subject} />
+                  {showProgress ? <StudentBook subject={subject} /> : <BookCover subject={subject} percent={null} />}
                 </li>
               ))}
             </ul>
@@ -213,4 +240,19 @@ export function PreschoolSubjectsShelf() {
       </div>
     </div>
   );
+}
+
+// The signed-in student's own class — see StudentSubjectsView.
+export function PreschoolSubjectsShelf() {
+  const { data, isLoading, isError } = useGetMySubjects({ has_lessons: true });
+  const subjects = useMemo(() => data ?? [], [data]);
+  return <SubjectsShelf subjects={subjects} isLoading={isLoading} isError={isError} showProgress />;
+}
+
+// The same shelf for a visitor who isn't signed in: every subject of every
+// class marked public (Class.is_public), no progress. See docs/core/public_access.md.
+export function PreschoolPublicSubjectsShelf() {
+  const { data, isLoading, isError } = useListPublicSubjects();
+  const subjects = useMemo(() => data ?? [], [data]);
+  return <SubjectsShelf subjects={subjects} isLoading={isLoading} isError={isError} showProgress={false} />;
 }

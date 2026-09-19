@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@/i18n/navigation";
@@ -38,7 +38,7 @@ type MagicStep = "theory" | "practice";
 // it's tapped, from the route the child came from (lib/lesson-exit.ts), since
 // a lesson can be opened from the dashboard, the subject page, the calendar...
 // `subjectId` is null until the lesson has loaded.
-function ExitButton({ subjectId }: { subjectId: number | null }) {
+export function ExitButton({ subjectId }: { subjectId: number | null }) {
   const t = useTranslations("PreschoolLesson");
   const router = useRouter();
   return (
@@ -172,10 +172,27 @@ function NextButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+// The big green "continue" pill under the lesson's content.
+function ContinueButton({ onClick }: { onClick: () => void }) {
+  const t = useTranslations("PreschoolLesson");
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-full bg-emerald-500 px-8 py-4 text-xl font-extrabold text-white shadow-xl transition-transform active:scale-95"
+    >
+      {t("continueButton")} 🎉
+    </button>
+  );
+}
+
 // Step 1, "Магический экран" — a big colorful title over a cottage-window
 // frame holding the lesson's content (usually a YouTube video). See
-// docs/interfaces/student/preschool/lesson.md.
-function MagicScreen({ title, content, onContinue }: { title: string; content: string; onContinue: () => void }) {
+// docs/interfaces/student/preschool/lesson.md. What comes next is up to the
+// caller (`children`, under the frame): a student continues to the practice
+// step, a visitor who isn't signed in is invited to sign in instead
+// (PreschoolPublicLessonView).
+export function MagicScreen({ title, content, children }: { title: string; content: string; children?: ReactNode }) {
   const t = useTranslations("PreschoolLesson");
   const { videoId, content: textContent } = extractYoutubeVideo(content);
 
@@ -185,8 +202,6 @@ function MagicScreen({ title, content, onContinue }: { title: string; content: s
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 p-3">
-      <NextButton onClick={onContinue} />
-
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -209,13 +224,7 @@ function MagicScreen({ title, content, onContinue }: { title: string; content: s
         {textContent && <Markdown content={textContent} embedYoutube embedPdf />}
       </ScreenFrame>
 
-      <button
-        type="button"
-        onClick={onContinue}
-        className="rounded-full bg-emerald-500 px-8 py-4 text-xl font-extrabold text-white shadow-xl transition-transform active:scale-95"
-      >
-        {t("continueButton")} 🎉
-      </button>
+      {children}
     </div>
   );
 }
@@ -314,11 +323,9 @@ function PracticeClearing({
   );
 }
 
-export function PreschoolLessonView({ studentLessonId }: { studentLessonId: number }) {
-  const t = useTranslations("PreschoolLesson");
-  const [step, setStep] = useState<MagicStep>("theory");
-  const { data, isLoading, isError, refetch } = useGetStudentLesson(studentLessonId);
-
+// The full-screen "forest clearing" every preschool lesson screen sits in —
+// sky, clouds and sun behind whatever `children` draw.
+export function PreschoolLessonScene({ children }: { children: ReactNode }) {
   return (
     <div className="fixed inset-0 z-40 flex flex-col overflow-y-auto bg-gradient-to-b from-sky-300 via-emerald-100 to-lime-200">
       <div className="pointer-events-none absolute inset-0">
@@ -326,7 +333,18 @@ export function PreschoolLessonView({ studentLessonId }: { studentLessonId: numb
         <Cloud className="right-8 top-10 h-8 w-14 opacity-70" />
         <Sun className="right-1/4 top-6 h-8 w-8" />
       </div>
+      {children}
+    </div>
+  );
+}
 
+export function PreschoolLessonView({ studentLessonId }: { studentLessonId: number }) {
+  const t = useTranslations("PreschoolLesson");
+  const [step, setStep] = useState<MagicStep>("theory");
+  const { data, isLoading, isError, refetch } = useGetStudentLesson(studentLessonId);
+
+  return (
+    <PreschoolLessonScene>
       <ExitButton subjectId={data?.lesson.subject_id ?? null} />
       {data && <FavoriteButton studentLessonId={studentLessonId} isFavorite={data.is_favorite} />}
       {data && <ReportProblemButton studentLessonId={studentLessonId} isReported={data.lesson.need_review} />}
@@ -336,14 +354,13 @@ export function PreschoolLessonView({ studentLessonId }: { studentLessonId: numb
 
       {data &&
         (step === "theory" ? (
-          <MagicScreen
-            title={data.lesson.title}
-            content={data.lesson.content}
-            onContinue={() => setStep("practice")}
-          />
+          <MagicScreen title={data.lesson.title} content={data.lesson.content}>
+            <NextButton onClick={() => setStep("practice")} />
+            <ContinueButton onClick={() => setStep("practice")} />
+          </MagicScreen>
         ) : (
           <PracticeClearing studentLesson={data} onChanged={refetch} onBackToMaterials={() => setStep("theory")} />
         ))}
-    </div>
+    </PreschoolLessonScene>
   );
 }

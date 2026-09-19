@@ -43,11 +43,13 @@ def list_classes(request: HttpRequest):
     return Class.objects.select_related('class_teacher__user').all()
 
 
-@router.get('/subject-groups', response=list[SubjectGroupOut], operation_id='list_subject_groups')
+@router.get('/subject-groups', response=list[SubjectGroupOut], operation_id='list_subject_groups', auth=None)
 def list_subject_groups(request: HttpRequest):
     """Global curriculum-track groups a subject can optionally belong to
     (Subject.group) — e.g. "Українська школа" / "Польська школа". Not
-    scoped to a class or school. Every role can read this."""
+    scoped to a class or school. Every role can read this, and so can a
+    visitor who isn't signed in — the bookshelf's category filter needs it
+    (see public_api.py)."""
     return SubjectGroup.objects.all()
 
 

@@ -30,6 +30,11 @@ class Class(models.Model):
     class_teacher = models.ForeignKey(
         'accounts.TutorProfile', on_delete=models.SET_NULL, null=True, blank=True, related_name='homeroom_classes'
     )
+    # Whether this class's subjects (and their lessons) can be browsed by
+    # visitors who aren't signed in — read-only, no progress, quiz, comments
+    # or favourites. Served by academics.public_api; only settable from the
+    # Django admin. See docs/core/public_access.md.
+    is_public = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

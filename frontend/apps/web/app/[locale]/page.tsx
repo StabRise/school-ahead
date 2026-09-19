@@ -12,12 +12,28 @@ function GuestHome() {
     <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
       <h1 className="text-2xl font-semibold">{t("guestTitle")}</h1>
       <p className="text-sm text-gray-600">{t("guestSubtitle")}</p>
-      <Link
-        href="/login"
-        className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-      >
-        {t("cta")}
-      </Link>
+      {/* Everything a visitor can open without an account: sign in, browse the
+          public subjects (docs/core/public_access.md) and play the games. */}
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <Link
+          href="/login"
+          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        >
+          {t("cta")}
+        </Link>
+        <Link
+          href="/subjects"
+          className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        >
+          {t("subjectsCta")}
+        </Link>
+        <Link
+          href="/games"
+          className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        >
+          {t("gamesCta")}
+        </Link>
+      </div>
     </div>
   );
 }

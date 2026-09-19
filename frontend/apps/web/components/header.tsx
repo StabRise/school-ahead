@@ -229,8 +229,15 @@ export function Header() {
         </div>
       ) : (
         <div className="flex items-center gap-4">
-          {/* All of /games is public — see middleware.ts's PUBLIC_PATHS —
-              so a signed-out visitor can already play before logging in. */}
+          {/* /games and the read-only subject catalogue are public — see
+              lib/public-paths.ts — so a signed-out visitor can already play
+              and browse before logging in. */}
+          <Link
+            href="/subjects"
+            className="text-sm font-medium text-gray-700 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          >
+            {t("subjects")}
+          </Link>
           <Link
             href="/games"
             className="text-sm font-medium text-gray-700 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"

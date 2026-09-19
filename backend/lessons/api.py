@@ -424,24 +424,16 @@ def get_topic_progress(request: HttpRequest, topic_id: int):
     return CompletionProgressOut(completed_count=completed, total_count=total, completed_percent=percent)
 
 
-@router.get(
-    '/subjects/{subject_id}/lessons',
-    response=list[SubjectLessonOut],
-    operation_id='list_student_subject_lessons',
-)
-def list_subject_lessons(request: HttpRequest, subject_id: int):
-    """Every Lesson in the subject (unlike list_topic_lessons, which is
-    scoped to this student's own StudentLesson rows) — powers the Subject
-    detail page's Course plan so a student can see the whole curriculum,
-    including lessons not assigned to them yet. Those come back with
-    student_lesson_id/status set to null; the frontend renders them as
-    unopenable."""
-    student = get_own_student_profile(request)
+def subject_lessons_out(
+    subject_id: int,
+    student_lessons_by_lesson_id: dict[int, StudentLesson],
+    request: HttpRequest,
+) -> list[SubjectLessonOut]:
+    """Every Lesson in the subject in curriculum order, each paired with the
+    caller's StudentLesson for it when there is one. An empty mapping (a
+    visitor who isn't signed in — see academics.public_api) leaves every
+    student_* field null."""
     lessons = Lesson.objects.filter(topic__subject_id=subject_id).order_by('topic__order_index', 'order_index')
-    student_lessons_by_lesson_id = {
-        sl.lesson_id: sl
-        for sl in StudentLesson.objects.filter(student=student, lesson__topic__subject_id=subject_id)
-    }
     result = []
     for lesson in lessons:
         student_lesson = student_lessons_by_lesson_id.get(lesson.id)
@@ -465,6 +457,26 @@ def list_subject_lessons(request: HttpRequest, subject_id: int):
     return result
 
 
+@router.get(
+    '/subjects/{subject_id}/lessons',
+    response=list[SubjectLessonOut],
+    operation_id='list_student_subject_lessons',
+)
+def list_subject_lessons(request: HttpRequest, subject_id: int):
+    """Every Lesson in the subject (unlike list_topic_lessons, which is
+    scoped to this student's own StudentLesson rows) — powers the Subject
+    detail page's Course plan so a student can see the whole curriculum,
+    including lessons not assigned to them yet. Those come back with
+    student_lesson_id/status set to null; the frontend renders them as
+    unopenable."""
+    student = get_own_student_profile(request)
+    student_lessons_by_lesson_id = {
+        sl.lesson_id: sl
+        for sl in StudentLesson.objects.filter(student=student, lesson__topic__subject_id=subject_id)
+    }
+    return subject_lessons_out(subject_id, student_lessons_by_lesson_id, request)
+
+
 def _get_previewable_lesson(
     request: HttpRequest, lesson_id: int
 ) -> tuple[StudentProfile, Lesson, StudentLesson | None]:
@@ -486,7 +498,7 @@ def _get_previewable_lesson(
     return student, lesson, existing
 
 
-def _lesson_preview_out(lesson: Lesson, existing: StudentLesson | None, request: HttpRequest) -> LessonPreviewOut:
+def lesson_preview_out(lesson: Lesson, existing: StudentLesson | None, request: HttpRequest) -> LessonPreviewOut:
     return LessonPreviewOut(
         id=lesson.id,
         title=lesson.title,
@@ -511,7 +523,7 @@ def preview_lesson(request: HttpRequest, lesson_id: int):
     even if the flag is later turned off). Powers the "Я хочу зробити це
     сьогодні" flow on the Subject detail page — see start_lesson_today."""
     _, lesson, existing = _get_previewable_lesson(request, lesson_id)
-    return _lesson_preview_out(lesson, existing, request)
+    return lesson_preview_out(lesson, existing, request)
 
 
 @router.post('/lessons/{lesson_id}/start-today', response=StudentLessonStartOut, operation_id='start_lesson_today')

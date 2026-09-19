@@ -9,7 +9,7 @@ The following documentation outlines the top-down entity hierarchy and multi-tut
 The system organizes academic data through a strictly nested, hierarchical structure:
 
 * **School:** The highest-level container representing the organization or educational workspace (`backend/academics/models.py`'s `School` — also holds `locale_default` and `timezone`, though the latter isn't enforced anywhere in scheduling logic yet, see `docs/architecture/07-open-questions.md`).
-* **Class:** The grouping of students by academic year (`Class`).
+* **Class:** The grouping of students by academic year (`Class`). `is_public` opens its subjects to visitors who aren't signed in (see [public_access.md](public_access.md)).
     * **Attribute:** Flexible text-based naming convention supporting values such as `Pre1`, `Pre2`, `1`, `2`, and onwards, plus `academic_year` and an optional homeroom `class_teacher`.
 * **Subject:** Academic disciplines tied to a specific class (e.g., *Mathematics for 2nd Grade*).
     * **Attributes:** Includes a description and recommended resources formatted in **Markdown**, plus an `AttestationType` (none / test / exam / project) and an optional `SubjectGroup` — an optional curriculum track a subject can belong to (e.g. a homeschooled student attesting under both a Ukrainian and a Polish curriculum, each with its own subject set).

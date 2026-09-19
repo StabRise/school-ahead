@@ -94,6 +94,11 @@ export interface AuthUser {
 
 interface AuthState {
   user: AuthUser | null;
+  // False until GET /auth/me has answered — with a user (signed in) or
+  // without (signed out). Tells "not known yet" apart from "signed out",
+  // which `user === null` alone can't: without it a signed-in visitor would
+  // flash the signed-out screens on every page load. See useIsGuest.
+  isResolved: boolean;
   setUser: (user: AuthUser | null) => void;
   // Optimistic local bump for a reward whose response doesn't echo the
   // full user (e.g. StudentLessonOut.diamonds_awarded from submit-quiz/
@@ -106,12 +111,19 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  setUser: (user) => set({ user }),
+  isResolved: false,
+  setUser: (user) => set({ user, isResolved: true }),
   addDiamonds: (amount) =>
     set((state) =>
       state.user && state.user.diamondBalance !== null
         ? { user: { ...state.user, diamondBalance: state.user.diamondBalance + amount } }
         : {},
     ),
-  clear: () => set({ user: null }),
+  clear: () => set({ user: null, isResolved: true }),
 }));
+
+// True once we know the visitor isn't signed in — the screens that also have
+// a read-only public version (the bookshelf, a subject, a lesson: see
+// docs/core/public_access.md) switch to it on this. False while the session
+// is still being looked up, so those screens can wait instead of guessing.
+export const useIsGuest = () => useAuthStore((state) => state.isResolved && state.user === null);

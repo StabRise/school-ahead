@@ -1,0 +1,87 @@
+# Public Access — browsing without signing in
+
+A class can be opened to visitors who aren't signed in. They see the same
+preschool-style bookshelf, subject page and lesson screen a student sees, but
+read-only: a lesson's content and nothing that belongs to a student.
+
+## 1. The switch
+
+`Class.is_public` (boolean, default `False`). Set from the Django admin (the
+class list has the column and a filter); there is no tutor-facing form. It is
+deliberately **not** on `ClassIn` — `PUT /academics/classes/{id}` copies every
+field of that schema onto the class, so an omitted flag would silently switch a
+public class back to private.
+
+A subject or lesson is public exactly when its class is. Turning the flag off
+hides everything at once.
+
+## 2. What a visitor can do
+
+| | Signed out | Student |
+|---|---|---|
+| Bookshelf `/subjects` | every subject of every public class that has a lesson, category filter, **no progress bar** | own class, progress per book |
+| Subject `/subjects/{id}` | one card grid, a tab per topic; **no points, progress or lesson filter** | same, with progress, points and the ⚙️ filter |
+| Lesson `/lessons/preview/{id}` | the title over the framed video/text, and a "sign in to do the assignment" button | the lesson wizard, with `/lessons/{studentLessonId}` |
+| Practice step (quiz, task, "did you understand?") | ✗ | ✓ |
+| Favourite ♥, "something's wrong" ⚠️, comments, notes, read-along | ✗ (not shown) | ✓ |
+| Diamonds, streaks, calendar, avatar | ✗ | ✓ |
+
+The design is reused, not copied: `PreschoolSubjectsShelf` /
+`PreschoolPublicSubjectsShelf` share one shelf layout;
+`PreschoolSubjectDetailPage` / `PreschoolPublicSubjectDetailPage` share
+`PreschoolSubjectScreen` (a `guest` flag drops what needs a student); the public
+lesson view is built from `PreschoolLessonScene`, `ExitButton` and `MagicScreen`
+of the student's `PreschoolLessonView`.
+
+## 3. Backend
+
+`academics/public_api.py`, mounted at `/api/public`, `auth=None`. An explicit
+allowlist — the authenticated routers stay exactly as they were (they still
+`401` a visitor whatever the class flag says; a test asserts it).
+
+| Endpoint | Returns |
+|---|---|
+| `GET /public/subjects` | `PublicSubjectOut[]` — public classes only, subjects with ≥1 lesson, ordered by class, then `order_index` |
+| `GET /public/subjects/{id}` | `PublicSubjectOut` |
+| `GET /public/subjects/{id}/topics` | `TopicOut[]` |
+| `GET /public/subjects/{id}/lessons` | `SubjectLessonOut[]`, every `student_*` field null |
+| `GET /public/lessons/{id}` | `LessonPreviewOut` (content, task text, attachments), `student_lesson_id` null |
+| `GET /academics/subject-groups` | now also public (`auth=None`) — global reference data the shelf's category filter needs |
+
+* Every lookup goes through one query (`_public_subjects()`); a subject or
+  lesson of a private class returns **404**, the same as an id that doesn't
+  exist, so the API doesn't reveal which private ones exist.
+* `PublicSubjectOut` is `id`, `name`, `icon`, `group_id` only. It is not
+  `SubjectOut`: that carries `teacher_name`, which falls back to the tutor's
+  **e-mail address**.
+* The list/lesson payloads are built by the same functions the student
+  endpoints use (`lessons.api.subject_lessons_out`, `lesson_preview_out`), so a
+  visitor sees exactly the fields a student would, minus their own rows.
+
+## 4. Frontend
+
+* **Routes.** `lib/public-paths.ts` lists what the middleware lets through
+  without the `access_token` cookie: `/subjects`, `/subjects/{digits}` and
+  `/lessons/preview/{digits}` as exact patterns (a topic page or a student's own
+  `/lessons/{id}` still redirect to `/login`), next to `/login` and `/games/*`.
+  The middleware only checks the cookie is *present*; what a visitor can
+  actually read is decided by the API.
+* **Who is a visitor.** `useAuthStore` has `isResolved` — false until
+  `GET /auth/me` has answered — and `useIsGuest()` is `isResolved && !user`.
+  The three route components render nothing until it is resolved, so a
+  signed-in student never flashes the public screens (or fires their requests).
+  `/auth/me` is not retried on a `401` (`shouldRetryMe`): the default three
+  retries with backoff would have delayed "you're signed out" by ~7 s.
+* **Header and home page.** A signed-out visitor gets a "Предмети" link next to
+  "Ігри" and "Увійти" in the header, and the home page (`/uk`) body has the same
+  three: sign in, browse subjects, play games.
+* A signed-in user who opens `/lessons/preview/{id}` gets the student preview
+  as before (`403` unless `can_do_any_lesson`); only visitors use the public one.
+
+## 5. Not covered
+
+* A signed-in student browsing a public class **other than their own** — the
+  shelf and subject page keep their per-class behaviour.
+* Lesson attachments (`LessonPreviewOut.materials`) are returned but the
+  preschool lesson screen, student or visitor, doesn't draw them.
+* No rate limiting or caching on `/api/public/*`.

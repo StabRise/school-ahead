@@ -11,6 +11,7 @@ from django.urls import include, path
 from ninja import NinjaAPI
 
 from academics.api import router as academics_router
+from academics.public_api import router as public_router
 from accounts.api import router as accounts_router
 from achievements.api import router as achievements_router
 from cards.api import router as cards_router
@@ -26,6 +27,7 @@ from tutoring.api import router as tutoring_router
 api = NinjaAPI(title='school-ahead API')
 api.add_router('/auth', accounts_router)
 api.add_router('/academics', academics_router)
+api.add_router('/public', public_router)
 api.add_router('/student-lessons', lessons_router)
 api.add_router('/tasks', tasks_router)
 api.add_router('/tutor', tutoring_router)

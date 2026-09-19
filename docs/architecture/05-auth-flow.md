@@ -145,3 +145,11 @@ Deploying frontend and backend under the same parent domain (recommended above) 
 
 ---
 [← Back to Overview](00-overview.md)
+
+## Public (signed-out) access
+
+A few pages and the `/api/public/*` endpoints are readable without a session —
+the games, and the read-only catalogue of subjects in classes marked
+`Class.is_public`. The middleware's public-path list lives in
+`frontend/apps/web/lib/public-paths.ts`; the authenticated API routers are
+unchanged. Details in [docs/core/public_access.md](../core/public_access.md).
