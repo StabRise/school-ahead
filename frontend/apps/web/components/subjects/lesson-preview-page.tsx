@@ -8,7 +8,9 @@ import { PreschoolButton } from "@school-ahead/preschool-ui";
 import {
   getGetNextLessonQueryKey,
   getGetSubjectProgressQueryKey,
+  getListStudentSubjectLessonsPageQueryKey,
   getListStudentSubjectLessonsQueryKey,
+  getListStudentSubjectLessonTopicsQueryKey,
   usePreviewLesson,
   useStartLessonToday,
 } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
@@ -63,6 +65,8 @@ function StudentLessonPreviewPage({ lessonId }: { lessonId: number }) {
       {
         onSuccess: (data) => {
           queryClient.invalidateQueries({ queryKey: getListStudentSubjectLessonsQueryKey(lesson.subject_id) });
+          queryClient.invalidateQueries({ queryKey: getListStudentSubjectLessonsPageQueryKey(lesson.subject_id) });
+          queryClient.invalidateQueries({ queryKey: getListStudentSubjectLessonTopicsQueryKey(lesson.subject_id) });
           queryClient.invalidateQueries({ queryKey: getGetNextLessonQueryKey(lesson.subject_id) });
           queryClient.invalidateQueries({ queryKey: getGetSubjectProgressQueryKey(lesson.subject_id) });
           router.push(`/lessons/${data.student_lesson_id}`);

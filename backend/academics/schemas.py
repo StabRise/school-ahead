@@ -154,7 +154,10 @@ class TopicOut(Schema):
 
     @staticmethod
     def resolve_lesson_count(obj):
-        return obj.lessons.count()
+        # A queryset that already counted them (annotate(lesson_total=Count(...)),
+        # see topics_with_lesson_counts) saves a COUNT query per topic.
+        total = getattr(obj, 'lesson_total', None)
+        return total if total is not None else obj.lessons.count()
 
     @staticmethod
     def resolve_subject_block_label(obj):

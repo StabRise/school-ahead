@@ -13,10 +13,9 @@ const FILTER_EMOJI: Record<PreschoolLessonsFilter, string> = {
 
 // The gear in the preschool subject page's top-right corner — the panel and
 // button are PreschoolOptionsGear, shared with the bookshelf. The panel picks
-// which lessons the page lists — see lib/preschool-lessons-filter.ts.
-// `onChange` lets the page reset anything tied to the previous list (its "load
-// more as you scroll" window).
-export function PreschoolLessonsFilterButton({ onChange }: { onChange: () => void }) {
+// which lessons the page lists — see lib/preschool-lessons-filter.ts. The page's
+// queries are keyed by the choice, so changing it reloads the tabs and the grid.
+export function PreschoolLessonsFilterButton() {
   const t = useTranslations("PreschoolSubjectDetail");
   const filter = usePreschoolLessonsFilterStore((state) => state.filter);
   const setFilter = usePreschoolLessonsFilterStore((state) => state.setFilter);
@@ -29,10 +28,7 @@ export function PreschoolLessonsFilterButton({ onChange }: { onChange: () => voi
         emoji: FILTER_EMOJI[option],
         label: t(`filter.${option}`),
       }))}
-      onChange={(next) => {
-        setFilter(next);
-        onChange();
-      }}
+      onChange={setFilter}
       buttonLabel={t("settingsButton")}
       title={t("filterTitle")}
     />

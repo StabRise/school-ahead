@@ -13,7 +13,7 @@ from academics.services import SubjectMarkdownPlan
 from accounts.models import StudentProfile, User
 from django.core.files.base import ContentFile
 from django.db import transaction
-from django.db.models import Count, F, QuerySet
+from django.db.models import Count, F, OuterRef, Q, QuerySet, Subquery
 from django.utils import timezone
 
 from . import youtube_scrape
@@ -1165,3 +1165,60 @@ def update_topic_lesson_icons(topic: Topic) -> UpdateLessonIconsSummary:
     """Same as update_subject_lesson_icons, scoped to a single Topic — the
     icon button on the Subject detail page's per-topic header."""
     return _update_lesson_icons(Lesson.objects.filter(topic=topic))
+
+
+LESSON_FILTERS = ('available', 'all', 'favorites')
+
+
+def visible_subject_lessons(subject_id: int, student: StudentProfile | None, lesson_filter: str) -> QuerySet[Lesson]:
+    """The lessons of a subject, in curriculum order, that the preschool subject
+    page lists for `student` under `lesson_filter` — the same rules as the
+    frontend's isLessonShown (lib/preschool-lessons-filter.ts), applied in the
+    database so the page can ask for them a few at a time:
+
+    * "available" — not finished yet: assigned and not completed, plus, when the
+      student may start any lesson (StudentProfile.can_do_any_lesson), the ones
+      they have no StudentLesson for;
+    * "all" — every assigned one, plus the unassigned ones when
+      can_do_any_lesson;
+    * "favorites" — assigned and hearted (StudentLesson.is_favorite).
+
+    With no student (a visitor who isn't signed in, see academics.public_api)
+    every lesson counts."""
+    lessons = Lesson.objects.filter(topic__subject_id=subject_id).order_by(
+        'topic__order_index', 'topic_id', 'order_index', 'id'
+    )
+    if student is None:
+        return lessons
+
+    own = StudentLesson.objects.filter(student=student, lesson=OuterRef('pk'))
+    lessons = lessons.annotate(
+        own_id=Subquery(own.values('id')[:1]),
+        own_status=Subquery(own.values('status')[:1]),
+        own_favorite=Subquery(own.values('is_favorite')[:1]),
+    )
+    assigned = Q(own_id__isnull=False)
+    if lesson_filter == 'favorites':
+        return lessons.filter(assigned, own_favorite=True)
+    if lesson_filter == 'all':
+        return lessons if student.can_do_any_lesson else lessons.filter(assigned)
+    visible = assigned & ~Q(own_status=StudentLessonStatus.COMPLETED)
+    if student.can_do_any_lesson:
+        visible |= Q(own_id__isnull=True)
+    return lessons.filter(visible)
+
+
+def lesson_topic_tabs(lessons: QuerySet[Lesson]) -> list[dict]:
+    """The topics that have at least one of `lessons` (a visible_subject_lessons
+    result), in order, each with how many — the preschool subject page's tabs,
+    without having to send it the lessons themselves."""
+    rows = (
+        lessons.order_by()
+        .values('topic_id', 'topic__title', 'topic__order_index')
+        .annotate(lesson_count=Count('pk'))
+        .order_by('topic__order_index', 'topic_id')
+    )
+    return [
+        {'id': row['topic_id'], 'title': row['topic__title'], 'lesson_count': row['lesson_count']} for row in rows
+    ]
+

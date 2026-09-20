@@ -389,10 +389,20 @@ tab; a topic with no lessons left under the current filter gets no tab.
   `/lessons/preview/<id>` as in the other modes. Tapping it creates today's
   `StudentLesson` straight away (`POST .../lessons/{id}/start-today`, the same
   call the preview's button makes) and opens the lesson (`StartLessonCard`).
-* **Load as you scroll:** the first 20 cards of the open topic render, and 20 more
-  are revealed whenever a marker below the grid nears the viewport (switching tabs
-  starts over at 20). The whole lesson list
-  is still fetched in one request — only rendering is windowed.
+* **Loaded a page at a time:** a subject can have hundreds or thousands of
+  lessons (a YouTube playlist imported as lessons), so the page never fetches the
+  whole list. It asks for the **tabs** first — `GET
+  /student-lessons/subjects/{id}/lesson-topics?filter=`, the topics that have
+  lessons to show under the filter, each with a count (a few hundred bytes) — and
+  then for the open topic's lessons **ten at a time**, `GET
+  /student-lessons/subjects/{id}/lessons-page?topic_id=&filter=&limit=10&offset=`,
+  fetching the next ten whenever a marker below the grid nears the viewport
+  (`components/subjects/use-subject-lessons.ts`, an infinite query). The filter is
+  applied by the server (`lessons.services.visible_subject_lessons`), and only a
+  page's own lessons get their pictures resolved, so a first paint costs the same
+  for a subject of 10 lessons and of 4,000 (measured: 4,081 lessons, 2.9 MB / ~100 ms
+  as one list against 7 KB / ~25 ms for a page). Switching tabs or changing the
+  filter starts a fresh list.
 * **Which lessons show** is chosen with the ⚙️ in the top-right corner (same
   look as the games' settings gear) and kept in a persisted zustand store
   (`preschool-lessons-filter-store.ts`) shared by every subject — see

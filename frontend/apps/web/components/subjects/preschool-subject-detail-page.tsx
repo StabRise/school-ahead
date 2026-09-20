@@ -1,36 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { Star } from "lucide-react";
-import { useAuthStore } from "@school-ahead/api-client";
 import { Cloud, PreschoolButton, Raccoon, Sun } from "@school-ahead/preschool-ui";
 import { AvatarBadge, useEquippedAvatarLayers } from "@school-ahead/avatar";
-import { useGetSubject, useListSubjectTopics } from "@school-ahead/api-client/browser/academics/academics";
-import {
-  useGetPublicSubject,
-  useListPublicSubjectLessons,
-  useListPublicSubjectTopics,
-} from "@school-ahead/api-client/browser/public/public";
+import { useGetSubject } from "@school-ahead/api-client/browser/academics/academics";
+import { useGetPublicSubject } from "@school-ahead/api-client/browser/public/public";
 import {
   getGetNextLessonQueryKey,
   getGetSubjectProgressQueryKey,
   getListFavoriteSubjectIdsQueryKey,
+  getListStudentSubjectLessonsPageQueryKey,
   getListStudentSubjectLessonsQueryKey,
+  getListStudentSubjectLessonTopicsQueryKey,
   useGetSubjectProgress,
   useListFavoriteSubjectIds,
-  useListStudentSubjectLessons,
   useSetSubjectFavorite,
   useStartLessonToday,
 } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import { getGetTodayQueryKey } from "@school-ahead/api-client/browser/schedule/schedule";
 import type {
+  LessonTopicOut,
   SubjectLessonOut,
   SubjectProgressOut,
-  TopicOut,
 } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
-import { isLessonShown } from "@/lib/preschool-lessons-filter";
 import { useTabQueryParam } from "@/lib/use-tab-query-param";
 import { usePreschoolLessonsFilterStore } from "@/stores/preschool-lessons-filter-store";
 import { useRouter } from "@/i18n/navigation";
@@ -39,6 +34,7 @@ import { PreschoolLessonTile } from "@/components/subjects/preschool-lesson-tile
 import { PreschoolLessonsFilterButton } from "@/components/subjects/preschool-lessons-filter-button";
 import { ProgressBar } from "@/components/progress-bar";
 import { useDialogs } from "@/components/dialogs/app-dialogs";
+import { useSubjectLessonPages, useSubjectLessonTabs } from "@/components/subjects/use-subject-lessons";
 
 // The student's dressed companion — same CompanionAvatar idiom as
 // game-map.tsx/calendar-view.tsx (preschool-ui), just kept local here since
@@ -46,18 +42,6 @@ import { useDialogs } from "@/components/dialogs/app-dialogs";
 function CompanionAvatar({ className }: { className: string }) {
   const layers = useEquippedAvatarLayers();
   return <AvatarBadge layers={layers} className={className} fallback={<Raccoon mood="happy" className={className} />} />;
-}
-
-// How many lesson cards show at first, and how many more each time the
-// child scrolls near the bottom. The whole lesson list is still fetched in
-// one request (a few hundred small rows) — this only limits what's rendered,
-// which is what matters: every card loads its own thumbnail image, and a
-// long YouTube-imported subject has hundreds of them.
-const PAGE_SIZE = 20;
-
-interface TopicTab {
-  topic: TopicOut;
-  lessons: SubjectLessonOut[];
 }
 
 // A lesson the student has no StudentLesson for yet (only listed when they
@@ -88,6 +72,9 @@ function StartLessonCard({
       {
         onSuccess: (data) => {
           queryClient.invalidateQueries({ queryKey: getListStudentSubjectLessonsQueryKey(subjectId) });
+          // The page's own tabs and pages (a lesson just became assigned).
+          queryClient.invalidateQueries({ queryKey: getListStudentSubjectLessonsPageQueryKey(subjectId) });
+          queryClient.invalidateQueries({ queryKey: getListStudentSubjectLessonTopicsQueryKey(subjectId) });
           queryClient.invalidateQueries({ queryKey: getGetNextLessonQueryKey(subjectId) });
           queryClient.invalidateQueries({ queryKey: getGetSubjectProgressQueryKey(subjectId) });
           queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
@@ -201,13 +188,13 @@ function PreschoolTopicTabs({
   activeId,
   onSelect,
 }: {
-  tabs: TopicTab[];
+  tabs: LessonTopicOut[];
   activeId: number;
   onSelect: (topicId: number) => void;
 }) {
   return (
     <div role="tablist" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
-      {tabs.map(({ topic }) => {
+      {tabs.map((topic) => {
         const isActive = topic.id === activeId;
         return (
           <button
@@ -239,23 +226,21 @@ function PreschoolTopicTabs({
 // shown) — no Tasks/Plan/Materials/Cards tabs, those stay behind in the
 // grown-up view. See docs/views/preschool/README.md.
 //
-// The screen itself only draws what it's handed; the two exports below fetch
-// it — a signed-in student's own data, or, for a visitor who isn't signed in,
-// the public read-only copy (see docs/core/public_access.md).
+// The screen draws the subject and asks for its lessons a page at a time — the
+// tabs first (a small list), then ten cards of the open topic, ten more as the
+// child scrolls (see use-subject-lessons.ts). The two exports below only fetch
+// the subject itself: a signed-in student's own, or, for a visitor who isn't
+// signed in, the public read-only copy (see docs/core/public_access.md).
 function PreschoolSubjectScreen({
   subjectId,
   subject,
-  topics: topicsData,
-  lessons: lessonsData,
   progress,
-  isLoading,
-  isError,
+  isLoading: subjectLoading,
+  isError: subjectError,
   guest,
 }: {
   subjectId: number;
   subject: { name: string; icon: string | null } | undefined;
-  topics: TopicOut[] | undefined;
-  lessons: SubjectLessonOut[] | undefined;
   progress: SubjectProgressOut | undefined;
   isLoading: boolean;
   isError: boolean;
@@ -265,75 +250,45 @@ function PreschoolSubjectScreen({
 }) {
   const t = useTranslations("PreschoolSubjectDetail");
   const locale = useLocale();
-  const canDoAnyLesson = useAuthStore((state) => state.user?.canDoAnyLesson ?? false);
+  // Which lessons make the cut is the child's own choice (the gear in the
+  // header, remembered for every subject) — see lib/preschool-lessons-filter.ts;
+  // the server applies it. A visitor who isn't signed in sees every lesson.
   const lessonsFilter = usePreschoolLessonsFilterStore((state) => state.filter);
 
-  const topics = useMemo(() => topicsData ?? [], [topicsData]);
-  const lessons = useMemo(() => lessonsData ?? [], [lessonsData]);
-  const lessonsByTopicId = useMemo(() => {
-    const map = new Map<number, SubjectLessonOut[]>();
-    for (const lesson of lessons) {
-      const list = map.get(lesson.topic_id) ?? [];
-      list.push(lesson);
-      map.set(lesson.topic_id, list);
-    }
-    return map;
-  }, [lessons]);
-
-  // Which lessons make the cut is the child's own choice (the gear in the
-  // header, remembered for every subject) — see lib/preschool-lessons-filter.ts.
   // A topic with nothing left to show gets no tab, rather than an empty one.
-  // A visitor who isn't signed in sees every lesson.
-  const topicTabs = useMemo(() => {
-    const tabs: TopicTab[] = [];
-    for (const topic of topics) {
-      const shownLessons = (lessonsByTopicId.get(topic.id) ?? []).filter(
-        (lesson) =>
-          guest ||
-          isLessonShown(
-            lessonsFilter,
-            { isAssigned: lesson.student_lesson_id !== null, status: lesson.status, isFavorite: lesson.is_favorite },
-            canDoAnyLesson,
-          ),
-      );
-      if (shownLessons.length > 0) tabs.push({ topic, lessons: shownLessons });
-    }
-    return tabs;
-  }, [topics, lessonsByTopicId, canDoAnyLesson, lessonsFilter, guest]);
+  const tabsQuery = useSubjectLessonTabs(subjectId, guest, lessonsFilter);
+  const tabs = tabsQuery.data ?? [];
 
   // The open topic lives in `?topic=<id>`, so coming back from a lesson (or a
   // reload) lands on the same tab. An id that has no tab (a stale link, or a
   // topic the filter just emptied) falls back to the first one.
-  const [activeTopicParam, setActiveTopicParam] = useTabQueryParam(String(topicTabs[0]?.topic.id ?? ""), "topic");
-  const activeTab = topicTabs.find(({ topic }) => String(topic.id) === activeTopicParam) ?? topicTabs[0];
-  const activeLessons = activeTab?.lessons ?? [];
+  const [activeTopicParam, setActiveTopicParam] = useTabQueryParam(String(tabs[0]?.id ?? ""), "topic");
+  const activeTab = tabs.find((tab) => String(tab.id) === activeTopicParam) ?? tabs[0];
 
-  // Infinite scroll: render the first `visibleCount` cards of the open topic,
-  // and reveal PAGE_SIZE more whenever the sentinel below the list comes
-  // within ~a screen of the viewport. The observer is recreated after every
-  // batch (`visibleCount` in the deps) — a fresh observer reports the
-  // sentinel's current state right away, so if a batch didn't push it out of
+  const pagesQuery = useSubjectLessonPages(subjectId, activeTab?.id, guest, lessonsFilter);
+  const shownLessons = pagesQuery.data?.lessons ?? [];
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = pagesQuery;
+
+  // Infinite scroll: whenever the sentinel below the grid comes within ~a
+  // screen of the viewport, fetch the next ten. The observer is recreated after
+  // every page (`shownLessons.length` in the deps) — a fresh observer reports the
+  // sentinel's current state right away, so if a page didn't push it out of
   // range (tall screen), the next one loads without needing a scroll.
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
-  const hasMore = activeLessons.length > visibleCount;
-  const shownLessons = activeLessons.slice(0, visibleCount);
   useEffect(() => {
-    if (!hasMore || !sentinel) return;
+    if (!hasNextPage || isFetchingNextPage || !sentinel) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry?.isIntersecting) setVisibleCount((count) => count + PAGE_SIZE);
+        if (entry?.isIntersecting) void fetchNextPage();
       },
       { rootMargin: "400px 0px" },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasMore, sentinel, visibleCount]);
+  }, [hasNextPage, isFetchingNextPage, sentinel, shownLessons.length, fetchNextPage]);
 
-  const selectTopic = (topicId: number) => {
-    setActiveTopicParam(String(topicId));
-    setVisibleCount(PAGE_SIZE);
-  };
+  const isLoading = subjectLoading || tabsQuery.isLoading;
+  const isError = subjectError || tabsQuery.isError;
 
   const content = (() => {
     if (isLoading) {
@@ -372,7 +327,7 @@ function PreschoolSubjectScreen({
                 </span>
                 {/* Just before the ⚙️ in the corner. */}
                 <FavoriteSubjectButton subjectId={subjectId} />
-                <PreschoolLessonsFilterButton onChange={() => setVisibleCount(PAGE_SIZE)} />
+                <PreschoolLessonsFilterButton />
               </div>
             )}
           </div>
@@ -395,8 +350,8 @@ function PreschoolSubjectScreen({
 
         {activeTab ? (
           <>
-            {topicTabs.length > 1 && (
-              <PreschoolTopicTabs tabs={topicTabs} activeId={activeTab.topic.id} onSelect={selectTopic} />
+            {tabs.length > 1 && (
+              <PreschoolTopicTabs tabs={tabs} activeId={activeTab.id} onSelect={(topicId) => setActiveTopicParam(String(topicId))} />
             )}
             <div role="tabpanel" className="grid grid-cols-2 gap-4 md:grid-cols-3">
               {shownLessons.map((lesson, index) => (
@@ -410,7 +365,11 @@ function PreschoolSubjectScreen({
                 />
               ))}
             </div>
-            {hasMore && <div ref={setSentinel} aria-hidden="true" className="h-px" />}
+            {pagesQuery.isError && <p className="text-center text-sm font-medium text-red-700">{t("error")}</p>}
+            {(pagesQuery.isLoading || isFetchingNextPage) && (
+              <p className="text-center text-sm font-medium text-emerald-800">{t("loading")}</p>
+            )}
+            {hasNextPage && <div ref={setSentinel} aria-hidden="true" className="h-px" />}
           </>
         ) : (
           <p className="text-center text-sm font-medium text-gray-500">
@@ -441,18 +400,14 @@ function PreschoolSubjectScreen({
 export function PreschoolSubjectDetailPage({ subjectId }: { subjectId: number }) {
   const subjectQuery = useGetSubject(subjectId);
   const progressQuery = useGetSubjectProgress(subjectId);
-  const topicsQuery = useListSubjectTopics(subjectId);
-  const lessonsQuery = useListStudentSubjectLessons(subjectId);
 
   return (
     <PreschoolSubjectScreen
       subjectId={subjectId}
       subject={subjectQuery.data}
-      topics={topicsQuery.data}
-      lessons={lessonsQuery.data}
       progress={progressQuery.data}
-      isLoading={subjectQuery.isLoading || topicsQuery.isLoading || lessonsQuery.isLoading}
-      isError={subjectQuery.isError || topicsQuery.isError || lessonsQuery.isError}
+      isLoading={subjectQuery.isLoading}
+      isError={subjectQuery.isError}
       guest={false}
     />
   );
@@ -463,18 +418,14 @@ export function PreschoolSubjectDetailPage({ subjectId }: { subjectId: number })
 // shows the error line.
 export function PreschoolPublicSubjectDetailPage({ subjectId }: { subjectId: number }) {
   const subjectQuery = useGetPublicSubject(subjectId);
-  const topicsQuery = useListPublicSubjectTopics(subjectId);
-  const lessonsQuery = useListPublicSubjectLessons(subjectId);
 
   return (
     <PreschoolSubjectScreen
       subjectId={subjectId}
       subject={subjectQuery.data}
-      topics={topicsQuery.data}
-      lessons={lessonsQuery.data}
       progress={undefined}
-      isLoading={subjectQuery.isLoading || topicsQuery.isLoading || lessonsQuery.isLoading}
-      isError={subjectQuery.isError || topicsQuery.isError || lessonsQuery.isError}
+      isLoading={subjectQuery.isLoading}
+      isError={subjectQuery.isError}
       guest
     />
   );
