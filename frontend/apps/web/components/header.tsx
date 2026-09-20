@@ -6,6 +6,7 @@ import { Link, usePathname } from "@/i18n/navigation";
 import { useAuthStore, useIsGuest, useIsPreschoolStudent } from "@school-ahead/api-client";
 import { isPublicCataloguePage } from "@/lib/preschool-chrome";
 import { useSignOut } from "@/lib/use-sign-out";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { MainMenu } from "@/components/main-menu";
 import { TutorMainMenu } from "@/components/tutor-main-menu";
 import { PreschoolModeToggle } from "@/components/preschool-mode-toggle";
@@ -114,19 +115,20 @@ function GoogleIcon() {
 function GuestNav() {
   const t = useTranslations("Header");
   const links = [
-    { href: "/subjects", label: t("subjects") },
-    { href: "/games/stories", label: t("stories") },
-    { href: "/games", label: t("games") },
+    { href: "/subjects", label: t("subjects"), note: t("subjectsNote") },
+    { href: "/games/stories", label: t("stories"), note: null },
+    { href: "/games", label: t("games"), note: null },
   ] as const;
   return (
     <nav aria-label={t("mainMenu")} className="hidden items-center gap-6 sm:flex">
-      {links.map(({ href, label }) => (
+      {links.map(({ href, label, note }) => (
         <Link
           key={href}
           href={href}
           className="rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
         >
           {label}
+          {note && <span className="ml-1 hidden text-xs font-normal text-gray-500 md:inline">{note}</span>}
         </Link>
       ))}
     </nav>
@@ -274,13 +276,13 @@ export function Header() {
           </DropdownMenu.Root>
         </div>
       ) : (
-        <Link
-          href="/login"
-          className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        <GoogleSignInButton
+          errorAlign="right"
+          className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm group-hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
         >
           <GoogleIcon />
           {t("loginWithGoogle")}
-        </Link>
+        </GoogleSignInButton>
       )}
     </header>
   );

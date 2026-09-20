@@ -55,6 +55,8 @@ sequenceDiagram
     D-->>B: 200 {user}<br/>Set-Cookie: access_token (httpOnly, Secure, short maxAge)<br/>Set-Cookie: refresh_token (httpOnly, Secure, path=/api/auth/refresh, long maxAge)<br/>Set-Cookie: csrf_token (NOT httpOnly, Secure, readable by JS)
 ```
 
+On the frontend, "Google Identity Services sign-in" is `lib/google-sign-in.ts`: it loads Google's script and calls `initialize()` once per page load, and every sign-in button — the `/login` page's own, plus the header's and the landing page's `GoogleSignInButton`, which overlays Google's real button on a styled one so a single click opens the account chooser — shares that one credential callback (see `docs/core/public_access.md` §4).
+
 The response body sent to the browser never includes `access_token`/`refresh_token` — only cookies carry them, and only `csrf_token` is JS-readable.
 
 ## Diagram B — Authenticated request

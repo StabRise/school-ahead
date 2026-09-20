@@ -75,13 +75,23 @@ allowlist — the authenticated routers stay exactly as they were (they still
   signed-in student never flashes the public screens (or fires their requests).
   `/auth/me` is not retried on a `401` (`shouldRetryMe`): the default three
   retries with backoff would have delayed "you're signed out" by ~7 s.
-* **Header and home page.** A signed-out visitor's header has "Предмети", "Казки"
-  and "Ігри" next to the brand (hidden below the `sm` breakpoint) and an
-  "Увійти через Google" button linking to `/login`. The home page (`/uk`) is the
-  landing page (`components/landing/landing-page.tsx`): a hero with a "Створити
-  обліковий запис" button (→ `/login`) and a "Дізнатися більше" one (→ `/about`, below),
-  then three cards — subjects (`/subjects`), fairy tales (`/games/stories`) and games
-  (`/games`). Its art is in `public/images/landing/`.
+* **Header and home page.** A signed-out visitor's header has "Предмети
+  (демо, дошкільнята)" (the note only from `md` up), "Казки" and "Ігри" next to the
+  brand (all hidden below the `sm` breakpoint) and an "Увійти через Google" button.
+  The home page (`/uk`) is the landing page (`components/landing/landing-page.tsx`): a
+  hero with an "Увійти через Google" button and a "Дізнатися більше" one (→ `/about`,
+  below), then three cards — subjects (also marked "(демо, дошкільнята)"; `/subjects`),
+  fairy tales (`/games/stories`) and games (`/games`). Its art is in
+  `public/images/landing/`.
+* **Sign-in buttons go straight to Google.** Every "Увійти через Google" button (header,
+  landing, `/about`) is a `GoogleSignInButton` (`components/google-sign-in-button.tsx`):
+  one click opens Google's account chooser — there is no stop at `/login`. Google only
+  gives a page an ID token through the button it draws itself, so that button is laid
+  over ours, stretched to its size and nearly transparent. Until the Google script has
+  loaded (or if it can't, or `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is unset) the button is an
+  ordinary link to `/login`. The credential handling (`POST /auth/google`, the auth
+  store, then `/`) and the once-per-page Google initialisation are shared with the
+  `/login` page in `lib/google-sign-in.ts`.
 * **"Дізнатися більше" — `/about`** (`components/landing/about-page.tsx`, an exact
   public pattern in `lib/public-paths.ts`). Explains the platform to a visitor: working
   ahead and diamonds, the two interface modes (the preschool mode for the middle and

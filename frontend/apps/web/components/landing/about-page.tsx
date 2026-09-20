@@ -2,11 +2,12 @@
 
 import Image from "next/image";
 import { useTranslations } from "next-intl";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { Link } from "@/i18n/navigation";
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600";
-const primaryButton = `rounded-xl bg-gradient-to-b from-sky-400 to-blue-600 px-6 py-3 text-base font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:brightness-105 ${focusRing}`;
+const primaryButton = `rounded-xl bg-gradient-to-b from-sky-400 to-blue-600 px-6 py-3 text-base font-semibold text-white shadow-lg shadow-blue-500/30 transition group-hover:brightness-105 ${focusRing}`;
 const secondaryButton = `rounded-xl border border-slate-900 bg-white/60 px-6 py-3 text-base font-medium text-slate-900 transition hover:bg-white ${focusRing}`;
 
 // docs/core/gamification.md §1 — what a lesson earns.
@@ -75,9 +76,7 @@ export function AboutPage() {
           </h1>
           <p className="text-base text-slate-600 sm:text-lg">{t("lead")}</p>
           <div className="flex flex-wrap items-center gap-3">
-            <Link href="/login" className={primaryButton}>
-              {t("primaryCta")}
-            </Link>
+            <GoogleSignInButton className={primaryButton}>{t("primaryCta")}</GoogleSignInButton>
             <Link href="/games" className={secondaryButton}>
               {t("secondaryCta")}
             </Link>
@@ -225,12 +224,11 @@ export function AboutPage() {
             {t("cta.title")}
           </h2>
           <p className="max-w-xl text-base text-sky-50">{t("cta.body")}</p>
-          <Link
-            href="/login"
-            className={`rounded-xl bg-white px-6 py-3 text-base font-semibold text-blue-700 shadow-md transition hover:bg-sky-50 ${focusRing}`}
+          <GoogleSignInButton
+            className={`rounded-xl bg-white px-6 py-3 text-base font-semibold text-blue-700 shadow-md transition group-hover:bg-sky-50 ${focusRing}`}
           >
             {t("primaryCta")}
-          </Link>
+          </GoogleSignInButton>
         </section>
       </div>
     </div>
