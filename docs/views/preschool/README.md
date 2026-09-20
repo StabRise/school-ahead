@@ -65,12 +65,14 @@ it:
   raccoon until they have picked one) instead of an emoji. The switch is the
   way back to the classic mode, and so the way to log out, which lives in the
   classic header's menu.
-* **The preschool-mode switch on every page.** The dashboard has it in its top
-  row; every other preschool page has the same switch as a small pill fixed in the
-  **bottom-right corner** (`components/preschool/chrome.tsx`, above a lesson's
-  fullscreen overlay too) — the one corner no page uses for its own controls,
-  except the balloons and cards games' "game / learning" switch, which slides left
-  for a preschool student (`[html[data-headerless]_&]:right-48`).
+* **The 💎 balance and the preschool-mode switch on every page.** The dashboard
+  has them in its top row; every other preschool page has the same two as small
+  pills fixed in the **bottom-right corner** (`components/preschool/chrome.tsx`,
+  above a lesson's fullscreen overlay too) — the one corner no page uses for its
+  own controls, except the balloons and cards games' "game / learning" switch,
+  which slides left for a preschool student (`[html[data-headerless]_&]:right-72`).
+  The badge keeps `data-diamond-badge`, so a diamond flies to it wherever the child
+  earns one.
 * **A 🏠 back to the dashboard on every other page**, so there is always a way
   home (`components/preschool/chrome.tsx`; which page gets which:
   `lib/preschool-chrome.ts`):

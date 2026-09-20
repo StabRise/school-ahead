@@ -2,8 +2,9 @@
 
 import { useEffect } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { useIsPreschoolStudent } from "@school-ahead/api-client";
+import { useAuthStore, useIsPreschoolStudent } from "@school-ahead/api-client";
 import { PreschoolButton } from "@school-ahead/preschool-ui";
+import { DiamondBadge } from "@/components/header";
 import { PreschoolModeToggle } from "@/components/preschool-mode-toggle";
 import { usePathname } from "@/i18n/navigation";
 import { preschoolHomeKind } from "@/lib/preschool-chrome";
@@ -14,8 +15,10 @@ import { preschoolHomeKind } from "@/lib/preschool-chrome";
 // corner on the pages with room for it (so their headings stay at the top), in
 // a slim sky-coloured strip above the rest, and nowhere on the pages that have
 // one of their own — and, on every page but the dashboard (whose top row has
-// it), the preschool-mode switch, a small pill fixed in the bottom-right corner:
-// the header's menu used to be the only place to leave the mode.
+// them), the 💎 balance and the preschool-mode switch, small pills fixed in the
+// bottom-right corner: the header used to show the diamonds, and its menu was the
+// only place to leave the mode. The 💎 badge carries `data-diamond-badge`, which
+// the flying-diamond animation aims at.
 //
 // It also flags the page as header-less (`<html data-headerless>`), which the
 // games read to sit their fixed controls at the top of the screen instead of
@@ -25,6 +28,7 @@ export function PreschoolChrome() {
   const locale = useLocale();
   const pathname = usePathname();
   const isPreschool = useIsPreschoolStudent();
+  const diamondBalance = useAuthStore((state) => state.user?.diamondBalance ?? null);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -53,8 +57,15 @@ export function PreschoolChrome() {
       {kind === "strip" && <div className="bg-sky-200 px-4 py-2">{home}</div>}
       {/* Above a lesson's fullscreen overlay (z-40) too. */}
       {pathname !== "/" && (
-        <div className="fixed bottom-4 right-4 z-50 rounded-full bg-white/90 shadow-lg ring-2 ring-gray-200">
-          <PreschoolModeToggle />
+        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2">
+          {diamondBalance !== null && (
+            <div className="rounded-full bg-white/90 p-1 shadow-lg ring-2 ring-gray-200">
+              <DiamondBadge count={diamondBalance} />
+            </div>
+          )}
+          <div className="rounded-full bg-white/90 shadow-lg ring-2 ring-gray-200">
+            <PreschoolModeToggle />
+          </div>
         </div>
       )}
     </>
