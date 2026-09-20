@@ -79,9 +79,17 @@ allowlist — the authenticated routers stay exactly as they were (they still
   and "Ігри" next to the brand (hidden below the `sm` breakpoint) and an
   "Увійти через Google" button linking to `/login`. The home page (`/uk`) is the
   landing page (`components/landing/landing-page.tsx`): a hero with a "Створити
-  обліковий запис" button (→ `/login`) and a "Дізнатися більше" one that scrolls to
-  three cards — subjects (`/subjects`), fairy tales (`/games/stories`) and games
+  обліковий запис" button (→ `/login`) and a "Дізнатися більше" one (→ `/about`, below),
+  then three cards — subjects (`/subjects`), fairy tales (`/games/stories`) and games
   (`/games`). Its art is in `public/images/landing/`.
+* **"Дізнатися більше" — `/about`** (`components/landing/about-page.tsx`, an exact
+  public pattern in `lib/public-paths.ts`). Explains the platform to a visitor: working
+  ahead and diamonds, the two interface modes (the preschool mode for the middle and
+  senior kindergarten groups, and the school student mode, with two screenshots in
+  `public/images/landing/`), the nine preschool minigames (covers from
+  `public/static/*/cover*.jpeg`, each linking to its `/games/...` route) and the note
+  that what a visitor can open — the subjects and the games — is the preschool mode.
+  Copy is in the `About` namespace of `messages/uk.json`.
 * **No site header on the catalogue itself.** On `/subjects` and `/subjects/<id>` a
   visitor sees the preschool-style page and no classic header (`Header` renders
   nothing there — `isPublicCataloguePage` in `lib/preschool-chrome.ts`). What is left

@@ -38,12 +38,12 @@ export function LandingPage() {
             >
               {t("createAccount")}
             </Link>
-            <a
-              href="#explore"
+            <Link
+              href="/about"
               className={`rounded-xl border border-slate-900 bg-white/60 px-6 py-3 text-base font-medium text-slate-900 transition hover:bg-white ${focusRing}`}
             >
               {t("learnMore")}
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -61,7 +61,7 @@ export function LandingPage() {
         />
       </section>
 
-      <section id="explore" aria-label={t("exploreLabel")} className="scroll-mt-16 px-6 pb-12">
+      <section aria-label={t("exploreLabel")} className="px-6 pb-12">
         <ul className="mx-auto grid w-full max-w-6xl gap-4 md:grid-cols-3 md:gap-8">
           {EXPLORE_CARDS.map(({ key, href, image, width }) => (
             <li key={key}>

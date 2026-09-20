@@ -12,7 +12,7 @@ describe("pathWithoutLocale", () => {
 });
 
 describe("isPublicPath", () => {
-  it.each(["/uk", "/uk/login", "/uk/games", "/uk/games/stories/kolobok", "/games/cards"])("%s is public", (path) => {
+  it.each(["/uk", "/uk/login", "/uk/about", "/uk/about/", "/about", "/uk/games", "/uk/games/stories/kolobok", "/games/cards"])("%s is public", (path) => {
     expect(isPublicPath(path)).toBe(true);
   });
 
@@ -33,6 +33,7 @@ describe("isPublicPath", () => {
     "/uk/calendar",
     "/uk/profile",
     "/uk/settings",
+    "/uk/about/team",
   ])("%s stays behind the login", (path) => {
     expect(isPublicPath(path)).toBe(false);
   });
