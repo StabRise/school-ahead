@@ -556,8 +556,11 @@ export function CardsGame() {
         />
       )}
 
+      {/* A student in preschool mode has the mode switch fixed in the page's
+          bottom-right corner (components/preschool/chrome.tsx), so this moves out
+          of its way. */}
       {hasCards && (
-        <div className="absolute bottom-4 right-4 z-10 flex overflow-hidden rounded-full bg-white p-1 text-sm font-bold shadow-lg ring-2 ring-gray-200">
+        <div className="absolute bottom-4 right-4 z-10 flex overflow-hidden rounded-full bg-white p-1 text-sm font-bold shadow-lg ring-2 ring-gray-200 [html[data-headerless]_&]:right-48">
           <button
             type="button"
             onClick={() => setScreenMode("game")}

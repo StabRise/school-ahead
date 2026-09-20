@@ -92,7 +92,7 @@ def test_subject_payload_exposes_no_teacher_or_email(api_client, public_class):
 
     assert response.status_code == 200
     assert 'secret-tutor@example.com' not in response.content.decode()
-    assert set(response.json()[0]) == {'id', 'name', 'icon', 'group_id'}
+    assert set(response.json()[0]) == {'id', 'name', 'icon', 'group_id', 'is_marked'}
 
 
 def test_get_subject_topics_and_lessons_of_a_public_class(api_client, public_class):
@@ -180,3 +180,14 @@ def test_the_authenticated_endpoints_still_require_sign_in(api_client, public_cl
         f'/student-lessons/lessons/{lesson.id}/preview',
     ):
         assert api_client.get(path).status_code == 401, path
+
+
+def test_the_tutor_mark_reaches_a_visitor_who_is_not_signed_in(api_client, public_class):
+    """The shelf's default view for a visitor shows only what a tutor marked."""
+    marked, _, _ = _subject_with_lesson(public_class, 'Marked', order_index=1)
+    unmarked, _, _ = _subject_with_lesson(public_class, 'Unmarked', order_index=2)
+    Subject.objects.filter(id=marked.id).update(is_marked=True)
+
+    rows = {row['id']: row['is_marked'] for row in api_client.get('/public/subjects').json()}
+
+    assert rows == {marked.id: True, unmarked.id: False}

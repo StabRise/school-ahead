@@ -10,14 +10,15 @@ public, the same as for an id that doesn't exist, so the API doesn't reveal
 which private subjects exist. See docs/core/public_access.md.
 """
 
-from django.db.models import Exists, OuterRef, QuerySet
+from django.db.models import Count, Exists, OuterRef, QuerySet
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
-from ninja import Router
+from ninja import Query, Router
 
-from lessons.api import lesson_preview_out, subject_lessons_out
+from lessons import services as lesson_services
+from lessons.api import lesson_preview_out, lessons_page_out, subject_lessons_out
 from lessons.models import Lesson
-from lessons.schemas import LessonPreviewOut, SubjectLessonOut
+from lessons.schemas import LessonPreviewOut, LessonTopicOut, SubjectLessonOut, SubjectLessonPageOut
 
 from .models import Subject, Topic
 from .schemas import PublicSubjectOut, TopicOut
@@ -49,7 +50,7 @@ def get_public_subject(request: HttpRequest, subject_id: int):
 @router.get('/subjects/{subject_id}/topics', response=list[TopicOut], operation_id='list_public_subject_topics')
 def list_public_subject_topics(request: HttpRequest, subject_id: int):
     subject = get_object_or_404(_public_subjects(), id=subject_id)
-    return Topic.objects.filter(subject=subject).select_related('subject_block')
+    return Topic.objects.filter(subject=subject).select_related('subject_block').annotate(lesson_total=Count('lessons'))
 
 
 @router.get(
@@ -63,6 +64,37 @@ def list_public_subject_lessons(request: HttpRequest, subject_id: int):
     a visitor has no StudentLesson."""
     subject = get_object_or_404(_public_subjects(), id=subject_id)
     return subject_lessons_out(subject.id, {}, request)
+
+
+@router.get(
+    '/subjects/{subject_id}/lesson-topics',
+    response=list[LessonTopicOut],
+    operation_id='list_public_subject_lesson_topics',
+)
+def list_public_subject_lesson_topics(request: HttpRequest, subject_id: int):
+    """The tabs of the subject page: the topics that have lessons, each with
+    how many — a visitor sees every lesson, so there is no filter."""
+    subject = get_object_or_404(_public_subjects(), id=subject_id)
+    return lesson_services.lesson_topic_tabs(lesson_services.visible_subject_lessons(subject.id, None, 'all'))
+
+
+@router.get(
+    '/subjects/{subject_id}/lessons-page',
+    response=SubjectLessonPageOut,
+    operation_id='list_public_subject_lessons_page',
+)
+def list_public_subject_lessons_page(
+    request: HttpRequest,
+    subject_id: int,
+    topic_id: int,
+    limit: int = Query(10, ge=1, le=50),
+    offset: int = Query(0, ge=0),
+):
+    """A page of one topic's lessons — the subject page's grid, loaded `limit`
+    at a time as the visitor scrolls, like lessons.api.list_student_subject_lessons_page."""
+    subject = get_object_or_404(_public_subjects(), id=subject_id)
+    lessons = lesson_services.visible_subject_lessons(subject.id, None, 'all').filter(topic_id=topic_id)
+    return lessons_page_out(lessons, None, limit, offset, request)
 
 
 @router.get('/lessons/{lesson_id}', response=LessonPreviewOut, operation_id='get_public_lesson')

@@ -62,7 +62,8 @@ class SubjectGroup(models.Model):
     icon_thumbnail = icon_thumbnail_field(SUBJECT_GROUP_ICON_SIDE)
     # Set by a tutor (class page, or the Django admin): shown in the preschool
     # bookshelf's default "marked" view — see docs/views/preschool/README.md.
-    # The other views (all, favourites) ignore it.
+    # The other views (all, favourites) ignore it. Unmarked, the group hides
+    # *all* its subjects from that view, marked or not.
     is_marked = models.BooleanField(default=False)
 
     class Meta:
@@ -110,7 +111,8 @@ class Subject(TimeStampedModel):
     icon_thumbnail = icon_thumbnail_field(SUBJECT_ICON_SIDE)
     # Set by a tutor (class page, or the Django admin): shown in the preschool
     # bookshelf's default "marked" view — see docs/views/preschool/README.md.
-    # The other views (all, favourites) ignore it.
+    # The other views (all, favourites) ignore it. It also takes the subject's
+    # group being marked (SubjectGroup.is_marked), if it has one.
     is_marked = models.BooleanField(default=False)
     # Left-border accent on lesson cards — auto-assigned from
     # colors.SUBJECT_COLOR_PALETTE on create (services.assign_subject_color),

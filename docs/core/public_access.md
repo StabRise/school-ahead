@@ -19,7 +19,7 @@ hides everything at once.
 
 | | Signed out | Student |
 |---|---|---|
-| Bookshelf `/subjects` | every subject of every public class that has a lesson, category filter, **no progress bar** | own class, progress per book |
+| Bookshelf `/subjects` | every subject of every public class that has a lesson, category filter, a ⚙️ with two views (marked by a tutor — the default — or all), **no progress bar** | own class, progress per book, a ⚙️ with three views (adds favourites) |
 | Subject `/subjects/{id}` | one card grid, a tab per topic; **no points, progress or lesson filter** | same, with progress, points and the ⚙️ filter |
 | Lesson `/lessons/preview/{id}` | the title over the framed video/text, and a "sign in to do the assignment" button | the lesson wizard, with `/lessons/{studentLessonId}` |
 | Practice step (quiz, task, "did you understand?") | ✗ | ✓ |
@@ -41,17 +41,19 @@ allowlist — the authenticated routers stay exactly as they were (they still
 
 | Endpoint | Returns |
 |---|---|
-| `GET /public/subjects` | `PublicSubjectOut[]` — public classes only, subjects with ≥1 lesson, ordered by class, then `order_index` |
+| `GET /public/subjects` | `PublicSubjectOut[]` — public classes only, subjects with ≥1 lesson, ordered by class, then `order_index`; carries `is_marked` for the shelf's default view |
 | `GET /public/subjects/{id}` | `PublicSubjectOut` |
 | `GET /public/subjects/{id}/topics` | `TopicOut[]` |
 | `GET /public/subjects/{id}/lessons` | `SubjectLessonOut[]`, every `student_*` field null |
+| `GET /public/subjects/{id}/lesson-topics` | `LessonTopicOut[]` — the subject page's tabs: the topics that have lessons, each with a count |
+| `GET /public/subjects/{id}/lessons-page?topic_id=&limit=&offset=` | `SubjectLessonPageOut` — one topic's lessons `limit` (default 10) at a time, with the total; what the subject page loads as the visitor scrolls |
 | `GET /public/lessons/{id}` | `LessonPreviewOut` (content, task text, attachments), `student_lesson_id` null |
 | `GET /academics/subject-groups` | now also public (`auth=None`) — global reference data the shelf's category filter needs |
 
 * Every lookup goes through one query (`_public_subjects()`); a subject or
   lesson of a private class returns **404**, the same as an id that doesn't
   exist, so the API doesn't reveal which private ones exist.
-* `PublicSubjectOut` is `id`, `name`, `icon`, `group_id` only. It is not
+* `PublicSubjectOut` is `id`, `name`, `icon`, `group_id` and `is_marked` only. It is not
   `SubjectOut`: that carries `teacher_name`, which falls back to the tutor's
   **e-mail address**.
 * The list/lesson payloads are built by the same functions the student

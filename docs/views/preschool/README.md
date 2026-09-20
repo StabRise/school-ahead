@@ -62,9 +62,15 @@ it:
   (`/lessons`, the road below), **Предмети** 📚 (`/subjects`), **Календар** 📅
   (`/calendar`), **Ігри** 🎈 (`/games`), **Казки** 🧚 (`/games/stories`) and
   **Профіль** (`/profile`), which shows the child's own dressed avatar (the
-  raccoon until they have picked one) instead of an emoji. The switch here is the
+  raccoon until they have picked one) instead of an emoji. The switch is the
   way back to the classic mode, and so the way to log out, which lives in the
   classic header's menu.
+* **The preschool-mode switch on every page.** The dashboard has it in its top
+  row; every other preschool page has the same switch as a small pill fixed in the
+  **bottom-right corner** (`components/preschool/chrome.tsx`, above a lesson's
+  fullscreen overlay too) — the one corner no page uses for its own controls,
+  except the balloons and cards games' "game / learning" switch, which slides left
+  for a preschool student (`[html[data-headerless]_&]:right-48`).
 * **A 🏠 back to the dashboard on every other page**, so there is always a way
   home (`components/preschool/chrome.tsx`; which page gets which:
   `lib/preschool-chrome.ts`):
@@ -350,8 +356,9 @@ The ⚙️ in the top-right corner picks **which subjects and categories show**
   👁 button on each subject row and group header of the class page
   (`/tutor/classes/{id}`), or in the Django admin. Everything that existed when
   the field was added was marked by its migration, so nothing vanished; anything
-  created since starts unmarked. A marked subject in an unmarked category still
-  shows, under no category filter.
+  created since starts unmarked. Both marks are needed: an **unmarked category
+  hides all of its subjects**, marked or not (a subject with no category needs
+  only its own mark).
 * **Усі предмети** (`all`) — every subject of the student's class, as before.
 * **Улюблені** (`favorites`) — only the subjects the student hearted
   (`FavoriteSubject`, below). Its categories are the ones those subjects belong
@@ -359,7 +366,10 @@ The ⚙️ in the top-right corner picks **which subjects and categories show**
 
 A category is only offered when at least one subject of the current view
 belongs to it. The visitor-facing shelf (signed out, see
-`docs/core/public_access.md`) has no ⚙️ and always shows every subject.
+`docs/core/public_access.md`) has the ⚙️ too, with two views — **marked** (the
+default) and **all**; there are no favourites without an account, and a
+"favourites" choice remembered from a signed-in session on the same device falls
+back to the default.
 
 ### Subject page (`/subjects/[id]`)
 
@@ -385,10 +395,20 @@ tab; a topic with no lessons left under the current filter gets no tab.
   `/lessons/preview/<id>` as in the other modes. Tapping it creates today's
   `StudentLesson` straight away (`POST .../lessons/{id}/start-today`, the same
   call the preview's button makes) and opens the lesson (`StartLessonCard`).
-* **Load as you scroll:** the first 20 cards of the open topic render, and 20 more
-  are revealed whenever a marker below the grid nears the viewport (switching tabs
-  starts over at 20). The whole lesson list
-  is still fetched in one request — only rendering is windowed.
+* **Loaded a page at a time:** a subject can have hundreds or thousands of
+  lessons (a YouTube playlist imported as lessons), so the page never fetches the
+  whole list. It asks for the **tabs** first — `GET
+  /student-lessons/subjects/{id}/lesson-topics?filter=`, the topics that have
+  lessons to show under the filter, each with a count (a few hundred bytes) — and
+  then for the open topic's lessons **ten at a time**, `GET
+  /student-lessons/subjects/{id}/lessons-page?topic_id=&filter=&limit=10&offset=`,
+  fetching the next ten whenever a marker below the grid nears the viewport
+  (`components/subjects/use-subject-lessons.ts`, an infinite query). The filter is
+  applied by the server (`lessons.services.visible_subject_lessons`), and only a
+  page's own lessons get their pictures resolved, so a first paint costs the same
+  for a subject of 10 lessons and of 4,000 (measured: 4,081 lessons, 2.9 MB / ~100 ms
+  as one list against 7 KB / ~25 ms for a page). Switching tabs or changing the
+  filter starts a fresh list.
 * **Which lessons show** is chosen with the ⚙️ in the top-right corner (same
   look as the games' settings gear) and kept in a persisted zustand store
   (`preschool-lessons-filter-store.ts`) shared by every subject — see

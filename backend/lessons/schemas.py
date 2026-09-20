@@ -164,6 +164,15 @@ class SubjectFavoriteOut(Schema):
     is_favorite: bool
 
 
+class LessonTopicOut(Schema):
+    """A tab on the preschool subject page: a topic that has lessons to show,
+    and how many — see lessons.services.lesson_topic_tabs."""
+
+    id: int
+    title: str
+    lesson_count: int
+
+
 class UpdateSynopsisIn(Schema):
     """A student saving their own edited copy of Lesson.synopsis — see
     StudentLesson.synopsis_notes."""
@@ -465,6 +474,15 @@ class SubjectLessonOut(Schema):
     # for the lesson yet. Powers the preschool subject page's "favourites"
     # filter.
     is_favorite: bool
+
+
+class SubjectLessonPageOut(Schema):
+    """One page of a subject's lessons (for one topic), `count` being how many
+    there are in all — the preschool subject page asks for them ten at a time as
+    the child scrolls."""
+
+    items: list[SubjectLessonOut]
+    count: int
 
 
 class LessonPreviewOut(Schema):

@@ -1,4 +1,6 @@
 import datetime
+from collections.abc import Iterable
+from typing import Literal
 
 from academics.models import Subject
 from accounts.models import StudentProfile
@@ -7,9 +9,10 @@ from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
 from common.images import icon_url
 from common.permissions import ensure_is_owner_student, get_own_student_profile
+from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
-from ninja import File, Form, Router
+from ninja import File, Form, Query, Router
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
 from ninja.pagination import LimitOffsetPagination, paginate
@@ -42,8 +45,10 @@ from .schemas import (
     StudentLessonMaterialOut,
     StudentLessonOut,
     StudentLessonStartOut,
+    LessonTopicOut,
     SubjectFavoriteOut,
     SubjectLessonOut,
+    SubjectLessonPageOut,
     SubjectProgressOut,
     SubmitQuizIn,
     SubmitQuizOut,
@@ -447,16 +452,14 @@ def get_topic_progress(request: HttpRequest, topic_id: int):
     return CompletionProgressOut(completed_count=completed, total_count=total, completed_percent=percent)
 
 
-def subject_lessons_out(
-    subject_id: int,
+def lesson_outs(
+    lessons: Iterable[Lesson],
     student_lessons_by_lesson_id: dict[int, StudentLesson],
     request: HttpRequest,
 ) -> list[SubjectLessonOut]:
-    """Every Lesson in the subject in curriculum order, each paired with the
-    caller's StudentLesson for it when there is one. An empty mapping (a
-    visitor who isn't signed in — see academics.public_api) leaves every
-    student_* field null."""
-    lessons = Lesson.objects.filter(topic__subject_id=subject_id).order_by('topic__order_index', 'order_index')
+    """`lessons`, each paired with the caller's StudentLesson for it when there
+    is one. An empty mapping (a visitor who isn't signed in — see
+    academics.public_api) leaves every student_* field null."""
     result = []
     for lesson in lessons:
         student_lesson = student_lessons_by_lesson_id.get(lesson.id)
@@ -478,6 +481,81 @@ def subject_lessons_out(
             )
         )
     return result
+
+
+def subject_lessons_out(
+    subject_id: int,
+    student_lessons_by_lesson_id: dict[int, StudentLesson],
+    request: HttpRequest,
+) -> list[SubjectLessonOut]:
+    """Every Lesson in the subject in curriculum order — see lesson_outs."""
+    lessons = Lesson.objects.filter(topic__subject_id=subject_id).order_by('topic__order_index', 'order_index')
+    return lesson_outs(lessons, student_lessons_by_lesson_id, request)
+
+
+def lessons_page_out(
+    lessons: QuerySet[Lesson],
+    student: StudentProfile | None,
+    limit: int,
+    offset: int,
+    request: HttpRequest,
+) -> SubjectLessonPageOut:
+    """`limit` of `lessons` from `offset` on, with the total. Only that page's
+    lessons are looked at further — their StudentLessons fetched in one query,
+    their icons (and so their thumbnails, made the first time they are asked for)
+    resolved — however many the subject has."""
+    count = lessons.count()
+    page = list(lessons[offset : offset + limit])
+    student_lessons = (
+        StudentLesson.objects.filter(student=student, lesson_id__in=[lesson.id for lesson in page])
+        if student is not None
+        else StudentLesson.objects.none()
+    )
+    return SubjectLessonPageOut(
+        items=lesson_outs(page, {sl.lesson_id: sl for sl in student_lessons}, request), count=count
+    )
+
+
+LessonFilter = Literal['available', 'all', 'favorites']
+
+
+@router.get(
+    '/subjects/{subject_id}/lesson-topics',
+    response=list[LessonTopicOut],
+    operation_id='list_student_subject_lesson_topics',
+)
+def list_student_subject_lesson_topics(
+    request: HttpRequest,
+    subject_id: int,
+    lesson_filter: LessonFilter = Query('available', alias='filter'),
+):
+    """The tabs of the preschool subject page: the topics that have lessons to
+    show under `filter` (see services.visible_subject_lessons), each with how
+    many — so the page needs no lesson list to draw them."""
+    student = get_own_student_profile(request)
+    return services.lesson_topic_tabs(services.visible_subject_lessons(subject_id, student, lesson_filter))
+
+
+@router.get(
+    '/subjects/{subject_id}/lessons-page',
+    response=SubjectLessonPageOut,
+    operation_id='list_student_subject_lessons_page',
+)
+def list_student_subject_lessons_page(
+    request: HttpRequest,
+    subject_id: int,
+    topic_id: int,
+    lesson_filter: LessonFilter = Query('available', alias='filter'),
+    limit: int = Query(10, ge=1, le=50),
+    offset: int = Query(0, ge=0),
+):
+    """A page of one topic's lessons under `filter` — the preschool subject
+    page's grid, loaded `limit` at a time as the child scrolls, instead of the
+    whole subject up front (list_subject_lessons below, which the default
+    view's Course plan still uses)."""
+    student = get_own_student_profile(request)
+    lessons = services.visible_subject_lessons(subject_id, student, lesson_filter).filter(topic_id=topic_id)
+    return lessons_page_out(lessons, student, limit, offset, request)
 
 
 @router.get(

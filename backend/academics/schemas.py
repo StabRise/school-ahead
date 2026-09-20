@@ -122,6 +122,8 @@ class PublicSubjectOut(Schema):
     name: str
     icon: str | None
     group_id: int | None
+    # Shown in the shelf's default "marked by tutor" view — see Subject.is_marked.
+    is_marked: bool
 
     @staticmethod
     def resolve_icon(obj, context):
@@ -152,7 +154,10 @@ class TopicOut(Schema):
 
     @staticmethod
     def resolve_lesson_count(obj):
-        return obj.lessons.count()
+        # A queryset that already counted them (annotate(lesson_total=Count(...)),
+        # see topics_with_lesson_counts) saves a COUNT query per topic.
+        total = getattr(obj, 'lesson_total', None)
+        return total if total is not None else obj.lessons.count()
 
     @staticmethod
     def resolve_subject_block_label(obj):

@@ -1,4 +1,4 @@
-from django.db.models import Exists, OuterRef
+from django.db.models import Count, Exists, OuterRef
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from ninja import File, Form, Router
@@ -80,7 +80,7 @@ def get_subject(request: HttpRequest, subject_id: int):
 
 @router.get('/subjects/{subject_id}/topics', response=list[TopicOut], operation_id='list_subject_topics')
 def list_subject_topics(request: HttpRequest, subject_id: int):
-    return Topic.objects.filter(subject_id=subject_id).select_related('subject_block')
+    return Topic.objects.filter(subject_id=subject_id).select_related('subject_block').annotate(lesson_total=Count('lessons'))
 
 
 @router.get('/topics/{topic_id}', response=TopicOut, operation_id='get_topic')
