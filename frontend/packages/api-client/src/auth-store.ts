@@ -126,4 +126,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 // a read-only public version (the bookshelf, a subject, a lesson: see
 // docs/core/public_access.md) switch to it on this. False while the session
 // is still being looked up, so those screens can wait instead of guessing.
+// True for a signed-in student in preschool mode — the screens that drop the
+// classic site header for a child's own (see docs/views/preschool/README.md).
+export const useIsPreschoolStudent = () =>
+  useAuthStore((state) => state.user?.role === "student" && state.user.interfaceMode === "preschool");
+
 export const useIsGuest = () => useAuthStore((state) => state.isResolved && state.user === null);

@@ -111,7 +111,7 @@ export function EquippedAvatarLayers({
 // plain display spot should use — header nav icon, preschool calendar/game-
 // map companion badges, the tutor's student-overview card, the math game's
 // runner sprite — instead of each hand-rolling its own outer frame around
-// EquippedAvatarLayers. Two frames cover every current need:
+// EquippedAvatarLayers. Three frames cover every current need:
 //   - "card" (default): a rounded-rectangle badge with a background, cropped
 //     to its own edges — the standard look everywhere a badge-sized avatar
 //     is shown alongside other UI.
@@ -120,6 +120,9 @@ export function EquippedAvatarLayers({
 //     `overflow`, so it doesn't cut off content that overflows the box. Used
 //     during actual gameplay (the runner sprite), where an item calibrated
 //     for /profile's generous canvas can extend past a small badge.
+//   - "none": the avatar on its own — no background, outline, padding or crop
+//     (like "ring", a tall item is never clipped). For a spot where the picture
+//     should stand alone, e.g. the preschool dashboard's profile card.
 // `fallback` covers every caller's different "nothing equipped yet" state
 // (a mascot, a Google photo, initials, a plain icon) — rendered instead of
 // an empty frame when `layers` is empty.
@@ -131,7 +134,7 @@ export function AvatarBadge({
   className,
 }: {
   layers: AvatarLayer[];
-  frame?: "card" | "ring";
+  frame?: "card" | "ring" | "none";
   padding?: string;
   fallback?: ReactNode;
   // Sizing (h-*/w-*), positioning, and any other extra classes — the same
@@ -142,7 +145,8 @@ export function AvatarBadge({
 }) {
   if (layers.length === 0) return <>{fallback}</>;
 
-  const frameClassName = frame === "card" ? "overflow-hidden rounded-xl bg-gray-100" : "rounded-full ring-4 ring-white";
+  const frameClassName =
+    frame === "card" ? "overflow-hidden rounded-xl bg-gray-100" : frame === "ring" ? "rounded-full ring-4 ring-white" : "";
   const paddingClassName = padding ?? (frame === "card" ? "p-1" : "");
 
   return (

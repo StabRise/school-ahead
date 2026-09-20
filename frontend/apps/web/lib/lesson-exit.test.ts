@@ -6,6 +6,10 @@ describe("lessonExitHref", () => {
     expect(lessonExitHref("/", 7)).toBe("/");
   });
 
+  it("goes back to the road when the lesson was opened from it", () => {
+    expect(lessonExitHref("/lessons", 7)).toBe("/lessons");
+  });
+
   it("goes to the lesson's subject page from anywhere else", () => {
     expect(lessonExitHref("/subjects/7", 7)).toBe("/subjects/7");
     expect(lessonExitHref("/subjects/7", 9)).toBe("/subjects/9");

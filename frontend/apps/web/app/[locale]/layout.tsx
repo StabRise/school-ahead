@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Geist, Geist_Mono } from "next/font/google";
 import { routing } from "@/i18n/routing";
 import { Header } from "@/components/header";
+import { PreschoolChrome } from "@/components/preschool/chrome";
 import { RouteTracker } from "@/components/route-tracker";
 import { DiamondRewardOverlay } from "@school-ahead/preschool-ui";
 import { Providers } from "../providers";
@@ -47,6 +48,7 @@ export default async function LocaleLayout({
           <Providers>
             <RouteTracker />
             <Header />
+            <PreschoolChrome />
             <main className="flex flex-1 flex-col">{children}</main>
             <DiamondRewardOverlay />
           </Providers>

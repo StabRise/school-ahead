@@ -13,6 +13,7 @@ import { parseSyllableGroup } from "./lib/story-parser";
 import { useStoryBackgroundMusic } from "./lib/use-story-background-music";
 import { WordCardRow, lgCardSizeRem } from "./lib/syllable-card";
 import { StoryBook } from "./story-book";
+import { GAME_ROW_TOP } from "./kit/game-controls";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { useLocaleAwareGamesRouter } from "./kit/use-locale-aware-router";
 
@@ -696,7 +697,7 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
         onClick={onBack}
         ringColorClassName="ring-amber-400"
         position="static"
-        className="fixed left-15 top-20"
+        className={`fixed left-15 ${GAME_ROW_TOP}`}
       />
 
       {/* Only this story's own background.mp3 gets this button — most
@@ -716,7 +717,7 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
           onClick={backgroundMusic.toggle}
           ringColorClassName="ring-sky-400"
           position="static"
-          className="fixed left-26 top-20"
+          className={`fixed left-26 ${GAME_ROW_TOP}`}
         />
       )}
 

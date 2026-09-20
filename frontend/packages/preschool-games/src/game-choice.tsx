@@ -413,10 +413,19 @@ export function PreschoolCelebration({
   title?: string;
 } = {}) {
   const t = useTranslations("PreschoolGameChoice");
+  const tChrome = useTranslations("PreschoolChrome");
   const [selectedGame, setSelectedGame] = useState<PreschoolGameId | null>(null);
 
   if (!selectedGame) {
-    return <GamePicker title={title ?? t("title")} onSelect={setSelectedGame} />;
+    // The site header used to be the way out of here; a student in preschool
+    // mode has none, so the picker brings a 🏠 to the dashboard (a chosen game
+    // has its own, back to this picker — below).
+    return (
+      <>
+        <HomeButton href="/" label={tChrome("homeLabel")} />
+        <GamePicker title={title ?? t("title")} onSelect={setSelectedGame} />
+      </>
+    );
   }
 
   return (

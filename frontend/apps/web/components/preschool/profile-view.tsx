@@ -36,7 +36,7 @@ export function PreschoolProfileView() {
       </div>
 
       <div className="relative mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 p-4 sm:p-6">
-        <h1 className="text-center text-3xl font-extrabold text-emerald-900 sm:text-left">
+        <h1 className="text-center text-3xl font-extrabold text-emerald-900 sm:pl-12 sm:text-left">
           {t("preschoolTitle")}
         </h1>
 

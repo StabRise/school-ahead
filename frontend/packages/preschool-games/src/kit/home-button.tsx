@@ -1,5 +1,6 @@
 import { useTranslations } from "next-intl";
 import { PreschoolButton } from "@school-ahead/preschool-ui";
+import { GAME_ROW_TOP } from "./game-controls";
 import { playPopSound } from "./sound-effects";
 
 // The 🏠 "back to the game picker" button every game shows — replaces the
@@ -10,20 +11,25 @@ import { playPopSound } from "./sound-effects";
 // Either navigates to the standalone /games picker (game-play-page.tsx,
 // pass `href`) or swaps local state back to the picker (game-choice.tsx's
 // PreschoolCelebration, pass `onClick`) — same two shapes as before.
-type HomeButtonProps = { href: string; onClick?: never } | { href?: never; onClick: () => void };
+// `label` is the accessible name — "back to the game picker" unless the button
+// goes somewhere else (the picker's own 🏠 goes to the dashboard).
+type HomeButtonProps = ({ href: string; onClick?: never } | { href?: never; onClick: () => void }) & {
+  label?: string;
+};
 
 export function HomeButton(props: HomeButtonProps) {
   const t = useTranslations("PreschoolGameChoice");
   return (
     <PreschoolButton
       icon="🏠"
-      label={t("switchGame")}
+      label={props.label ?? t("switchGame")}
       ringColorClassName="ring-emerald-400"
       // Custom fixed position (not the "top-left" preset) — every game
       // renders under the app's own (non-fixed) header, so top-4 would sit
-      // right on top of it instead of below it.
+      // right on top of it instead of below it. Except for a student in
+      // preschool mode, who has no header (see kit/game-controls.ts).
       position="static"
-      className="fixed left-4 top-20"
+      className={`fixed left-4 ${GAME_ROW_TOP}`}
       onActivate={playPopSound}
       {...props}
     />
