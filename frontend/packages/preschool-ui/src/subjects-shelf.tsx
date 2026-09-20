@@ -16,6 +16,7 @@ import { PreschoolOptionsGear } from "./options-gear";
 import {
   groupsForDisplay,
   subjectsForDisplay,
+  unmarkedGroupIdsOf,
   DEFAULT_SUBJECTS_DISPLAY_MODE,
   SUBJECTS_DISPLAY_MODES,
   type SubjectsDisplayMode,
@@ -177,7 +178,7 @@ const PUBLIC_DISPLAY_MODES: SubjectsDisplayMode[] = ["marked", "all"];
 function SubjectsShelf({
   subjects: fetchedSubjects,
   favoriteIds,
-  isLoading,
+  isLoading: subjectsLoading,
   isError,
   isStudent,
   modes,
@@ -192,7 +193,11 @@ function SubjectsShelf({
   const t = useTranslations("PreschoolSubjects");
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { data: subjectGroups } = useListSubjectGroups();
+  const { data: subjectGroups, isLoading: groupsLoading } = useListSubjectGroups();
+  // The "marked" view needs to know which categories are unmarked (their subjects
+  // are hidden), so nothing is drawn until they have arrived — otherwise those
+  // subjects would show for a moment and then disappear.
+  const isLoading = subjectsLoading || groupsLoading;
   const chosenMode = useSubjectsDisplayStore((state) => state.mode);
   const setMode = useSubjectsDisplayStore((state) => state.setMode);
   // The choice is remembered on the device, so it can be a view this shelf
@@ -204,9 +209,10 @@ function SubjectsShelf({
   // categories worth offering: an empty one would just be a dead end. Groups
   // are global (not per class). Subjects without a group show only while no
   // group is chosen.
+  const unmarkedGroupIds = useMemo(() => unmarkedGroupIdsOf(subjectGroups ?? []), [subjectGroups]);
   const allSubjects = useMemo(
-    () => subjectsForDisplay(mode, fetchedSubjects, favoriteIds),
-    [mode, fetchedSubjects, favoriteIds],
+    () => (isLoading ? [] : subjectsForDisplay(mode, fetchedSubjects, { favoriteIds, unmarkedGroupIds })),
+    [isLoading, mode, fetchedSubjects, favoriteIds, unmarkedGroupIds],
   );
   const groups = useMemo(
     () => groupsForDisplay(mode, subjectGroups ?? [], allSubjects),

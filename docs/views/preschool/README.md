@@ -350,8 +350,9 @@ The ⚙️ in the top-right corner picks **which subjects and categories show**
   👁 button on each subject row and group header of the class page
   (`/tutor/classes/{id}`), or in the Django admin. Everything that existed when
   the field was added was marked by its migration, so nothing vanished; anything
-  created since starts unmarked. A marked subject in an unmarked category still
-  shows, under no category filter.
+  created since starts unmarked. Both marks are needed: an **unmarked category
+  hides all of its subjects**, marked or not (a subject with no category needs
+  only its own mark).
 * **Усі предмети** (`all`) — every subject of the student's class, as before.
 * **Улюблені** (`favorites`) — only the subjects the student hearted
   (`FavoriteSubject`, below). Its categories are the ones those subjects belong
