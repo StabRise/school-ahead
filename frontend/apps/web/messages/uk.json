@@ -967,7 +967,9 @@
     "passedMessage": "Ти впорався!",
     "failedMessage": "Не сумуй, спробуй ще раз!",
     "retryButton": "Спробувати ще раз",
-    "backToMaterialsButton": "До матеріалів уроку"
+    "backToMaterialsButton": "До матеріалів уроку",
+    "dialogLabel": "Тест",
+    "closeLabel": "Закрити тест і повернутися до уроку"
   },
   "PreschoolTheoryCheck": {
     "question": "Чи все зрозуміло?",
@@ -1373,6 +1375,7 @@
     "pointsLabel": "{count} балів",
     "courseProgressLabel": "Прогрес за весь курс: {percent}% ({completed}/{total})",
     "lessonBadge": "Урок {index}",
+    "lessonDone": "Урок пройдено",
     "noLessons": "Тут поки що немає уроків для тебе.",
     "startError": "Не вдалося відкрити урок. Спробуй ще раз.",
     "noFavorites": "Тут будуть твої улюблені уроки. Натисни ❤️ на уроці, щоб додати його!",
@@ -1393,7 +1396,10 @@
       "loadError": "Не вдалося завантажити відеоплеєр. Перевірте інтернет і спробуйте ще раз.",
       "playError": "Не вдалося відтворити відео.",
       "list": "Список пісень",
+      "openLesson": "Відкрити урок",
       "markDone": "Позначити урок пройденим",
+      "goToQuiz": "Перейти до тесту",
+      "goToTask": "Перейти до завдання",
       "done": "Урок уже пройдено",
       "favoriteAdd": "Додати урок до улюблених",
       "favoriteRemove": "Прибрати урок з улюблених",

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { FileText, ListChecks, Monitor } from "lucide-react";
+import { Check, FileText, ListChecks, Monitor } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 
 // Per-type icon, mirroring components/simple/lesson-type-icon.tsx's map —
@@ -81,6 +81,23 @@ export interface PreschoolLessonTileProps {
   title: string;
   topicTitle?: string;
   index: number;
+  // The student has finished the lesson: a green tick badge in the top-right corner.
+  completed?: boolean;
+}
+
+// The green tick on the top-right corner of a finished lesson's card. Only says it is
+// done — an icon, not a button.
+function CompletedBadge() {
+  const t = useTranslations("PreschoolSubjectDetail");
+  return (
+    <span
+      role="img"
+      aria-label={t("lessonDone")}
+      className="absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md ring-2 ring-white"
+    >
+      <Check className="size-4 stroke-[3]" aria-hidden="true" />
+    </span>
+  );
 }
 
 // Shared by the real preschool subject-detail grid (preschool-subject-
@@ -101,6 +118,7 @@ export function PreschoolLessonTile({
   title,
   topicTitle,
   index,
+  completed = false,
 }: PreschoolLessonTileProps) {
   const t = useTranslations("PreschoolSubjectDetail");
   const resolvedIcon = icon ?? subjectIcon;
@@ -110,7 +128,7 @@ export function PreschoolLessonTile({
       <CardShell
         href={href}
         onClick={onClick}
-        className={`group flex shrink-0 flex-col overflow-hidden rounded-2xl bg-white shadow-lg transition-transform hover:-translate-y-1 active:scale-95 ${TILE_HEIGHT}`}
+        className={`group relative flex shrink-0 flex-col overflow-hidden rounded-2xl bg-white shadow-lg transition-transform hover:-translate-y-1 active:scale-95 ${TILE_HEIGHT}`}
       >
         <span className={`relative block w-full shrink-0 overflow-hidden bg-gray-100 ${TILE_PICTURE_HEIGHT}`}>
           {/* eslint-disable-next-line @next/next/no-img-element -- external/user-uploaded URL, not a static asset next/image can optimize */}
@@ -119,6 +137,7 @@ export function PreschoolLessonTile({
         <span className="block h-9 shrink-0 truncate px-2 text-center text-xs font-bold leading-9 text-gray-700">
           {title}
         </span>
+        {completed && <CompletedBadge />}
       </CardShell>
     );
   }
@@ -130,7 +149,7 @@ export function PreschoolLessonTile({
     <CardShell
       href={href}
       onClick={onClick}
-      className={`group flex shrink-0 flex-col gap-1.5 overflow-hidden rounded-2xl bg-gradient-to-br p-3 text-white shadow-lg transition-transform hover:-translate-y-1 active:scale-95 sm:p-4 ${TILE_HEIGHT} ${gradient}`}
+      className={`group relative flex shrink-0 flex-col gap-1.5 overflow-hidden rounded-2xl bg-gradient-to-br p-3 text-white shadow-lg transition-transform hover:-translate-y-1 active:scale-95 sm:p-4 ${TILE_HEIGHT} ${gradient}`}
     >
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/25">
         <Icon className="size-5" aria-hidden="true" />
@@ -142,6 +161,7 @@ export function PreschoolLessonTile({
       {topicTitle && (
         <span className="hidden shrink-0 truncate text-xs font-medium text-white/80 sm:block">{topicTitle}</span>
       )}
+      {completed && <CompletedBadge />}
     </CardShell>
   );
 }
