@@ -22,7 +22,12 @@ FROM oven/bun:1-slim AS builder
 
 WORKDIR /app
 
-COPY --from=deps /app/node_modules ./node_modules
+# The deps stage's whole tree, not just /app/node_modules: bun installs each
+# workspace's own dependencies into apps/web/node_modules and packages/*/node_modules
+# (next, svgedit, ... live there). Nothing on the machine that runs the build
+# contributes node_modules — .dockerignore keeps them out of the context — so a
+# stale or wrong-platform (macOS) install can't leak into the image.
+COPY --from=deps /app ./
 COPY . .
 
 # Inlined into the browser bundle at build time — must be set here, not just
