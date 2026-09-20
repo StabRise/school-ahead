@@ -545,10 +545,10 @@ def list_student_subject_lesson_topics(
 def list_student_subject_playlist(request: HttpRequest, subject_id: int, topic_id: int):
     """The songs of one topic — the tab that is open — for the preschool subject
     page's ▶ player: every lesson of it with a YouTube link, in lesson order,
-    whatever the student's lessons filter or progress (see
-    services.topic_playlist)."""
-    get_own_student_profile(request)
-    return services.topic_playlist(subject_id, topic_id)
+    whatever the student's lessons filter or progress, each with the student's
+    own state for it (see services.topic_playlist)."""
+    student = get_own_student_profile(request)
+    return services.topic_playlist(subject_id, topic_id, student)
 
 
 @router.get(

@@ -1228,24 +1228,37 @@ def lesson_topic_tabs(lessons: QuerySet[Lesson]) -> list[dict]:
 PLAYLIST_MAX_TRACKS = 1000
 
 
-def topic_playlist(subject_id: int, topic_id: int) -> list[dict]:
+def topic_playlist(subject_id: int, topic_id: int, student: StudentProfile | None = None) -> list[dict]:
     """The songs of one topic of a subject — the tab that is open — for the
     preschool subject page's ▶ player: one track per lesson that has a YouTube link
     in its content (the first, like the lesson screen), in lesson order. The
     student's lessons filter doesn't apply: a finished song still plays. Only what
-    the player needs (`lesson_id`, `title`, `video_id`), so it stays small."""
+    the player needs (`lesson_id`, `title`, `video_id`, `lesson_type`), so it stays
+    small — plus, given a `student`, their own `student_lesson_id`, `status` and
+    `is_favorite` for each (one extra query for the whole queue) for the player's
+    ✅ and ❤️ buttons."""
     lessons = (
         Lesson.objects.filter(topic__subject_id=subject_id, topic_id=topic_id, content__icontains='youtu')
         .order_by('order_index', 'id')
-        .values_list('id', 'title', 'content')
+        .values_list('id', 'title', 'content', 'lesson_type')
     )
     tracks = []
-    for lesson_id, title, content in lessons.iterator(chunk_size=200):
+    for lesson_id, title, content, lesson_type in lessons.iterator(chunk_size=200):
         video_id = youtube_scrape.extract_video_id(content)
         if video_id is None:
             continue
-        tracks.append({'lesson_id': lesson_id, 'title': title, 'video_id': video_id})
+        tracks.append({'lesson_id': lesson_id, 'title': title, 'video_id': video_id, 'lesson_type': lesson_type})
         if len(tracks) >= PLAYLIST_MAX_TRACKS:
             break
+    if student is not None and tracks:
+        own = {
+            lesson_id: (student_lesson_id, status, is_favorite)
+            for lesson_id, student_lesson_id, status, is_favorite in StudentLesson.objects.filter(
+                student=student, lesson_id__in=[track['lesson_id'] for track in tracks]
+            ).values_list('lesson_id', 'id', 'status', 'is_favorite')
+        }
+        for track in tracks:
+            if track['lesson_id'] in own:
+                track['student_lesson_id'], track['status'], track['is_favorite'] = own[track['lesson_id']]
     return tracks
 

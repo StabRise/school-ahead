@@ -45,7 +45,7 @@ allowlist — the authenticated routers stay exactly as they were (they still
 | `GET /public/subjects/{id}` | `PublicSubjectOut` |
 | `GET /public/subjects/{id}/topics` | `TopicOut[]` |
 | `GET /public/subjects/{id}/lessons` | `SubjectLessonOut[]`, every `student_*` field null |
-| `GET /public/subjects/{id}/playlist?topic_id=` | `PlaylistTrackOut[]` — the songs of one topic for the ▶ player: one track (`lesson_id`, `title`, `video_id`) per lesson with a YouTube link, in lesson order |
+| `GET /public/subjects/{id}/playlist?topic_id=` | `PlaylistTrackOut[]` — the songs of one topic for the ▶ player: one track (`lesson_id`, `title`, `video_id`, `lesson_type`) per lesson with a YouTube link, in lesson order; the student-only fields (`student_lesson_id`, `status`, `is_favorite`) are empty |
 | `GET /public/subjects/{id}/lesson-topics` | `LessonTopicOut[]` — the subject page's tabs: the topics that have lessons, each with a count |
 | `GET /public/subjects/{id}/lessons-page?topic_id=&limit=&offset=` | `SubjectLessonPageOut` — one topic's lessons `limit` (default 10) at a time, with the total; what the subject page loads as the visitor scrolls |
 | `GET /public/lessons/{id}` | `LessonPreviewOut` (content, task text, attachments), `student_lesson_id` null |
@@ -100,6 +100,12 @@ allowlist — the authenticated routers stay exactly as they were (they still
   `public/static/*/cover*.jpeg`, each linking to its `/games/...` route) and the note
   that what a visitor can open — the subjects and the games — is the preschool mode.
   Copy is in the `About` namespace of `messages/uk.json`.
+* **Lessons open, or play fullscreen.** The bookshelf's ⚙️ (visitors have it too) also
+  chooses what tapping a lesson on a subject page does — and a subject page's own ⚙️ (a
+  visitor's holds only this) can override it for that subject: *open the lesson* (the preview,
+  as before) or *play the video fullscreen* in the subject page's ▶ player, from that
+  lesson on — see `docs/views/preschool/README.md` (Bookshelf, Subject page). A visitor
+  gets no ✅ or ❤️ in the player: they have no `StudentLesson`.
 * **No site header on the catalogue itself.** On `/subjects` and `/subjects/<id>` a
   visitor sees the preschool-style page and no classic header (`Header` renders
   nothing there — `isPublicCataloguePage` in `lib/preschool-chrome.ts`). What is left

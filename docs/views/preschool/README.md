@@ -367,6 +367,12 @@ The ⚙️ in the top-right corner picks **which subjects and categories show**
   (`FavoriteSubject`, below). Its categories are the ones those subjects belong
   to.
 
+The panel has a second choice under a divider, **what tapping a lesson does**
+(`lesson-open-mode.ts`, persisted in `lesson-open-mode-store.ts`, for every subject and
+for visitors too): **Відкрити урок** (`open`, the default — as it always was) or **Грати
+відео на весь екран** (`fullscreen`, see the subject page below). One subject can choose
+for itself with the ⚙️ on its own page, which wins over this one (below).
+
 A category is only offered when at least one subject of the current view
 belongs to it. The visitor-facing shelf (signed out, see
 `docs/core/public_access.md`) has the ⚙️ too, with two views — **marked** (the
@@ -411,7 +417,9 @@ tab; a topic with no lessons left under the current filter gets no tab.
   slim bar underneath holds the title (small) on the left, ⏮ ⏯ ⏭ in the middle, and on
   the right the way out of fullscreen and ✕; the song list is hidden. The video
   container is the same element in both layouts, so toggling never rebuilds the
-  video. Escape leaves fullscreen first, and only then closes the player. The queue is `GET /student-lessons/subjects/{id}/playlist?topic_id=`
+  video. Escape leaves fullscreen first, and only then closes the player. The queue is a
+  snapshot taken when the player opens, so a refetch of the playlist never rebuilds the
+  video or moves the queue. It comes from `GET /student-lessons/subjects/{id}/playlist?topic_id=`
   (public: `/public/subjects/{id}/playlist?topic_id=`): one track per lesson of that
   topic with a YouTube link in its content (the first, like the lesson screen), in
   lesson order, **whatever the ⚙️ lessons filter** (a finished song still plays),
@@ -423,6 +431,39 @@ tab; a topic with no lessons left under the current filter gets no tab.
   child asked for by tapping ▶ carries on. A video YouTube won't embed is skipped
   (`lib/playlist-queue.ts`); if none plays, the player says so instead of looping. The
   queue ends after the last song (no repeat or shuffle yet).
+* **Per-subject choice.** The subject page's ⚙️ (`preschool-lessons-filter-button.tsx`)
+  has, under the lessons filter, the same choice for **this subject only**: *Як на
+  полиці* (`inherit`, the default — follow the bookshelf), *Відкрити урок* or *Грати відео
+  на весь екран*. It is kept on this device (`bySubject` in the same persisted store,
+  keyed by subject id; choosing *Як на полиці* forgets it) and resolved by
+  `resolveLessonOpenMode`: the subject's own choice, else the bookshelf's. A visitor who
+  isn't signed in has no lessons filter, so the ⚙️ they get here holds just this choice.
+* **Play a lesson fullscreen** (the ⚙️ on the bookshelf, or the subject's own, set to *Грати відео на весь екран*):
+  tapping a card whose lesson has a video doesn't open the lesson (nor create a
+  `StudentLesson` for it) — it opens the same player, fullscreen, on that lesson's song,
+  and plays on from there through the rest of the open topic. A card with no video opens
+  as usual, and so does every card while the setting is on *Відкрити урок*. The player asks the
+  browser for fullscreen when opened (the tap is still fresh enough to allow it); refused,
+  or where there is no Fullscreen API, it fills the window; leaving the browser's fullscreen
+  (Escape) leaves the framed player, still playing. Works for a visitor who isn't signed in.
+* **The ✅ and ❤️ in the player** (a signed-in student; `subject-player-actions.tsx`, drawn
+  into the player's `trackActions` slot) sit beside the fullscreen / leave-fullscreen
+  button, in the framed player and in fullscreen alike, and act on the song being played:
+  ❤️ marks the lesson as a favourite (`StudentLesson.is_favorite`, same as the lesson
+  screen's heart; it flips at once and rolls back if the request fails); ✅ marks it done the
+  way the lesson screen's "Чи все зрозуміло?" → "Так" does (`GET` the lesson to start it, then
+  `POST .../confirm-understanding`), and turns into a green ✅ once done. **Only a `theory`
+  lesson offers ✅** — a quiz or a task is finished by its own quiz or by the tutor's review,
+  and a lesson waiting for the tutor can't be finished by the child (`lib/playlist-track-actions.ts`).
+  A song the student has no `StudentLesson` for yet gets today's one on the first tap
+  (`start-today`, as a lesson card does) — and only if `can_do_any_lesson` allows; otherwise
+  the buttons for it are hidden. Nothing is drawn as a dialog (the browser shows only the
+  fullscreen element): an error, or the 💎 a completion earned, appears in place as a small
+  pill. The state shown is the song's entry in the playlist query's cache, which each tap edits,
+  so it survives going in and out of fullscreen and is right when the player is reopened. The
+  student's playlist (`GET /student-lessons/subjects/{id}/playlist`) therefore carries, per
+  track, `lesson_type` and the student's own `student_lesson_id`, `status` and `is_favorite`
+  (one extra query for the whole queue; the visitor's playlist has them empty).
 * **Loaded a page at a time:** a subject can have hundreds or thousands of
   lessons (a YouTube playlist imported as lessons), so the page never fetches the
   whole list. It asks for the **tabs** first — `GET

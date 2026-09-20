@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Maximize, Minimize } from "lucide-react";
 import { toSpeechText } from "@school-ahead/api-client";
@@ -8,6 +8,9 @@ import type { PlaylistTrackOut } from "@school-ahead/api-client/browser/schoolAh
 import { PreschoolButton } from "@school-ahead/preschool-ui";
 import { nextAfterError, nextIndex, previousIndex } from "@/lib/playlist-queue";
 import { loadYouTubeIframeApi, type YouTubePlayer } from "@/lib/youtube-iframe-api";
+
+// Which of its two layouts the player is in — see `trackActions` below.
+export type PlayerLayout = "framed" | "fullscreen";
 
 // The tapped ▶ on the preschool subject page: an overlay that plays the
 // subject's songs one after another, like a music player. One YouTube player
@@ -21,35 +24,63 @@ import { loadYouTubeIframeApi, type YouTubePlayer } from "@/lib/youtube-iframe-a
 // browser's Fullscreen API where there is one, otherwise (iPhone Safari has it
 // only for a bare <video>) the same layout filling the window.
 //
+// It opens on `startIndex` — the lesson the child tapped, when the bookshelf's ⚙️ says
+// lessons play instead of opening — and, with `startFullscreen`, already fullscreen.
+// `trackActions` is a slot for what belongs to the song being played (the ✅ and ❤️
+// of a signed-in student, see subject-player-actions.tsx), drawn beside the
+// fullscreen button in both layouts; the player itself knows nothing of students.
+//
+// The queue is the `tracks` it was opened with: a later change to that list (say a
+// refetch) never rebuilds the YouTube player or moves the queue under the child.
+//
 // Mount it to open, unmount to close (which stops the music).
-export function SubjectPlayer({ tracks, onClose }: { tracks: PlaylistTrackOut[]; onClose: () => void }) {
+export function SubjectPlayer({
+  tracks,
+  startIndex = 0,
+  startFullscreen = false,
+  trackActions,
+  onClose,
+}: {
+  tracks: PlaylistTrackOut[];
+  startIndex?: number;
+  startFullscreen?: boolean;
+  trackActions?: (track: PlaylistTrackOut, layout: PlayerLayout) => ReactNode;
+  onClose: () => void;
+}) {
   const t = useTranslations("PreschoolSubjectDetail.player");
+  const [queue] = useState(tracks);
+  const firstIndex = queue[startIndex] ? startIndex : 0;
   const panelRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YouTubePlayer | null>(null);
   // The callbacks the YouTube player holds are made once, so what they read
   // lives in refs instead of state.
-  const indexRef = useRef(0);
+  const indexRef = useRef(firstIndex);
   const failuresInARowRef = useRef(0);
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(firstIndex);
   const [playing, setPlaying] = useState(false);
   const [finished, setFinished] = useState(false);
   const [problem, setProblem] = useState<"load" | "play" | null>(null);
-  // Fullscreen: the browser's, or — where there is none — the window filled.
+  // The browser wouldn't start the video with sound, so it plays muted until the
+  // child taps 🔇.
+  const [mutedByBrowser, setMutedByBrowser] = useState(false);
+  // Fullscreen: the browser's, or — where there is none — the window filled. Opened
+  // fullscreen, the window is filled from the very first frame (no framed dialog
+  // flashing by) until the browser's fullscreen takes over, or refuses.
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
-  const [windowFullscreen, setWindowFullscreen] = useState(false);
+  const [windowFullscreen, setWindowFullscreen] = useState(startFullscreen);
   const isFullscreen = nativeFullscreen || windowFullscreen;
 
   const goTo = useCallback(
     (next: number) => {
-      const track = tracks[next];
+      const track = queue[next];
       if (!track) return;
       indexRef.current = next;
       setIndex(next);
       setFinished(false);
       playerRef.current?.loadVideoById(track.video_id);
     },
-    [tracks],
+    [queue],
   );
 
   useEffect(() => {
@@ -67,9 +98,19 @@ export function SubjectPlayer({ tracks, onClose }: { tracks: PlaylistTrackOut[];
         player = new YT.Player(holder, {
           width: "100%",
           height: "100%",
-          videoId: tracks[indexRef.current]?.video_id,
+          videoId: queue[indexRef.current]?.video_id,
           playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1 },
           events: {
+            // Start the song the moment the player is ready — the `autoplay`
+            // parameter alone can be ignored — so opening a lesson plays it.
+            onReady: () => playerRef.current?.playVideo(),
+            // A browser that won't start a video with sound (its autoplay policy)
+            // still gets it playing, muted, rather than sitting on the first frame.
+            onAutoplayBlocked: () => {
+              playerRef.current?.mute();
+              playerRef.current?.playVideo();
+              setMutedByBrowser(true);
+            },
             onStateChange: ({ data }) => {
               if (data === YT.PlayerState.PLAYING) {
                 failuresInARowRef.current = 0;
@@ -79,7 +120,7 @@ export function SubjectPlayer({ tracks, onClose }: { tracks: PlaylistTrackOut[];
                 setPlaying(false);
               } else if (data === YT.PlayerState.ENDED) {
                 setPlaying(false);
-                const next = nextIndex(indexRef.current, tracks.length);
+                const next = nextIndex(indexRef.current, queue.length);
                 if (next === null) setFinished(true);
                 else goTo(next);
               }
@@ -88,7 +129,7 @@ export function SubjectPlayer({ tracks, onClose }: { tracks: PlaylistTrackOut[];
             // ...): on to the next, and stop with a message once none plays.
             onError: () => {
               failuresInARowRef.current += 1;
-              const next = nextAfterError(indexRef.current, tracks.length, failuresInARowRef.current);
+              const next = nextAfterError(indexRef.current, queue.length, failuresInARowRef.current);
               if (next === null) setProblem("play");
               else goTo(next);
             },
@@ -105,15 +146,30 @@ export function SubjectPlayer({ tracks, onClose }: { tracks: PlaylistTrackOut[];
       player?.destroy();
       playerRef.current = null;
     };
-  }, [tracks, goTo]);
+  }, [queue, goTo]);
 
   // The browser tells us when it enters or leaves fullscreen — also when the
   // child leaves it with Escape rather than with our button.
   useEffect(() => {
-    const handleChange = () => setNativeFullscreen(document.fullscreenElement === panelRef.current);
+    const handleChange = () => {
+      const native = document.fullscreenElement === panelRef.current;
+      setNativeFullscreen(native);
+      // The browser's fullscreen has taken over from the filled window (see below).
+      if (native) setWindowFullscreen(false);
+    };
     document.addEventListener("fullscreenchange", handleChange);
     return () => document.removeEventListener("fullscreenchange", handleChange);
   }, []);
+
+  // Opened fullscreen, ask the browser for its own — the tap that opened the player
+  // is still fresh enough to allow it; once granted, the fullscreenchange above swaps
+  // it for the filled window. Refused (a policy, an old browser), the filled window stays.
+  useEffect(() => {
+    if (!startFullscreen) return;
+    const panel = panelRef.current;
+    if (!panel?.requestFullscreen) return;
+    panel.requestFullscreen().catch(() => {});
+  }, [startFullscreen]);
 
   // Escape closes the player — first leaving the window-filling fullscreen, if
   // that is on (the browser's own fullscreen takes Escape for itself).
@@ -146,7 +202,7 @@ export function SubjectPlayer({ tracks, onClose }: { tracks: PlaylistTrackOut[];
     currentItemRef.current?.scrollIntoView({ block: "nearest" });
   }, [index]);
 
-  const current = tracks[index];
+  const current = queue[index];
   const handlePlayPause = () => {
     if (finished) goTo(0);
     else if (playing) playerRef.current?.pauseVideo();
@@ -154,6 +210,11 @@ export function SubjectPlayer({ tracks, onClose }: { tracks: PlaylistTrackOut[];
   };
 
   const trackTitle = current ? toSpeechText(current.title) : "";
+
+  const handleUnmute = () => {
+    playerRef.current?.unMute();
+    setMutedByBrowser(false);
+  };
 
   const controls = (
     <>
@@ -175,12 +236,21 @@ export function SubjectPlayer({ tracks, onClose }: { tracks: PlaylistTrackOut[];
         icon="⏭️"
         label={t("next")}
         onClick={() => {
-          const next = nextIndex(index, tracks.length);
+          const next = nextIndex(index, queue.length);
           if (next !== null) goTo(next);
         }}
         ringColorClassName="ring-sky-400"
         position="static"
       />
+      {mutedByBrowser && (
+        <PreschoolButton
+          icon="🔇"
+          label={t("unmute")}
+          onClick={handleUnmute}
+          ringColorClassName="ring-amber-400"
+          position="static"
+        />
+      )}
     </>
   );
   const fullscreenButton = (
@@ -199,6 +269,7 @@ export function SubjectPlayer({ tracks, onClose }: { tracks: PlaylistTrackOut[];
       className="shrink-0"
     />
   );
+  const actions = current && trackActions ? trackActions(current, isFullscreen ? "fullscreen" : "framed") : null;
   const closeButton = (
     <PreschoolButton
       icon="✕"
@@ -235,8 +306,9 @@ export function SubjectPlayer({ tracks, onClose }: { tracks: PlaylistTrackOut[];
           <div className="flex items-center justify-between gap-3">
             <p className="min-w-0 flex-1 truncate text-lg font-extrabold text-purple-800">🎵 {trackTitle}</p>
             <span className="shrink-0 rounded-full bg-purple-100 px-3 py-1 text-sm font-bold text-purple-800">
-              {t("position", { current: index + 1, total: tracks.length })}
+              {t("position", { current: index + 1, total: queue.length })}
             </span>
+            {actions}
             {fullscreenButton}
             {closeButton}
           </div>
@@ -270,10 +342,11 @@ export function SubjectPlayer({ tracks, onClose }: { tracks: PlaylistTrackOut[];
           <div className="flex items-center gap-3 py-2">
             <p className="min-w-0 flex-1 truncate text-xs text-neutral-300">
               🎵 {trackTitle}
-              <span className="ml-2 text-neutral-500">{t("position", { current: index + 1, total: tracks.length })}</span>
+              <span className="ml-2 text-neutral-500">{t("position", { current: index + 1, total: queue.length })}</span>
             </p>
             <div className="flex items-center gap-2">{controls}</div>
             <div className="flex flex-1 items-center justify-end gap-2">
+              {actions}
               {fullscreenButton}
               {closeButton}
             </div>
@@ -282,7 +355,7 @@ export function SubjectPlayer({ tracks, onClose }: { tracks: PlaylistTrackOut[];
 
         {/* Fullscreen is for the video; the list is one tap away, leaving it. */}
         <ol aria-label={t("list")} className={`max-h-56 flex-col gap-1 overflow-y-auto ${isFullscreen ? "hidden" : "flex"}`}>
-          {tracks.map((track, position) => (
+          {queue.map((track, position) => (
             <li key={track.lesson_id} ref={position === index ? currentItemRef : undefined}>
               <button
                 type="button"

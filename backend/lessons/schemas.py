@@ -166,11 +166,22 @@ class SubjectFavoriteOut(Schema):
 
 class PlaylistTrackOut(Schema):
     """One song of a topic's ▶ player queue — a lesson with a YouTube link in
-    its content. See lessons.services.topic_playlist."""
+    its content. See lessons.services.topic_playlist.
+
+    `lesson_type`, `student_lesson_id`, `status` and `is_favorite` are what the
+    player's ✅ and ❤️ buttons need: only a `theory` lesson can be marked done
+    from the player (the other types are finished by their quiz or task), and
+    the buttons show the student's own state. The last three are `None`/`None`/
+    `False` for a visitor who isn't signed in, and for a lesson this student
+    has no StudentLesson for yet."""
 
     lesson_id: int
     title: str
     video_id: str
+    lesson_type: str
+    student_lesson_id: int | None = None
+    status: str | None = None
+    is_favorite: bool = False
 
 
 class LessonTopicOut(Schema):

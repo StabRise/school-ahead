@@ -12,6 +12,8 @@ import {
 } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import type { SubjectOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { Cloud, Sun, DefaultStepIcon } from "./decorations";
+import { LESSON_OPEN_MODES, type LessonOpenMode } from "./lesson-open-mode";
+import { useLessonOpenModeStore } from "./lesson-open-mode-store";
 import { PreschoolOptionsGear } from "./options-gear";
 import {
   groupsForDisplay,
@@ -44,6 +46,11 @@ const DISPLAY_MODE_EMOJI: Record<SubjectsDisplayMode, string> = {
   marked: "⭐",
   all: "📚",
   favorites: "❤️",
+};
+
+const LESSON_OPEN_MODE_EMOJI: Record<LessonOpenMode, string> = {
+  open: "📖",
+  fullscreen: "▶️",
 };
 
 // A book with its subject icon, name and (for a signed-in student) a progress
@@ -200,6 +207,8 @@ function SubjectsShelf({
   const isLoading = subjectsLoading || groupsLoading;
   const chosenMode = useSubjectsDisplayStore((state) => state.mode);
   const setMode = useSubjectsDisplayStore((state) => state.setMode);
+  const lessonOpenMode = useLessonOpenModeStore((state) => state.mode);
+  const setLessonOpenMode = useLessonOpenModeStore((state) => state.setMode);
   // The choice is remembered on the device, so it can be a view this shelf
   // doesn't offer — "favourites", chosen while signed in, then a visitor on the
   // same device — in which case the default one shows.
@@ -245,6 +254,16 @@ function SubjectsShelf({
           onChange={setMode}
           buttonLabel={t("settingsButton")}
           title={t("displayTitle")}
+          secondary={{
+            value: lessonOpenMode,
+            options: LESSON_OPEN_MODES.map((option) => ({
+              value: option,
+              emoji: LESSON_OPEN_MODE_EMOJI[option],
+              label: t(`openMode.${option}`),
+            })),
+            onChange: (next) => setLessonOpenMode(next as LessonOpenMode),
+            title: t("openModeTitle"),
+          }}
         />
       </div>
 

@@ -6,6 +6,8 @@ export interface YouTubePlayer {
   loadVideoById(videoId: string): void;
   playVideo(): void;
   pauseVideo(): void;
+  mute(): void;
+  unMute(): void;
   destroy(): void;
 }
 
@@ -27,6 +29,8 @@ export interface YouTubeNamespace {
         onReady?: (event: YouTubePlayerEvent) => void;
         onStateChange?: (event: YouTubePlayerEvent) => void;
         onError?: (event: YouTubePlayerEvent) => void;
+        // The browser refused to start the video with sound (its autoplay policy).
+        onAutoplayBlocked?: (event: YouTubePlayerEvent) => void;
       };
     },
   ) => YouTubePlayer;

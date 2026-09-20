@@ -128,6 +128,48 @@ def test_finished_and_unassigned_songs_still_play(api_client, headers, student, 
     assert [t['lesson_id'] for t in tracks] == [done.id, unassigned.id]
 
 
+def test_a_track_carries_the_students_own_state(api_client, headers, student, subject, topics):
+    done = _lesson(topics[0], 1, _watch('aaaaaaaaaa1'))
+    loved = _lesson(topics[0], 2, _watch('aaaaaaaaaa2'))
+    untouched = _lesson(topics[0], 3, _watch('aaaaaaaaaa3'))
+    done_row = StudentLesson.objects.create(
+        student=student, lesson=done, scheduled_date=datetime.date.today(), status=StudentLessonStatus.COMPLETED
+    )
+    loved_row = StudentLesson.objects.create(
+        student=student, lesson=loved, scheduled_date=datetime.date.today(), is_favorite=True
+    )
+    # Another student's rows for the same lessons are nobody's business here.
+    other = StudentProfile.objects.create(
+        user=User.objects.create_user(email='other@example.com', role=Role.STUDENT),
+        school_class=student.school_class,
+    )
+    StudentLesson.objects.create(
+        student=other, lesson=untouched, scheduled_date=datetime.date.today(), is_favorite=True
+    )
+
+    by_lesson = {t['lesson_id']: t for t in _playlist(api_client, headers, subject, topics[0]).json()}
+
+    assert by_lesson[done.id]['student_lesson_id'] == done_row.id
+    assert by_lesson[done.id]['status'] == 'completed'
+    assert by_lesson[done.id]['is_favorite'] is False
+    assert by_lesson[loved.id]['student_lesson_id'] == loved_row.id
+    assert by_lesson[loved.id]['status'] == 'assigned'
+    assert by_lesson[loved.id]['is_favorite'] is True
+    assert by_lesson[untouched.id]['student_lesson_id'] is None
+    assert by_lesson[untouched.id]['status'] is None
+    assert by_lesson[untouched.id]['is_favorite'] is False
+
+
+def test_a_track_says_what_kind_of_lesson_it_is(api_client, headers, subject, topics):
+    _lesson(topics[0], 1, _watch('aaaaaaaaaa1'))
+    quiz = _lesson(topics[0], 2, _watch('aaaaaaaaaa2'))
+    Lesson.objects.filter(id=quiz.id).update(lesson_type=LessonType.WITH_QUIZ)
+
+    tracks = _playlist(api_client, headers, subject, topics[0]).json()
+
+    assert [t['lesson_type'] for t in tracks] == ['theory', 'with_quiz']
+
+
 def test_a_topic_of_another_subject_has_no_songs_here(api_client, headers, school_class, subject, topics):
     _lesson(topics[0], 1, _watch('aaaaaaaaaa1'))
     other_subject = Subject.objects.create(school_class=school_class, name='Other')
@@ -176,6 +218,9 @@ def test_a_visitor_gets_the_playlist_of_a_public_class(api_client, subject, topi
 
     assert response.status_code == 200
     assert [t['lesson_id'] for t in response.json()] == [first.id, second.id]
+    # No student, so nothing of one's own on a track.
+    assert {t['student_lesson_id'] for t in response.json()} == {None}
+    assert {t['is_favorite'] for t in response.json()} == {False}
 
 
 def test_a_visitor_gets_404_for_a_private_class(api_client, school_class, subject, topics):
