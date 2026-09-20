@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { getQuizQuestionHint, useSubmitQuiz } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import type { QuizQuestionOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { Markdown } from "@school-ahead/markdown-editor";
 import { prefetchVoice, speakSequence, toSpeechText, type SpeechLanguage } from "@school-ahead/api-client";
 import {
+  PreschoolButton,
   Raccoon,
   QuizAnswerButton,
   QuizBanner,
@@ -50,6 +51,10 @@ function QuestionRound({
   // null while nothing is playing.
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
   const speechLanguage = toSpeechLanguage(question.language);
+  // The pause before the next question (or, on the last one, the submit): cleared if
+  // the quiz is closed meanwhile, so closing it never sends answers behind the child's back.
+  const answeredTimerRef = useRef<number>(undefined);
+  useEffect(() => () => window.clearTimeout(answeredTimerRef.current), []);
 
   // "Stuck for too long" hint — the correct card starts pulsing.
   useEffect(() => {
@@ -92,7 +97,7 @@ function QuestionRound({
       }
     }
     setFeedback(correctId !== null && correctId === choiceId ? "correct" : "incorrect");
-    window.setTimeout(() => onAnswered(choiceId), FEEDBACK_DELAY_MS);
+    answeredTimerRef.current = window.setTimeout(() => onAnswered(choiceId), FEEDBACK_DELAY_MS);
   };
 
   return (
@@ -163,9 +168,47 @@ function QuestionRound({
   );
 }
 
+// The popup the quiz is drawn in: over the whole lesson screen, with a ✕ in its corner
+// (and Escape) that closes it — the child goes back to the lesson's content to look at it
+// again, and returns to the quiz with the arrow there. Without it the quiz covered the
+// lesson until it was answered or, once failed, until "до матеріалів" was chosen.
+function QuizModal({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const t = useTranslations("PreschoolQuizGame");
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("dialogLabel")}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+    >
+      <div className="relative w-full max-w-lg">
+        {children}
+        <PreschoolButton
+          icon="✕"
+          label={t("closeLabel")}
+          onClick={onClose}
+          ringColorClassName="ring-rose-400"
+          position="static"
+          className="absolute -right-2 -top-2"
+        />
+      </div>
+    </div>
+  );
+}
+
 // Step 2, "Игровая поляна" — one big banner question at a time with large
 // tappable answer cards, and a raccoon that cheers/droops once the child
-// taps an answer. See docs/interfaces/student/preschool/lesson.md.
+// taps an answer. See docs/interfaces/student/preschool/lesson.md. The popup can be
+// closed (QuizModal): `onBackToMaterials` takes the child back to the lesson's content.
 export function PreschoolQuizGame({
   studentLessonId,
   questions,
@@ -216,56 +259,52 @@ export function PreschoolQuizGame({
 
   if (isAnswered) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <div className="w-full max-w-lg">
-          <QuizCard>
-            <QuizBanner>
-              <p className="text-xl font-extrabold uppercase text-gray-900 sm:text-2xl">
-                {t("scoreResult", { score: Math.round(lastScore!) })}
-              </p>
-            </QuizBanner>
-            <div className="flex flex-col items-center gap-3 px-6 py-8">
-              <Raccoon mood={failed ? "sad" : "happy"} className="h-28 w-28" />
-              <p className={failed ? "text-base text-red-700" : "text-lg font-bold text-emerald-700"}>
-                {failed ? t("failedMessage") : t("passedMessage")}
-              </p>
-              {failed && (
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  <button
-                    type="button"
-                    onClick={onBackToMaterials}
-                    className="rounded-full bg-white px-6 py-3 text-lg font-bold text-emerald-800 shadow-lg ring-2 ring-inset ring-emerald-300 transition-transform active:scale-95"
-                  >
-                    {t("backToMaterialsButton")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleRetry}
-                    className="rounded-full bg-amber-400 px-6 py-3 text-lg font-bold text-amber-950 shadow-lg transition-transform active:scale-95"
-                  >
-                    {t("retryButton")}
-                  </button>
-                </div>
-              )}
-            </div>
-          </QuizCard>
-        </div>
-      </div>
+      <QuizModal onClose={onBackToMaterials}>
+        <QuizCard>
+          <QuizBanner>
+            <p className="text-xl font-extrabold uppercase text-gray-900 sm:text-2xl">
+              {t("scoreResult", { score: Math.round(lastScore!) })}
+            </p>
+          </QuizBanner>
+          <div className="flex flex-col items-center gap-3 px-6 py-8">
+            <Raccoon mood={failed ? "sad" : "happy"} className="h-28 w-28" />
+            <p className={failed ? "text-base text-red-700" : "text-lg font-bold text-emerald-700"}>
+              {failed ? t("failedMessage") : t("passedMessage")}
+            </p>
+            {failed && (
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={onBackToMaterials}
+                  className="rounded-full bg-white px-6 py-3 text-lg font-bold text-emerald-800 shadow-lg ring-2 ring-inset ring-emerald-300 transition-transform active:scale-95"
+                >
+                  {t("backToMaterialsButton")}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  className="rounded-full bg-amber-400 px-6 py-3 text-lg font-bold text-amber-950 shadow-lg transition-transform active:scale-95"
+                >
+                  {t("retryButton")}
+                </button>
+              </div>
+            )}
+          </div>
+        </QuizCard>
+      </QuizModal>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg">
-        <QuizCard>
-          <QuestionRound
-            key={currentQuestion.id}
-            question={currentQuestion}
-            progress={t("progress", { current: currentIndex + 1, total: questions.length })}
-            onAnswered={handleAnswered}
-          />
-        </QuizCard>
-      </div>
-    </div>
+    <QuizModal onClose={onBackToMaterials}>
+      <QuizCard>
+        <QuestionRound
+          key={currentQuestion.id}
+          question={currentQuestion}
+          progress={t("progress", { current: currentIndex + 1, total: questions.length })}
+          onAnswered={handleAnswered}
+        />
+      </QuizCard>
+    </QuizModal>
   );
 }

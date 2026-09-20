@@ -36,7 +36,7 @@ import { PreschoolLessonsFilterButton } from "@/components/subjects/preschool-le
 import { ProgressBar } from "@/components/progress-bar";
 import { useDialogs } from "@/components/dialogs/app-dialogs";
 import { SubjectPlayer } from "@/components/subjects/subject-player";
-import { PlayerTrackActions } from "@/components/subjects/subject-player-actions";
+import { PlayerTrackActions, useTrackLessonOpener } from "@/components/subjects/subject-player-actions";
 import {
   useSubjectLessonPages,
   useSubjectLessonTabs,
@@ -99,6 +99,7 @@ function StartLessonCard({
       icon={lesson.icon}
       subjectIcon={subjectIcon}
       lessonType={lesson.lesson_type}
+      completed={lesson.status === "completed"}
       title={lesson.title}
       index={index}
     />
@@ -131,6 +132,7 @@ function PreschoolLessonCard({
         icon={lesson.icon}
         subjectIcon={subjectIcon}
         lessonType={lesson.lesson_type}
+        completed={lesson.status === "completed"}
         title={lesson.title}
         index={index}
       />
@@ -146,6 +148,7 @@ function PreschoolLessonCard({
         icon={lesson.icon}
         subjectIcon={subjectIcon}
         lessonType={lesson.lesson_type}
+        completed={lesson.status === "completed"}
         title={lesson.title}
         index={index}
       />
@@ -162,6 +165,7 @@ function PreschoolLessonCard({
       icon={lesson.icon}
       subjectIcon={subjectIcon}
       lessonType={lesson.lesson_type}
+      completed={lesson.status === "completed"}
       title={lesson.title}
       index={index}
     />
@@ -362,6 +366,11 @@ function PreschoolSubjectScreen({
   const openPlayer = (startIndex: number, fullscreen: boolean) => {
     if (activeTab && tracks) setPlayer({ topicId: activeTab.id, tracks, startIndex, fullscreen });
   };
+  const openTrackLesson = useTrackLessonOpener({
+    subjectId,
+    topicId: player?.topicId ?? activeTab?.id,
+    guest,
+  });
   const playFrom = (lessonId: number) => {
     const startIndex = trackIndexByLesson.get(lessonId);
     if (lessonOpenMode !== "fullscreen" || startIndex === undefined) return undefined;
@@ -482,6 +491,7 @@ function PreschoolSubjectScreen({
           startIndex={player.startIndex}
           startFullscreen={player.fullscreen}
           onClose={() => setPlayer(null)}
+          openTrack={openTrackLesson}
           trackActions={
             guest
               ? undefined

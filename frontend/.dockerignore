@@ -1,0 +1,32 @@
+# Build context is frontend/ (the bun workspace root) — docker-compose.yml's
+# `context: ./frontend`, the CI job and the Dockerfile's own header comment all
+# build with `-f apps/web/Dockerfile` from here. Docker reads .dockerignore ONLY at
+# the root of the context, and patterns without `**/` only match at that root — so
+# an ignore file inside apps/web/ (as this used to be) is never read, and local
+# build output leaked into the image: a stale or half-written `.next/dev/types` from
+# `next dev` fails `next build`'s type check ("Declaration or statement expected").
+
+# Dependencies come from the `deps` stage, and Next's own output is rebuilt.
+**/node_modules
+**/.next
+**/*.tsbuildinfo
+**/coverage
+**/.turbo
+
+**/.git
+**/.idea
+**/.vscode
+**/.DS_Store
+
+# Local secrets stay out of the context — the builder stage does `COPY . .`, so
+# anything not excluded here ends up in the image. The exceptions: the example file,
+# and apps/web/.env.local, which only holds public build-time values
+# (NEXT_PUBLIC_*, the OpenAPI URL) and is where a local `docker compose build`
+# gets NEXT_PUBLIC_GOOGLE_CLIENT_ID from when the root .env doesn't set it.
+**/.env
+**/.env.*
+!**/.env.local
+!**/.env.local.example
+
+# Not `*.md`: the fairy tales the "Казки" game reads at runtime are
+# public/static/stories/*/story.md and must reach the image.

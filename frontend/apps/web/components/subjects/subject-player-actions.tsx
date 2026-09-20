@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { useAuthStore } from "@school-ahead/api-client";
 import { getMeQueryKey } from "@school-ahead/api-client/browser/auth/auth";
 import {
@@ -22,20 +22,98 @@ import {
 import { getGetTodayQueryKey } from "@school-ahead/api-client/browser/schedule/schedule";
 import type { PlaylistTrackOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { PreschoolButton } from "@school-ahead/preschool-ui";
+import { useRouter } from "@/i18n/navigation";
 import { HeartIcon } from "@/components/preschool/heart-icon";
 import { useSubjectPlaylist } from "@/components/subjects/use-subject-lessons";
 import type { PlayerLayout } from "@/components/subjects/subject-player";
-import { canStartTrack, markDoneState } from "@/lib/playlist-track-actions";
+import { studentLessonHref, type PreschoolLessonStep } from "@/lib/lesson-step";
+import { canGoToPractice, canStartTrack, markDoneState, trackLessonTarget } from "@/lib/playlist-track-actions";
 
 const NOTICE_MS = 2500;
 
-// The ✅ and ❤️ of the song being played in the subject page's player
+// What a lesson that was just created or finished changes on the page behind the
+// player (the same set a lesson card refreshes on starting one).
+function useRefreshSubjectPage(subjectId: number) {
+  const queryClient = useQueryClient();
+  return () => {
+    queryClient.invalidateQueries({ queryKey: getListStudentSubjectLessonsQueryKey(subjectId) });
+    queryClient.invalidateQueries({ queryKey: getListStudentSubjectLessonsPageQueryKey(subjectId) });
+    queryClient.invalidateQueries({ queryKey: getListStudentSubjectLessonTopicsQueryKey(subjectId) });
+    queryClient.invalidateQueries({ queryKey: getGetNextLessonQueryKey(subjectId) });
+    queryClient.invalidateQueries({ queryKey: getGetSubjectProgressQueryKey(subjectId) });
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+  };
+}
+
+// The title of the song being played leads to its lesson (SubjectPlayer's
+// `openTrack`): a visitor gets the read-only lesson, a student their own lesson
+// screen — created first, as a lesson card would, when they have none yet and may
+// start any. What the student has is read from the playlist query's cache, which the
+// ✅ and ❤️ edit, so a lesson those just created is opened, not created twice. Leaving
+// the page takes the player (and the browser's fullscreen) with it. Asked for the
+// "practice" step it opens the student's lesson on its quiz or task (a visitor's
+// read-only preview has no such step).
+export function useTrackLessonOpener({
+  subjectId,
+  topicId,
+  guest,
+}: {
+  subjectId: number;
+  topicId: number | undefined;
+  guest: boolean;
+}) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const canDoAnyLesson = useAuthStore((state) => state.user?.canDoAnyLesson ?? false);
+  const playlist = useSubjectPlaylist(subjectId, topicId, guest).data;
+  const refreshSubjectPage = useRefreshSubjectPage(subjectId);
+
+  return (track: PlaylistTrackOut, step: PreschoolLessonStep = "theory"): (() => void) | undefined => {
+    const live = playlist?.find((entry) => entry.lesson_id === track.lesson_id) ?? track;
+    const target = trackLessonTarget(live, { guest, canDoAnyLesson });
+    switch (target?.kind) {
+      case "preview":
+        return () => router.push(`/lessons/preview/${target.lessonId}`);
+      case "lesson":
+        return () => router.push(studentLessonHref(target.studentLessonId, step));
+      case "start":
+        return () => {
+          void startLessonToday(target.lessonId)
+            .then((started) => {
+              if (topicId !== undefined) {
+                queryClient.setQueryData<PlaylistTrackOut[]>(
+                  getListStudentSubjectPlaylistQueryKey(subjectId, { topic_id: topicId }),
+                  (tracks) =>
+                    tracks?.map((entry) =>
+                      entry.lesson_id === target.lessonId
+                        ? { ...entry, student_lesson_id: started.student_lesson_id, status: entry.status ?? "assigned" }
+                        : entry,
+                    ),
+                );
+              }
+              refreshSubjectPage();
+              router.push(studentLessonHref(started.student_lesson_id, step));
+            })
+            // Nothing to show in fullscreen (a dialog wouldn't be drawn): the title stays, to tap again.
+            .catch(() => {});
+        };
+      default:
+        return undefined;
+    }
+  };
+}
+
+// The ✅, ➡️ and ❤️ of the song being played in the subject page's player
 // (SubjectPlayer's `trackActions` slot), for a signed-in student — beside the
 // button that leaves fullscreen, in the framed player and in fullscreen alike:
 //   ❤️ marks the lesson as a favourite (StudentLesson.is_favorite, the lesson
 //      screen's heart), flipping at once and rolled back if the request fails;
-//   ✅ marks the lesson done, the way the lesson screen's "Чи все зрозуміло?" →
-//      "Так" does (see lib/playlist-track-actions.ts for which lessons offer it).
+//   ✅ marks a theory lesson done, the way the lesson screen's "Чи все зрозуміло?" →
+//      "Так" does (see lib/playlist-track-actions.ts); a lesson already done shows a
+//      plain green ✅ instead — an icon, not a button;
+//   ➡️ for a lesson that is not theory (a quiz or a task, which a tap here can't
+//      finish) and is not done yet takes the child to it: the student's lesson, opened on
+//      step 2. Once it is done the ✅ icon is all there is.
 // A song the student has no StudentLesson for yet gets today's one created by the
 // first tap, exactly as a lesson card does.
 //
@@ -80,16 +158,9 @@ export function PlayerTrackActions({
       tracks?.map((entry) => (entry.lesson_id === track.lesson_id ? { ...entry, ...patch } : entry)),
     );
 
-  // What a lesson that was just created or finished changes on the page behind the
-  // player (the same set a lesson card refreshes on starting one).
-  const refreshSubjectPage = () => {
-    queryClient.invalidateQueries({ queryKey: getListStudentSubjectLessonsQueryKey(subjectId) });
-    queryClient.invalidateQueries({ queryKey: getListStudentSubjectLessonsPageQueryKey(subjectId) });
-    queryClient.invalidateQueries({ queryKey: getListStudentSubjectLessonTopicsQueryKey(subjectId) });
-    queryClient.invalidateQueries({ queryKey: getGetNextLessonQueryKey(subjectId) });
-    queryClient.invalidateQueries({ queryKey: getGetSubjectProgressQueryKey(subjectId) });
-    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-  };
+  const refreshSubjectPage = useRefreshSubjectPage(subjectId);
+  const openLesson = useTrackLessonOpener({ subjectId, topicId, guest: false });
+  const openPractice = canGoToPractice(live) ? openLesson(live, "practice") : undefined;
 
   const ensureStudentLesson = async (): Promise<number> => {
     if (live.student_lesson_id != null) return live.student_lesson_id;
@@ -152,7 +223,7 @@ export function PlayerTrackActions({
 
   const doneState = markDoneState(live, canDoAnyLesson);
   const canFavorite = canStartTrack(live, canDoAnyLesson);
-  if (doneState === "hidden" && !canFavorite) return null;
+  if (doneState === "hidden" && !canFavorite && !openPractice) return null;
 
   return (
     <div className="relative flex shrink-0 items-center gap-2" aria-busy={busy}>
@@ -167,13 +238,23 @@ export function PlayerTrackActions({
         />
       )}
       {doneState === "done" && (
+        // Only says it is done: no ring, no pointer — nothing to press.
+        <span
+          role="img"
+          aria-label={t("done")}
+          className="flex h-9 w-9 shrink-0 cursor-default select-none items-center justify-center text-2xl"
+        >
+          ✅
+        </span>
+      )}
+      {openPractice && (
         <PreschoolButton
-          icon="✅"
-          label={t("done")}
-          ringColorClassName="ring-emerald-500"
+          icon={<ArrowRight className="h-5 w-5 text-emerald-600" aria-hidden="true" />}
+          label={live.lesson_type === "with_quiz" ? t("goToQuiz") : t("goToTask")}
+          ringColorClassName="ring-emerald-400"
           position="static"
           className="shrink-0"
-          onClick={() => {}}
+          onClick={openPractice}
         />
       )}
       {canFavorite && (

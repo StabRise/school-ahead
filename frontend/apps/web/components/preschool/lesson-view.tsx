@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@/i18n/navigation";
 import { currentLessonExitHref } from "@/lib/lesson-exit";
+import { initialLessonStep, LESSON_STEP_PARAM, type PreschoolLessonStep } from "@/lib/lesson-step";
 import {
   getGetStudentLessonQueryKey,
   useGetStudentLesson,
@@ -32,7 +34,7 @@ import { speak, toSpeechText } from "@school-ahead/api-client";
 // see QuizQuestion.language) — the read-aloud button always uses Ukrainian.
 const LESSON_TITLE_LANGUAGE = "uk";
 
-type MagicStep = "theory" | "practice";
+type MagicStep = PreschoolLessonStep;
 
 // The round house button. Goes back to the dashboard if the child opened the
 // lesson from there, otherwise to the lesson's own subject page — decided when
@@ -335,7 +337,10 @@ export function PreschoolLessonScene({ children }: { children: ReactNode }) {
 
 export function PreschoolLessonView({ studentLessonId }: { studentLessonId: number }) {
   const t = useTranslations("PreschoolLesson");
-  const [step, setStep] = useState<MagicStep>("theory");
+  // Opens on the content, or — from the subject page's player, for a lesson with a quiz
+  // or a task — straight on the practice (`?step=practice`, see lib/lesson-step.ts).
+  const searchParams = useSearchParams();
+  const [step, setStep] = useState<MagicStep>(() => initialLessonStep(searchParams.get(LESSON_STEP_PARAM)));
   const { data, isLoading, isError, refetch } = useGetStudentLesson(studentLessonId);
 
   return (

@@ -16,7 +16,6 @@ const { players, fakeYouTube } = vi.hoisted(() => {
     videoId?: string;
     events?: {
       onReady?: (event: { data: number }) => void;
-      onAutoplayBlocked?: (event: { data: number }) => void;
       onStateChange?: (event: { data: number }) => void;
       onError?: (event: { data: number }) => void;
     };
@@ -27,7 +26,6 @@ const { players, fakeYouTube } = vi.hoisted(() => {
     destroyed = false;
     playVideo = vi.fn();
     pauseVideo = vi.fn();
-    mute = vi.fn();
     unMute = vi.fn();
     constructor(
       public element: HTMLElement,
@@ -133,25 +131,15 @@ describe("SubjectPlayer", () => {
     expect(text()).toContain("1 з 3");
   });
 
-  it("starts playing as soon as YouTube says the player is ready", async () => {
+  it("starts playing, with sound, as soon as YouTube says the player is ready", async () => {
     await open();
 
     await youtube(() => player().options.events?.onReady?.({ data: 0 }));
 
     expect(player().playVideo).toHaveBeenCalled();
-  });
-
-  it("plays muted when the browser won't start a video with sound, until 🔇 is tapped", async () => {
-    await open();
-    expect(button(label("unmute"))).toBeNull();
-
-    await youtube(() => player().options.events?.onAutoplayBlocked?.({ data: 0 }));
-    expect(player().mute).toHaveBeenCalled();
-    expect(player().playVideo).toHaveBeenCalled();
-
-    await youtube(() => button(label("unmute"))?.click());
+    // A player YouTube remembers as muted must not open silent.
     expect(player().unMute).toHaveBeenCalled();
-    expect(button(label("unmute"))).toBeNull();
+    expect(player().unMute.mock.invocationCallOrder[0]).toBeLessThan(player().playVideo.mock.invocationCallOrder[0]);
   });
 
   it("plays the next song when one ends, and so on", async () => {
@@ -414,6 +402,45 @@ describe("SubjectPlayer", () => {
       await open();
 
       expect(button("track-action")).toBeNull();
+    });
+  });
+
+  describe("the title", () => {
+    const titleButton = () => host.querySelector<HTMLButtonElement>(`button[title="${label("openLesson")}"]`);
+
+    it("is plain text without anywhere to go", async () => {
+      await open();
+      expect(titleButton()).toBeNull();
+
+      await open(tracks, { openTrack: () => undefined });
+      expect(titleButton()).toBeNull();
+      expect(text()).toContain("Hello Song — вчимося");
+    });
+
+    it("opens the lesson of the song being played when it is tapped, in the framed player", async () => {
+      const openLesson = vi.fn();
+      const openTrack = vi.fn((track: PlaylistTrackOut) => (track.lesson_id === 2 ? openLesson : undefined));
+      await open(tracks, { openTrack });
+      expect(titleButton()).toBeNull(); // the first song has nowhere to go
+
+      await youtube(() => button(label("next"))?.click());
+      expect(openTrack).toHaveBeenLastCalledWith(tracks[1]);
+      expect(titleButton()?.textContent).toBe("Up and Down");
+
+      await youtube(() => titleButton()?.click());
+      expect(openLesson).toHaveBeenCalledTimes(1);
+    });
+
+    it("does the same in the fullscreen bar, beside the position", async () => {
+      const openLesson = vi.fn();
+      await open(tracks, { openTrack: () => openLesson, startFullscreen: true });
+
+      expect(titleButton()?.textContent).toBe("Hello Song — вчимося");
+      expect(titleButton()?.closest("p")?.textContent).toContain("1 з 3");
+
+      await youtube(() => titleButton()?.click());
+      expect(openLesson).toHaveBeenCalledTimes(1);
+      expect(onClose).not.toHaveBeenCalled();
     });
   });
 

@@ -30,6 +30,10 @@ export type PlayerLayout = "framed" | "fullscreen";
 // of a signed-in student, see subject-player-actions.tsx), drawn beside the
 // fullscreen button in both layouts; the player itself knows nothing of students.
 //
+// `openTrack` makes the title a link to the lesson itself: it is given the song being
+// played and returns what opening its lesson does, or nothing when there is nowhere to
+// go (then the title is plain text).
+//
 // The queue is the `tracks` it was opened with: a later change to that list (say a
 // refetch) never rebuilds the YouTube player or moves the queue under the child.
 //
@@ -39,12 +43,14 @@ export function SubjectPlayer({
   startIndex = 0,
   startFullscreen = false,
   trackActions,
+  openTrack,
   onClose,
 }: {
   tracks: PlaylistTrackOut[];
   startIndex?: number;
   startFullscreen?: boolean;
   trackActions?: (track: PlaylistTrackOut, layout: PlayerLayout) => ReactNode;
+  openTrack?: (track: PlaylistTrackOut) => (() => void) | undefined;
   onClose: () => void;
 }) {
   const t = useTranslations("PreschoolSubjectDetail.player");
@@ -61,9 +67,6 @@ export function SubjectPlayer({
   const [playing, setPlaying] = useState(false);
   const [finished, setFinished] = useState(false);
   const [problem, setProblem] = useState<"load" | "play" | null>(null);
-  // The browser wouldn't start the video with sound, so it plays muted until the
-  // child taps 🔇.
-  const [mutedByBrowser, setMutedByBrowser] = useState(false);
   // Fullscreen: the browser's, or — where there is none — the window filled. Opened
   // fullscreen, the window is filled from the very first frame (no framed dialog
   // flashing by) until the browser's fullscreen takes over, or refuses.
@@ -102,14 +105,12 @@ export function SubjectPlayer({
           playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1 },
           events: {
             // Start the song the moment the player is ready — the `autoplay`
-            // parameter alone can be ignored — so opening a lesson plays it.
-            onReady: () => playerRef.current?.playVideo(),
-            // A browser that won't start a video with sound (its autoplay policy)
-            // still gets it playing, muted, rather than sitting on the first frame.
-            onAutoplayBlocked: () => {
-              playerRef.current?.mute();
+            // parameter alone can be ignored — so opening a lesson plays it. With
+            // sound, and the player never mutes itself: YouTube remembers a muted
+            // player (say one a child muted earlier) and would open this one silent.
+            onReady: () => {
+              playerRef.current?.unMute();
               playerRef.current?.playVideo();
-              setMutedByBrowser(true);
             },
             onStateChange: ({ data }) => {
               if (data === YT.PlayerState.PLAYING) {
@@ -210,11 +211,19 @@ export function SubjectPlayer({
   };
 
   const trackTitle = current ? toSpeechText(current.title) : "";
-
-  const handleUnmute = () => {
-    playerRef.current?.unMute();
-    setMutedByBrowser(false);
-  };
+  const openCurrentLesson = current ? openTrack?.(current) : undefined;
+  const titleText = openCurrentLesson ? (
+    <button
+      type="button"
+      onClick={openCurrentLesson}
+      title={t("openLesson")}
+      className="inline max-w-full cursor-pointer text-left underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
+    >
+      {trackTitle}
+    </button>
+  ) : (
+    trackTitle
+  );
 
   const controls = (
     <>
@@ -242,15 +251,6 @@ export function SubjectPlayer({
         ringColorClassName="ring-sky-400"
         position="static"
       />
-      {mutedByBrowser && (
-        <PreschoolButton
-          icon="🔇"
-          label={t("unmute")}
-          onClick={handleUnmute}
-          ringColorClassName="ring-amber-400"
-          position="static"
-        />
-      )}
     </>
   );
   const fullscreenButton = (
@@ -304,7 +304,7 @@ export function SubjectPlayer({
       >
         {!isFullscreen && (
           <div className="flex items-center justify-between gap-3">
-            <p className="min-w-0 flex-1 truncate text-lg font-extrabold text-purple-800">🎵 {trackTitle}</p>
+            <p className="min-w-0 flex-1 truncate text-lg font-extrabold text-purple-800">🎵 {titleText}</p>
             <span className="shrink-0 rounded-full bg-purple-100 px-3 py-1 text-sm font-bold text-purple-800">
               {t("position", { current: index + 1, total: queue.length })}
             </span>
@@ -340,9 +340,9 @@ export function SubjectPlayer({
         {!isFullscreen && <div className="flex items-center justify-center gap-3">{controls}</div>}
         {isFullscreen && (
           <div className="flex items-center gap-3 py-2">
-            <p className="min-w-0 flex-1 truncate text-xs text-neutral-300">
-              🎵 {trackTitle}
-              <span className="ml-2 text-neutral-500">{t("position", { current: index + 1, total: queue.length })}</span>
+            <p className="flex min-w-0 flex-1 items-baseline gap-2 text-xs text-neutral-300">
+              <span className="min-w-0 truncate">🎵 {titleText}</span>
+              <span className="shrink-0 text-neutral-500">{t("position", { current: index + 1, total: queue.length })}</span>
             </p>
             <div className="flex items-center gap-2">{controls}</div>
             <div className="flex flex-1 items-center justify-end gap-2">

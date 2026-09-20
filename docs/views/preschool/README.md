@@ -324,6 +324,13 @@ tappable answer cards (`QuizChoice.text`, also markdown). On tap:
    `POST /{student_lesson_id}/submit-quiz` — the hint mechanism is a UX
    nicety layered on top, not a shortcut around real grading.
 
+The quiz is drawn as a popup over the whole lesson screen (`QuizModal`, `role="dialog"`),
+which has a **✕ in its corner and closes with Escape**: it takes the child back to step 1, the
+lesson's content, to look at the video again (the arrow there goes on to the quiz, which starts
+over from question 1). Closing it during the pause after the last answer cancels the submit, so
+nothing is graded behind the child's back. The same applies to a lesson opened straight on step 2
+(`?step=practice`, from the subject page's player).
+
 A pass (`score > 60%`) shows `CelebrationScene`; a fail shows a sad raccoon
 and a retry button that resets to question 1.
 
@@ -398,7 +405,10 @@ tab; a topic with no lessons left under the current filter gets no tab.
   never derived from their content or picture, so they don't change size as
   more load. A card with a picture (`Lesson.icon`, falling back to the
   subject's icon) is the picture with the title under it; one with neither is
-  a coloured gradient card.
+  a coloured gradient card. A lesson the student has **finished** (`status ===
+  "completed"`) wears a green round tick badge in its top-right corner (an icon, not a
+  button; seen under the *all* and *favorites* lesson filters, since the default one hides
+  finished lessons).
 * **No preview page:** a lesson the child has no `StudentLesson` for yet (listed
   only when `StudentProfile.can_do_any_lesson` is set) isn't sent to
   `/lessons/preview/<id>` as in the other modes. Tapping it creates today's
@@ -453,8 +463,21 @@ tab; a topic with no lessons left under the current filter gets no tab.
   screen's heart; it flips at once and rolls back if the request fails); ✅ marks it done the
   way the lesson screen's "Чи все зрозуміло?" → "Так" does (`GET` the lesson to start it, then
   `POST .../confirm-understanding`), and turns into a green ✅ once done. **Only a `theory`
-  lesson offers ✅** — a quiz or a task is finished by its own quiz or by the tutor's review,
-  and a lesson waiting for the tutor can't be finished by the child (`lib/playlist-track-actions.ts`).
+  lesson offers ✅** — a lesson with a quiz is finished by taking the quiz and one with a task
+  by the tutor's review, so a tap here would skip that; and a lesson waiting for the tutor or
+  for help can't be finished by the child (`lib/playlist-track-actions.ts`). A lesson already
+  completed, of any type, shows a plain green ✅ **icon** — no ring, no pointer, not a button.
+  For a lesson that is **not** theory (a quiz or a task) the ✅ is replaced by a **➡️ button**, **until the lesson is completed** (then only the ✅ icon is left)
+  ("Перейти до тесту" / "Перейти до завдання") that opens the student's lesson **on step 2**, the
+  quiz or the task: `/lessons/{id}?step=practice` (the lesson screen reads `?step=practice`,
+  `lib/lesson-step.ts`; without it a lesson opens on its content). A student with no
+  `StudentLesson` for it yet gets today's one created first, as for the title link.
+* **The title in the player is a link to the lesson** (`SubjectPlayer`'s `openTrack`, in both
+  layouts; `useTrackLessonOpener`): a student goes to `/lessons/{studentLessonId}` — today's
+  `StudentLesson` is created first, as a lesson card does, when they have none yet and
+  `can_do_any_lesson` allows it — and a visitor to the read-only `/lessons/preview/{id}`. A
+  student who may not start that lesson sees plain text. Leaving the page closes the player and
+  the browser's fullscreen with it.
   A song the student has no `StudentLesson` for yet gets today's one on the first tap
   (`start-today`, as a lesson card does) — and only if `can_do_any_lesson` allows; otherwise
   the buttons for it are hidden. Nothing is drawn as a dialog (the browser shows only the

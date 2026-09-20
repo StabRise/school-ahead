@@ -169,9 +169,9 @@ class PlaylistTrackOut(Schema):
     its content. See lessons.services.topic_playlist.
 
     `lesson_type`, `student_lesson_id`, `status` and `is_favorite` are what the
-    player's ✅ and ❤️ buttons need: only a `theory` lesson can be marked done
-    from the player (the other types are finished by their quiz or task), and
-    the buttons show the student's own state. The last three are `None`/`None`/
+    player's ✅ and ❤️ buttons and its title link need: only a `theory` lesson can
+    be marked done from the player (a quiz is finished by taking it, a task by the
+    tutor's review), and the buttons show the student's own state. The last three are `None`/`None`/
     `False` for a visitor who isn't signed in, and for a lesson this student
     has no StudentLesson for yet."""
 
