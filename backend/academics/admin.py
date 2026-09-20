@@ -8,7 +8,8 @@ from .models import Class, Plan, School, Subject, SubjectBlock, SubjectGroup, Su
 class SubjectGroupAdmin(admin.ModelAdmin):
     """Admin configuration for the global subject-group list (e.g.
     "Українська школа" / "Польська школа") — see Subject.group."""
-    list_display = ("name", "order_index")
+    list_display = ("name", "order_index", "is_marked")
+    list_filter = ("is_marked",)
     search_fields = ("name",)
     ordering = ("order_index",)
 
@@ -74,6 +75,7 @@ class SubjectAdmin(admin.ModelAdmin):
         "order_index",
         "attestation_type",
         "created_at",
+        "is_marked",
         "is_filled",
         "block_count",
         "start_date",
@@ -86,6 +88,7 @@ class SubjectAdmin(admin.ModelAdmin):
         "school_class",
         ("group", admin.RelatedOnlyFieldListFilter),
         "attestation_type",
+        "is_marked",
         "is_filled",
         "start_date",
         # Blank only for subjects created before the color field existed

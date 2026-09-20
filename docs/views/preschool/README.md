@@ -210,8 +210,13 @@ previous in-app route that `RouteTracker` (mounted in the root layout) keeps in
 be opened from the dashboard's game map, the calendar, a backlog bubble, the
 subject page or the lesson preview, so links aren't tagged individually.
 
-A heart `PreschoolButton` (`FavoriteButton`) sits next to the exit button and
-marks the lesson as one of the child's favourites — `StudentLesson.is_favorite`,
+All the round buttons on this screen — the exit 🏠 (top-left), the "next" arrow
+and the heart (top-right, the heart just left of the arrow while the arrow shows,
+in the corner itself once it doesn't) and the ⚠️ below — are the same 36px size
+as a screen's ⚙️: `PreschoolButton` is compact by default (`compact={false}` with a
+`sizeClassName` gives a big one).
+
+A heart `PreschoolButton` (`FavoriteButton`) marks the lesson as one of the child's favourites — `StudentLesson.is_favorite`,
 set through `PATCH /student-lessons/{id}/favorite`. The heart flips at once
 and is rolled back if the request fails.
 
@@ -292,14 +297,44 @@ trophy) — with the title/subtitle text and a big swaying "home" button
 (icon-only, same `node-sway` animation as the road's current-step node)
 stacked underneath, centered.
 
+### Bookshelf (`/subjects`)
+
+Component: `PreschoolSubjectsShelf` (`packages/preschool-ui/src/subjects-shelf.tsx`).
+A row of category pictures (subject groups) centred at the top, and a shelf of
+books (subjects) under it. Tapping a category shows only its books; tapping the
+chosen one again clears it.
+
+The ⚙️ in the top-right corner picks **which subjects and categories show**
+(`subjects-display.ts`), kept on this device in a persisted zustand store
+(`subjects-display-store.ts`):
+
+* **Вибрані вчителем** (`marked`, the default) — only what a tutor marked
+  (`Subject.is_marked`, `SubjectGroup.is_marked`). A tutor marks them with the
+  👁 button on each subject row and group header of the class page
+  (`/tutor/classes/{id}`), or in the Django admin. Everything that existed when
+  the field was added was marked by its migration, so nothing vanished; anything
+  created since starts unmarked. A marked subject in an unmarked category still
+  shows, under no category filter.
+* **Усі предмети** (`all`) — every subject of the student's class, as before.
+* **Улюблені** (`favorites`) — only the subjects the student hearted
+  (`FavoriteSubject`, below). Its categories are the ones those subjects belong
+  to.
+
+A category is only offered when at least one subject of the current view
+belongs to it. The visitor-facing shelf (signed out, see
+`docs/core/public_access.md`) has no ⚙️ and always shows every subject.
+
 ### Subject page (`/subjects/[id]`)
 
 Component: `preschool-subject-detail-page.tsx` → `PreschoolSubjectDetailPage`
 (the bookshelf at `/subjects`, `subjects-shelf.tsx`, leads here). One grid
 of lesson cards with one tab per topic (big pill buttons, scrolling sideways
 when there are many; hidden when only one topic has lessons to show), headed by
-a 🏠 `PreschoolButton` back to the shelf, the class badge, the subject name and
-the points badge. Semester blocks (`SubjectBlock`) are not shown here. The open
+a 🏠 `PreschoolButton` back to the shelf, the subject name, a ❤️ (at the right, before the ⚙️) that marks the
+subject as a favourite (`FavoriteSubject` — per student, so it follows them
+between devices; `PATCH /student-lessons/subjects/{id}/favorite`,
+`GET /student-lessons/favorite-subjects`; not shown to a signed-out visitor) and
+the points badge — the ❤️ sits at the right, just before the ⚙️. Semester blocks (`SubjectBlock`) are not shown here. The open
 topic is kept in `?topic=<id>`, so coming back from a lesson lands on the same
 tab; a topic with no lessons left under the current filter gets no tab.
 

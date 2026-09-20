@@ -19,6 +19,7 @@ import {
 } from "./lib/cars-game";
 import { useBackgroundMusic } from "./lib/use-background-music";
 import { playCocktailBounceSound, playVictoryFanfare } from "./kit/sound-effects";
+import { GAME_MUSIC_BUTTON_POSITION, GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
 import { MusicToggleButton } from "./kit/music-toggle-button";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import {
@@ -856,7 +857,7 @@ export function CarsGame() {
         type="button"
         aria-label={t("settingsButton")}
         onClick={() => setSettingsOpen((current) => !current)}
-        className="absolute left-4 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+        className={`${GAME_SETTINGS_BUTTON_POSITION} flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200`}
       >
         ⚙️
       </button>
@@ -864,7 +865,7 @@ export function CarsGame() {
       {settingsOpen && (
         <div
           ref={settingsPanelRef}
-          className="absolute left-4 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200"
+          className={`${GAME_SETTINGS_PANEL_POSITION} flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200`}
         >
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={muted} onChange={(e) => setMuted(e.target.checked)} />
@@ -877,7 +878,7 @@ export function CarsGame() {
         </div>
       )}
 
-      <MusicToggleButton className="absolute right-4 top-4 z-10" />
+      <MusicToggleButton className={GAME_MUSIC_BUTTON_POSITION} />
 
       <CarsRound key={roundToken} muted={muted} onlyEquations={onlyEquations} onWin={() => setRoundToken((n) => n + 1)} />
     </div>

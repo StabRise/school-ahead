@@ -1,5 +1,6 @@
 import datetime
 
+from academics.models import Subject
 from accounts.models import StudentProfile
 from achievements import services as achievement_services
 from common.auth import CookieOrBearerJWTAuth
@@ -16,6 +17,7 @@ from ninja.responses import Status
 
 from . import services
 from .models import (
+    FavoriteSubject,
     Lesson,
     QuizQuestion,
     StudentLesson,
@@ -40,6 +42,7 @@ from .schemas import (
     StudentLessonMaterialOut,
     StudentLessonOut,
     StudentLessonStartOut,
+    SubjectFavoriteOut,
     SubjectLessonOut,
     SubjectProgressOut,
     SubmitQuizIn,
@@ -82,6 +85,36 @@ def list_my_assignable_lessons(request: HttpRequest):
         .select_related('lesson__topic__subject')
         .order_by('scheduled_date')
     )
+
+
+@router.get('/favorite-subjects', response=list[int], operation_id='list_favorite_subject_ids')
+def list_favorite_subject_ids(request: HttpRequest):
+    """The ids of the subjects the requesting student marked with the heart on
+    the preschool subject page — the bookshelf's "favourites" view, and the
+    heart's own state, read from this."""
+    student = get_own_student_profile(request)
+    return list(FavoriteSubject.objects.filter(student=student).values_list('subject_id', flat=True))
+
+
+@router.patch(
+    '/subjects/{subject_id}/favorite',
+    response=SubjectFavoriteOut,
+    operation_id='set_subject_favorite',
+)
+def set_subject_favorite(request: HttpRequest, subject_id: int, payload: SetFavoriteIn):
+    """Marks or unmarks a subject of the student's own class as a favourite —
+    the heart on the preschool subject page. Idempotent, like
+    set_favorite for a lesson: it sets the state to `is_favorite` rather than
+    toggling it, so a double tap or a retried request can't flip it back. A
+    subject of another class 404s."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    subject = get_object_or_404(Subject, id=subject_id, school_class_id=student.school_class_id)
+    if payload.is_favorite:
+        FavoriteSubject.objects.get_or_create(student=student, subject=subject)
+    else:
+        FavoriteSubject.objects.filter(student=student, subject=subject).delete()
+    return SubjectFavoriteOut(subject_id=subject.id, is_favorite=payload.is_favorite)
 
 
 @router.get('/{student_lesson_id}', response=StudentLessonOut, operation_id='get_student_lesson')

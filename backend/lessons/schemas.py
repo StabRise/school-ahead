@@ -153,8 +153,14 @@ class LessonsReorderIn(Schema):
 
 class SetFavoriteIn(Schema):
     """The heart button on the preschool lesson screen — see
-    StudentLesson.is_favorite."""
+    StudentLesson.is_favorite — and on the preschool subject page (see
+    FavoriteSubject)."""
 
+    is_favorite: bool
+
+
+class SubjectFavoriteOut(Schema):
+    subject_id: int
     is_favorite: bool
 
 

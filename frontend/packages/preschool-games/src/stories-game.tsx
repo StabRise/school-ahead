@@ -327,9 +327,8 @@ function StoryAudioButton({
       label={label}
       onClick={handleClick}
       ringColorClassName="ring-sky-400"
-      sizeClassName="h-10 w-10"
       position="static"
-      className="not-prose mx-0.5 inline-flex align-middle text-xl"
+      className="not-prose mx-0.5 inline-flex align-middle"
     />
   );
 }
@@ -697,7 +696,7 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
         onClick={onBack}
         ringColorClassName="ring-amber-400"
         position="static"
-        className="fixed left-20 top-20"
+        className="fixed left-15 top-20"
       />
 
       {/* Only this story's own background.mp3 gets this button — most
@@ -717,7 +716,7 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
           onClick={backgroundMusic.toggle}
           ringColorClassName="ring-sky-400"
           position="static"
-          className="fixed left-36 top-20"
+          className="fixed left-26 top-20"
         />
       )}
 

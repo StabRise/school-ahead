@@ -19,6 +19,7 @@ import {
 import { useBackgroundMusic } from "./lib/use-background-music";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { playBuildSound, playCelebrationChime, playFallSound, playMissSound, playVictoryFanfare } from "./kit/sound-effects";
+import { GAME_MUSIC_BUTTON_POSITION, GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
 import { MusicToggleButton } from "./kit/music-toggle-button";
 import { NumberTileButton, type NumberTileStatus } from "./kit/number-tile";
 import { useMathGameStore } from "./stores/math-game-store";
@@ -720,16 +721,14 @@ function MathRun({
     <div className="relative flex h-full w-full flex-1 flex-col items-center gap-2 overflow-hidden">
       {stage === "playing" && question && (
         <>
-          {/* Same absolute top-4 row as MathGame's settings gear (left-20)
-              and music toggle (left-32) — left-44 keeps it clear of both
-              those and the site-wide fixed Home button (left-4 top-20),
-              which a grid cell inside the stats bar below used to collide
-              with. */}
+          {/* In the frame's own top-left corner: the settings gear and music
+              toggle are fixed to the page beside the site-wide Home button now
+              (kit/game-controls.ts), so this has the corner to itself. */}
           <button
             type="button"
             aria-label={t("pauseButton")}
             onClick={pauseGame}
-            className="absolute left-44 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+            className="absolute left-4 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
           >
             ⏸️
           </button>
@@ -990,16 +989,16 @@ export function MathGame() {
         type="button"
         aria-label={t("settingsButton")}
         onClick={() => setSettingsOpen((current) => !current)}
-        className="absolute left-20 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+        className={`${GAME_SETTINGS_BUTTON_POSITION} flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200`}
       >
         ⚙️
       </button>
-      <MusicToggleButton className="absolute left-32 top-4 z-10" />
+      <MusicToggleButton className={GAME_MUSIC_BUTTON_POSITION} />
 
       {settingsOpen && (
         <div
           ref={settingsPanelRef}
-          className="absolute left-20 top-16 z-10 flex w-64 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200"
+          className={`${GAME_SETTINGS_PANEL_POSITION} flex w-64 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200`}
         >
           <div className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("operationLabel")}</span>

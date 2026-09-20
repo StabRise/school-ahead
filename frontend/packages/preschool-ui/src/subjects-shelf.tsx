@@ -6,9 +6,20 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useGetMySubjects, useListSubjectGroups } from "@school-ahead/api-client/browser/academics/academics";
 import { useListPublicSubjects } from "@school-ahead/api-client/browser/public/public";
-import { useGetSubjectProgress } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
+import {
+  useGetSubjectProgress,
+  useListFavoriteSubjectIds,
+} from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import type { SubjectOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { Cloud, Sun, DefaultStepIcon } from "./decorations";
+import { PreschoolOptionsGear } from "./options-gear";
+import {
+  groupsForDisplay,
+  subjectsForDisplay,
+  SUBJECTS_DISPLAY_MODES,
+  type SubjectsDisplayMode,
+} from "./subjects-display";
+import { useSubjectsDisplayStore } from "./subjects-display-store";
 
 // One steady color per book — deterministic on subject id, same trick as
 // the default view's SubjectCard (frontend/components/subjects/subject-card.tsx),
@@ -23,8 +34,15 @@ const BOOK_COLORS = [
 ];
 
 // What a book needs from a subject — both SubjectOut (a student's own class)
-// and PublicSubjectOut (a visitor who isn't signed in) fit.
-type ShelfSubject = Pick<SubjectOut, "id" | "name" | "icon" | "group_id">;
+// and PublicSubjectOut (a visitor who isn't signed in, which has no tutor mark)
+// fit.
+type ShelfSubject = Pick<SubjectOut, "id" | "name" | "icon" | "group_id"> & { is_marked?: boolean };
+
+const DISPLAY_MODE_EMOJI: Record<SubjectsDisplayMode, string> = {
+  marked: "⭐",
+  all: "📚",
+  favorites: "❤️",
+};
 
 // A book with its subject icon, name and (for a signed-in student) a progress
 // bar on the cover — a bookshelf take on the default view's subject grid,
@@ -148,33 +166,45 @@ function FilterPill({
   );
 }
 
+const NO_FAVORITES: ReadonlySet<number> = new Set();
+
 // The shelf itself — the category filter and the books — for whichever
 // subjects it is handed. The two exports below only differ in where those come
-// from and whether a book shows progress.
+// from, whether a book shows progress, and whether the student can choose what
+// the shelf shows (a visitor who isn't signed in always sees every subject).
 function SubjectsShelf({
-  subjects: allSubjects,
+  subjects: fetchedSubjects,
+  favoriteIds,
   isLoading,
   isError,
-  showProgress,
+  isStudent,
 }: {
   subjects: ShelfSubject[];
+  favoriteIds: ReadonlySet<number>;
   isLoading: boolean;
   isError: boolean;
-  showProgress: boolean;
+  isStudent: boolean;
 }) {
   const t = useTranslations("PreschoolSubjects");
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data: subjectGroups } = useListSubjectGroups();
+  const chosenMode = useSubjectsDisplayStore((state) => state.mode);
+  const setMode = useSubjectsDisplayStore((state) => state.setMode);
+  const mode: SubjectsDisplayMode = isStudent ? chosenMode : "all";
 
-  // Groups are global (not per class), so only offer the ones this
-  // student's class actually has a subject in — an empty category would
-  // just be a dead-end tab. Subjects without a group show only while no
+  // What the ⚙️ chose (see subjects-display.ts), then — of what is left — the
+  // categories worth offering: an empty one would just be a dead end. Groups
+  // are global (not per class). Subjects without a group show only while no
   // group is chosen.
-  const groups = useMemo(() => {
-    const usedGroupIds = new Set(allSubjects.map((subject) => subject.group_id));
-    return (subjectGroups ?? []).filter((group) => usedGroupIds.has(group.id));
-  }, [allSubjects, subjectGroups]);
+  const allSubjects = useMemo(
+    () => subjectsForDisplay(mode, fetchedSubjects, favoriteIds),
+    [mode, fetchedSubjects, favoriteIds],
+  );
+  const groups = useMemo(
+    () => groupsForDisplay(mode, subjectGroups ?? [], allSubjects),
+    [mode, subjectGroups, allSubjects],
+  );
 
   const groupParam = searchParams.get("group");
   const activeGroup = groups.find((group) => String(group.id) === groupParam) ?? null;
@@ -188,7 +218,30 @@ function SubjectsShelf({
         <Sun className="right-12 top-4 h-10 w-10" />
       </div>
 
-      <div className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 p-4 sm:p-6">
+      {/* The ⚙️ is pinned to the screen's top-right corner, like the minigames'
+          (out of the layout), so the column below clears it: on screens too
+          narrow to leave room beside the column it starts lower. */}
+      {isStudent && (
+        <div className="absolute right-3 top-3 z-20">
+          <PreschoolOptionsGear
+            value={mode}
+            options={SUBJECTS_DISPLAY_MODES.map((option) => ({
+              value: option,
+              emoji: DISPLAY_MODE_EMOJI[option],
+              label: t(`display.${option}`),
+            }))}
+            onChange={setMode}
+            buttonLabel={t("settingsButton")}
+            title={t("displayTitle")}
+          />
+        </div>
+      )}
+
+      <div
+        className={`relative mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 p-4 sm:p-6 ${
+          isStudent ? "pt-14 sm:pt-14 xl:pt-6" : ""
+        }`}
+      >
         {/* No visible heading, but the page keeps its <h1> for screen readers. */}
         <h1 className="sr-only">{t("title")}</h1>
 
@@ -198,7 +251,7 @@ function SubjectsShelf({
         {groups.length > 0 && (
           <nav
             aria-label={t("filterLabel")}
-            className="flex flex-wrap items-center justify-start gap-0.5 rounded-xl border-4 border-yellow-200 bg-white/90 px-1.5 py-1 shadow-xl"
+            className="flex flex-wrap items-center justify-center gap-0.5 rounded-xl border-4 border-yellow-200 bg-white/90 px-1.5 py-1 shadow-xl"
           >
             {groups.map((group) => (
               <FilterPill
@@ -223,7 +276,9 @@ function SubjectsShelf({
         )}
 
         {!isLoading && !isError && subjects.length === 0 && (
-          <p className="text-center text-sm font-medium text-emerald-800">{t("empty")}</p>
+          <p className="text-center text-sm font-medium text-emerald-800">
+            {mode === "favorites" ? t("emptyFavorites") : t("empty")}
+          </p>
         )}
 
         {subjects.length > 0 && (
@@ -231,7 +286,7 @@ function SubjectsShelf({
             <ul className="flex flex-wrap justify-center gap-x-4 gap-y-6">
               {subjects.map((subject) => (
                 <li key={subject.id}>
-                  {showProgress ? <StudentBook subject={subject} /> : <BookCover subject={subject} percent={null} />}
+                  {isStudent ? <StudentBook subject={subject} /> : <BookCover subject={subject} percent={null} />}
                 </li>
               ))}
             </ul>
@@ -245,14 +300,33 @@ function SubjectsShelf({
 // The signed-in student's own class — see StudentSubjectsView.
 export function PreschoolSubjectsShelf() {
   const { data, isLoading, isError } = useGetMySubjects({ has_lessons: true });
+  const favorites = useListFavoriteSubjectIds();
   const subjects = useMemo(() => data ?? [], [data]);
-  return <SubjectsShelf subjects={subjects} isLoading={isLoading} isError={isError} showProgress />;
+  const favoriteIds = useMemo(() => new Set(favorites.data ?? []), [favorites.data]);
+  return (
+    <SubjectsShelf
+      subjects={subjects}
+      favoriteIds={favoriteIds}
+      isLoading={isLoading || favorites.isLoading}
+      isError={isError}
+      isStudent
+    />
+  );
 }
 
 // The same shelf for a visitor who isn't signed in: every subject of every
-// class marked public (Class.is_public), no progress. See docs/core/public_access.md.
+// class marked public (Class.is_public), no progress, no choice of what to
+// show. See docs/core/public_access.md.
 export function PreschoolPublicSubjectsShelf() {
   const { data, isLoading, isError } = useListPublicSubjects();
   const subjects = useMemo(() => data ?? [], [data]);
-  return <SubjectsShelf subjects={subjects} isLoading={isLoading} isError={isError} showProgress={false} />;
+  return (
+    <SubjectsShelf
+      subjects={subjects}
+      favoriteIds={NO_FAVORITES}
+      isLoading={isLoading}
+      isError={isError}
+      isStudent={false}
+    />
+  );
 }

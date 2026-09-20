@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { Calendar, ChevronDown, ChevronRight, Crown, GripVertical, RefreshCw } from "lucide-react";
+import { Calendar, ChevronDown, ChevronRight, Crown, Eye, EyeOff, GripVertical, RefreshCw } from "lucide-react";
 import type {
   AssignmentOut,
   SubjectGroupOut,
@@ -15,6 +15,8 @@ import {
   useRecalculateClassWorkload,
   useReorderTutorClassSubjects,
   useReorderTutorSubjectGroups,
+  useSetSubjectGroupMarked,
+  useSetSubjectMarked,
 } from "@school-ahead/api-client/browser/tutor/tutor";
 import { getListSubjectGroupsQueryKey, useListSubjectGroups } from "@school-ahead/api-client/browser/academics/academics";
 import { Link } from "@/i18n/navigation";
@@ -33,6 +35,41 @@ import { PlanLessonsDialog } from "./plan-lessons-dialog";
 import { UploadPlanDialog } from "./upload-plan-dialog";
 import { useDialogs } from "@/components/dialogs/app-dialogs";
 
+// The eye on a subject row or a group header: whether the students' preschool
+// bookshelf shows it by default (Subject.is_marked / SubjectGroup.is_marked).
+// A group's is global, like its order.
+function ShelfMarkButton({
+  marked,
+  disabled,
+  onToggle,
+}: {
+  marked: boolean;
+  disabled: boolean;
+  onToggle: () => void;
+}) {
+  const t = useTranslations("TutorClassDetail");
+  const label = marked ? t("shownOnShelfLabel") : t("hiddenOnShelfLabel");
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={disabled}
+      aria-pressed={marked}
+      title={label}
+      aria-label={label}
+      className={`shrink-0 rounded p-1 hover:bg-gray-100 disabled:opacity-50 ${
+        marked ? "text-emerald-600 hover:text-emerald-700" : "text-gray-300 hover:text-gray-500"
+      }`}
+    >
+      {marked ? (
+        <Eye className="size-4" aria-hidden="true" />
+      ) : (
+        <EyeOff className="size-4" aria-hidden="true" />
+      )}
+    </button>
+  );
+}
+
 // Drag handle sits outside the Link — same reasoning as the lesson row on
 // the tutor's Subject detail page: native drag-inside-anchor semantics are
 // unreliable, and this way the handle never fights the Link's click/
@@ -44,6 +81,8 @@ function SubjectRow({
   onDragStart,
   onDragEnd,
   onDropOnThisSubject,
+  onToggleMarked,
+  markPending,
 }: {
   subject: AssignmentOut;
   isDragging: boolean;
@@ -51,6 +90,8 @@ function SubjectRow({
   onDragStart: () => void;
   onDragEnd: () => void;
   onDropOnThisSubject: () => void;
+  onToggleMarked: () => void;
+  markPending: boolean;
 }) {
   const t = useTranslations("TutorClassDetail");
   const workloadValue = subject.block_workloads.map((w) => (w === null ? "—" : w.toFixed(2))).join(" / ");
@@ -100,6 +141,7 @@ function SubjectRow({
         <AttestationTypeBadge attestationType={subject.attestation_type} />
         <IsFilledBadge isFilled={subject.is_filled} />
       </Link>
+      <ShelfMarkButton marked={subject.is_marked} disabled={markPending} onToggle={onToggleMarked} />
     </li>
   );
 }
@@ -162,6 +204,9 @@ function RecalculateWorkloadButton({ classId }: { classId: number }) {
 interface SubjectSection {
   groupId: number | null;
   label: string | null;
+  // Whether the group is marked for the students' shelf; null for the
+  // "ungrouped" section, which isn't a group.
+  isMarked: boolean | null;
   subjects: AssignmentOut[];
 }
 
@@ -172,6 +217,8 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
   const groupsQuery = useListSubjectGroups();
   const reorderSubjects = useReorderTutorClassSubjects();
   const reorderGroups = useReorderTutorSubjectGroups();
+  const setSubjectMarked = useSetSubjectMarked();
+  const setGroupMarked = useSetSubjectGroupMarked();
   const [draggedSubjectId, setDraggedSubjectId] = useState<number | null>(null);
   const [draggedGroupId, setDraggedGroupId] = useState<number | null>(null);
   const [collapsedSectionKeys, setCollapsedSectionKeys] = useState<Set<string>>(new Set());
@@ -213,9 +260,15 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
       ...groups.map((group) => ({
         groupId: group.id,
         label: group.name,
+        isMarked: group.is_marked,
         subjects: sortByOrder(byGroupId.get(group.id) ?? []),
       })),
-      { groupId: null, label: groups.length > 0 ? t("ungroupedLabel") : null, subjects: sortByOrder(ungrouped) },
+      {
+        groupId: null,
+        label: groups.length > 0 ? t("ungroupedLabel") : null,
+        isMarked: null,
+        subjects: sortByOrder(ungrouped),
+      },
     ];
   }, [data?.subjects, groupsQuery.data, t]);
 
@@ -266,6 +319,18 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
       },
     );
   };
+
+  const toggleSubjectMarked = (subject: AssignmentOut) =>
+    setSubjectMarked.mutate(
+      { subjectId: subject.subject_id, data: { is_marked: !subject.is_marked } },
+      { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetTutorClassQueryKey(classId) }) },
+    );
+
+  const toggleGroupMarked = (groupId: number, isMarked: boolean) =>
+    setGroupMarked.mutate(
+      { groupId, data: { is_marked: !isMarked } },
+      { onSuccess: () => queryClient.invalidateQueries({ queryKey: getListSubjectGroupsQueryKey() }) },
+    );
 
   // Drops a group onto another group's section (it takes that group's place)
   // or onto the "ungrouped" section (it goes last). Unlike a subject's order,
@@ -356,6 +421,9 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
                 <div className="flex flex-col gap-3">
                   {reorderSubjects.isError && <p className="text-xs text-red-600">{t("subjectReorderError")}</p>}
                   {reorderGroups.isError && <p className="text-xs text-red-600">{t("groupReorderError")}</p>}
+                  {(setSubjectMarked.isError || setGroupMarked.isError) && (
+                    <p className="text-xs text-red-600">{t("markError")}</p>
+                  )}
                   {data.subjects.length === 0 ? (
                     <p className="text-sm text-gray-500">{t("noSubjects")}</p>
                   ) : (
@@ -419,6 +487,13 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
                                       {subjectGroupLabel(section.label, section.subjects.length)}
                                     </h3>
                                   </button>
+                                  {section.groupId !== null && section.isMarked !== null && (
+                                    <ShelfMarkButton
+                                      marked={section.isMarked}
+                                      disabled={setGroupMarked.isPending}
+                                      onToggle={() => toggleGroupMarked(section.groupId!, section.isMarked!)}
+                                    />
+                                  )}
                                 </div>
                               )}
                               {!collapsed &&
@@ -437,6 +512,8 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
                                         onDropOnThisSubject={() =>
                                           handleSubjectDrop(section.groupId, subject.subject_id)
                                         }
+                                        onToggleMarked={() => toggleSubjectMarked(subject)}
+                                        markPending={setSubjectMarked.isPending}
                                       />
                                     ))}
                                   </ul>

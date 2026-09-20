@@ -60,6 +60,10 @@ class SubjectGroup(models.Model):
     icon = models.FileField(upload_to=subject_group_icon_upload_to, blank=True)
     # What the API sends in place of `icon` — see common/images.py.
     icon_thumbnail = icon_thumbnail_field(SUBJECT_GROUP_ICON_SIDE)
+    # Set by a tutor (class page, or the Django admin): shown in the preschool
+    # bookshelf's default "marked" view — see docs/views/preschool/README.md.
+    # The other views (all, favourites) ignore it.
+    is_marked = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['order_index', 'name']
@@ -104,6 +108,10 @@ class Subject(TimeStampedModel):
     icon = models.FileField(upload_to=subject_icon_upload_to, blank=True)
     # What the API sends in place of `icon` — see common/images.py.
     icon_thumbnail = icon_thumbnail_field(SUBJECT_ICON_SIDE)
+    # Set by a tutor (class page, or the Django admin): shown in the preschool
+    # bookshelf's default "marked" view — see docs/views/preschool/README.md.
+    # The other views (all, favourites) ignore it.
+    is_marked = models.BooleanField(default=False)
     # Left-border accent on lesson cards — auto-assigned from
     # colors.SUBJECT_COLOR_PALETTE on create (services.assign_subject_color),
     # unique within the subject's own school_class. Blank only for subjects
