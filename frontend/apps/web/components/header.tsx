@@ -85,6 +85,54 @@ function BrandIcon() {
   );
 }
 
+// Google's four-colour "G" — the mark the sign-in button carries.
+function GoogleIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
+      <path
+        fill="#4285F4"
+        d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47a5.53 5.53 0 0 1-2.4 3.63v3h3.88c2.27-2.09 3.54-5.17 3.54-8.87Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.96-1.07 7.95-2.91l-3.88-3c-1.07.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.27v3.09A12 12 0 0 0 12 24Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.27 14.28a7.2 7.2 0 0 1 0-4.56V6.63H1.27a12 12 0 0 0 0 10.74l4-3.09Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.27 6.63l4 3.09C6.22 6.86 8.87 4.75 12 4.75Z"
+      />
+    </svg>
+  );
+}
+
+// /subjects, the fairy tales and /games are public — see lib/public-paths.ts —
+// so a signed-out visitor can already browse and play before logging in.
+function GuestNav() {
+  const t = useTranslations("Header");
+  const links = [
+    { href: "/subjects", label: t("subjects") },
+    { href: "/games/stories", label: t("stories") },
+    { href: "/games", label: t("games") },
+  ] as const;
+  return (
+    <nav aria-label={t("mainMenu")} className="hidden items-center gap-6 sm:flex">
+      {links.map(({ href, label }) => (
+        <Link
+          key={href}
+          href={href}
+          className="rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        >
+          {label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
 export function Header() {
   const t = useTranslations("Header");
   const user = useAuthStore((state) => state.user);
@@ -121,6 +169,7 @@ export function Header() {
 
         {user?.role === "student" && <MainMenu />}
         {user?.role === "tutor" && <TutorMainMenu />}
+        {!user && <GuestNav />}
       </div>
 
       {user ? (
@@ -225,29 +274,13 @@ export function Header() {
           </DropdownMenu.Root>
         </div>
       ) : (
-        <div className="flex items-center gap-4">
-          {/* /games and the read-only subject catalogue are public — see
-              lib/public-paths.ts — so a signed-out visitor can already play
-              and browse before logging in. */}
-          <Link
-            href="/subjects"
-            className="text-sm font-medium text-gray-700 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-          >
-            {t("subjects")}
-          </Link>
-          <Link
-            href="/games"
-            className="text-sm font-medium text-gray-700 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-          >
-            {t("games")}
-          </Link>
-          <Link
-            href="/login"
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-          >
-            {t("login")}
-          </Link>
-        </div>
+        <Link
+          href="/login"
+          className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        >
+          <GoogleIcon />
+          {t("loginWithGoogle")}
+        </Link>
       )}
     </header>
   );

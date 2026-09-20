@@ -75,9 +75,13 @@ allowlist — the authenticated routers stay exactly as they were (they still
   signed-in student never flashes the public screens (or fires their requests).
   `/auth/me` is not retried on a `401` (`shouldRetryMe`): the default three
   retries with backoff would have delayed "you're signed out" by ~7 s.
-* **Header and home page.** A signed-out visitor gets a "Предмети" link next to
-  "Ігри" and "Увійти" in the header, and the home page (`/uk`) body has the same
-  three: sign in, browse subjects, play games.
+* **Header and home page.** A signed-out visitor's header has "Предмети", "Казки"
+  and "Ігри" next to the brand (hidden below the `sm` breakpoint) and an
+  "Увійти через Google" button linking to `/login`. The home page (`/uk`) is the
+  landing page (`components/landing/landing-page.tsx`): a hero with a "Створити
+  обліковий запис" button (→ `/login`) and a "Дізнатися більше" one that scrolls to
+  three cards — subjects (`/subjects`), fairy tales (`/games/stories`) and games
+  (`/games`). Its art is in `public/images/landing/`.
 * **No site header on the catalogue itself.** On `/subjects` and `/subjects/<id>` a
   visitor sees the preschool-style page and no classic header (`Header` renders
   nothing there — `isPublicCataloguePage` in `lib/preschool-chrome.ts`). What is left

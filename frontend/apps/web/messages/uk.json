@@ -57,12 +57,13 @@
   },
   "Header": {
     "brand": "Ahead",
-    "login": "Увійти",
+    "loginWithGoogle": "Увійти через Google",
     "logout": "Вийти",
     "userMenu": "Меню користувача",
     "mainMenu": "Головне меню",
     "mySubjects": "Мої предмети",
     "subjects": "Предмети",
+    "stories": "Казки",
     "myAchievements": "Мої досягнення",
     "myClasses": "Мої класи",
     "myProfile": "Мій профіль",
@@ -81,12 +82,19 @@
     "storiesEditor": "Казки"
   },
   "Home": {
-    "welcomeBack": "З поверненням, {name}!",
-    "guestTitle": "Ласкаво просимо до Ahead",
-    "guestSubtitle": "Гейміфікована платформа для домашнього навчання.",
-    "cta": "Увійти",
-    "subjectsCta": "Переглянути предмети",
-    "gamesCta": "Пограти в ігри"
+    "welcomeBack": "З поверненням, {name}!"
+  },
+  "Landing": {
+    "heroTitleLead": "Ваш шлях до успіху починається тут.",
+    "heroTitleTail": "Персоналізоване навчання для кожної дитини.",
+    "heroSubtitle": "Розкрийте потенціал вашої дитини з нашою ігровою платформою.",
+    "createAccount": "Створити обліковий запис",
+    "learnMore": "Дізнатися більше",
+    "heroImageAlt": "Вчителька та діти навколо планшета з навчальною платформою Ahead, навколо літають книжки, планети та ігрові джойстики",
+    "exploreLabel": "Що можна відкрити без входу",
+    "subjects": "Предмети",
+    "stories": "Казки",
+    "games": "Ігри"
   },
   "Dialog": {
     "alertTitle": "Повідомлення",
