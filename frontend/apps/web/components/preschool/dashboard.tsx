@@ -4,10 +4,11 @@ import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { useAuthStore } from "@school-ahead/api-client";
 import { AvatarBadge, useEquippedAvatarLayers } from "@school-ahead/avatar";
-import { Cloud, Raccoon, Sun } from "@school-ahead/preschool-ui";
+import { Cloud, PreschoolButton, Raccoon, Sun } from "@school-ahead/preschool-ui";
 import { DiamondBadge } from "@/components/header";
 import { PreschoolModeToggle } from "@/components/preschool-mode-toggle";
 import { Link } from "@/i18n/navigation";
+import { useSignOut } from "@/lib/use-sign-out";
 
 // A big, round-cornered card that opens one part of the app — the dashboard is
 // a grid of these (see PreschoolDashboard). `children` is the picture: an
@@ -54,14 +55,16 @@ function ProfileAvatar() {
 }
 
 // The dashboard (`/`) of a student in preschool mode, in place of the classic
-// site header and dashboard: a greeting with the diamonds and the mode switch,
-// and a grid of big emoji cards — My lessons (the road, `/lessons`),
+// site header and dashboard: a greeting with the diamonds, the mode switch and a
+// waving 👋 that says bye (signs the child out — the header's menu was the only
+// place for that), and a grid of big emoji cards — My lessons (the road, `/lessons`),
 // Subjects, Calendar, Games, Stories and the Profile, which shows the child's
 // avatar. See docs/views/preschool/README.md.
 export function PreschoolDashboard() {
   const t = useTranslations("PreschoolDashboard");
   const user = useAuthStore((state) => state.user);
   const firstName = user?.name.trim().split(/\s+/)[0] ?? "";
+  const { signOut } = useSignOut();
 
   return (
     <div className="relative flex flex-1 flex-col bg-gradient-to-b from-sky-200 via-emerald-100 to-lime-200">
@@ -81,6 +84,14 @@ export function PreschoolDashboard() {
             <div className="rounded-full bg-white/90 shadow-lg ring-2 ring-gray-200">
               <PreschoolModeToggle />
             </div>
+            <PreschoolButton
+              icon="👋"
+              label={t("bye")}
+              onClick={signOut}
+              ringColorClassName="ring-amber-400"
+              position="static"
+              className="shrink-0"
+            />
           </div>
         </div>
 

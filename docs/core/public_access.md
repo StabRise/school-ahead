@@ -78,6 +78,14 @@ allowlist — the authenticated routers stay exactly as they were (they still
 * **Header and home page.** A signed-out visitor gets a "Предмети" link next to
   "Ігри" and "Увійти" in the header, and the home page (`/uk`) body has the same
   three: sign in, browse subjects, play games.
+* **No site header on the catalogue itself.** On `/subjects` and `/subjects/<id>` a
+  visitor sees the preschool-style page and no classic header (`Header` renders
+  nothing there — `isPublicCataloguePage` in `lib/preschool-chrome.ts`). What is left
+  is a 🏠 preschool button: on the bookshelf, fixed in the top-left corner, to the
+  root (`/`) (`PreschoolChrome`); on a subject page, the 🏠 in the top row of the
+  card, back to the bookshelf (`/subjects`) — as it is for a student — so the way home
+  from a subject is subject → shelf → root. Everything else they can open (the home
+  page, the games, the login) keeps the header.
 * A signed-in user who opens `/lessons/preview/{id}` gets the student preview
   as before (`403` unless `can_do_any_lesson`); only visitors use the public one.
 

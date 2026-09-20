@@ -352,8 +352,9 @@ function PreschoolSubjectScreen({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               {/* Back to the shelf — a house button where the decorative star used to
-                  be. PreschoolButton links with next/link, which knows nothing about
-                  the locale, so the href carries it explicitly. */}
+                  be, for a visitor who isn't signed in too (the shelf then has its
+                  own 🏠 to the root). PreschoolButton links with next/link, which
+                  knows nothing about the locale, so the href carries it explicitly. */}
               <PreschoolButton
                 href={`/${locale}/subjects`}
                 icon="🏠"

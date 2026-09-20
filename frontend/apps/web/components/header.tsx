@@ -2,10 +2,10 @@
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useTranslations } from "next-intl";
-import { useQueryClient } from "@tanstack/react-query";
-import { Link, useRouter } from "@/i18n/navigation";
-import { useAuthStore, useIsPreschoolStudent } from "@school-ahead/api-client";
-import { useLogout, getMeQueryKey } from "@school-ahead/api-client/browser/auth/auth";
+import { Link, usePathname } from "@/i18n/navigation";
+import { useAuthStore, useIsGuest, useIsPreschoolStudent } from "@school-ahead/api-client";
+import { isPublicCataloguePage } from "@/lib/preschool-chrome";
+import { useSignOut } from "@/lib/use-sign-out";
 import { MainMenu } from "@/components/main-menu";
 import { TutorMainMenu } from "@/components/tutor-main-menu";
 import { PreschoolModeToggle } from "@/components/preschool-mode-toggle";
@@ -87,23 +87,11 @@ function BrandIcon() {
 
 export function Header() {
   const t = useTranslations("Header");
-  const router = useRouter();
-  const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const isPreschoolStudent = useIsPreschoolStudent();
-  const clearUser = useAuthStore((state) => state.clear);
-
-  const logout = useLogout();
-
-  const handleLogout = () => {
-    logout.mutate(undefined, {
-      onSettled: () => {
-        clearUser();
-        queryClient.removeQueries({ queryKey: getMeQueryKey() });
-        router.push("/login");
-      },
-    });
-  };
+  const isGuest = useIsGuest();
+  const pathname = usePathname();
+  const { signOut: handleLogout } = useSignOut();
 
   // A student in preschool mode has no classic site header at all: the
   // dashboard has a top row of its own (greeting, diamonds, the mode switch),
@@ -111,6 +99,12 @@ export function Header() {
   // (docs/interfaces/student/preschool/lesson.md), and the other pages get a
   // slim strip with a 🏠 — see components/preschool/chrome.tsx.
   if (isPreschoolStudent) {
+    return null;
+  }
+  // A visitor who isn't signed in has none either on the public catalogue (the
+  // bookshelf and a subject): those show only a 🏠 to the root — see
+  // lib/preschool-chrome.ts and components/preschool/chrome.tsx.
+  if (isGuest && isPublicCataloguePage(pathname)) {
     return null;
   }
 

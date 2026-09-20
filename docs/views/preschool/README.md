@@ -62,9 +62,10 @@ it:
   (`/lessons`, the road below), **Предмети** 📚 (`/subjects`), **Календар** 📅
   (`/calendar`), **Ігри** 🎈 (`/games`), **Казки** 🧚 (`/games/stories`) and
   **Профіль** (`/profile`), which shows the child's own dressed avatar (the
-  raccoon until they have picked one) instead of an emoji. The switch is the
-  way back to the classic mode, and so the way to log out, which lives in the
-  classic header's menu.
+  raccoon until they have picked one) instead of an emoji. A waving **👋** preschool
+  button beside them says bye: it signs the child out (`lib/use-sign-out.ts`, shared
+  with the classic header's menu) and goes to the login page — the header's menu was
+  the only place for that. The mode switch is the way back to the classic mode.
 * **The 💎 balance and the preschool-mode switch on every page.** The dashboard
   has them in its top row; every other preschool page has the same two as small
   pills fixed in the **bottom-right corner** (`components/preschool/chrome.tsx`,

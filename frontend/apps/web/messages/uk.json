@@ -393,6 +393,7 @@
   "PreschoolDashboard": {
     "greeting": "Привіт, {name}!",
     "greetingNoName": "Привіт!",
+    "bye": "Бувай! (вийти з акаунта)",
     "navLabel": "Розділи",
     "lessons": "Мої уроки",
     "subjects": "Предмети",

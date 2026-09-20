@@ -22,3 +22,18 @@ export function preschoolHomeKind(pathname: string): PreschoolHomeKind {
   if (CORNER_PATTERNS.some((pattern) => pattern.test(pathname))) return "corner";
   return "strip";
 }
+
+// A visitor who isn't signed in can browse the public catalogue — the bookshelf
+// (`/subjects`) and one subject (`/subjects/<id>`), see docs/core/public_access.md
+// — and there, too, has no classic site header: just a 🏠 to the root (`/`). The
+// bookshelf gets it fixed in the top-left corner (its content is centred and clears
+// the corner); the subject page has one of its own, in its header row, which goes
+// back to the bookshelf — so the way home from a subject is subject → shelf → root.
+export function isPublicCataloguePage(pathname: string): boolean {
+  return /^\/subjects(\/\d+)?$/.test(pathname);
+}
+
+export function guestHomeKind(pathname: string): PreschoolHomeKind {
+  return /^\/subjects$/.test(pathname) ? "corner" : "none";
+}
+
