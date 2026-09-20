@@ -16,6 +16,7 @@ import { PreschoolOptionsGear } from "./options-gear";
 import {
   groupsForDisplay,
   subjectsForDisplay,
+  DEFAULT_SUBJECTS_DISPLAY_MODE,
   SUBJECTS_DISPLAY_MODES,
   type SubjectsDisplayMode,
 } from "./subjects-display";
@@ -167,23 +168,26 @@ function FilterPill({
 }
 
 const NO_FAVORITES: ReadonlySet<number> = new Set();
+const PUBLIC_DISPLAY_MODES: SubjectsDisplayMode[] = ["marked", "all"];
 
 // The shelf itself — the category filter and the books — for whichever
 // subjects it is handed. The two exports below only differ in where those come
-// from, whether a book shows progress, and whether the student can choose what
-// the shelf shows (a visitor who isn't signed in always sees every subject).
+// from, whether a book shows progress, and which views the ⚙️ offers (`modes`:
+// a visitor who isn't signed in has no favourites, so no such view).
 function SubjectsShelf({
   subjects: fetchedSubjects,
   favoriteIds,
   isLoading,
   isError,
   isStudent,
+  modes,
 }: {
   subjects: ShelfSubject[];
   favoriteIds: ReadonlySet<number>;
   isLoading: boolean;
   isError: boolean;
   isStudent: boolean;
+  modes: SubjectsDisplayMode[];
 }) {
   const t = useTranslations("PreschoolSubjects");
   const pathname = usePathname();
@@ -191,7 +195,10 @@ function SubjectsShelf({
   const { data: subjectGroups } = useListSubjectGroups();
   const chosenMode = useSubjectsDisplayStore((state) => state.mode);
   const setMode = useSubjectsDisplayStore((state) => state.setMode);
-  const mode: SubjectsDisplayMode = isStudent ? chosenMode : "all";
+  // The choice is remembered on the device, so it can be a view this shelf
+  // doesn't offer — "favourites", chosen while signed in, then a visitor on the
+  // same device — in which case the default one shows.
+  const mode: SubjectsDisplayMode = modes.includes(chosenMode) ? chosenMode : DEFAULT_SUBJECTS_DISPLAY_MODE;
 
   // What the ⚙️ chose (see subjects-display.ts), then — of what is left — the
   // categories worth offering: an empty one would just be a dead end. Groups
@@ -221,26 +228,22 @@ function SubjectsShelf({
       {/* The ⚙️ is pinned to the screen's top-right corner, like the minigames'
           (out of the layout), so the column below clears it: on screens too
           narrow to leave room beside the column it starts lower. */}
-      {isStudent && (
-        <div className="absolute right-3 top-3 z-20">
-          <PreschoolOptionsGear
-            value={mode}
-            options={SUBJECTS_DISPLAY_MODES.map((option) => ({
-              value: option,
-              emoji: DISPLAY_MODE_EMOJI[option],
-              label: t(`display.${option}`),
-            }))}
-            onChange={setMode}
-            buttonLabel={t("settingsButton")}
-            title={t("displayTitle")}
-          />
-        </div>
-      )}
+      <div className="absolute right-3 top-3 z-20">
+        <PreschoolOptionsGear
+          value={mode}
+          options={modes.map((option) => ({
+            value: option,
+            emoji: DISPLAY_MODE_EMOJI[option],
+            label: t(`display.${option}`),
+          }))}
+          onChange={setMode}
+          buttonLabel={t("settingsButton")}
+          title={t("displayTitle")}
+        />
+      </div>
 
       <div
-        className={`relative mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 p-4 sm:p-6 ${
-          isStudent ? "pt-14 sm:pt-14 xl:pt-6" : ""
-        }`}
+        className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 p-4 pt-14 sm:p-6 sm:pt-14 xl:pt-6"
       >
         {/* No visible heading, but the page keeps its <h1> for screen readers. */}
         <h1 className="sr-only">{t("title")}</h1>
@@ -310,13 +313,15 @@ export function PreschoolSubjectsShelf() {
       isLoading={isLoading || favorites.isLoading}
       isError={isError}
       isStudent
+      modes={SUBJECTS_DISPLAY_MODES}
     />
   );
 }
 
 // The same shelf for a visitor who isn't signed in: every subject of every
-// class marked public (Class.is_public), no progress, no choice of what to
-// show. See docs/core/public_access.md.
+// class marked public (Class.is_public), no progress, and a ⚙️ with two views —
+// what a tutor marked (the default) and everything; no favourites without an
+// account. See docs/core/public_access.md.
 export function PreschoolPublicSubjectsShelf() {
   const { data, isLoading, isError } = useListPublicSubjects();
   const subjects = useMemo(() => data ?? [], [data]);
@@ -327,6 +332,7 @@ export function PreschoolPublicSubjectsShelf() {
       isLoading={isLoading}
       isError={isError}
       isStudent={false}
+      modes={PUBLIC_DISPLAY_MODES}
     />
   );
 }

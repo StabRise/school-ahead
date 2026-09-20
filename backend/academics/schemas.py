@@ -122,6 +122,8 @@ class PublicSubjectOut(Schema):
     name: str
     icon: str | None
     group_id: int | None
+    # Shown in the shelf's default "marked by tutor" view — see Subject.is_marked.
+    is_marked: bool
 
     @staticmethod
     def resolve_icon(obj, context):

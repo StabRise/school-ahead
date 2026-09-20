@@ -359,7 +359,10 @@ The ⚙️ in the top-right corner picks **which subjects and categories show**
 
 A category is only offered when at least one subject of the current view
 belongs to it. The visitor-facing shelf (signed out, see
-`docs/core/public_access.md`) has no ⚙️ and always shows every subject.
+`docs/core/public_access.md`) has the ⚙️ too, with two views — **marked** (the
+default) and **all**; there are no favourites without an account, and a
+"favourites" choice remembered from a signed-in session on the same device falls
+back to the default.
 
 ### Subject page (`/subjects/[id]`)
 
