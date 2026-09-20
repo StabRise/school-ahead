@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useGetPublicLesson } from "@school-ahead/api-client/browser/public/public";
-import { Link } from "@/i18n/navigation";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { ExitButton, MagicScreen, PreschoolLessonScene } from "@/components/preschool/lesson-view";
 
 // A lesson for a visitor who isn't signed in — the preschool lesson screen's
@@ -26,12 +26,9 @@ export function PreschoolPublicLessonView({ lessonId }: { lessonId: number }) {
 
       {data && (
         <MagicScreen title={data.title} content={data.content}>
-          <Link
-            href="/login"
-            className="rounded-full bg-emerald-500 px-8 py-4 text-xl font-extrabold text-white shadow-xl transition-transform active:scale-95"
-          >
+          <GoogleSignInButton className="rounded-full bg-emerald-500 px-8 py-4 text-xl font-extrabold text-white shadow-xl transition-transform group-active:scale-95">
             {t("guestLoginButton")} 🔑
-          </Link>
+          </GoogleSignInButton>
         </MagicScreen>
       )}
     </PreschoolLessonScene>

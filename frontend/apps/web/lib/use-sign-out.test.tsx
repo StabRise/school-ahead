@@ -60,7 +60,7 @@ describe("useSignOut", () => {
     expect(mutate).toHaveBeenCalledTimes(1);
   });
 
-  it("forgets the user, drops the cached `me` and goes to the login page once that is done", () => {
+  it("forgets the user, drops the cached `me` and goes to the home page once that is done", () => {
     signOut();
     const { onSettled } = mutate.mock.calls[0][1] as { onSettled: () => void };
 
@@ -68,7 +68,7 @@ describe("useSignOut", () => {
 
     expect(useAuthStore.getState().user).toBeNull();
     expect(removeQueries).toHaveBeenCalledWith({ queryKey: ["/api/auth/me"] });
-    expect(push).toHaveBeenCalledWith("/login");
+    expect(push).toHaveBeenCalledWith("/");
   });
 
   it("does not ask twice while it is already signing out", () => {

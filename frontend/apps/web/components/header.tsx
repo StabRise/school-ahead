@@ -115,20 +115,19 @@ function GoogleIcon() {
 function GuestNav() {
   const t = useTranslations("Header");
   const links = [
-    { href: "/subjects", label: t("subjects"), note: t("subjectsNote") },
-    { href: "/games/stories", label: t("stories"), note: null },
-    { href: "/games", label: t("games"), note: null },
+    { href: "/subjects", label: t("subjects") },
+    { href: "/games/stories", label: t("stories") },
+    { href: "/games", label: t("games") },
   ] as const;
   return (
     <nav aria-label={t("mainMenu")} className="hidden items-center gap-6 sm:flex">
-      {links.map(({ href, label, note }) => (
+      {links.map(({ href, label }) => (
         <Link
           key={href}
           href={href}
           className="rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
         >
           {label}
-          {note && <span className="ml-1 hidden text-xs font-normal text-gray-500 md:inline">{note}</span>}
         </Link>
       ))}
     </nav>

@@ -5,7 +5,7 @@ import { getMeQueryKey, useLogout } from "@school-ahead/api-client/browser/auth/
 import { useAuthStore } from "@school-ahead/api-client";
 import { useRouter } from "@/i18n/navigation";
 
-// Signs the user out and goes to the login page: the server ends the session,
+// Signs the user out and goes to the home page (the landing page, once signed out): the server ends the session,
 // then — whether or not that succeeded, so a failed request never leaves the
 // screen looking signed in — the local user is forgotten and the cached `me`
 // dropped. Shared by the classic header's menu and the preschool dashboard's
@@ -22,7 +22,7 @@ export function useSignOut() {
       onSettled: () => {
         clearUser();
         queryClient.removeQueries({ queryKey: getMeQueryKey() });
-        router.push("/login");
+        router.push("/");
       },
     });
   };

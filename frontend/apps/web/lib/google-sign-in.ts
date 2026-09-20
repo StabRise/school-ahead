@@ -6,7 +6,7 @@ import { googleLogin } from "@school-ahead/api-client/browser/auth/auth";
 import { useRouter } from "@/i18n/navigation";
 
 // Google Identity Services, shared by every sign-in button on the page: the
-// login page's own button, the header's and the landing page's. GIS is
+// header's, the landing page's and the public lesson's (`GoogleSignInButton`). GIS is
 // initialised once per page load — a second `initialize()` only logs a warning
 // and replaces the first callback — so the credential callback below lives at
 // module level and every button just reports its state from here.
