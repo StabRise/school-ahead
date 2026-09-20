@@ -327,9 +327,8 @@ function StoryAudioButton({
       label={label}
       onClick={handleClick}
       ringColorClassName="ring-sky-400"
-      sizeClassName="h-10 w-10"
       position="static"
-      className="not-prose mx-0.5 inline-flex align-middle text-xl"
+      className="not-prose mx-0.5 inline-flex align-middle"
     />
   );
 }

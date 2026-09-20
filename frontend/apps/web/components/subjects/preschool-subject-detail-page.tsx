@@ -182,10 +182,9 @@ function FavoriteSubjectButton({ subjectId }: { subjectId: number }) {
 
   return (
     <PreschoolButton
-      icon={<HeartIcon filled={isFavorite} />}
+      icon={<HeartIcon filled={isFavorite} className="h-5 w-5" />}
       label={isFavorite ? t("favoriteSubjectRemoveLabel") : t("favoriteSubjectAddLabel")}
       ringColorClassName="ring-rose-400"
-      sizeClassName="h-14 w-14"
       position="static"
       className="shrink-0"
       onClick={handleClick}
@@ -359,12 +358,10 @@ function PreschoolSubjectScreen({
                 icon="🏠"
                 label={t("backToShelf")}
                 ringColorClassName="ring-emerald-400"
-                sizeClassName="h-14 w-14"
                 position="static"
                 className="shrink-0"
               />
               <h1 className="text-xl font-extrabold text-purple-800 sm:text-2xl">{subject.name} ✨</h1>
-              {!guest && <FavoriteSubjectButton subjectId={subjectId} />}
             </div>
 
             {!guest && (
@@ -373,6 +370,8 @@ function PreschoolSubjectScreen({
                   <Star className="size-4 fill-rose-500 text-rose-500" aria-hidden="true" />
                   {t("pointsLabel", { count: points })}
                 </span>
+                {/* Just before the ⚙️ in the corner. */}
+                <FavoriteSubjectButton subjectId={subjectId} />
                 <PreschoolLessonsFilterButton onChange={() => setVisibleCount(PAGE_SIZE)} />
               </div>
             )}

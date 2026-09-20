@@ -47,9 +47,9 @@ export function ExitButton({ subjectId }: { subjectId: number | null }) {
       type="button"
       onClick={() => router.push(currentLessonExitHref(subjectId))}
       aria-label={t("exitLabel")}
-      className="absolute left-6 top-6 z-20 flex h-16 w-16 items-center justify-center rounded-full bg-white text-orange-600 shadow-xl ring-4 ring-orange-400/50 transition-all duration-200 hover:scale-110 hover:bg-orange-50 hover:ring-orange-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      className="absolute left-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white text-orange-600 shadow-lg ring-2 ring-orange-400/50 transition-all duration-200 hover:scale-110 hover:bg-orange-50 hover:ring-orange-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
     >
-      <svg viewBox="0 0 24 24" className="h-8 w-8 stroke-[2.5]" aria-hidden="true">
+      <svg viewBox="0 0 24 24" className="h-5 w-5 stroke-[2.5]" aria-hidden="true">
         <path
           d="M4 12L12 5l8 7M6 10.5V19h4v-5h4v5h4v-8.5"
           stroke="currentColor"
@@ -62,12 +62,22 @@ export function ExitButton({ subjectId }: { subjectId: number | null }) {
   );
 }
 
-// The heart beside the exit button — marks (or unmarks) the lesson as one of
+// The heart in the top-right corner — marks (or unmarks) the lesson as one of
 // the child's favourites (StudentLesson.is_favorite). Lives on the screen
-// itself, not in either step, so it's there for the whole lesson. The heart
+// itself, not in either step, so it's there for the whole lesson: just left of
+// the "next" arrow while that is showing (`besideNextArrow`, the first step),
+// in the corner itself once it isn't. The heart
 // flips at once and is rolled back if the request fails: a child taps it and
 // expects an instant answer, not a wait on the network.
-function FavoriteButton({ studentLessonId, isFavorite }: { studentLessonId: number; isFavorite: boolean }) {
+function FavoriteButton({
+  studentLessonId,
+  isFavorite,
+  besideNextArrow,
+}: {
+  studentLessonId: number;
+  isFavorite: boolean;
+  besideNextArrow: boolean;
+}) {
   const t = useTranslations("PreschoolLesson");
   const queryClient = useQueryClient();
   const setFavorite = useSetStudentLessonFavorite();
@@ -86,12 +96,11 @@ function FavoriteButton({ studentLessonId, isFavorite }: { studentLessonId: numb
 
   return (
     <PreschoolButton
-      icon={<HeartIcon filled={isFavorite} />}
+      icon={<HeartIcon filled={isFavorite} className="h-5 w-5" />}
       label={isFavorite ? t("favoriteRemoveLabel") : t("favoriteAddLabel")}
       ringColorClassName="ring-rose-400"
-      sizeClassName="h-16 w-16"
       position="static"
-      className="absolute left-28 top-6"
+      className={`absolute top-4 ${besideNextArrow ? "right-16" : "right-4"}`}
       onClick={handleClick}
     />
   );
@@ -127,7 +136,6 @@ function ReportProblemButton({ studentLessonId, isReported }: { studentLessonId:
       icon={isReported ? "✅" : "⚠️"}
       label={isReported ? t("problemReportedLabel") : t("reportProblemLabel")}
       ringColorClassName={isReported ? "ring-emerald-400" : "ring-amber-400"}
-      sizeClassName="h-16 w-16"
       position="bottom-left"
       onClick={handleClick}
     />
@@ -144,9 +152,9 @@ function NextButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-label={t("continueButton")}
-      className="absolute right-6 top-6 z-20 flex h-16 w-16 items-center justify-center rounded-full bg-white text-emerald-600 shadow-xl ring-4 ring-emerald-400/50 transition-all duration-200 hover:scale-110 hover:bg-emerald-50 hover:ring-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white text-emerald-600 shadow-lg ring-2 ring-emerald-400/50 transition-all duration-200 hover:scale-110 hover:bg-emerald-50 hover:ring-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
     >
-      <svg viewBox="0 0 24 24" className="h-8 w-8 stroke-[2.5]" aria-hidden="true">
+      <svg viewBox="0 0 24 24" className="h-5 w-5 stroke-[2.5]" aria-hidden="true">
         <path
           d="M5 12h14M13 5l7 7-7 7"
           stroke="currentColor"
@@ -333,7 +341,13 @@ export function PreschoolLessonView({ studentLessonId }: { studentLessonId: numb
   return (
     <PreschoolLessonScene>
       <ExitButton subjectId={data?.lesson.subject_id ?? null} />
-      {data && <FavoriteButton studentLessonId={studentLessonId} isFavorite={data.is_favorite} />}
+      {data && (
+        <FavoriteButton
+          studentLessonId={studentLessonId}
+          isFavorite={data.is_favorite}
+          besideNextArrow={step === "theory"}
+        />
+      )}
       {data && <ReportProblemButton studentLessonId={studentLessonId} isReported={data.lesson.need_review} />}
 
       {isLoading && <p className="relative m-auto text-lg font-medium text-emerald-900">{t("loading")}</p>}

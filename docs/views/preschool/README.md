@@ -210,8 +210,13 @@ previous in-app route that `RouteTracker` (mounted in the root layout) keeps in
 be opened from the dashboard's game map, the calendar, a backlog bubble, the
 subject page or the lesson preview, so links aren't tagged individually.
 
-A heart `PreschoolButton` (`FavoriteButton`) sits next to the exit button and
-marks the lesson as one of the child's favourites — `StudentLesson.is_favorite`,
+All the round buttons on this screen — the exit 🏠 (top-left), the "next" arrow
+and the heart (top-right, the heart just left of the arrow while the arrow shows,
+in the corner itself once it doesn't) and the ⚠️ below — are the same 36px size
+as a screen's ⚙️: `PreschoolButton` is compact by default (`compact={false}` with a
+`sizeClassName` gives a big one).
+
+A heart `PreschoolButton` (`FavoriteButton`) marks the lesson as one of the child's favourites — `StudentLesson.is_favorite`,
 set through `PATCH /student-lessons/{id}/favorite`. The heart flips at once
 and is rolled back if the request fails.
 
@@ -325,11 +330,11 @@ Component: `preschool-subject-detail-page.tsx` → `PreschoolSubjectDetailPage`
 (the bookshelf at `/subjects`, `subjects-shelf.tsx`, leads here). One grid
 of lesson cards with one tab per topic (big pill buttons, scrolling sideways
 when there are many; hidden when only one topic has lessons to show), headed by
-a 🏠 `PreschoolButton` back to the shelf, the subject name, a ❤️ that marks the
+a 🏠 `PreschoolButton` back to the shelf, the subject name, a ❤️ (at the right, before the ⚙️) that marks the
 subject as a favourite (`FavoriteSubject` — per student, so it follows them
 between devices; `PATCH /student-lessons/subjects/{id}/favorite`,
 `GET /student-lessons/favorite-subjects`; not shown to a signed-out visitor) and
-the points badge. Semester blocks (`SubjectBlock`) are not shown here. The open
+the points badge — the ❤️ sits at the right, just before the ⚙️. Semester blocks (`SubjectBlock`) are not shown here. The open
 topic is kept in `?topic=<id>`, so coming back from a lesson lands on the same
 tab; a topic with no lessons left under the current filter gets no tab.
 

@@ -27,8 +27,14 @@ interface PreschoolButtonBaseProps {
   // docs/interfaces (round, bold-colored border is the whole point: a
   // young child needs a big obvious target, not a subtle affordance).
   ringColorClassName?: string;
-  // Tailwind `h-*/w-*` sizing, e.g. "h-14 w-14".
+  // Tailwind `h-*/w-*` sizing, e.g. "h-14 w-14" — only for a `compact={false}`
+  // button; a compact one has the one size below.
   sizeClassName?: string;
+  // The size of the ⚙️ every screen's settings button has (36px, a thin ring, a
+  // smaller glyph — see PreschoolOptionsGear), so every button in a header
+  // matches it. The default; pass `compact={false}` (with `sizeClassName`) for
+  // a big one.
+  compact?: boolean;
   position?: PreschoolButtonPosition;
   // Escape hatch for one-off positioning tweaks (e.g. a fixed button that
   // needs a different corner offset than the presets above) or a z-index
@@ -46,23 +52,25 @@ type PreschoolButtonAction = { href: string; onClick?: never } | { href?: never;
 
 export type PreschoolButtonProps = PreschoolButtonBaseProps & PreschoolButtonAction;
 
-// The one "cute button" building block behind every big, round,
-// thick-bordered, bouncy-on-hover control a preschool screen needs (a home
-// button, say) — see globals.css's `.preschool-button` class for the
-// hop/scale feel itself, kept as plain CSS there so every consumer shares
-// it with nothing to keep in sync.
+// The one "cute button" building block behind every round, bold-ringed,
+// bouncy-on-hover control a preschool screen needs (a home button, say) — the
+// size of the ⚙️ unless told otherwise (`compact`). See globals.css's
+// `.preschool-button` class for the hop/scale feel itself, kept as plain CSS
+// there so every consumer shares it with nothing to keep in sync.
 export function PreschoolButton({
   icon,
   label,
   ringColorClassName = "ring-emerald-400",
   sizeClassName = "h-14 w-14",
+  compact = true,
   position = "top-left",
   className = "",
   onActivate,
   href,
   onClick,
 }: PreschoolButtonProps) {
-  const sharedClassName = `preschool-button z-30 flex ${sizeClassName} cursor-pointer items-center justify-center rounded-full bg-white text-3xl shadow-lg ring-4 ${ringColorClassName} ${POSITION_CLASSES[position]} ${className}`;
+  const shape = compact ? "h-9 w-9 text-lg ring-2" : `${sizeClassName} text-3xl ring-4`;
+  const sharedClassName = `preschool-button z-30 flex ${shape} cursor-pointer items-center justify-center rounded-full bg-white shadow-lg ${ringColorClassName} ${POSITION_CLASSES[position]} ${className}`;
 
   if (href) {
     return (
