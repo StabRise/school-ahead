@@ -11,6 +11,9 @@ import { routing } from "@/i18n/routing";
 // game/story also gets its own nested public link (e.g.
 // "/games/stories/<storySlug>"), hence the prefix match below rather than
 // exact equality.
+//
+// "/about" is the landing page's "Дізнатися більше" page (an exact match, no
+// sub-pages).
 const PUBLIC_PREFIXES = ["/login", "/games"];
 
 // The read-only public catalogue (docs/core/public_access.md): the bookshelf,
@@ -18,7 +21,7 @@ const PUBLIC_PREFIXES = ["/login", "/games"];
 // /subjects/... (a topic page) and /lessons/... (a student's own lesson) stay
 // behind the login. Which subjects and lessons actually exist for a visitor is
 // decided by the API (Class.is_public), not here.
-const PUBLIC_PATTERNS = [/^\/subjects\/?$/, /^\/subjects\/\d+\/?$/, /^\/lessons\/preview\/\d+\/?$/];
+const PUBLIC_PATTERNS = [/^\/about\/?$/, /^\/subjects\/?$/, /^\/subjects\/\d+\/?$/, /^\/lessons\/preview\/\d+\/?$/];
 
 // The first segment is only a real locale when it's one next-intl actually
 // serves — a client-side `router.push`/`Link href` built from a plain,

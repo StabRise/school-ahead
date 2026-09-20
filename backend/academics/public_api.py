@@ -18,7 +18,13 @@ from ninja import Query, Router
 from lessons import services as lesson_services
 from lessons.api import lesson_preview_out, lessons_page_out, subject_lessons_out
 from lessons.models import Lesson
-from lessons.schemas import LessonPreviewOut, LessonTopicOut, SubjectLessonOut, SubjectLessonPageOut
+from lessons.schemas import (
+    LessonPreviewOut,
+    LessonTopicOut,
+    PlaylistTrackOut,
+    SubjectLessonOut,
+    SubjectLessonPageOut,
+)
 
 from .models import Subject, Topic
 from .schemas import PublicSubjectOut, TopicOut
@@ -95,6 +101,19 @@ def list_public_subject_lessons_page(
     subject = get_object_or_404(_public_subjects(), id=subject_id)
     lessons = lesson_services.visible_subject_lessons(subject.id, None, 'all').filter(topic_id=topic_id)
     return lessons_page_out(lessons, None, limit, offset, request)
+
+
+@router.get(
+    '/subjects/{subject_id}/playlist',
+    response=list[PlaylistTrackOut],
+    operation_id='list_public_subject_playlist',
+)
+def list_public_subject_playlist(request: HttpRequest, subject_id: int, topic_id: int):
+    """The songs of one topic — the tab that is open — for the ▶ player: every
+    lesson of it with a YouTube link, in lesson order (see
+    lessons.services.topic_playlist)."""
+    subject = get_object_or_404(_public_subjects(), id=subject_id)
+    return lesson_services.topic_playlist(subject.id, topic_id)
 
 
 @router.get('/lessons/{lesson_id}', response=LessonPreviewOut, operation_id='get_public_lesson')

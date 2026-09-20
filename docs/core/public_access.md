@@ -45,6 +45,7 @@ allowlist — the authenticated routers stay exactly as they were (they still
 | `GET /public/subjects/{id}` | `PublicSubjectOut` |
 | `GET /public/subjects/{id}/topics` | `TopicOut[]` |
 | `GET /public/subjects/{id}/lessons` | `SubjectLessonOut[]`, every `student_*` field null |
+| `GET /public/subjects/{id}/playlist?topic_id=` | `PlaylistTrackOut[]` — the songs of one topic for the ▶ player: one track (`lesson_id`, `title`, `video_id`, `lesson_type`) per lesson with a YouTube link, in lesson order; the student-only fields (`student_lesson_id`, `status`, `is_favorite`) are empty |
 | `GET /public/subjects/{id}/lesson-topics` | `LessonTopicOut[]` — the subject page's tabs: the topics that have lessons, each with a count |
 | `GET /public/subjects/{id}/lessons-page?topic_id=&limit=&offset=` | `SubjectLessonPageOut` — one topic's lessons `limit` (default 10) at a time, with the total; what the subject page loads as the visitor scrolls |
 | `GET /public/lessons/{id}` | `LessonPreviewOut` (content, task text, attachments), `student_lesson_id` null |
@@ -74,9 +75,45 @@ allowlist — the authenticated routers stay exactly as they were (they still
   signed-in student never flashes the public screens (or fires their requests).
   `/auth/me` is not retried on a `401` (`shouldRetryMe`): the default three
   retries with backoff would have delayed "you're signed out" by ~7 s.
-* **Header and home page.** A signed-out visitor gets a "Предмети" link next to
-  "Ігри" and "Увійти" in the header, and the home page (`/uk`) body has the same
-  three: sign in, browse subjects, play games.
+* **Header and home page.** A signed-out visitor's header has "Предмети
+  (демо, дошкільнята)" (the note only from `md` up), "Казки" and "Ігри" next to the
+  brand (all hidden below the `sm` breakpoint) and an "Увійти через Google" button.
+  The home page (`/uk`) is the landing page (`components/landing/landing-page.tsx`): a
+  hero with an "Увійти через Google" button and a "Дізнатися більше" one (→ `/about`,
+  below), then three cards — subjects (also marked "(демо, дошкільнята)"; `/subjects`),
+  fairy tales (`/games/stories`) and games (`/games`). Its art is in
+  `public/images/landing/`.
+* **Sign-in buttons go straight to Google.** Every "Увійти через Google" button (header,
+  landing, `/about`) is a `GoogleSignInButton` (`components/google-sign-in-button.tsx`):
+  one click opens Google's account chooser — there is no stop at `/login`. Google only
+  gives a page an ID token through the button it draws itself, so that button is laid
+  over ours, stretched to its size and nearly transparent. Until the Google script has
+  loaded (or if it can't, or `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is unset) the button is an
+  ordinary link to `/login`. The credential handling (`POST /auth/google`, the auth
+  store, then `/`) and the once-per-page Google initialisation are shared with the
+  `/login` page in `lib/google-sign-in.ts`.
+* **"Дізнатися більше" — `/about`** (`components/landing/about-page.tsx`, an exact
+  public pattern in `lib/public-paths.ts`). Explains the platform to a visitor: working
+  ahead and diamonds, the two interface modes (the preschool mode for the middle and
+  senior kindergarten groups, and the school student mode, with two screenshots in
+  `public/images/landing/`), the nine preschool minigames (covers from
+  `public/static/*/cover*.jpeg`, each linking to its `/games/...` route) and the note
+  that what a visitor can open — the subjects and the games — is the preschool mode.
+  Copy is in the `About` namespace of `messages/uk.json`.
+* **Lessons open, or play fullscreen.** The bookshelf's ⚙️ (visitors have it too) also
+  chooses what tapping a lesson on a subject page does — and a subject page's own ⚙️ (a
+  visitor's holds only this) can override it for that subject: *open the lesson* (the preview,
+  as before) or *play the video fullscreen* in the subject page's ▶ player, from that
+  lesson on — see `docs/views/preschool/README.md` (Bookshelf, Subject page). A visitor
+  gets no ✅ or ❤️ in the player: they have no `StudentLesson`.
+* **No site header on the catalogue itself.** On `/subjects` and `/subjects/<id>` a
+  visitor sees the preschool-style page and no classic header (`Header` renders
+  nothing there — `isPublicCataloguePage` in `lib/preschool-chrome.ts`). What is left
+  is a 🏠 preschool button: on the bookshelf, fixed in the top-left corner, to the
+  root (`/`) (`PreschoolChrome`); on a subject page, the 🏠 in the top row of the
+  card, back to the bookshelf (`/subjects`) — as it is for a student — so the way home
+  from a subject is subject → shelf → root. Everything else they can open (the home
+  page, the games, the login) keeps the header.
 * A signed-in user who opens `/lessons/preview/{id}` gets the student preview
   as before (`403` unless `can_do_any_lesson`); only visitors use the public one.
 

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { Star } from "lucide-react";
-import { Cloud, PreschoolButton, Raccoon, Sun } from "@school-ahead/preschool-ui";
+import { Cloud, PreschoolButton, Raccoon, Sun, useLessonOpenMode } from "@school-ahead/preschool-ui";
 import { AvatarBadge, useEquippedAvatarLayers } from "@school-ahead/avatar";
 import { useGetSubject } from "@school-ahead/api-client/browser/academics/academics";
 import { useGetPublicSubject } from "@school-ahead/api-client/browser/public/public";
@@ -23,6 +23,7 @@ import {
 import { getGetTodayQueryKey } from "@school-ahead/api-client/browser/schedule/schedule";
 import type {
   LessonTopicOut,
+  PlaylistTrackOut,
   SubjectLessonOut,
   SubjectProgressOut,
 } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
@@ -34,7 +35,14 @@ import { PreschoolLessonTile } from "@/components/subjects/preschool-lesson-tile
 import { PreschoolLessonsFilterButton } from "@/components/subjects/preschool-lessons-filter-button";
 import { ProgressBar } from "@/components/progress-bar";
 import { useDialogs } from "@/components/dialogs/app-dialogs";
-import { useSubjectLessonPages, useSubjectLessonTabs } from "@/components/subjects/use-subject-lessons";
+import { SubjectPlayer } from "@/components/subjects/subject-player";
+import { PlayerTrackActions } from "@/components/subjects/subject-player-actions";
+import {
+  useSubjectLessonPages,
+  useSubjectLessonTabs,
+  useSubjectPlaylist,
+} from "@/components/subjects/use-subject-lessons";
+import { loadYouTubeIframeApi } from "@/lib/youtube-iframe-api";
 
 // The student's dressed companion — same CompanionAvatar idiom as
 // game-map.tsx/calendar-view.tsx (preschool-ui), just kept local here since
@@ -103,13 +111,32 @@ function PreschoolLessonCard({
   subjectId,
   subjectIcon,
   guest,
+  onPlay,
 }: {
   lesson: SubjectLessonOut;
   index: number;
   subjectId: number;
   subjectIcon: string | null;
   guest: boolean;
+  // Set when the bookshelf's ⚙️ says lessons play fullscreen and this one has a
+  // video: the card plays it in the player instead of opening the lesson (and
+  // starts nothing — a lesson a student has no StudentLesson for yet gets one
+  // only if they tap the player's ✅ or ❤️).
+  onPlay: (() => void) | undefined;
 }) {
+  if (onPlay) {
+    return (
+      <PreschoolLessonTile
+        onClick={onPlay}
+        icon={lesson.icon}
+        subjectIcon={subjectIcon}
+        lessonType={lesson.lesson_type}
+        title={lesson.title}
+        index={index}
+      />
+    );
+  }
+
   // A visitor who isn't signed in has no StudentLesson and can't start one —
   // a card just opens the read-only lesson (PreschoolPublicLessonView).
   if (guest) {
@@ -175,6 +202,28 @@ function FavoriteSubjectButton({ subjectId }: { subjectId: number }) {
       position="static"
       className="shrink-0"
       onClick={handleClick}
+    />
+  );
+}
+
+// The ▶ in the header — plays every song of the open topic (tab), one after
+// another, in an overlay player (SubjectPlayer, rendered by the screen). Only shown
+// when the topic has songs (lessons with a YouTube link); for a visitor who isn't
+// signed in too. The songs are fetched once the page has loaded (and again for each
+// tab opened), and YouTube's player script is fetched with them (by the screen), so a
+// tap can start playing right away, inside the tap — the sound is allowed because
+// the child asked for it.
+function PlayAllButton({ tracks, onPlay }: { tracks: PlaylistTrackOut[] | undefined; onPlay: () => void }) {
+  const t = useTranslations("PreschoolSubjectDetail.player");
+  if (!tracks || tracks.length === 0) return null;
+  return (
+    <PreschoolButton
+      icon="▶️"
+      label={t("playAll")}
+      onClick={onPlay}
+      ringColorClassName="ring-emerald-400"
+      position="static"
+      className="shrink-0"
     />
   );
 }
@@ -287,6 +336,38 @@ function PreschoolSubjectScreen({
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, sentinel, shownLessons.length, fetchNextPage]);
 
+  // The open topic's songs: the ▶ in the header plays them all, and — when the
+  // bookshelf's ⚙️ says lessons play fullscreen — tapping a lesson with a video plays
+  // from that lesson on. One player, open or not (`player`), from the first song or
+  // from the tapped one. It keeps the topic and the songs it was opened with: a ✅ in
+  // it can empty the topic's tab (under the "available" filter) and the page behind
+  // moves to another tab, which must not pull the player along.
+  const tracks = useSubjectPlaylist(subjectId, activeTab?.id, guest).data;
+  const hasSongs = (tracks?.length ?? 0) > 0;
+  useEffect(() => {
+    if (hasSongs) void loadYouTubeIframeApi().catch(() => {});
+  }, [hasSongs]);
+  const trackIndexByLesson = useMemo(
+    () => new Map((tracks ?? []).map((track, position) => [track.lesson_id, position])),
+    [tracks],
+  );
+  // This subject's own choice (its ⚙️), else the bookshelf's.
+  const lessonOpenMode = useLessonOpenMode(subjectId);
+  const [player, setPlayer] = useState<{
+    topicId: number;
+    tracks: PlaylistTrackOut[];
+    startIndex: number;
+    fullscreen: boolean;
+  } | null>(null);
+  const openPlayer = (startIndex: number, fullscreen: boolean) => {
+    if (activeTab && tracks) setPlayer({ topicId: activeTab.id, tracks, startIndex, fullscreen });
+  };
+  const playFrom = (lessonId: number) => {
+    const startIndex = trackIndexByLesson.get(lessonId);
+    if (lessonOpenMode !== "fullscreen" || startIndex === undefined) return undefined;
+    return () => openPlayer(startIndex, true);
+  };
+
   const isLoading = subjectLoading || tabsQuery.isLoading;
   const isError = subjectError || tabsQuery.isError;
 
@@ -306,8 +387,9 @@ function PreschoolSubjectScreen({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               {/* Back to the shelf — a house button where the decorative star used to
-                  be. PreschoolButton links with next/link, which knows nothing about
-                  the locale, so the href carries it explicitly. */}
+                  be, for a visitor who isn't signed in too (the shelf then has its
+                  own 🏠 to the root). PreschoolButton links with next/link, which
+                  knows nothing about the locale, so the href carries it explicitly. */}
               <PreschoolButton
                 href={`/${locale}/subjects`}
                 icon="🏠"
@@ -319,17 +401,18 @@ function PreschoolSubjectScreen({
               <h1 className="text-xl font-extrabold text-purple-800 sm:text-2xl">{subject.name} ✨</h1>
             </div>
 
-            {!guest && (
-              <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
+              {!guest && (
                 <span className="flex w-fit shrink-0 items-center gap-1.5 rounded-full bg-rose-100 px-4 py-2 text-sm font-bold text-rose-700">
                   <Star className="size-4 fill-rose-500 text-rose-500" aria-hidden="true" />
                   {t("pointsLabel", { count: points })}
                 </span>
-                {/* Just before the ⚙️ in the corner. */}
-                <FavoriteSubjectButton subjectId={subjectId} />
-                <PreschoolLessonsFilterButton />
-              </div>
-            )}
+              )}
+              <PlayAllButton tracks={tracks} onPlay={() => openPlayer(0, false)} />
+              {/* Just before the ⚙️ in the corner. */}
+              {!guest && <FavoriteSubjectButton subjectId={subjectId} />}
+              <PreschoolLessonsFilterButton subjectId={subjectId} guest={guest} />
+            </div>
           </div>
 
           {!guest && (
@@ -362,6 +445,7 @@ function PreschoolSubjectScreen({
                   subjectId={subjectId}
                   subjectIcon={subject.icon}
                   guest={guest}
+                  onPlay={playFrom(lesson.id)}
                 />
               ))}
             </div>
@@ -392,6 +476,21 @@ function PreschoolSubjectScreen({
         <Sun className="right-12 top-4 h-10 w-10" />
       </div>
       <div className="relative flex flex-1 flex-col p-4 sm:p-6">{content}</div>
+      {player && (
+        <SubjectPlayer
+          tracks={player.tracks}
+          startIndex={player.startIndex}
+          startFullscreen={player.fullscreen}
+          onClose={() => setPlayer(null)}
+          trackActions={
+            guest
+              ? undefined
+              : (track, layout) => (
+                  <PlayerTrackActions subjectId={subjectId} topicId={player.topicId} track={track} layout={layout} />
+                )
+          }
+        />
+      )}
     </div>
   );
 }

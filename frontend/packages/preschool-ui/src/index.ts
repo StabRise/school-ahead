@@ -7,6 +7,8 @@ export * from "./diamond-reward-store";
 export * from "./flying-diamond";
 export * from "./game-map";
 export * from "./lesson-bubble";
+export * from "./lesson-open-mode";
+export * from "./lesson-open-mode-store";
 export * from "./options-gear";
 export * from "./preschool-button";
 export * from "./quiz-ui";
