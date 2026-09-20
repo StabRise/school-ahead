@@ -367,6 +367,25 @@ class SemesterCompletionBonus(models.Model):
         return f'{self.student} — {self.subject_block}'
 
 
+class FavoriteSubject(models.Model):
+    """A subject the student marked with the heart on the preschool subject
+    page — one row per (student, Subject), made and deleted by
+    lessons.api.set_subject_favorite. The bookshelf's "favourites" view lists
+    just these. Like StudentLesson.is_favorite, it lives with the student, so
+    it follows them from one device to the next. See
+    docs/views/preschool/README.md."""
+
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='favorite_subjects')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='favorited_by')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('student', 'subject')]
+
+    def __str__(self):
+        return f'{self.student} — {self.subject}'
+
+
 class LessonsJsonStatus(models.TextChoices):
     NEW = 'new', 'New'
     PROCESSED = 'processed', 'Processed'

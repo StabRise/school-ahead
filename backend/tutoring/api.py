@@ -13,7 +13,14 @@ from ninja.pagination import paginate
 
 from academics import services as academics_services
 from academics.models import Class, Plan, Subject, SubjectBlock, SubjectGroup, Topic
-from academics.schemas import SubjectGroupsReorderIn, SubjectOut, SubjectsReorderIn, TopicOut, TopicsReorderIn
+from academics.schemas import (
+    SubjectGroupOut,
+    SubjectGroupsReorderIn,
+    SubjectOut,
+    SubjectsReorderIn,
+    TopicOut,
+    TopicsReorderIn,
+)
 from accounts import services as accounts_services
 from accounts.models import Avatar, AvatarItem, StudentProfile
 from accounts.schemas import (
@@ -71,6 +78,7 @@ from .schemas import (
     NeedReviewLessonOut,
     PlanOut,
     ResolveNeedHelpIn,
+    SetMarkedIn,
     SetNeedReviewIn,
     SetCanDoAnyLessonIn,
     SetSubjectAttestationTypeIn,
@@ -211,6 +219,7 @@ def _assignment_out(assignment: TutorSubjectAssignment, request: HttpRequest) ->
         group_name=assignment.subject.group.name if assignment.subject.group_id else None,
         order_index=assignment.subject.order_index,
         attestation_type=assignment.subject.attestation_type,
+        is_marked=assignment.subject.is_marked,
     )
 
 
@@ -286,6 +295,19 @@ def set_subject_filled(request: HttpRequest, subject_id: int, payload: SetSubjec
     subject = get_object_or_404(Subject, id=subject_id)
     subject.is_filled = payload.is_filled
     subject.save(update_fields=['is_filled'])
+    return subject
+
+
+@router.patch('/subjects/{subject_id}/is-marked', response=SubjectOut, operation_id='set_subject_marked')
+def set_subject_marked(request: HttpRequest, subject_id: int, payload: SetMarkedIn):
+    """Marks a subject to be shown in the students' preschool bookshelf by
+    default (the eye button on the class page) — see Subject.is_marked. Only
+    the subject's own tutors can change it."""
+    require_csrf(request)
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    subject = get_object_or_404(Subject, id=subject_id)
+    subject.is_marked = payload.is_marked
+    subject.save(update_fields=['is_marked'])
     return subject
 
 
@@ -1204,6 +1226,21 @@ def reorder_subject_groups(request: HttpRequest, payload: SubjectGroupsReorderIn
 
     SubjectGroup.objects.bulk_update(updated, ['order_index'])
     return {'updated': len(updated)}
+
+
+@router.patch(
+    '/subject-groups/{group_id}/is-marked', response=SubjectGroupOut, operation_id='set_subject_group_marked'
+)
+def set_subject_group_marked(request: HttpRequest, group_id: int, payload: SetMarkedIn):
+    """Marks a subject group to be shown in the students' preschool bookshelf
+    by default — see SubjectGroup.is_marked. A group is global, like its order
+    (reorder_subject_groups above), so any tutor can change it."""
+    require_csrf(request)
+    ensure_is_tutor(request)
+    group = get_object_or_404(SubjectGroup, id=group_id)
+    group.is_marked = payload.is_marked
+    group.save(update_fields=['is_marked'])
+    return group
 
 
 @router.post('/classes/{class_id}/recalculate-workload', operation_id='recalculate_class_workload')

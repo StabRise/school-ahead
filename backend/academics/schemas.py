@@ -43,6 +43,8 @@ class SubjectGroupOut(Schema):
     name: str
     order_index: int
     icon: str | None
+    # Shown in the preschool bookshelf's default view — see SubjectGroup.is_marked.
+    is_marked: bool
 
     @staticmethod
     def resolve_icon(obj, context):
@@ -80,6 +82,8 @@ class SubjectOut(Schema):
     group_name: str | None
     order_index: int
     attestation_type: str
+    # Shown in the preschool bookshelf's default view — see Subject.is_marked.
+    is_marked: bool
 
     @staticmethod
     def resolve_class_name(obj):

@@ -28,6 +28,8 @@ class AssignmentOut(Schema):
     group_name: str | None
     order_index: int
     attestation_type: str
+    # Shown in the students' preschool bookshelf by default — see Subject.is_marked.
+    is_marked: bool
 
 
 class CreateSubjectIn(Schema):
@@ -225,6 +227,13 @@ class SetTopicBlockIn(Schema):
 
 class SetSubjectFilledIn(Schema):
     is_filled: bool
+
+
+class SetMarkedIn(Schema):
+    """The eye button on the class page, for a subject or a subject group — see
+    Subject.is_marked / SubjectGroup.is_marked."""
+
+    is_marked: bool
 
 
 class SetSubjectAttestationTypeIn(Schema):

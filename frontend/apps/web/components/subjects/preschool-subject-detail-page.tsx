@@ -16,9 +16,12 @@ import {
 import {
   getGetNextLessonQueryKey,
   getGetSubjectProgressQueryKey,
+  getListFavoriteSubjectIdsQueryKey,
   getListStudentSubjectLessonsQueryKey,
   useGetSubjectProgress,
+  useListFavoriteSubjectIds,
   useListStudentSubjectLessons,
+  useSetSubjectFavorite,
   useStartLessonToday,
 } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import { getGetTodayQueryKey } from "@school-ahead/api-client/browser/schedule/schedule";
@@ -31,6 +34,7 @@ import { isLessonShown } from "@/lib/preschool-lessons-filter";
 import { useTabQueryParam } from "@/lib/use-tab-query-param";
 import { usePreschoolLessonsFilterStore } from "@/stores/preschool-lessons-filter-store";
 import { useRouter } from "@/i18n/navigation";
+import { HeartIcon } from "@/components/preschool/heart-icon";
 import { PreschoolLessonTile } from "@/components/subjects/preschool-lesson-tile";
 import { PreschoolLessonsFilterButton } from "@/components/subjects/preschool-lessons-filter-button";
 import { ProgressBar } from "@/components/progress-bar";
@@ -146,6 +150,45 @@ function PreschoolLessonCard({
       lessonType={lesson.lesson_type}
       title={lesson.title}
       index={index}
+    />
+  );
+}
+
+// The heart beside the subject's name — marks (or unmarks) the subject as one
+// of the child's favourites (FavoriteSubject), which is what the bookshelf's
+// "favourites" view lists. Like the lesson screen's heart, it flips at once and
+// is rolled back if the request fails: a child taps it and expects an instant
+// answer, not a wait on the network. It edits the same cached list of favourite
+// ids the bookshelf reads, so the shelf is up to date when they go back to it.
+function FavoriteSubjectButton({ subjectId }: { subjectId: number }) {
+  const t = useTranslations("PreschoolSubjectDetail");
+  const queryClient = useQueryClient();
+  const favorites = useListFavoriteSubjectIds();
+  const setFavorite = useSetSubjectFavorite();
+  const isFavorite = favorites.data?.includes(subjectId) ?? false;
+
+  const showFavorite = (value: boolean) =>
+    queryClient.setQueryData<number[]>(getListFavoriteSubjectIdsQueryKey(), (ids = []) =>
+      value ? (ids.includes(subjectId) ? ids : [...ids, subjectId]) : ids.filter((id) => id !== subjectId),
+    );
+
+  const handleClick = () => {
+    // Until the list has loaded we don't know which way the heart should flip.
+    if (favorites.isLoading) return;
+    const next = !isFavorite;
+    showFavorite(next);
+    setFavorite.mutate({ subjectId, data: { is_favorite: next } }, { onError: () => showFavorite(!next) });
+  };
+
+  return (
+    <PreschoolButton
+      icon={<HeartIcon filled={isFavorite} />}
+      label={isFavorite ? t("favoriteSubjectRemoveLabel") : t("favoriteSubjectAddLabel")}
+      ringColorClassName="ring-rose-400"
+      sizeClassName="h-14 w-14"
+      position="static"
+      className="shrink-0"
+      onClick={handleClick}
     />
   );
 }
@@ -321,6 +364,7 @@ function PreschoolSubjectScreen({
                 className="shrink-0"
               />
               <h1 className="text-xl font-extrabold text-purple-800 sm:text-2xl">{subject.name} ✨</h1>
+              {!guest && <FavoriteSubjectButton subjectId={subjectId} />}
             </div>
 
             {!guest && (
