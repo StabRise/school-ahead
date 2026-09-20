@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { BalloonPopGame } from "./balloon-pop-game";
 import { TrainsGame } from "./trains-game";
 import { ReadingGame } from "./reading-game";
@@ -29,6 +30,7 @@ import { HomeButton } from "./kit/home-button";
 // opens directly (and stays open across a reload, since it's part of the
 // URL rather than component state — see stories-game.tsx's StoriesGamePage).
 export function GamePlayPage({ game, storySlug }: { game: PreschoolGameId; storySlug?: string }) {
+  const t = useTranslations("PreschoolChrome");
   const allowed = usePreschoolGamesGuard();
 
   if (!allowed) {
@@ -70,7 +72,10 @@ export function GamePlayPage({ game, storySlug }: { game: PreschoolGameId; story
       ) : (
         <TrainsGame />
       )}
-      <HomeButton href="/games" />
+      {/* Every game's 🏠 goes back to the picker it was opened from — except the
+          stories, which the dashboard opens directly (its "Казки" card), so
+          there the 🏠 goes back to the dashboard. */}
+      {game === "stories" ? <HomeButton href="/" label={t("homeLabel")} /> : <HomeButton href="/games" />}
     </GamePageContainer>
   );
 }

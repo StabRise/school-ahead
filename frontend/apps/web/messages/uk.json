@@ -387,6 +387,20 @@
     "languageSpanish": "Іспанська",
     "replayTermLabel": "Прослухати ще раз"
   },
+  "PreschoolChrome": {
+    "homeLabel": "На головну"
+  },
+  "PreschoolDashboard": {
+    "greeting": "Привіт, {name}!",
+    "greetingNoName": "Привіт!",
+    "navLabel": "Розділи",
+    "lessons": "Мої уроки",
+    "subjects": "Предмети",
+    "calendar": "Календар",
+    "games": "Ігри",
+    "stories": "Казки",
+    "profile": "Профіль"
+  },
   "StudentDashboard": {
     "title": "Сьогоднішні уроки",
     "loading": "Завантаження...",

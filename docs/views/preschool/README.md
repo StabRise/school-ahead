@@ -18,8 +18,9 @@ completely different UIs depending on the mode.
   `PATCH /api/auth/me/interface-mode` changes it
   (`backend/accounts/api.py`).
 * **Toggle UI:** `PreschoolModeToggle`
-  (`frontend/components/preschool-mode-toggle.tsx`), a switch in the
-  header's user dropdown menu.
+  (`frontend/components/preschool-mode-toggle.tsx`), a switch on the preschool
+  dashboard's top row — and, in any other mode, in the header's user dropdown
+  menu (a student in preschool mode has no header, see below).
 * **Frontend read:** `useAuthStore().user.interfaceMode` — hydrated from
   `/auth/me` via `mapApiUserToAuthUser` (`@school-ahead/api-client`'s
   `map-user.ts`).
@@ -32,7 +33,8 @@ views.
 
 | Route | Wrapper | Default component | Preschool component |
 |---|---|---|---|
-| `/` | `frontend/components/student-dashboard.tsx` | inline list | `PreschoolGameMap` / `PreschoolCelebration` |
+| `/` | `frontend/components/student-dashboard.tsx` | inline list | `PreschoolDashboard` (§1.1) |
+| `/lessons` | — (preschool only; anyone else is sent to `/`) | — | `PreschoolLessonsRoad`: `PreschoolGameMap` / `PreschoolCelebration` (§2) |
 | `/calendar` | `frontend/components/calendar/student-calendar-view.tsx` | `WeeklyCalendar` | `PreschoolCalendar` |
 | `/lessons/[id]` | `frontend/components/lesson-wizard/student-lesson-view.tsx` | `LessonWizard` | `PreschoolLessonView` |
 
@@ -48,11 +50,46 @@ that are tightly coupled to the general lesson wizard (`PreschoolLessonView`,
 `PreschoolQuizGame`) stay in the app itself, under
 `frontend/apps/web/components/preschool/`.
 
-## 2. "My Today's Lessons" — the Adventure Road (`/`)
+### 1.1 The dashboard (`/`) and the missing site header
 
-Component: `game-map.tsx` → `PreschoolGameMap`, fed `[...backlog, ...today]`
-from `useGetToday()` (`schedule/today`) by `student-dashboard.tsx` — tails
-walk through the same path as today's lessons, not a separate screen.
+A student in preschool mode has **no classic site header** on any page
+(`Header` renders nothing for them; `useIsPreschoolStudent`). What stands in for
+it:
+
+* **The dashboard, `/`** (`components/preschool/dashboard.tsx` →
+  `PreschoolDashboard`): a top row — "Привіт, {first name}!", the 💎 balance and
+  the preschool-mode switch — over a grid of big emoji cards: **Мої уроки** 🗺️
+  (`/lessons`, the road below), **Предмети** 📚 (`/subjects`), **Календар** 📅
+  (`/calendar`), **Ігри** 🎈 (`/games`), **Казки** 🧚 (`/games/stories`) and
+  **Профіль** (`/profile`), which shows the child's own dressed avatar (the
+  raccoon until they have picked one) instead of an emoji. The switch here is the
+  way back to the classic mode, and so the way to log out, which lives in the
+  classic header's menu.
+* **A 🏠 back to the dashboard on every other page**, so there is always a way
+  home (`components/preschool/chrome.tsx`; which page gets which:
+  `lib/preschool-chrome.ts`):
+  * the pages with a home button of their own keep it — a lesson's exit, the subject
+    page's way back to the shelf, a game's way back to the picker, and the road's
+    (`/lessons`) and the celebration picker's (shown there once all lessons are
+    done);
+  * the bookshelf, the calendar, the game picker and the profile get a 🏠
+    **fixed in the top-left corner**, out of the layout, so their headings stay at
+    the top (the profile's heading is kept clear of it);
+  * any other page (house, achievements, settings, ...), whose content may start in
+    that corner, gets a slim sky-coloured strip with the 🏠 above it.
+* **The games move their fixed controls to the top of the screen.** They sit
+  below the header (`top-20`) for everyone else; `PreschoolChrome` marks the page
+  `<html data-headerless>` for a preschool student and the `[html[data-headerless]_&]:`
+  variants in `preschool-games/src/kit/game-controls.ts` take over (`top-4`).
+
+## 2. "My Lessons" — the Adventure Road (`/lessons`)
+
+Formerly the preschool dashboard at `/`. Component: `game-map.tsx` →
+`PreschoolGameMap`, fed `[...backlog, ...today]` from `useGetToday()`
+(`schedule/today`) by `components/preschool/lessons-road.tsx` — tails walk
+through the same path as today's lessons, not a separate screen. It has a 🏠 of
+its own back to the dashboard; a lesson opened from it exits back to it
+(`lib/lesson-exit.ts`).
 
 * **Layout:** a boustrophedon ("shelf") snake — a row of steps left-to-right,
   then the next row right-to-left, and so on. Row length is responsive
@@ -92,7 +129,7 @@ walk through the same path as today's lessons, not a separate screen.
 ### Celebration minigames
 
 Component: `game-choice.tsx` → `PreschoolCelebration`. Trigger, computed in
-`student-dashboard.tsx`:
+`components/preschool/lessons-road.tsx`:
 
 ```
 const READY_FOR_GAME_STATUSES = ["completed", "pending_review", "need_help"];
@@ -200,14 +237,14 @@ Component: `calendar-view.tsx` → `PreschoolCalendar`. Same
 ## 4. Lesson View (`/lessons/[id]`)
 
 Component: `lesson-view.tsx` → `PreschoolLessonView`. Takes over the whole
-viewport (`fixed inset-0`) — the header hides itself for these routes when
-`interfaceMode === "preschool"` (see `Header.tsx`). A round house button
-(top-left) is the only way out: it goes back to the dashboard (`/`) if the child
-opened the lesson from there, otherwise to the lesson's own subject page
+viewport (`fixed inset-0`) — there is no site header for a preschool student
+(§1.1). A round house button (top-left) is the only way out: it goes back to the
+road (`/lessons`) or the dashboard (`/`) if the child opened the lesson from
+there, otherwise to the lesson's own subject page
 (`/subjects/<id>`). The destination is decided when it's tapped, from the
 previous in-app route that `RouteTracker` (mounted in the root layout) keeps in
 `sessionStorage` — `lib/route-history.ts`, `lib/lesson-exit.ts`. A lesson can
-be opened from the dashboard's game map, the calendar, a backlog bubble, the
+be opened from the road, the calendar, a backlog bubble, the
 subject page or the lesson preview, so links aren't tagged individually.
 
 All the round buttons on this screen — the exit 🏠 (top-left), the "next" arrow

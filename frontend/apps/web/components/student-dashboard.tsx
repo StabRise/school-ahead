@@ -1,22 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useGetToday } from "@school-ahead/api-client/browser/schedule/schedule";
-import { sortLessonItems } from "@/lib/lesson-order";
-import { PreschoolGameMap } from "@school-ahead/preschool-ui";
-import { PreschoolCelebration } from "@school-ahead/preschool-games";
-import { useDialogs } from "@/components/dialogs/app-dialogs";
+import { PreschoolDashboard } from "@/components/preschool/dashboard";
 import { SimpleDashboard } from "@/components/simple-dashboard";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { useAuthStore } from "@school-ahead/api-client";
-
-// Lesson statuses that no longer block the preschool minigame — the
-// student's own part is done (Completed) or the ball is in someone else's
-// court (Pending Review, Need Help). Assigned, In Progress, and Revision
-// Required all mean there's still something for the student to do, so they
-// keep the game locked.
-const READY_FOR_GAME_STATUSES = ["completed", "pending_review", "need_help"];
 
 // Local (not UTC) YYYY-MM-DD — avoids toISOString() shifting the date near
 // midnight in timezones behind UTC.
@@ -30,64 +19,18 @@ function toLocalIsoDate(date: Date): string {
 // Default and Simple are now the same dashboard (SimpleDashboard's dense
 // table + collapsible stats section) — Default just turns `colorful` on to
 // get back its colored status badges, dark-red overdue dates, blue
-// histogram, and gradient progress bars. Preschool stays its own thing.
+// histogram, and gradient progress bars. Preschool is its own thing: a hub of
+// big cards (PreschoolDashboard), whose "My lessons" card opens the road that
+// used to be this page — see components/preschool/lessons-road.tsx.
 export function StudentDashboard() {
+  const isPreschool = useAuthStore((state) => state.user?.interfaceMode === "preschool");
+  return isPreschool ? <PreschoolDashboard /> : <ClassicStudentDashboard />;
+}
+
+function ClassicStudentDashboard() {
   const t = useTranslations("StudentDashboard");
-  const interfaceMode = useAuthStore((state) => state.user?.interfaceMode);
-  const isPreschool = interfaceMode === "preschool";
-  const isSimple = interfaceMode === "simple";
-  const { data, isLoading, isError, refetch } = useGetToday({ date: toLocalIsoDate(new Date()) });
-
-  const dialogs = useDialogs();
-  // The road's minus button asks and reports through the app's dialogs; a
-  // step is only ever removed, so a question there is always a "danger" one.
-  const mapDialogs = useMemo(
-    () => ({
-      confirm: (message: string) => dialogs.confirm({ message, tone: "danger" }),
-      error: (message: string) => dialogs.error(message),
-    }),
-    [dialogs],
-  );
-
-  const lessons = useMemo(() => sortLessonItems(data?.today ?? []), [data?.today]);
-  const backlog = useMemo(() => sortLessonItems(data?.backlog ?? []), [data?.backlog]);
-
-  if (isPreschool) {
-    // The road walks through overdue "tails" first, then today's lessons —
-    // one continuous path instead of a separate list. See
-    // docs/views/preschool/README.md.
-    const roadItems = [...backlog, ...lessons];
-
-    // Trigger condition evaluated on dashboard load — unlocks once every
-    // tail and every one of today's lessons is at a READY_FOR_GAME status,
-    // not just today's. `.every()` is vacuously true on an empty array, so
-    // a day (and backlog) with no lessons at all unlocks the game too. See
-    // docs/views/preschool/README.md.
-    const canPlayGame =
-      backlog.every((item) => READY_FOR_GAME_STATUSES.includes(item.status)) &&
-      lessons.every((item) => READY_FOR_GAME_STATUSES.includes(item.status));
-
-    // Full-bleed gradient — fills the whole viewport below the header, not
-    // just a boxed card, matching the "adventure map" theme.
-    return (
-      <div className="relative flex flex-1 flex-col bg-gradient-to-b from-sky-200 via-emerald-100 to-lime-200">
-        {!isLoading && !isError && canPlayGame ? (
-          // The celebration minigames want the full screen width to play
-          // in — no side margins, unlike the boxed max-w-5xl content below.
-          <PreschoolCelebration />
-        ) : (
-          <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-6">
-            {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
-            {isError && <p className="text-sm text-red-600">{t("error")}</p>}
-            {/* No separate backlog section here — tails are already walked
-                into `roadItems` above, so listing them again would just
-                duplicate what's on the road. See docs/views/preschool/README.md. */}
-            {!isLoading && !isError && <PreschoolGameMap items={roadItems} dialogs={mapDialogs} onLessonCancelled={() => refetch()} />}
-          </div>
-        )}
-      </div>
-    );
-  }
+  const isSimple = useAuthStore((state) => state.user?.interfaceMode === "simple");
+  const { data, isLoading, isError } = useGetToday({ date: toLocalIsoDate(new Date()) });
 
   return (
     <SimplePageContainer title={t("title")}>

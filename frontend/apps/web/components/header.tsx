@@ -3,8 +3,8 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, usePathname, useRouter } from "@/i18n/navigation";
-import { useAuthStore } from "@school-ahead/api-client";
+import { Link, useRouter } from "@/i18n/navigation";
+import { useAuthStore, useIsPreschoolStudent } from "@school-ahead/api-client";
 import { useLogout, getMeQueryKey } from "@school-ahead/api-client/browser/auth/auth";
 import { MainMenu } from "@/components/main-menu";
 import { TutorMainMenu } from "@/components/tutor-main-menu";
@@ -51,7 +51,7 @@ function Avatar({
 }
 
 // Earned via lesson completion — see docs/core/progress.md section 2.
-function DiamondBadge({ count }: { count: number }) {
+export function DiamondBadge({ count }: { count: number }) {
   const t = useTranslations("Header");
   return (
     <span
@@ -88,9 +88,9 @@ function BrandIcon() {
 export function Header() {
   const t = useTranslations("Header");
   const router = useRouter();
-  const pathname = usePathname();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
+  const isPreschoolStudent = useIsPreschoolStudent();
   const clearUser = useAuthStore((state) => state.clear);
 
   const logout = useLogout();
@@ -105,9 +105,12 @@ export function Header() {
     });
   };
 
-  // Preschool lessons take over the whole screen as a fullscreen "forest
-  // clearing" — see docs/interfaces/student/preschool/lesson.md.
-  if (user?.interfaceMode === "preschool" && /^\/lessons\//.test(pathname)) {
+  // A student in preschool mode has no classic site header at all: the
+  // dashboard has a top row of its own (greeting, diamonds, the mode switch),
+  // a lesson takes over the whole screen as a fullscreen "forest clearing"
+  // (docs/interfaces/student/preschool/lesson.md), and the other pages get a
+  // slim strip with a 🏠 — see components/preschool/chrome.tsx.
+  if (isPreschoolStudent) {
     return null;
   }
 

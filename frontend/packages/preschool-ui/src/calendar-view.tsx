@@ -121,10 +121,10 @@ function DayCard({ date, isToday, items }: { date: Date; isToday: boolean; items
     </>
   );
 
-  // Today's card doubles as a shortcut back to "My lessons today" (`/`).
+  // Today's card doubles as a shortcut back to "My lessons today" (`/lessons`).
   if (isToday) {
     return (
-      <Link href="/" aria-label={t("goToToday")} className={className}>
+      <Link href="/lessons" aria-label={t("goToToday")} className={className}>
         {content}
       </Link>
     );
