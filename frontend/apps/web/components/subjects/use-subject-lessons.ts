@@ -5,11 +5,13 @@ import {
   getListPublicSubjectLessonsPageQueryKey,
   listPublicSubjectLessonsPage,
   useListPublicSubjectLessonTopics,
+  useListPublicSubjectPlaylist,
 } from "@school-ahead/api-client/browser/public/public";
 import {
   getListStudentSubjectLessonsPageQueryKey,
   listStudentSubjectLessonsPage,
   useListStudentSubjectLessonTopics,
+  useListStudentSubjectPlaylist,
 } from "@school-ahead/api-client/browser/student-lessons/student-lessons";
 import type { SubjectLessonOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import type { PreschoolLessonsFilter } from "@/lib/preschool-lessons-filter";
@@ -62,3 +64,21 @@ export function useSubjectLessonPages(
     select: (data) => ({ lessons: data.pages.flatMap((page) => page.items) as SubjectLessonOut[] }),
   });
 }
+
+// The songs of the open topic for the ▶ player: every lesson of it with a
+// YouTube link, in order, whatever the lessons filter (the ⚙️) says. A small list
+// (an id, a title and a video id each). Songs rarely change, so it is kept for a
+// few minutes instead of being fetched again on every visit or tab switch.
+const PLAYLIST_STALE_MS = 5 * 60 * 1000;
+
+export function useSubjectPlaylist(subjectId: number, topicId: number | undefined, guest: boolean) {
+  const params = { topic_id: topicId ?? 0 };
+  const student = useListStudentSubjectPlaylist(subjectId, params, {
+    query: { enabled: !guest && topicId !== undefined, staleTime: PLAYLIST_STALE_MS },
+  });
+  const visitor = useListPublicSubjectPlaylist(subjectId, params, {
+    query: { enabled: guest && topicId !== undefined, staleTime: PLAYLIST_STALE_MS },
+  });
+  return guest ? visitor : student;
+}
+

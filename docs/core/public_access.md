@@ -45,6 +45,7 @@ allowlist — the authenticated routers stay exactly as they were (they still
 | `GET /public/subjects/{id}` | `PublicSubjectOut` |
 | `GET /public/subjects/{id}/topics` | `TopicOut[]` |
 | `GET /public/subjects/{id}/lessons` | `SubjectLessonOut[]`, every `student_*` field null |
+| `GET /public/subjects/{id}/playlist?topic_id=` | `PlaylistTrackOut[]` — the songs of one topic for the ▶ player: one track (`lesson_id`, `title`, `video_id`) per lesson with a YouTube link, in lesson order |
 | `GET /public/subjects/{id}/lesson-topics` | `LessonTopicOut[]` — the subject page's tabs: the topics that have lessons, each with a count |
 | `GET /public/subjects/{id}/lessons-page?topic_id=&limit=&offset=` | `SubjectLessonPageOut` — one topic's lessons `limit` (default 10) at a time, with the total; what the subject page loads as the visitor scrolls |
 | `GET /public/lessons/{id}` | `LessonPreviewOut` (content, task text, attachments), `student_lesson_id` null |

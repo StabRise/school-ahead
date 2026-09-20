@@ -1222,3 +1222,30 @@ def lesson_topic_tabs(lessons: QuerySet[Lesson]) -> list[dict]:
         {'id': row['topic_id'], 'title': row['topic__title'], 'lesson_count': row['lesson_count']} for row in rows
     ]
 
+
+# A safeguard for a topic with an enormous number of lessons: the player queue
+# stops here rather than growing without bound.
+PLAYLIST_MAX_TRACKS = 1000
+
+
+def topic_playlist(subject_id: int, topic_id: int) -> list[dict]:
+    """The songs of one topic of a subject — the tab that is open — for the
+    preschool subject page's ▶ player: one track per lesson that has a YouTube link
+    in its content (the first, like the lesson screen), in lesson order. The
+    student's lessons filter doesn't apply: a finished song still plays. Only what
+    the player needs (`lesson_id`, `title`, `video_id`), so it stays small."""
+    lessons = (
+        Lesson.objects.filter(topic__subject_id=subject_id, topic_id=topic_id, content__icontains='youtu')
+        .order_by('order_index', 'id')
+        .values_list('id', 'title', 'content')
+    )
+    tracks = []
+    for lesson_id, title, content in lessons.iterator(chunk_size=200):
+        video_id = youtube_scrape.extract_video_id(content)
+        if video_id is None:
+            continue
+        tracks.append({'lesson_id': lesson_id, 'title': title, 'video_id': video_id})
+        if len(tracks) >= PLAYLIST_MAX_TRACKS:
+            break
+    return tracks
+

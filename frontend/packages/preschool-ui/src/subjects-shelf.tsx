@@ -249,7 +249,7 @@ function SubjectsShelf({
       </div>
 
       <div
-        className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 p-4 pt-14 sm:p-6 sm:pt-14 xl:pt-6"
+        className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 p-4 sm:p-6  xl:pt-6"
       >
         {/* No visible heading, but the page keeps its <h1> for screen readers. */}
         <h1 className="sr-only">{t("title")}</h1>

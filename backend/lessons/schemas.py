@@ -164,6 +164,15 @@ class SubjectFavoriteOut(Schema):
     is_favorite: bool
 
 
+class PlaylistTrackOut(Schema):
+    """One song of a topic's ▶ player queue — a lesson with a YouTube link in
+    its content. See lessons.services.topic_playlist."""
+
+    lesson_id: int
+    title: str
+    video_id: str
+
+
 class LessonTopicOut(Schema):
     """A tab on the preschool subject page: a topic that has lessons to show,
     and how many — see lessons.services.lesson_topic_tabs."""

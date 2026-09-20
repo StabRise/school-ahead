@@ -397,6 +397,31 @@ tab; a topic with no lessons left under the current filter gets no tab.
   `/lessons/preview/<id>` as in the other modes. Tapping it creates today's
   `StudentLesson` straight away (`POST .../lessons/{id}/start-today`, the same
   call the preview's button makes) and opens the lesson (`StartLessonCard`).
+* **▶ play the songs of the open topic:** for a topic whose lessons are YouTube
+  links (a "songs" subject), a ▶ in the header — for a visitor who isn't signed in
+  too — opens an overlay player (`components/subjects/subject-player.tsx`) that
+  plays every song of the **open topic (tab)** one after another (switch tab, and it
+  is that topic's songs): the video, the song's title, ⏮ ⏯ ⏭,
+  a "n з m" counter and a list to jump around in; ✕ or Escape closes it and stops the
+  music. A ⛶ preschool button takes the whole player fullscreen — the browser's Fullscreen
+  API where there is one, otherwise the same layout filling the window (iPhone Safari
+  has fullscreen only for a bare `<video>`). Fullscreen is near-black all round and
+  edge to edge (no side margins): the video fills the screen with no bar on top, and a
+  slim bar underneath holds the title (small) on the left, ⏮ ⏯ ⏭ in the middle, and on
+  the right the way out of fullscreen and ✕; the song list is hidden. The video
+  container is the same element in both layouts, so toggling never rebuilds the
+  video. Escape leaves fullscreen first, and only then closes the player. The queue is `GET /student-lessons/subjects/{id}/playlist?topic_id=`
+  (public: `/public/subjects/{id}/playlist?topic_id=`): one track per lesson of that
+  topic with a YouTube link in its content (the first, like the lesson screen), in
+  lesson order, **whatever the ⚙️ lessons filter** (a finished song still plays),
+  capped at 1000 (`lessons.services.topic_playlist`). It is fetched once the page has
+  loaded, and again for each tab opened, and the ▶ only shows when the open topic has
+  at least one song. Playback uses the YouTube IFrame
+  Player API (`lib/youtube-iframe-api.ts`) — a plain `<iframe>` can't say when a video
+  ends — with one player reused for every song (`loadVideoById`), so the sound the
+  child asked for by tapping ▶ carries on. A video YouTube won't embed is skipped
+  (`lib/playlist-queue.ts`); if none plays, the player says so instead of looping. The
+  queue ends after the last song (no repeat or shuffle yet).
 * **Loaded a page at a time:** a subject can have hundreds or thousands of
   lessons (a YouTube playlist imported as lessons), so the page never fetches the
   whole list. It asks for the **tabs** first — `GET

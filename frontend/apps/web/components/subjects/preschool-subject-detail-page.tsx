@@ -34,7 +34,13 @@ import { PreschoolLessonTile } from "@/components/subjects/preschool-lesson-tile
 import { PreschoolLessonsFilterButton } from "@/components/subjects/preschool-lessons-filter-button";
 import { ProgressBar } from "@/components/progress-bar";
 import { useDialogs } from "@/components/dialogs/app-dialogs";
-import { useSubjectLessonPages, useSubjectLessonTabs } from "@/components/subjects/use-subject-lessons";
+import { SubjectPlayer } from "@/components/subjects/subject-player";
+import {
+  useSubjectLessonPages,
+  useSubjectLessonTabs,
+  useSubjectPlaylist,
+} from "@/components/subjects/use-subject-lessons";
+import { loadYouTubeIframeApi } from "@/lib/youtube-iframe-api";
 
 // The student's dressed companion — same CompanionAvatar idiom as
 // game-map.tsx/calendar-view.tsx (preschool-ui), just kept local here since
@@ -179,6 +185,46 @@ function FavoriteSubjectButton({ subjectId }: { subjectId: number }) {
   );
 }
 
+// The ▶ in the header — plays every song of the open topic (tab), one after
+// another, in an overlay player (SubjectPlayer). Only shown when the topic has
+// songs (lessons with a YouTube link); for a visitor who isn't signed in too. The
+// songs are fetched once the page has loaded (and again for each tab opened), and
+// YouTube's player script is fetched with them, so a tap can start playing right
+// away, inside the tap — the sound is allowed because the child asked for it.
+function PlayAllButton({
+  subjectId,
+  topicId,
+  guest,
+}: {
+  subjectId: number;
+  topicId: number | undefined;
+  guest: boolean;
+}) {
+  const t = useTranslations("PreschoolSubjectDetail.player");
+  const tracks = useSubjectPlaylist(subjectId, topicId, guest).data;
+  const [open, setOpen] = useState(false);
+  const hasSongs = (tracks?.length ?? 0) > 0;
+
+  useEffect(() => {
+    if (hasSongs) void loadYouTubeIframeApi().catch(() => {});
+  }, [hasSongs]);
+
+  if (!tracks || !hasSongs) return null;
+  return (
+    <>
+      <PreschoolButton
+        icon="▶️"
+        label={t("playAll")}
+        onClick={() => setOpen(true)}
+        ringColorClassName="ring-emerald-400"
+        position="static"
+        className="shrink-0"
+      />
+      {open && <SubjectPlayer tracks={tracks} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
 // One topic per tab — big, colourful pills a child can tap, in a strip that
 // scrolls sideways when a subject has more topics than fit (a YouTube-imported
 // one can have dozens). Hand-rolled instead of components/tabs.tsx, whose
@@ -319,17 +365,22 @@ function PreschoolSubjectScreen({
               <h1 className="text-xl font-extrabold text-purple-800 sm:text-2xl">{subject.name} ✨</h1>
             </div>
 
-            {!guest && (
-              <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
+              {!guest && (
                 <span className="flex w-fit shrink-0 items-center gap-1.5 rounded-full bg-rose-100 px-4 py-2 text-sm font-bold text-rose-700">
                   <Star className="size-4 fill-rose-500 text-rose-500" aria-hidden="true" />
                   {t("pointsLabel", { count: points })}
                 </span>
-                {/* Just before the ⚙️ in the corner. */}
-                <FavoriteSubjectButton subjectId={subjectId} />
-                <PreschoolLessonsFilterButton />
-              </div>
-            )}
+              )}
+              <PlayAllButton subjectId={subjectId} topicId={activeTab?.id} guest={guest} />
+              {!guest && (
+                <>
+                  {/* Just before the ⚙️ in the corner. */}
+                  <FavoriteSubjectButton subjectId={subjectId} />
+                  <PreschoolLessonsFilterButton />
+                </>
+              )}
+            </div>
           </div>
 
           {!guest && (
