@@ -61,9 +61,6 @@ export function SubjectPlayer({
   const [playing, setPlaying] = useState(false);
   const [finished, setFinished] = useState(false);
   const [problem, setProblem] = useState<"load" | "play" | null>(null);
-  // The browser wouldn't start the video with sound, so it plays muted until the
-  // child taps 🔇.
-  const [mutedByBrowser, setMutedByBrowser] = useState(false);
   // Fullscreen: the browser's, or — where there is none — the window filled. Opened
   // fullscreen, the window is filled from the very first frame (no framed dialog
   // flashing by) until the browser's fullscreen takes over, or refuses.
@@ -102,14 +99,12 @@ export function SubjectPlayer({
           playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1 },
           events: {
             // Start the song the moment the player is ready — the `autoplay`
-            // parameter alone can be ignored — so opening a lesson plays it.
-            onReady: () => playerRef.current?.playVideo(),
-            // A browser that won't start a video with sound (its autoplay policy)
-            // still gets it playing, muted, rather than sitting on the first frame.
-            onAutoplayBlocked: () => {
-              playerRef.current?.mute();
+            // parameter alone can be ignored — so opening a lesson plays it. With
+            // sound, and the player never mutes itself: YouTube remembers a muted
+            // player (say one a child muted earlier) and would open this one silent.
+            onReady: () => {
+              playerRef.current?.unMute();
               playerRef.current?.playVideo();
-              setMutedByBrowser(true);
             },
             onStateChange: ({ data }) => {
               if (data === YT.PlayerState.PLAYING) {
@@ -211,11 +206,6 @@ export function SubjectPlayer({
 
   const trackTitle = current ? toSpeechText(current.title) : "";
 
-  const handleUnmute = () => {
-    playerRef.current?.unMute();
-    setMutedByBrowser(false);
-  };
-
   const controls = (
     <>
       <PreschoolButton
@@ -242,15 +232,6 @@ export function SubjectPlayer({
         ringColorClassName="ring-sky-400"
         position="static"
       />
-      {mutedByBrowser && (
-        <PreschoolButton
-          icon="🔇"
-          label={t("unmute")}
-          onClick={handleUnmute}
-          ringColorClassName="ring-amber-400"
-          position="static"
-        />
-      )}
     </>
   );
   const fullscreenButton = (

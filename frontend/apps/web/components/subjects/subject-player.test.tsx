@@ -16,7 +16,6 @@ const { players, fakeYouTube } = vi.hoisted(() => {
     videoId?: string;
     events?: {
       onReady?: (event: { data: number }) => void;
-      onAutoplayBlocked?: (event: { data: number }) => void;
       onStateChange?: (event: { data: number }) => void;
       onError?: (event: { data: number }) => void;
     };
@@ -27,7 +26,6 @@ const { players, fakeYouTube } = vi.hoisted(() => {
     destroyed = false;
     playVideo = vi.fn();
     pauseVideo = vi.fn();
-    mute = vi.fn();
     unMute = vi.fn();
     constructor(
       public element: HTMLElement,
@@ -133,25 +131,15 @@ describe("SubjectPlayer", () => {
     expect(text()).toContain("1 з 3");
   });
 
-  it("starts playing as soon as YouTube says the player is ready", async () => {
+  it("starts playing, with sound, as soon as YouTube says the player is ready", async () => {
     await open();
 
     await youtube(() => player().options.events?.onReady?.({ data: 0 }));
 
     expect(player().playVideo).toHaveBeenCalled();
-  });
-
-  it("plays muted when the browser won't start a video with sound, until 🔇 is tapped", async () => {
-    await open();
-    expect(button(label("unmute"))).toBeNull();
-
-    await youtube(() => player().options.events?.onAutoplayBlocked?.({ data: 0 }));
-    expect(player().mute).toHaveBeenCalled();
-    expect(player().playVideo).toHaveBeenCalled();
-
-    await youtube(() => button(label("unmute"))?.click());
+    // A player YouTube remembers as muted must not open silent.
     expect(player().unMute).toHaveBeenCalled();
-    expect(button(label("unmute"))).toBeNull();
+    expect(player().unMute.mock.invocationCallOrder[0]).toBeLessThan(player().playVideo.mock.invocationCallOrder[0]);
   });
 
   it("plays the next song when one ends, and so on", async () => {
