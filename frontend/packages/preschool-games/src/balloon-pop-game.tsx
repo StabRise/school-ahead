@@ -24,6 +24,7 @@ import { BalloonQuiz, buildBalloonQuizQuestions, type BalloonQuizQuestion } from
 import { BalloonLearningCards, type LearningCard } from "./balloon-learning-cards";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { playCelebrationChime, playPopSound } from "./kit/sound-effects";
+import { GAME_MUSIC_BUTTON_POSITION, GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
 import { MusicToggleButton } from "./kit/music-toggle-button";
 
 // Every DIAMOND_MILESTONE ruby balloons popped converts into 1 Diamond,
@@ -756,40 +757,41 @@ export function BalloonPopGame() {
         </span>
       </div>
 
-      <select
-        aria-label={t("languageLabel")}
-        value={language}
-        onChange={(e) => setLanguage(e.target.value as GameLanguage)}
-        // Fixed w-32 (rather than letting the native <select> auto-size)
-        // so the pill doesn't render clipped to whatever width the browser
-        // happens to compute for the currently-selected option — wide
-        // enough for "Українська", the longest of the three labels.
-        className="absolute left-20 top-4 z-10 h-9 w-32 truncate rounded-full bg-white pl-3 pr-1 text-sm font-bold text-gray-700 shadow-lg ring-2 ring-gray-200"
-      >
-        {GAME_LANGUAGES.map((lang) => (
-          <option key={lang} value={lang}>
-            {t(`language.${lang}`)}
-          </option>
-        ))}
-      </select>
-
       <button
         ref={settingsButtonRef}
         type="button"
         aria-label={t("settingsButton")}
         onClick={() => setSettingsOpen((current) => !current)}
-        className="absolute left-56 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+        className={`${GAME_SETTINGS_BUTTON_POSITION} flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200`}
       >
         ⚙️
       </button>
 
-      <MusicToggleButton className="absolute left-72 top-4 z-10" />
+      <MusicToggleButton className={GAME_MUSIC_BUTTON_POSITION} />
 
       {settingsOpen && (
         <div
           ref={settingsPanelRef}
-          className="absolute left-56 top-16 z-10 flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200"
+          className={`${GAME_SETTINGS_PANEL_POSITION} flex w-56 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200`}
         >
+          {/* The language sits above the mode on purpose: which modes there are
+              (and what they are called) depends on it — see availableModes and
+              modeLabel — so changing it refreshes the list below at once, and
+              moves the game off a mode the new language doesn't have. */}
+          <label className="flex flex-col gap-1">
+            <span className="font-medium text-gray-700">{t("languageLabel")}</span>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as GameLanguage)}
+              className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
+            >
+              {GAME_LANGUAGES.map((lang) => (
+                <option key={lang} value={lang}>
+                  {t(`language.${lang}`)}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("modeLabel")}</span>
             <select

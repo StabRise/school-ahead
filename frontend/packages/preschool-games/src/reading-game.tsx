@@ -17,6 +17,7 @@ import { useBackgroundMusic } from "./lib/use-background-music";
 import { useAlphabeticalConsonants } from "./kit/use-alphabetical-consonants";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { playCelebrationChime, playMatchSound, playMissSound } from "./kit/sound-effects";
+import { GAME_MUSIC_BUTTON_POSITION, GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
 import { MusicToggleButton } from "./kit/music-toggle-button";
 
 // Preschool "syllable drag-and-drop" reading minigame — see
@@ -458,17 +459,17 @@ export function ReadingGame() {
         type="button"
         aria-label={t("settingsButton")}
         onClick={() => setSettingsOpen((current) => !current)}
-        className="absolute left-20 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+        className={`${GAME_SETTINGS_BUTTON_POSITION} flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200`}
       >
         ⚙️
       </button>
 
-      <MusicToggleButton className="absolute left-32 top-4 z-10" />
+      <MusicToggleButton className={GAME_MUSIC_BUTTON_POSITION} />
 
       {settingsOpen && (
         <div
           ref={settingsPanelRef}
-          className="absolute left-20 top-16 z-10 flex w-60 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200"
+          className={`${GAME_SETTINGS_PANEL_POSITION} flex w-60 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200`}
         >
           <label className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("consonantLabel")}</span>

@@ -101,6 +101,12 @@ If the currently-selected mode becomes unavailable after a language switch,
 the game silently falls back to the first available mode rather than
 showing a broken/empty one.
 
+The language is chosen in the ⚙️ panel, in a select **above** the mode one
+("Що написано на кульках"), because the mode list depends on it: changing the
+language refreshes that list at once — only the modes with that language,
+named by their title in that language — and, as above, moves the game off a
+mode the new language doesn't have.
+
 ### `colors` is the one special case
 
 Every other mode picks a random palette hex for its balloon's fill. `colors`

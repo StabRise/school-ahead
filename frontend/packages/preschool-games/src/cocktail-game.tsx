@@ -19,6 +19,7 @@ import {
 import { describeRecipeForSpeech } from "./lib/cocktail-speech-pl";
 import { useBackgroundMusic } from "./lib/use-background-music";
 import { playCocktailBounceSound, playCocktailFailSound, playCocktailSplashSound, playVictoryFanfare } from "./kit/sound-effects";
+import { GAME_MUSIC_BUTTON_POSITION, GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
 import { MusicToggleButton } from "./kit/music-toggle-button";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import {
@@ -731,7 +732,7 @@ export function CocktailGame() {
         type="button"
         aria-label={t("settingsButton")}
         onClick={() => setSettingsOpen((current) => !current)}
-        className="absolute left-4 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+        className={`${GAME_SETTINGS_BUTTON_POSITION} flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200`}
       >
         ⚙️
       </button>
@@ -739,7 +740,7 @@ export function CocktailGame() {
       {settingsOpen && (
         <div
           ref={settingsPanelRef}
-          className="absolute left-4 top-16 z-10 flex w-60 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200"
+          className={`${GAME_SETTINGS_PANEL_POSITION} flex w-60 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200`}
         >
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={onlyEquations} onChange={(e) => setOnlyEquations(e.target.checked)} />
@@ -748,7 +749,7 @@ export function CocktailGame() {
         </div>
       )}
 
-      <div className="absolute left-20 top-4 z-10 flex gap-1 rounded-full bg-white p-1 shadow-lg ring-2 ring-gray-200">
+      <div className="absolute left-4 top-4 z-10 flex gap-1 rounded-full bg-white p-1 shadow-lg ring-2 ring-gray-200">
         <button
           type="button"
           aria-pressed={mode === "hint"}
@@ -781,12 +782,12 @@ export function CocktailGame() {
         type="button"
         aria-label={muted ? t("narrationOffLabel") : t("narrationOnLabel")}
         onClick={() => setMuted(!muted)}
-        className="absolute right-14 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+        className="absolute right-4 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
       >
         {muted ? "🔇" : "🗣️"}
       </button>
 
-      <MusicToggleButton className="absolute right-4 top-4 z-10" />
+      <MusicToggleButton className={GAME_MUSIC_BUTTON_POSITION} />
 
       <CocktailRound
         key={`${mode}-${roundToken}`}
