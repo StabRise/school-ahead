@@ -78,7 +78,8 @@
     "diamondBalance": "{count, plural, one {# діамант} few {# діаманти} many {# діамантів} other {# діаманта}}",
     "avatarEditor": "Редактор аватарів",
     "furnitureEditor": "Редактор фурнітури",
-    "storiesEditor": "Казки"
+    "storiesEditor": "Казки",
+    "syllablesEditor": "Склади"
   },
   "Home": {
     "welcomeBack": "З поверненням, {name}!"
@@ -1519,6 +1520,24 @@
     "notUsedInText": "ще не використано",
     "viewInGame": "Переглянути в грі",
     "viewInGameRequiresPublish": "Спочатку опублікуйте казку, щоб переглянути її в грі"
+  },
+  "TutorSyllables": {
+    "title": "Склади",
+    "loading": "Завантаження...",
+    "error": "Не вдалося завантажити склади. Спробуйте ще раз.",
+    "empty": "Ще немає жодного складу.",
+    "importButton": "Імпортувати ZIP",
+    "importingStatus": "Імпортування...",
+    "importError": "Не вдалося імпортувати архів. Перевірте його структуру і спробуйте ще раз.",
+    "importResult": "Імпорт завершено: додано {created}, оновлено {updated}, пропущено {skipped}.",
+    "columnIcon": "Малюнок",
+    "columnSyllable": "Склад",
+    "columnWord": "Слово",
+    "columnLanguage": "Мова",
+    "columnDefault": "Основна",
+    "columnSyllableAudio": "Звук складу",
+    "columnWordAudio": "Звук слова",
+    "defaultBadge": "Основна"
   },
   "TaskDetail": {
     "loading": "Завантаження...",
