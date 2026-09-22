@@ -22,13 +22,15 @@ export async function GET() {
     .listReadingSyllables({ is_default: true })
     .catch(() => []);
 
-  const syllables: DefaultSyllableRow[] = rows
-    .filter((row): row is typeof row & { icon: string } => Boolean(row.icon))
-    .map((row) => ({
+  const syllables: DefaultSyllableRow[] = [];
+  for (const row of rows) {
+    if (!row.icon) continue;
+    syllables.push({
       syllable: `${row.first_letter}${row.second_part}`,
       image: row.icon,
       word: row.word,
-    }));
+    });
+  }
 
   return NextResponse.json({ syllables });
 }

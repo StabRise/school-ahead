@@ -41,14 +41,16 @@ export async function GET(request: NextRequest) {
   // A card with no icon yet can't be played (nothing to show/fall) — same
   // "not ready" skip the old words.json-driven route did for a syllable
   // missing its image.
-  const cards: CardsGameCard[] = rows
-    .filter((row): row is typeof row & { icon: string } => Boolean(row.icon))
-    .map((row) => ({
+  const cards: CardsGameCard[] = [];
+  for (const row of rows) {
+    if (!row.icon) continue;
+    cards.push({
       syllable: `${row.first_letter}${row.second_part}`,
       word: row.word,
       image: row.icon,
       isDefault: row.is_default,
-    }));
+    });
+  }
 
   return NextResponse.json({ cards });
 }
