@@ -1537,7 +1537,9 @@
     "columnDefault": "Основна",
     "columnSyllableAudio": "Звук складу",
     "columnWordAudio": "Звук слова",
-    "defaultBadge": "Основна"
+    "defaultBadge": "Основна",
+    "makeDefaultButton": "Зробити основною",
+    "setDefaultError": "Не вдалося зробити склад основним. Спробуйте ще раз."
   },
   "TaskDetail": {
     "loading": "Завантаження...",

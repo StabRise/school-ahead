@@ -49,6 +49,81 @@ def _syllables_zip(consonant_words: dict[str, dict[str, str]], utf8_names: bool 
     return SimpleUploadedFile('syllables.zip', buffer.getvalue(), content_type='application/zip')
 
 
+def _letters_zip(consonant_words: dict[str, list[str]], audio: dict[str, bytes] | None = None) -> SimpleUploadedFile:
+    """Builds a ZIP shaped like public/static/letters/<consonant>/<Word>.
+    <ext> — no words.json, unlike _syllables_zip above. `consonant_words`
+    maps a folder name to the words whose picture lives directly in it (one
+    fake image per word); `audio` optionally adds `<folder>/<stem>.mp3`
+    entries (a 2-letter stem for a bare-syllable recording, a full word for
+    a word recording — same convention as import_reading_syllables)."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w') as archive:
+        for folder, words in consonant_words.items():
+            for word in words:
+                archive.writestr(f'{folder}/{word}.png', FAKE_PNG)
+        for name, content in (audio or {}).items():
+            archive.writestr(name, content)
+    return SimpleUploadedFile('letters.zip', buffer.getvalue(), content_type='application/zip')
+
+
+class TestLettersShapeSyllableImport:
+    def test_import_derives_word_from_filename(self, api_client, auth_header, tutor):
+        upload = _letters_zip({'Б': ['Бик', 'Баба']})
+
+        response = api_client.post(
+            '/reading/tutor/syllables/import', FILES=MultiValueDict({'file': [upload]}), headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data == {'created': 2, 'updated': 0, 'skipped': 0}
+        rows = {(s.first_letter, s.second_part): s for s in Syllable.objects.all()}
+        assert rows[('Б', 'И')].word == 'Бик'
+        assert rows[('Б', 'И')].is_default is True
+        assert bool(rows[('Б', 'И')].icon)
+        assert rows[('Б', 'А')].word == 'Баба'
+
+    def test_import_skips_word_not_matching_folder_consonant(self, api_client, auth_header, tutor):
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w') as archive:
+            archive.writestr('Б/Бик.png', FAKE_PNG)
+            archive.writestr('Б/leftover_generated_image.jpeg', FAKE_PNG)
+        upload = SimpleUploadedFile('letters.zip', buffer.getvalue(), content_type='application/zip')
+
+        response = api_client.post(
+            '/reading/tutor/syllables/import', FILES=MultiValueDict({'file': [upload]}), headers=auth_header(tutor.user),
+        )
+
+        assert response.data == {'created': 1, 'updated': 0, 'skipped': 1}
+
+    def test_import_attaches_word_and_syllable_audio(self, api_client, auth_header, tutor):
+        upload = _letters_zip({'Б': ['Бик']}, audio={'Б/бик.mp3': b'ID3wordaudio', 'Б/би.mp3': b'ID3syllableaudio'})
+
+        response = api_client.post(
+            '/reading/tutor/syllables/import', FILES=MultiValueDict({'file': [upload]}), headers=auth_header(tutor.user),
+        )
+
+        assert response.data == {'created': 1, 'updated': 0, 'skipped': 0}
+        syllable = Syllable.objects.get(first_letter='Б', second_part='И')
+        assert bool(syllable.word_audio)
+        assert bool(syllable.syllable_audio)
+
+    def test_reimport_updates_instead_of_duplicating(self, api_client, auth_header, tutor):
+        api_client.post(
+            '/reading/tutor/syllables/import',
+            FILES=MultiValueDict({'file': [_letters_zip({'Б': ['Бик']})]}),
+            headers=auth_header(tutor.user),
+        )
+
+        response = api_client.post(
+            '/reading/tutor/syllables/import',
+            FILES=MultiValueDict({'file': [_letters_zip({'Б': ['Бик']})]}),
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.data == {'created': 0, 'updated': 1, 'skipped': 0}
+        assert Syllable.objects.count() == 1
+
+
 class TestSyllableImport:
     def test_import_creates_syllables_with_icons(self, api_client, auth_header, tutor):
         upload = _syllables_zip({'б': {'ба': 'баран', 'бо': 'бобер'}})
@@ -145,3 +220,58 @@ class TestTutorSyllablesList:
 
         assert response.status_code == 200
         assert len(response.data) == 2
+
+
+class TestSetDefaultSyllable:
+    def test_marks_syllable_default_and_unmarks_previous(self, api_client, auth_header, tutor):
+        old_default = Syllable.objects.create(first_letter='М', second_part='О', word='Морква', is_default=True)
+        candidate = Syllable.objects.create(first_letter='М', second_part='О', word='Морозиво', is_default=False)
+
+        response = api_client.post(
+            f'/reading/tutor/syllables/{candidate.id}/set-default', headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['is_default'] is True
+        old_default.refresh_from_db()
+        candidate.refresh_from_db()
+        assert old_default.is_default is False
+        assert candidate.is_default is True
+
+    def test_does_not_touch_other_groups(self, api_client, auth_header, tutor):
+        other_group_default = Syllable.objects.create(first_letter='Б', second_part='А', word='Банан', is_default=True)
+        candidate = Syllable.objects.create(first_letter='М', second_part='О', word='Морква', is_default=False)
+
+        response = api_client.post(
+            f'/reading/tutor/syllables/{candidate.id}/set-default', headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        other_group_default.refresh_from_db()
+        assert other_group_default.is_default is True
+
+    def test_already_default_is_a_no_op(self, api_client, auth_header, tutor):
+        already_default = Syllable.objects.create(first_letter='М', second_part='О', word='Морква', is_default=True)
+
+        response = api_client.post(
+            f'/reading/tutor/syllables/{already_default.id}/set-default', headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        already_default.refresh_from_db()
+        assert already_default.is_default is True
+
+    def test_requires_tutor(self, api_client, auth_header, student):
+        candidate = Syllable.objects.create(first_letter='М', second_part='О', word='Морква', is_default=False)
+
+        response = api_client.post(
+            f'/reading/tutor/syllables/{candidate.id}/set-default', headers=auth_header(student.user),
+        )
+
+        assert response.status_code == 403
+        candidate.refresh_from_db()
+        assert candidate.is_default is False
+
+    def test_404_for_unknown_id(self, api_client, auth_header, tutor):
+        response = api_client.post('/reading/tutor/syllables/999999/set-default', headers=auth_header(tutor.user))
+        assert response.status_code == 404

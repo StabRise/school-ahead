@@ -8,7 +8,9 @@ import {
   getListTutorReadingSyllablesQueryKey,
   useImportTutorReadingSyllables,
   useListTutorReadingSyllables,
+  useSetDefaultReadingSyllable,
 } from "@school-ahead/api-client/browser/reading/reading";
+import type { SyllableOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { useDialogs } from "@/components/dialogs/app-dialogs";
 
@@ -64,6 +66,48 @@ function ImportSyllablesButton() {
   );
 }
 
+// The "Основна" cell — a badge for the current default card of its
+// syllable group, or (for every other card in the group) a button that
+// makes it the default instead. The backend clears the old default in the
+// same request (see reading/api.py's set_default_syllable), so only this
+// row's own optimistic-looking refetch is needed, not a manual patch of
+// the previous default's row.
+function DefaultCell({ syllable }: { syllable: SyllableOut }) {
+  const t = useTranslations("TutorSyllables");
+  const dialogs = useDialogs();
+  const queryClient = useQueryClient();
+  const setDefault = useSetDefaultReadingSyllable();
+
+  if (syllable.is_default) {
+    return (
+      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+        {t("defaultBadge")}
+      </span>
+    );
+  }
+
+  const handleClick = () => {
+    setDefault.mutate(
+      { syllableId: syllable.id },
+      {
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: getListTutorReadingSyllablesQueryKey() }),
+        onError: () => dialogs.error(t("setDefaultError")),
+      },
+    );
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={setDefault.isPending}
+      className="rounded-full border border-gray-300 px-2 py-0.5 text-[11px] font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+    >
+      {t("makeDefaultButton")}
+    </button>
+  );
+}
+
 export function TutorSyllablesPage() {
   const t = useTranslations("TutorSyllables");
   const { data: syllables, isLoading, isError } = useListTutorReadingSyllables();
@@ -110,11 +154,7 @@ export function TutorSyllablesPage() {
                   <td className="px-4 py-2 text-gray-900">{syllable.word}</td>
                   <td className="px-4 py-2 text-gray-600">{syllable.language}</td>
                   <td className="px-4 py-2">
-                    {syllable.is_default && (
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                        {t("defaultBadge")}
-                      </span>
-                    )}
+                    <DefaultCell syllable={syllable} />
                   </td>
                   <td className="px-4 py-2">
                     {syllable.syllable_audio ? (

@@ -12,6 +12,7 @@ from lessons.models import QuizLanguage
 from .models import Syllable
 
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp'}
+AUDIO_EXTENSIONS = {'.mp3'}
 WORDS_FILE = 'words.json'
 
 
@@ -39,27 +40,39 @@ def _decode_name(info: zipfile.ZipInfo) -> str:
         return info.filename
 
 
+def _group_has_default(first_letter: str, second_part: str) -> bool:
+    return Syllable.objects.filter(
+        language=QuizLanguage.UK, first_letter=first_letter, second_part=second_part, is_default=True
+    ).exists()
+
+
 def import_syllables_archive(uploaded: UploadedFile) -> SyllableImportSummary:
-    """Imports Syllable rows from a ZIP shaped like the legacy "Картки"/
-    "Казки" asset folder (frontend/apps/web/public/static/syllables/, see
-    docs/preschool/games/reading/Cards.md) — the tutor "Syllables" page's
-    (/tutor/syllables) upload button. A folder anywhere in the archive that
-    has a `words.json` alongside it (`{"<syllable>": "<word>", ...}`, e.g.
-    `{"ба": "баран"}`) is read as one consonant's set: each entry's
-    syllable key gives `first_letter`/`second_part`, its value becomes
-    `word`, and the sibling image whose filename (minus extension) matches
-    the syllable key becomes `icon`. An entry with no matching image, or a
-    syllable key shorter than 2 letters, is skipped. Grouping is by each
-    file's own immediate parent directory (not a fixed nesting depth), so
-    this tolerates the extra top-level folder a zipped-up directory
-    (macOS/Windows) adds.
+    """Imports Syllable rows from a ZIP — the tutor "Syllables" page's
+    (/tutor/syllables) upload button. Auto-detects, per folder anywhere in
+    the archive, which of two legacy asset-folder shapes it's looking at
+    (folders can be mixed within one archive):
+
+    - `<consonant>/words.json` + `<consonant>/<syllable>.png` (frontend/
+      apps/web/public/static/syllables/, see docs/preschool/games/reading/
+      Cards.md) — one card per syllable, `words.json` (`{"ба": "баран"}`)
+      giving its `word`; see _import_words_json_folder.
+    - `<consonant>/<Word>.<ext>` [+ `<consonant>/<Syllable>.mp3`], no
+      words.json (frontend/apps/web/public/static/letters/, see docs/
+      preschool/games/reading/README.md) — one card per picture, `word`
+      taken straight from its filename, optionally paired with a same-
+      named or bare-syllable audio recording; see _import_letters_folder,
+      which mirrors reading.management.commands.import_reading_syllables's
+      filesystem scan exactly, just reading from the zip instead of disk.
+
+    Grouping is by each file's own immediate parent directory (not a fixed
+    nesting depth), so this tolerates the extra top-level folder a zipped-
+    up directory (macOS/Windows) adds.
 
     Safe to re-run: an existing (language, first_letter, second_part, word)
-    row has its icon replaced (counted as `updated`) rather than duplicated.
-    A newly created row only gets `is_default=True` when its syllable group
-    doesn't already have a default card (see Syllable.Meta's constraint) —
-    e.g. one already imported by reading.management.commands.
-    import_reading_syllables from the newer public/static/letters/ set."""
+    row has its icon/audio replaced (counted as `updated`) rather than
+    duplicated. A newly created row only gets `is_default=True` when its
+    syllable group doesn't already have a default card (see Syllable.
+    Meta's constraint) — e.g. one already imported from the other shape."""
     entries_by_dir: dict[PurePosixPath, list[tuple[str, zipfile.ZipInfo]]] = {}
     with zipfile.ZipFile(io.BytesIO(uploaded.read())) as archive:
         for info in archive.infolist():
@@ -74,42 +87,128 @@ def import_syllables_archive(uploaded: UploadedFile) -> SyllableImportSummary:
         updated = 0
         skipped = 0
 
-        for entries in entries_by_dir.values():
+        for directory, entries in entries_by_dir.items():
             words_info = next((info for name, info in entries if PurePosixPath(name).name.lower() == WORDS_FILE), None)
-            if words_info is None:
-                continue
-            words: dict[str, str] = json.loads(archive.read(words_info).decode('utf-8'))
-            images_by_stem = {
-                PurePosixPath(name).stem.lower(): info
-                for name, info in entries
-                if PurePosixPath(name).suffix.lower() in IMAGE_EXTENSIONS
-            }
-
-            for syllable_key, word in words.items():
-                normalized = syllable_key.strip()
-                image_info = images_by_stem.get(normalized.lower())
-                if len(normalized) < 2 or image_info is None:
-                    skipped += 1
-                    continue
-
-                first_letter = normalized[0].upper()
-                second_part = normalized[1].upper()
-                display_word = word.strip()
-                display_word = (display_word[:1].upper() + display_word[1:]) if display_word else normalized.upper()
-
-                group_has_default = Syllable.objects.filter(
-                    language=QuizLanguage.UK, first_letter=first_letter, second_part=second_part, is_default=True
-                ).exists()
-                syllable, was_created = Syllable.objects.get_or_create(
-                    first_letter=first_letter,
-                    second_part=second_part,
-                    word=display_word,
-                    language=QuizLanguage.UK,
-                    defaults={'is_default': not group_has_default},
-                )
-                image_name = PurePosixPath(_decode_name(image_info)).name
-                syllable.icon.save(image_name, ContentFile(archive.read(image_info)), save=True)
-                created += was_created
-                updated += not was_created
+            if words_info is not None:
+                c, u, s = _import_words_json_folder(archive, entries, words_info)
+            else:
+                c, u, s = _import_letters_folder(archive, directory, entries)
+            created += c
+            updated += u
+            skipped += s
 
     return SyllableImportSummary(created=created, updated=updated, skipped=skipped)
+
+
+def _import_words_json_folder(
+    archive: zipfile.ZipFile, entries: list[tuple[str, zipfile.ZipInfo]], words_info: zipfile.ZipInfo
+) -> tuple[int, int, int]:
+    """`words.json` maps a 2-letter syllable to a word; each key's sibling
+    image (filename minus extension matching the key) becomes that card's
+    icon. A key with no matching image, or shorter than 2 letters, is
+    skipped."""
+    words: dict[str, str] = json.loads(archive.read(words_info).decode('utf-8'))
+    images_by_stem = {
+        PurePosixPath(name).stem.lower(): info
+        for name, info in entries
+        if PurePosixPath(name).suffix.lower() in IMAGE_EXTENSIONS
+    }
+
+    created = 0
+    updated = 0
+    skipped = 0
+    for syllable_key, word in words.items():
+        normalized = syllable_key.strip()
+        image_info = images_by_stem.get(normalized.lower())
+        if len(normalized) < 2 or image_info is None:
+            skipped += 1
+            continue
+
+        first_letter = normalized[0].upper()
+        second_part = normalized[1].upper()
+        display_word = word.strip()
+        display_word = (display_word[:1].upper() + display_word[1:]) if display_word else normalized.upper()
+
+        syllable, was_created = Syllable.objects.get_or_create(
+            first_letter=first_letter,
+            second_part=second_part,
+            word=display_word,
+            language=QuizLanguage.UK,
+            defaults={'is_default': not _group_has_default(first_letter, second_part)},
+        )
+        icon_name = PurePosixPath(_decode_name(image_info)).name
+        syllable.icon.save(icon_name, ContentFile(archive.read(image_info)), save=True)
+        created += was_created
+        updated += not was_created
+    return created, updated, skipped
+
+
+def _import_letters_folder(
+    archive: zipfile.ZipFile, directory: PurePosixPath, entries: list[tuple[str, zipfile.ZipInfo]]
+) -> tuple[int, int, int]:
+    """No words.json — the directory's own name is the consonant, and every
+    image directly inside it is one card, its filename (minus extension)
+    the word. An image whose word doesn't start with the folder's
+    consonant (a leftover, not-yet-renamed file) is skipped. A same-named
+    `.mp3` becomes that card's word_audio; an exactly-2-letter one is
+    shared as syllable_audio by every card whose word starts with it —
+    same rules as reading.management.commands.import_reading_syllables."""
+    consonant = directory.name.upper()
+    if not consonant:
+        return 0, 0, 0
+
+    images: list[tuple[str, zipfile.ZipInfo]] = []
+    audio_by_lower_word: dict[str, zipfile.ZipInfo] = {}
+    syllable_audio_by_syllable: dict[str, zipfile.ZipInfo] = {}
+    for name, info in entries:
+        stem = PurePosixPath(name).stem
+        ext = PurePosixPath(name).suffix.lower()
+        if ext in IMAGE_EXTENSIONS:
+            images.append((stem, info))
+        elif ext in AUDIO_EXTENSIONS:
+            audio_by_lower_word[stem.lower()] = info
+            if len(stem) == 2:
+                syllable_audio_by_syllable[stem.upper()] = info
+
+    created = 0
+    updated = 0
+    skipped = 0
+    for word, image_info in images:
+        # A few filenames use a straight double quote where Ukrainian uses
+        # an apostrophe (e.g. хом"як -> хом'як).
+        normalized = word.replace('"', "'")
+        if len(normalized) < 2 or normalized[0].upper() != consonant:
+            skipped += 1
+            continue
+
+        first_letter = normalized[0].upper()
+        second_part = normalized[1].upper()
+        display_word = normalized[:1].upper() + normalized[1:]
+
+        syllable, was_created = Syllable.objects.get_or_create(
+            first_letter=first_letter,
+            second_part=second_part,
+            word=display_word,
+            language=QuizLanguage.UK,
+            defaults={'is_default': not _group_has_default(first_letter, second_part)},
+        )
+        syllable.icon.save(PurePosixPath(_decode_name(image_info)).name, ContentFile(archive.read(image_info)), save=False)
+
+        word_audio_info = audio_by_lower_word.get(normalized.lower())
+        if word_audio_info:
+            syllable.word_audio.save(
+                PurePosixPath(_decode_name(word_audio_info)).name, ContentFile(archive.read(word_audio_info)), save=False
+            )
+
+        syllable_audio_info = syllable_audio_by_syllable.get(f'{first_letter}{second_part}')
+        if syllable_audio_info:
+            syllable.syllable_audio.save(
+                PurePosixPath(_decode_name(syllable_audio_info)).name,
+                ContentFile(archive.read(syllable_audio_info)),
+                save=False,
+            )
+
+        syllable.save()
+        created += was_created
+        updated += not was_created
+    return created, updated, skipped

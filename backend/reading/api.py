@@ -1,6 +1,8 @@
 import zipfile
 
+from django.db import transaction
 from django.http import HttpRequest
+from django.shortcuts import get_object_or_404
 from ninja import File, Router
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
@@ -51,6 +53,28 @@ def list_tutor_syllables(request: HttpRequest):
     everything at once."""
     ensure_is_tutor(request)
     return Syllable.objects.all()
+
+
+@router.post('/tutor/syllables/{syllable_id}/set-default', response=SyllableOut, operation_id='set_default_reading_syllable')
+def set_default_syllable(request: HttpRequest, syllable_id: int):
+    """Flags this Syllable as the is_default card for its (language,
+    first_letter, second_part) group — the /tutor/syllables table's
+    "Основна" action. Whichever other row in the same group currently
+    holds that flag (if any) loses it in the same transaction, since only
+    one row per group may have it (see Syllable.Meta's constraint)."""
+    require_csrf(request)
+    ensure_is_tutor(request)
+    syllable = get_object_or_404(Syllable, id=syllable_id)
+    with transaction.atomic():
+        Syllable.objects.filter(
+            language=syllable.language,
+            first_letter=syllable.first_letter,
+            second_part=syllable.second_part,
+            is_default=True,
+        ).exclude(id=syllable.id).update(is_default=False)
+        syllable.is_default = True
+        syllable.save(update_fields=['is_default'])
+    return syllable
 
 
 @router.post(
