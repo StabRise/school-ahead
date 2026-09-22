@@ -34,3 +34,9 @@ class SyllableOut(Schema):
     @staticmethod
     def resolve_word_audio(obj, context):
         return _absolute_file_url(obj.word_audio, context)
+
+
+class SyllableImportResultOut(Schema):
+    created: int
+    updated: int
+    skipped: int

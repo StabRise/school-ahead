@@ -32,6 +32,11 @@ import { getPreschool } from "@school-ahead/api-client/server/preschool/preschoo
 // rejected outright. Otherwise deliberately permissive (a static slug is
 // just whatever a story's folder is named, e.g. "Ріпка" — see
 // /api/stories), not restricted to ASCII.
+//
+// `?source=db` (the "Storybook" games/storybook page, see game-play-page.
+// tsx's StorybookGamePage) skips the filesystem fallback entirely — a slug
+// that isn't a published DB story resolves to `content: null`, even if a
+// same-named static folder exists.
 const INVALID_SLUG_RE = /[/\\]/;
 const STORIES_DIR = path.join(process.cwd(), "public", "static", "stories");
 const STORY_FILE = "story.md";
@@ -61,8 +66,10 @@ async function fetchDbStoryContent(slug: string): Promise<string | null> {
 export async function GET(request: NextRequest) {
   const slug = request.nextUrl.searchParams.get("slug");
   if (!slug || !isValidSlug(slug)) return NextResponse.json({ content: null });
+  const dbOnly = request.nextUrl.searchParams.get("source") === "db";
 
   const dbContent = await fetchDbStoryContent(slug);
-  const content = dbContent ?? (await readFile(path.join(STORIES_DIR, slug, STORY_FILE), "utf-8").catch(() => null));
+  const content =
+    dbContent ?? (dbOnly ? null : await readFile(path.join(STORIES_DIR, slug, STORY_FILE), "utf-8").catch(() => null));
   return NextResponse.json({ content });
 }
