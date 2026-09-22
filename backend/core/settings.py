@@ -27,10 +27,22 @@ environ.Env.read_env(BASE_DIR.parent / '.env')
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('DJANGO_SECRET_KEY', default='django-insecure-w+&kmf3wh_a$xkx8qpbq6a8jc&ct=^s6--xe6x@7xk*k-ts6@8')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool('DJANGO_DEBUG', default=True)
+# SECURITY WARNING: don't run with debug turned on in production! Defaults
+# to False (fail secure) — local dev sets DJANGO_DEBUG=True explicitly via
+# .env.example/.env, so this default only matters for a deploy that forgot
+# to set it, which should never get a debug traceback (full settings dump
+# included) by accident.
+DEBUG = env.bool('DJANGO_DEBUG', default=False)
 
-ALLOWED_HOSTS = env.list('DJANGO_ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
+# 'backend' (Docker's internal hostname for the backend service, see
+# docker-compose*.yml — API_URL=http://backend:8000) is always allowed
+# regardless of DJANGO_ALLOWED_HOSTS: it's how the frontend container's
+# own server-side code (Next.js Route Handlers/Server Components) calls
+# this API, and forgetting it in a deploy's env silently breaks every one
+# of those calls with a 400 DisallowedHost — exactly what every server-
+# rendered story/syllable list quietly falling back to "empty" turned out
+# to be.
+ALLOWED_HOSTS = env.list('DJANGO_ALLOWED_HOSTS', default=['localhost', '127.0.0.1']) + ['backend']
 
 
 # Application definition
