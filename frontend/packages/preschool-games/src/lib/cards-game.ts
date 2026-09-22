@@ -4,9 +4,13 @@ import { useEffect, useState } from "react";
 import { compareSyllables } from "./reading-game";
 
 export interface CardsGameCard {
-  syllable: string; // e.g. "ба" — also the image's filename minus extension
-  word: string; // e.g. "баран" — empty when the syllable has no illustration yet
+  syllable: string; // e.g. "МО" — the syllable's first_letter + second_part
+  word: string; // e.g. "Морква"
   image: string;
+  // Flags the one card per syllable Learning mode's fixed grid uses — a
+  // syllable can have several (e.g. МО: Морква, Морозиво), see reading.
+  // Syllable.is_default.
+  isDefault: boolean;
 }
 
 const levelCardsCache = new Map<string, Promise<CardsGameCard[]>>();
@@ -39,12 +43,7 @@ export function useCardsGameLevel(consonant: string): CardsGameCard[] {
     let cancelled = false;
     void fetchLevelCards(consonant).then((result) => {
       if (!cancelled) {
-        // compareSyllables expects uppercase syllables (lib/reading-game.ts
-        // derives them from Title-Case words) — words.json's keys are
-        // lowercase, so uppercase them just for the comparison.
-        const sorted = [...result].sort((a, b) =>
-          compareSyllables(a.syllable.toLocaleUpperCase("uk"), b.syllable.toLocaleUpperCase("uk")),
-        );
+        const sorted = [...result].sort((a, b) => compareSyllables(a.syllable, b.syllable));
         setLoaded({ consonant, cards: sorted });
       }
     });

@@ -33,6 +33,12 @@ export interface LearningCard {
   // otherwise the same as `key`.
   name: string;
   image?: string;
+  // Optional two-letter syllable (e.g. "МО"), first letter blue and second
+  // red — when set, the card draws these letters big instead of `image`
+  // (which becomes a small corner badge instead). Used only by the
+  // "Картки" reading game (cards-game.tsx), whose plain object photo no
+  // longer bakes the syllable text in; every other caller omits it.
+  syllableBadge?: string;
 }
 
 // "Навчання" (learning) screen for balloon-pop-game.tsx — every mode gets
@@ -101,7 +107,34 @@ export function BalloonLearningCards({
                 bigger card shouldn't get a bigger image with no room left
                 for its name below it. */}
             <span className="h-full w-full">
-              {item.image ? (
+              {item.syllableBadge ? (
+                // "Картки" reading game only: big colored letters (vowel
+                // red, consonant blue) fill the card, same layout as
+                // syllable-card.tsx's WordSegmentCard — the plain object
+                // photo (item.image) is a small badge in the bottom-right
+                // corner instead of filling the card itself. `relative`
+                // stays on this inner div rather than the outer span above,
+                // so it can't affect the 🔊 badge's (pre-existing, unrelated)
+                // positioning for balloon-pop-game's own cards.
+                <div className="relative flex h-full w-full items-center justify-center rounded-xl bg-white text-5xl font-extrabold">
+                  {/* z-10 so the letters paint above the icon badge below —
+                      an absolutely-positioned image always paints above
+                      static content regardless of DOM order otherwise. */}
+                  <span className="relative z-10">
+                    <span style={{ color: "#0369a1" }}>{item.syllableBadge[0]}</span>
+                    <span style={{ color: "#dc2626" }}>{item.syllableBadge[1]}</span>
+                  </span>
+                  {item.image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.image}
+                      alt=""
+                      draggable={false}
+                      className="absolute bottom-1 right-1 h-1/4 w-1/4 rounded-md border border-gray-200 object-cover shadow"
+                    />
+                  )}
+                </div>
+              ) : item.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={item.image}

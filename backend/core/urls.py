@@ -19,6 +19,7 @@ from dictionary.api import router as dictionary_router
 from house.api import router as house_router
 from lessons.api import router as lessons_router
 from preschool.api import router as preschool_router
+from reading.api import router as reading_router
 from scheduling.api import router as scheduling_router
 from tasks.api import router as tasks_router
 from tts.api import router as tts_router
@@ -38,6 +39,7 @@ api.add_router('/dictionary', dictionary_router)
 api.add_router('/house', house_router)
 api.add_router('/cards', cards_router)
 api.add_router('/preschool', preschool_router)
+api.add_router('/reading', reading_router)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
