@@ -220,3 +220,58 @@ class TestTutorSyllablesList:
 
         assert response.status_code == 200
         assert len(response.data) == 2
+
+
+class TestSetDefaultSyllable:
+    def test_marks_syllable_default_and_unmarks_previous(self, api_client, auth_header, tutor):
+        old_default = Syllable.objects.create(first_letter='М', second_part='О', word='Морква', is_default=True)
+        candidate = Syllable.objects.create(first_letter='М', second_part='О', word='Морозиво', is_default=False)
+
+        response = api_client.post(
+            f'/reading/tutor/syllables/{candidate.id}/set-default', headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['is_default'] is True
+        old_default.refresh_from_db()
+        candidate.refresh_from_db()
+        assert old_default.is_default is False
+        assert candidate.is_default is True
+
+    def test_does_not_touch_other_groups(self, api_client, auth_header, tutor):
+        other_group_default = Syllable.objects.create(first_letter='Б', second_part='А', word='Банан', is_default=True)
+        candidate = Syllable.objects.create(first_letter='М', second_part='О', word='Морква', is_default=False)
+
+        response = api_client.post(
+            f'/reading/tutor/syllables/{candidate.id}/set-default', headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        other_group_default.refresh_from_db()
+        assert other_group_default.is_default is True
+
+    def test_already_default_is_a_no_op(self, api_client, auth_header, tutor):
+        already_default = Syllable.objects.create(first_letter='М', second_part='О', word='Морква', is_default=True)
+
+        response = api_client.post(
+            f'/reading/tutor/syllables/{already_default.id}/set-default', headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        already_default.refresh_from_db()
+        assert already_default.is_default is True
+
+    def test_requires_tutor(self, api_client, auth_header, student):
+        candidate = Syllable.objects.create(first_letter='М', second_part='О', word='Морква', is_default=False)
+
+        response = api_client.post(
+            f'/reading/tutor/syllables/{candidate.id}/set-default', headers=auth_header(student.user),
+        )
+
+        assert response.status_code == 403
+        candidate.refresh_from_db()
+        assert candidate.is_default is False
+
+    def test_404_for_unknown_id(self, api_client, auth_header, tutor):
+        response = api_client.post('/reading/tutor/syllables/999999/set-default', headers=auth_header(tutor.user))
+        assert response.status_code == 404
