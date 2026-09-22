@@ -101,3 +101,15 @@ def story_cover_upload_to(instance, filename: str) -> str:
 
 def story_asset_upload_to(instance, filename: str) -> str:
     return _unique_path('story_assets', filename)
+
+
+def syllable_icon_upload_to(instance, filename: str) -> str:
+    return _unique_path('syllable_icons', filename)
+
+
+def syllable_audio_upload_to(instance, filename: str) -> str:
+    return _unique_path('syllable_audio', filename)
+
+
+def word_audio_upload_to(instance, filename: str) -> str:
+    return _unique_path('word_audio', filename)
