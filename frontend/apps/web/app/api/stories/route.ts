@@ -34,9 +34,14 @@ async function listDbStories(): Promise<StorySummary[]> {
       title: row.title,
       cover: row.cover_image,
     }));
-  } catch {
-    // The backend may be unreachable (e.g. frontend-only local dev) — the
-    // game should still show the static stories rather than erroring out.
+  } catch (err) {
+    // The backend may be genuinely unreachable (e.g. frontend-only local
+    // dev) — the game should still show the static stories rather than
+    // erroring out — but logging it means a *misconfigured* backend
+    // (wrong API_URL, a deploy that's down) shows up in the frontend
+    // container's logs instead of just silently dropping every DB story
+    // from the list with no trace (see /api/story's identical logging).
+    console.error("/api/stories: DB story list fetch failed", err);
     return [];
   }
 }
