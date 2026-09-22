@@ -1,6 +1,6 @@
 import { access, readdir, readFile } from "fs/promises";
 import path from "path";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getPreschool } from "@school-ahead/api-client/server/preschool/preschool";
 import { parseStoryTitle, type StorySummary } from "@school-ahead/preschool-games/story-parser";
 
@@ -19,9 +19,11 @@ import { parseStoryTitle, type StorySummary } from "@school-ahead/preschool-game
 // exactly match a static folder name would collide; see /api/story's
 // same note. Considered unlikely in practice (auto-generated tutor slugs
 // vs. the fixed, curated static folk-tale set) and not solved here.
-// Excluded from the locale/auth middleware by its "/api" matcher (see
-// middleware.ts), so this is reachable without a session — the backend
-// list endpoint is auth=None for the same reason.
+// `?source=db` (the "Storybook" games/storybook page, see game-play-page.
+// tsx's StorybookGamePage) skips the static folder scan entirely, listing
+// only DB stories. Excluded from the locale/auth middleware by its "/api"
+// matcher (see middleware.ts), so this is reachable without a session —
+// the backend list endpoint is auth=None for the same reason.
 const STORIES_DIR = path.join(process.cwd(), "public", "static", "stories");
 const STORY_FILE = "story.md";
 const COVER_EXTENSIONS = ["png", "jpg", "jpeg", "webp"];
@@ -60,27 +62,31 @@ async function findCover(slug: string): Promise<string | null> {
   return null;
 }
 
-export async function GET() {
-  const entries = await readdir(STORIES_DIR, { withFileTypes: true }).catch(() => []);
-  const folders = entries.filter((entry) => entry.isDirectory() && !entry.name.startsWith("."));
+export async function GET(request: NextRequest) {
+  const dbOnly = request.nextUrl.searchParams.get("source") === "db";
 
   const [staticStories, dbStories] = await Promise.all([
-    Promise.all(
-      folders.map(async (entry): Promise<StorySummary | null> => {
-        const slug = entry.name;
-        const content = await readFile(path.join(STORIES_DIR, slug, STORY_FILE), "utf-8").catch(() => null);
-        if (content === null) return null;
-        const cover = await findCover(slug);
-        return { slug, title: parseStoryTitle(content) || slug, cover };
-      }),
-    ),
+    dbOnly ? Promise.resolve([]) : listStaticStories(),
     listDbStories(),
   ]);
-  const ready = [
-    ...staticStories.filter((story): story is StorySummary => story !== null),
-    ...dbStories,
-  ];
+  const ready = [...staticStories, ...dbStories];
   ready.sort((a, b) => a.title.localeCompare(b.title, "uk"));
 
   return NextResponse.json({ stories: ready });
+}
+
+async function listStaticStories(): Promise<StorySummary[]> {
+  const entries = await readdir(STORIES_DIR, { withFileTypes: true }).catch(() => []);
+  const folders = entries.filter((entry) => entry.isDirectory() && !entry.name.startsWith("."));
+
+  const staticStories = await Promise.all(
+    folders.map(async (entry): Promise<StorySummary | null> => {
+      const slug = entry.name;
+      const content = await readFile(path.join(STORIES_DIR, slug, STORY_FILE), "utf-8").catch(() => null);
+      if (content === null) return null;
+      const cover = await findCover(slug);
+      return { slug, title: parseStoryTitle(content) || slug, cover };
+    }),
+  );
+  return staticStories.filter((story): story is StorySummary => story !== null);
 }

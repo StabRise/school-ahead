@@ -79,3 +79,30 @@ export function GamePlayPage({ game, storySlug }: { game: PreschoolGameId; story
     </GamePageContainer>
   );
 }
+
+// A dedicated, DB-only variant of the "Казки" story player at /games/
+// storybook[/<storySlug>] (see app/[locale]/(student)/games/storybook/
+// page.tsx) — reuses everything GamePlayPage's game === "stories" branch
+// does (same StoriesGamePage, guard, chrome), just with `dbOnly` so the
+// picker and direct-slug navigation only ever show tutor-authored DB
+// stories, never the static public/static/stories/ folk-tale set. Not a
+// PreschoolGameId (doesn't appear in the /games picker grid — see
+// game-choice.tsx's GAME_CATALOG) since it's a filtered view of "stories",
+// not a separate minigame.
+export function StorybookGamePage({ storySlug }: { storySlug?: string }) {
+  const t = useTranslations("PreschoolChrome");
+  const allowed = usePreschoolGamesGuard();
+
+  if (!allowed) {
+    return null;
+  }
+
+  return (
+    <GamePageContainer>
+      <div className="mx-auto flex w-full flex-1 flex-col p-2 xl:max-w-5xl sm:p-4">
+        <StoriesGamePage slug={storySlug ?? null} basePath="/games/storybook" dbOnly />
+      </div>
+      <HomeButton href="/" label={t("homeLabel")} />
+    </GamePageContainer>
+  );
+}

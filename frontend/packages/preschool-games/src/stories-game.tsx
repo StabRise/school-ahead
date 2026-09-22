@@ -815,11 +815,21 @@ export function StoriesGame() {
 // story gets its own URL under whichever `basePath` the caller mounted this
 // at, so picking one navigates there (and pressing "back" navigates to the
 // bare picker) instead of touching local state, which is what makes a
-// reload (F5) keep the same story open.
-export function StoriesGamePage({ slug = null, basePath }: { slug?: string | null; basePath: string }) {
+// reload (F5) keep the same story open. `dbOnly` — the "Storybook" games/
+// storybook page, see game-play-page.tsx's StorybookGamePage — drops the
+// static folk-tale set from both the picker and direct-slug navigation.
+export function StoriesGamePage({
+  slug = null,
+  basePath,
+  dbOnly = false,
+}: {
+  slug?: string | null;
+  basePath: string;
+  dbOnly?: boolean;
+}) {
   const router = useLocaleAwareGamesRouter();
-  const stories = useStories();
-  const story = useStory(slug);
+  const stories = useStories(dbOnly);
+  const story = useStory(slug, dbOnly);
 
   return (
     <StoriesShell
