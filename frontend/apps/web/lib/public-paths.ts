@@ -14,7 +14,7 @@ import { routing } from "@/i18n/routing";
 //
 // "/about" is the landing page's "Дізнатися більше" page (an exact match, no
 // sub-pages).
-const PUBLIC_PREFIXES = ["/login", "/games"];
+const PUBLIC_PREFIXES = ["/games"];
 
 // The read-only public catalogue (docs/core/public_access.md): the bookshelf,
 // one subject, one lesson. Exact patterns, not prefixes — the rest of
@@ -30,8 +30,8 @@ const PUBLIC_PATTERNS = [/^\/about\/?$/, /^\/subjects\/?$/, /^\/subjects\/\d+\/?
 // arrives here with no locale segment at all, e.g. "/games/cards" rather
 // than "/uk/games/cards". Blindly stripping segments[1] in that case would
 // eat "games" itself, leaving `isPublicPath` checking the wrong, non-public
-// remainder and wrongly bouncing an anonymous visitor to a login page whose
-// path is `/games/login` (broken, and not even the real login route).
+// remainder and wrongly bouncing an anonymous visitor to a page whose
+// path is `/games/login` (broken, and not even a real route).
 export function hasLocalePrefix(pathname: string): boolean {
   const [, maybeLocale] = pathname.split("/");
   return (routing.locales as readonly string[]).includes(maybeLocale ?? "");

@@ -1,23 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import { useDefaultSyllables } from "./default-syllables";
 import type { StoryWordSegment } from "./story-parser";
 
 // Shared syllable/letter "card" rendering — originally built for the
 // "Казки" (Stories) minigame (docs/preschool/games/reading/Stories.md §3)
 // and extracted here so other minigames (e.g. "Jumping Frogs", see docs/
 // preschool/games/jumping-frogs.md) can render the exact same cards for
-// their own word breakdowns without duplicating this logic. A "text"
-// segment that happens to be a known two-letter consonant+vowel syllable
-// shows that exact flashcard image from the "Картки" game's asset folder
-// (public/static/syllables/<consonant>/<syllable>.png) instead of plain
-// text — no need to ask the server which folders are "ready" (see
-// /api/cards-game-modes) first, since a missing/not-yet-labeled file just
-// 404s and onError falls back to colored letters (vowel red, consonant
-// blue, see isVowelUk). An "image"/"audio"/"video"/"youtube" segment only
-// makes sense for a caller that has a real story folder to resolve
-// filenames against (`storySlug`) — a caller with no such folder (e.g.
-// Jumping Frogs, which only ever builds "text" segments) can omit it.
+// their own word breakdowns without duplicating this logic. Every "text"
+// segment draws as big colored letters (vowel red, consonant blue, see
+// isVowelUk); one that's also a known two-letter consonant+vowel syllable
+// additionally gets that syllable's default reading.Syllable card's picture
+// (backend/reading/api.py's GET /api/reading/syllables?is_default=true,
+// cached by useDefaultSyllables) as a small badge in the bottom-right
+// corner (see WordSegmentCard below) — no DB entry yet, or the image
+// failing to load, just leaves the plain letters with no badge. An
+// "image"/"audio"/"video"/"youtube" segment only makes sense for a caller
+// that has a real story folder to resolve filenames against (`storySlug`)
+// — a caller with no such folder (e.g. Jumping Frogs, which only ever
+// builds "text" segments) can omit it.
 
 const UK_VOWELS = new Set(["А", "О", "У", "Е", "И", "І", "Я", "Ю", "Є", "Ї"]);
 
@@ -75,6 +77,7 @@ export function WordSegmentCard({
   frameless?: boolean;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
+  const defaultSyllables = useDefaultSyllables();
   const boxStyle = { width: `${sizeRem}rem`, height: `${sizeRem}rem` };
   const cardClass = `shrink-0 object-cover ${frameless ? "" : "rounded-lg border-2 border-gray-400 bg-white"}`;
   // Scales with the box so a plain-letter card's glyphs stay legible (and
@@ -153,35 +156,44 @@ export function WordSegmentCard({
     );
   }
 
-  const lower = segment.text.toLocaleLowerCase("uk");
-  const canBeCardImage = lower.length === 2 && !imageFailed && !preferPlainText;
+  const upper = segment.text.toLocaleUpperCase("uk");
+  const syllableCard = upper.length === 2 && !preferPlainText ? defaultSyllables.get(upper) : undefined;
+  const showIcon = syllableCard && !imageFailed;
 
-  if (canBeCardImage) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={`/static/syllables/${encodeURIComponent(lower[0])}/${encodeURIComponent(lower)}.png`}
-        alt={segment.text.toLocaleUpperCase("uk")}
-        draggable={false}
-        style={boxStyle}
-        className={cardClass}
-        onError={() => setImageFailed(true)}
-      />
-    );
-  }
-
+  // Big colored letters (vowel red, consonant blue) fill the card, same as
+  // the plain-letter fallback below always drew — a known two-letter
+  // syllable additionally gets its default reading.Syllable card's picture
+  // as a small badge in the bottom-right corner, matching how the old
+  // hand-drawn public/static/syllables cards were laid out.
   return (
     <span
       style={{ ...boxStyle, fontSize: `${fontSizeRem}rem` }}
-      className={`flex shrink-0 items-center justify-center font-extrabold ${
+      className={`relative flex shrink-0 items-center justify-center font-extrabold ${
         frameless ? "" : "rounded-lg border-2 border-gray-400 bg-white"
       }`}
     >
-      {[...segment.text.toLocaleUpperCase("uk")].map((letter, index) => (
-        <span key={index} style={{ color: isVowelUk(letter) ? "#dc2626" : "#0369a1" }}>
-          {letter}
-        </span>
-      ))}
+      {/* relative + z-10 so the letters paint above the icon badge below —
+          without it, that absolutely-positioned image (painted above any
+          static content regardless of DOM order) covers whichever letter
+          it overlaps. */}
+      <span className="relative z-10">
+        {[...upper].map((letter, index) => (
+          <span key={index} style={{ color: isVowelUk(letter) ? "#dc2626" : "#0369a1" }}>
+            {letter}
+          </span>
+        ))}
+      </span>
+      {showIcon && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={syllableCard.image}
+          alt=""
+          draggable={false}
+          className="absolute bottom-0.5 right-0.5 rounded-md border border-white object-cover shadow"
+          style={{ width: `${sizeRem * 0.33}rem`, height: `${sizeRem * 0.33}rem` }}
+          onError={() => setImageFailed(true)}
+        />
+      )}
     </span>
   );
 }

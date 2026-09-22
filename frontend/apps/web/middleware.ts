@@ -6,7 +6,9 @@ import { hasLocalePrefix, isPublicPath, pathWithoutLocale } from "./lib/public-p
 const intlMiddleware = createMiddleware(routing);
 
 // Everything is protected except the paths in lib/public-paths.ts (locale
-// prefix stripped before comparing). This is a presence-only check on the
+// prefix stripped before comparing); a visitor who isn't signed in is sent to the
+// home page (`/`), which is the landing page with the sign-in buttons — there is no
+// login page any more. This is a presence-only check on the
 // access_token cookie for a fast redirect — NOT a substitute for real
 // per-request auth, which CookieOrBearerJWTAuth enforces server-side on every
 // Django call.
@@ -20,15 +22,14 @@ export default function middleware(request: NextRequest) {
   const locale = (hasLocalePrefix(pathname) ? pathname.split("/")[1] : routing.defaultLocale) as string;
   const isAuthenticated = request.cookies.has("access_token");
 
-  // An already-authenticated visitor hitting /login (stale bookmark, back
-  // button after signing in, ...) should land in the app instead of seeing
-  // the sign-in button again.
-  if (pathWithoutLocale(pathname) === "/login" && isAuthenticated) {
+  // /login is gone, but bookmarks and old links to it live on: whoever follows one —
+  // signed in or not — lands on the home page (the dashboard, or the landing page).
+  if (pathWithoutLocale(pathname) === "/login") {
     return Response.redirect(new URL(`/${locale}`, request.url));
   }
 
   if (!isPublicPath(pathname) && !isAuthenticated) {
-    return Response.redirect(new URL(`/${locale}/login`, request.url));
+    return Response.redirect(new URL(`/${locale}`, request.url));
   }
 
   return intlMiddleware(request);

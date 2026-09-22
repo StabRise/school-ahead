@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'dictionary',
     'cards',
     'preschool',
+    'reading',
 ]
 
 MIDDLEWARE = [

@@ -1,27 +1,20 @@
-import { access, readdir } from "fs/promises";
-import path from "path";
 import { NextResponse } from "next/server";
+import { getReading } from "@school-ahead/api-client/server/reading/reading";
 
 // The "Cards" minigame's consonant list (components/preschool/cards-game.tsx,
-// docs/preschool/games/reading/Cards.md) is every subfolder of
-// public/static/syllables that has a words.json alongside its card images — a
-// freshly-sliced sheet (see backend's slice_flashcard_grid command) starts
-// out as unnamed row0_colN.png files with no words.json, and isn't shown as
-// a level until it's been named and captioned. Excluded from the
-// locale/auth middleware by its "/api" matcher (see middleware.ts), so this
-// is reachable without a session.
-const SYLLABLES_DIR = path.join(process.cwd(), "public", "static", "syllables");
-
-async function hasWords(entryName: string): Promise<boolean> {
-  return access(path.join(SYLLABLES_DIR, entryName, "words.json"))
-    .then(() => true)
-    .catch(() => false);
-}
+// docs/preschool/games/reading/Cards.md) — every reading.Syllable
+// first_letter with at least one card, from Django's public GET
+// /api/reading/consonants (backend/reading/api.py). Replaces the old
+// public/static/syllables folder scan now that both "Картки" and "Казки"
+// (lib/syllable-card.tsx) read Syllable content instead of hand-photographed
+// composite images. Excluded from the locale/auth middleware by its "/api"
+// matcher (see middleware.ts), so this is reachable without a session — the
+// backend endpoint is auth=None for the same reason.
+const EMPTY_RESPONSE = { consonants: [] as string[] };
 
 export async function GET() {
-  const entries = await readdir(SYLLABLES_DIR, { withFileTypes: true }).catch(() => []);
-  const directories = entries.filter((entry) => entry.isDirectory() && !entry.name.startsWith("."));
-  const ready = await Promise.all(directories.map(async (entry) => ((await hasWords(entry.name)) ? entry.name : null)));
-  const consonants = ready.filter((name): name is string => name !== null).sort((a, b) => a.localeCompare(b, "uk"));
+  const consonants = await getReading()
+    .listReadingConsonants()
+    .catch(() => EMPTY_RESPONSE.consonants);
   return NextResponse.json({ consonants });
 }

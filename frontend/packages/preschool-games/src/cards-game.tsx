@@ -16,11 +16,13 @@ import { MusicToggleButton } from "./kit/music-toggle-button";
 
 // Preschool "Cards" reading minigame — see docs/preschool/games/reading/
 // Cards.md for the design brief. Unlike the syllable drag-and-drop game
-// (reading-game.tsx), every card here is a single pre-rendered image
-// (public/static/syllables/<Consonant>/<Syllable>.png — syllable text and its
-// illustration already baked into one picture, see backend's
-// slice_flashcard_grid command). Two screens, toggled bottom-right exactly
-// like balloon-pop-game.tsx's screenMode pill:
+// (reading-game.tsx), each card pairs a plain object photo (backend's
+// reading.Syllable.icon, e.g. Морква for МО) with a small colored
+// syllable-letter badge drawn on top of it client-side (see
+// toLearningCards/FallingCardNode) — previously one hand-photographed image
+// baked both together (public/static/syllables/<Consonant>/<Syllable>.png,
+// backend's slice_flashcard_grid command). Two screens, toggled bottom-right
+// exactly like balloon-pop-game.tsx's screenMode pill:
 //   - "Навчання" (CardsLevel): tap a card at your own pace to hear its
 //     syllable then the pictured word — the flashcard-grid UI is
 //     balloon-learning-cards.tsx's BalloonLearningCards, reused as-is.
@@ -30,11 +32,17 @@ import { MusicToggleButton } from "./kit/music-toggle-button";
 //     the child must tap the one matching a spoken/displayed target
 //     syllable instead of any card scoring.
 
+// Learning mode's grid is one card per syllable (docs/preschool/games/
+// reading/Cards.md §4: "six cards — vowels А О У Е И І") — `cards` here is
+// already the is_default subset (CardsLevel's defaultCards); the falling
+// game draws from every card instead, for variety, since a syllable can now
+// have several DB cards (e.g. МО: Морква, Морозиво).
 function toLearningCards(cards: CardsGameCard[], showCaptions: boolean): LearningCard[] {
   return cards.map((card) => ({
     key: card.syllable,
     name: showCaptions ? card.word : "",
     image: card.image,
+    syllableBadge: card.syllable,
   }));
 }
 
@@ -63,10 +71,12 @@ function CardsLevel({
   const awardedRef = useRef(false);
   const celebrationRef = useRef<HTMLDivElement>(null);
 
-  // Every syllable plus every non-empty pictured word needs TTS (there are
-  // no recorded pronunciations under public/static/syllables, unlike
-  // public/static/letters) — prefetch the voice once, then warm up the
-  // whole level's vocabulary.
+  // Every syllable plus every non-empty pictured word needs TTS — this game
+  // still speaks via Piper (unlike reading-game.tsx's public/static/letters
+  // cards, some of which have a recorded pronunciation) even though
+  // Syllable now has syllable_audio/word_audio fields, not yet wired up
+  // here — prefetch the voice once, then warm up the whole level's
+  // vocabulary.
   useEffect(() => {
     if (muted || cards.length === 0) return;
     let cancelled = false;
@@ -79,7 +89,12 @@ function CardsLevel({
     };
   }, [cards, muted]);
 
-  const levelComplete = cards.length > 0 && learnedKeys.size === cards.length;
+  // Learning mode only ever shows/counts the is_default card per syllable
+  // (toLearningCards) — a syllable's other cards (falling-game-only
+  // variety) would otherwise make levelComplete/cardsByKey disagree with
+  // what's actually rendered.
+  const defaultCards = useMemo(() => cards.filter((card) => card.isDefault), [cards]);
+  const levelComplete = defaultCards.length > 0 && learnedKeys.size === defaultCards.length;
 
   // Touching every card at least once (docs/preschool/games/reading/
   // Cards.md §5: "торкнулась усіх карток приголосної хоча б раз") celebrates
@@ -91,8 +106,8 @@ function CardsLevel({
     playCelebrationChime();
   }, [levelComplete]);
 
-  const items = useMemo(() => toLearningCards(cards, showCaptions), [cards, showCaptions]);
-  const cardsByKey = useMemo(() => new Map(cards.map((card) => [card.syllable, card])), [cards]);
+  const items = useMemo(() => toLearningCards(defaultCards, showCaptions), [defaultCards, showCaptions]);
+  const cardsByKey = useMemo(() => new Map(defaultCards.map((card) => [card.syllable, card])), [defaultCards]);
 
   const handlePlay = (item: LearningCard) => {
     const card = cardsByKey.get(item.key);
@@ -228,14 +243,30 @@ function FallingCardNode({
       }}
       onAnimationEnd={() => onMissed(card.id)}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={card.image}
-        alt=""
-        draggable={false}
-        className="w-full rounded-2xl object-cover shadow-lg ring-2 ring-white"
-        style={{ pointerEvents: "none" }}
-      />
+      {/* Big colored letters fill the card (vowel red, consonant blue) —
+          Syllable.icon (a bare object photo) is now a small badge in the
+          bottom-right corner instead of the old public/static/syllables
+          card's baked-together picture. */}
+      <span
+        className="relative flex aspect-square w-full items-center justify-center rounded-2xl border-4 border-white bg-white font-extrabold shadow-lg"
+        style={{ pointerEvents: "none", fontSize: card.size * 0.4 }}
+      >
+        {/* relative + z-10 so the letters paint above the icon badge below
+            — an absolutely-positioned image always paints above static
+            content regardless of DOM order otherwise. */}
+        <span className="relative z-10">
+          <span style={{ color: "#0369a1" }}>{card.syllable[0]}</span>
+          <span style={{ color: "#dc2626" }}>{card.syllable[1]}</span>
+        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={card.image}
+          alt=""
+          draggable={false}
+          className="absolute bottom-1 right-1 rounded-md border border-white object-cover shadow"
+          style={{ width: card.size * 0.33, height: card.size * 0.33 }}
+        />
+      </span>
     </button>
   );
 }

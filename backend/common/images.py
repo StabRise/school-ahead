@@ -1,4 +1,5 @@
-"""Thumbnails for the icons of subject groups, subjects and lessons.
+"""Thumbnails for the icons of subject groups, subjects, lessons and reading
+syllables.
 
 An icon is uploaded (or, for a lesson, downloaded from YouTube) at whatever size
 it came in — often far larger than the ~50-300px square it is drawn in. Every
@@ -27,6 +28,9 @@ logger = logging.getLogger(__name__)
 SUBJECT_GROUP_ICON_SIDE = 176
 SUBJECT_ICON_SIDE = 320
 LESSON_ICON_SIDE = 320
+# A syllable's picture card, drawn small in the card's bottom-right corner
+# (reading-game.tsx) — same order of magnitude as a lesson card picture.
+SYLLABLE_ICON_SIDE = 320
 
 THUMBNAIL_QUALITY = 85
 

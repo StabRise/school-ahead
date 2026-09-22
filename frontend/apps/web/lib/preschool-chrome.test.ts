@@ -29,7 +29,7 @@ describe("the public catalogue for a visitor who isn't signed in", () => {
     expect(isPublicCataloguePage(path)).toBe(true);
   });
 
-  it.each(["/", "/login", "/games", "/subjects/2/topics/3", "/subjects/abc", "/lessons/preview/7", "/calendar"])(
+  it.each(["/", "/about", "/games", "/subjects/2/topics/3", "/subjects/abc", "/lessons/preview/7", "/calendar"])(
     "%s keeps the header",
     (path) => {
       expect(isPublicCataloguePage(path)).toBe(false);

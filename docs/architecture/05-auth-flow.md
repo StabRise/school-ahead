@@ -55,7 +55,7 @@ sequenceDiagram
     D-->>B: 200 {user}<br/>Set-Cookie: access_token (httpOnly, Secure, short maxAge)<br/>Set-Cookie: refresh_token (httpOnly, Secure, path=/api/auth/refresh, long maxAge)<br/>Set-Cookie: csrf_token (NOT httpOnly, Secure, readable by JS)
 ```
 
-On the frontend, "Google Identity Services sign-in" is `lib/google-sign-in.ts`: it loads Google's script and calls `initialize()` once per page load, and every sign-in button — the `/login` page's own, plus the header's and the landing page's `GoogleSignInButton`, which overlays Google's real button on a styled one so a single click opens the account chooser — shares that one credential callback (see `docs/core/public_access.md` §4).
+On the frontend, "Google Identity Services sign-in" is `lib/google-sign-in.ts`: it loads Google's script and calls `initialize()` once per page load, and every sign-in button — the header's, the landing page's, `/about`'s and the public lesson's `GoogleSignInButton`, which overlays Google's real button on a styled one so a single click opens the account chooser — shares that one credential callback (see `docs/core/public_access.md` §4). **There is no login page**: `middleware.ts` sends a visitor who isn't signed in from any protected path — and anyone, signed in or not, from the old `/login` — to the home page (`/`), which is the landing page with the sign-in buttons for a visitor and the dashboard for a signed-in user. Signing out goes there too (`lib/use-sign-out.ts`).
 
 The response body sent to the browser never includes `access_token`/`refresh_token` — only cookies carry them, and only `csrf_token` is JS-readable.
 

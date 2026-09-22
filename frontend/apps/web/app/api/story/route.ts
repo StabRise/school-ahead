@@ -45,7 +45,15 @@ async function fetchDbStoryContent(slug: string): Promise<string | null> {
     const story = await getPreschool().getPreschoolStory(slug);
     const headingLines = [`# ${story.title}`, ...(story.subtitle ? [`### ${story.subtitle}`] : [])];
     return `${headingLines.join("\n\n")}\n\n${story.content}`;
-  } catch {
+  } catch (err) {
+    // A 404 here just means "not a DB story" (or not published) and is the
+    // expected shape of the static-folder fallback below — but every other
+    // failure (backend unreachable, API_URL misconfigured, a timeout) was
+    // previously silently swallowed the same way, making a DB story that
+    // mysteriously falls back to "not found" impossible to diagnose from
+    // the frontend container's own logs. Log everything but the routine 404.
+    const status = (err as { response?: { status?: number } })?.response?.status;
+    if (status !== 404) console.error(`/api/story: DB lookup failed for slug "${slug}"`, err);
     return null;
   }
 }

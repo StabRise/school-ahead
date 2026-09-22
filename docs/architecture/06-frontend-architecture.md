@@ -18,10 +18,9 @@ Next.js App Router structure and the client-side state/data conventions. The fro
 
 ## Route structure
 
-`[locale]` segment for next-intl (`uk` is the default locale per `docs/core/languages.md`). Route groups: **`(auth)`**, **`(student)`**, **`(tutor)`** only — there is no `(parent)` group. `role: "parent"` exists in `useAuthStore`'s type, but no parent-facing routes or UI are built yet (matches `docs/architecture/07-open-questions.md`'s "Parent features" gap).
+`[locale]` segment for next-intl (`uk` is the default locale per `docs/core/languages.md`). Route groups: **`(student)`** and **`(tutor)`** only (there used to be an `(auth)` group with the login page; sign-in is now a button, see `docs/architecture/05-auth-flow.md`) — there is no `(parent)` group. `role: "parent"` exists in `useAuthStore`'s type, but no parent-facing routes or UI are built yet (matches `docs/architecture/07-open-questions.md`'s "Parent features" gap).
 
 ```
-frontend/apps/web/app/[locale]/(auth)/login/page.tsx
 frontend/apps/web/app/[locale]/(student)/calendar/page.tsx
 frontend/apps/web/app/[locale]/(student)/subjects/page.tsx
 frontend/apps/web/app/[locale]/(student)/subjects/[subjectId]/page.tsx
