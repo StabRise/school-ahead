@@ -35,7 +35,11 @@ export type PreschoolGameId =
 
 function BalloonIcon() {
   return (
-    <svg viewBox="0 0 40 52" className="h-12 w-12 drop-shadow sm:h-14 sm:w-14" aria-hidden="true">
+    <svg
+      viewBox="0 0 40 52"
+      className="h-12 w-12 drop-shadow sm:h-14 sm:w-14"
+      aria-hidden="true"
+    >
       <ellipse cx="20" cy="20" rx="18" ry="20" fill="#fb7185" />
       <ellipse cx="14" cy="12" rx="4" ry="6" fill="white" opacity="0.35" />
       <path d="M20 40 L17 46 L23 46 Z" fill="#fb7185" />
@@ -46,7 +50,11 @@ function BalloonIcon() {
 
 function TrainIcon() {
   return (
-    <svg viewBox="0 0 100 60" className="h-12 w-12 drop-shadow sm:h-14 sm:w-14" aria-hidden="true">
+    <svg
+      viewBox="0 0 100 60"
+      className="h-12 w-12 drop-shadow sm:h-14 sm:w-14"
+      aria-hidden="true"
+    >
       <circle cx="18" cy="50" r="7" fill="#334155" />
       <circle cx="38" cy="50" r="7" fill="#334155" />
       <circle cx="70" cy="50" r="7" fill="#334155" />
@@ -60,14 +68,32 @@ function TrainIcon() {
 
 function ReadingIcon() {
   return (
-    <svg viewBox="0 0 64 52" className="h-12 w-12 drop-shadow sm:h-14 sm:w-14" aria-hidden="true">
+    <svg
+      viewBox="0 0 64 52"
+      className="h-12 w-12 drop-shadow sm:h-14 sm:w-14"
+      aria-hidden="true"
+    >
       <rect x="4" y="6" width="24" height="40" rx="4" fill="#fbbf24" />
       <rect x="36" y="6" width="24" height="40" rx="4" fill="#38bdf8" />
       <path d="M28 6 Q32 12 36 6 V46 Q32 40 28 46 Z" fill="#f1f5f9" />
-      <text x="16" y="30" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#0369a1">
+      <text
+        x="16"
+        y="30"
+        textAnchor="middle"
+        fontSize="16"
+        fontWeight="bold"
+        fill="#0369a1"
+      >
         М
       </text>
-      <text x="48" y="30" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#dc2626">
+      <text
+        x="48"
+        y="30"
+        textAnchor="middle"
+        fontSize="16"
+        fontWeight="bold"
+        fill="#dc2626"
+      >
         А
       </text>
     </svg>
@@ -76,13 +102,49 @@ function ReadingIcon() {
 
 function CardsIcon() {
   return (
-    <svg viewBox="0 0 64 52" className="h-12 w-12 drop-shadow sm:h-14 sm:w-14" aria-hidden="true">
-      <rect x="4" y="8" width="24" height="36" rx="4" fill="#f1f5f9" stroke="#cbd5e1" strokeWidth="2" />
-      <rect x="26" y="4" width="24" height="36" rx="4" fill="white" stroke="#cbd5e1" strokeWidth="2" />
-      <text x="38" y="24" textAnchor="middle" fontSize="14" fontWeight="bold" fill="#0369a1">
+    <svg
+      viewBox="0 0 64 52"
+      className="h-12 w-12 drop-shadow sm:h-14 sm:w-14"
+      aria-hidden="true"
+    >
+      <rect
+        x="4"
+        y="8"
+        width="24"
+        height="36"
+        rx="4"
+        fill="#f1f5f9"
+        stroke="#cbd5e1"
+        strokeWidth="2"
+      />
+      <rect
+        x="26"
+        y="4"
+        width="24"
+        height="36"
+        rx="4"
+        fill="white"
+        stroke="#cbd5e1"
+        strokeWidth="2"
+      />
+      <text
+        x="38"
+        y="24"
+        textAnchor="middle"
+        fontSize="14"
+        fontWeight="bold"
+        fill="#0369a1"
+      >
         М
       </text>
-      <text x="47" y="24" textAnchor="middle" fontSize="14" fontWeight="bold" fill="#dc2626">
+      <text
+        x="47"
+        y="24"
+        textAnchor="middle"
+        fontSize="14"
+        fontWeight="bold"
+        fill="#dc2626"
+      >
         А
       </text>
       <circle cx="38" cy="32" r="5" fill="#fbbf24" />
@@ -92,10 +154,24 @@ function CardsIcon() {
 
 function StoriesIcon() {
   return (
-    <svg viewBox="0 0 56 52" className="h-12 w-12 drop-shadow sm:h-14 sm:w-14" aria-hidden="true">
+    <svg
+      viewBox="0 0 56 52"
+      className="h-12 w-12 drop-shadow sm:h-14 sm:w-14"
+      aria-hidden="true"
+    >
       <path d="M28 10 C22 6 12 6 6 9 V42 C12 39 22 39 28 43 Z" fill="#fbbf24" />
-      <path d="M28 10 C34 6 44 6 50 9 V42 C44 39 34 39 28 43 Z" fill="#fb923c" />
-      <line x1="28" y1="10" x2="28" y2="43" stroke="#c2410c" strokeWidth="1.5" />
+      <path
+        d="M28 10 C34 6 44 6 50 9 V42 C44 39 34 39 28 43 Z"
+        fill="#fb923c"
+      />
+      <line
+        x1="28"
+        y1="10"
+        x2="28"
+        y2="43"
+        stroke="#c2410c"
+        strokeWidth="1.5"
+      />
       <circle cx="17" cy="22" r="4" fill="#fff7ed" />
     </svg>
   );
@@ -103,14 +179,25 @@ function StoriesIcon() {
 
 function MathIcon() {
   return (
-    <svg viewBox="0 0 56 56" className="h-12 w-12 drop-shadow sm:h-14 sm:w-14" aria-hidden="true">
+    <svg
+      viewBox="0 0 56 56"
+      className="h-12 w-12 drop-shadow sm:h-14 sm:w-14"
+      aria-hidden="true"
+    >
       <rect x="4" y="24" width="14" height="10" rx="2" fill="#22c55e" />
       <rect x="21" y="24" width="14" height="10" rx="2" fill="#a3e635" />
       <rect x="38" y="24" width="14" height="10" rx="2" fill="#22c55e" />
       <rect x="18" y="4" width="20" height="18" rx="3" fill="#c68a5c" />
       <rect x="22" y="9" width="3" height="3" fill="#2b1a0e" />
       <rect x="31" y="9" width="3" height="3" fill="#2b1a0e" />
-      <text x="28" y="48" textAnchor="middle" fontSize="18" fontWeight="bold" fill="#0369a1">
+      <text
+        x="28"
+        y="48"
+        textAnchor="middle"
+        fontSize="18"
+        fontWeight="bold"
+        fill="#0369a1"
+      >
         ×
       </text>
     </svg>
@@ -119,7 +206,11 @@ function MathIcon() {
 
 function JumpingFrogsIcon() {
   return (
-    <svg viewBox="0 0 56 48" className="h-12 w-12 drop-shadow sm:h-14 sm:w-14" aria-hidden="true">
+    <svg
+      viewBox="0 0 56 48"
+      className="h-12 w-12 drop-shadow sm:h-14 sm:w-14"
+      aria-hidden="true"
+    >
       <ellipse cx="28" cy="40" rx="24" ry="6" fill="#4ade80" opacity="0.7" />
       <ellipse cx="28" cy="24" rx="18" ry="14" fill="#22c55e" />
       <circle cx="19" cy="14" r="5" fill="#22c55e" />
@@ -133,11 +224,34 @@ function JumpingFrogsIcon() {
 
 function CocktailIcon() {
   return (
-    <svg viewBox="0 0 56 56" className="h-12 w-12 drop-shadow sm:h-14 sm:w-14" aria-hidden="true">
-      <path d="M14 8 H42 L33 34 Q33 40 28 40 Q23 40 23 34 Z" fill="#fef3c7" stroke="#d97706" strokeWidth="2" />
+    <svg
+      viewBox="0 0 56 56"
+      className="h-12 w-12 drop-shadow sm:h-14 sm:w-14"
+      aria-hidden="true"
+    >
+      <path
+        d="M14 8 H42 L33 34 Q33 40 28 40 Q23 40 23 34 Z"
+        fill="#fef3c7"
+        stroke="#d97706"
+        strokeWidth="2"
+      />
       <path d="M17 12 H39" stroke="#d97706" strokeWidth="2" />
-      <line x1="28" y1="40" x2="28" y2="50" stroke="#94a3b8" strokeWidth="2.5" />
-      <line x1="20" y1="50" x2="36" y2="50" stroke="#94a3b8" strokeWidth="2.5" />
+      <line
+        x1="28"
+        y1="40"
+        x2="28"
+        y2="50"
+        stroke="#94a3b8"
+        strokeWidth="2.5"
+      />
+      <line
+        x1="20"
+        y1="50"
+        x2="36"
+        y2="50"
+        stroke="#94a3b8"
+        strokeWidth="2.5"
+      />
       <circle cx="24" cy="22" r="3.5" fill="#f43f5e" />
       <circle cx="32" cy="26" r="3" fill="#84cc16" />
       <circle cx="27" cy="30" r="2.5" fill="#fde047" />
@@ -147,9 +261,27 @@ function CocktailIcon() {
 
 function CarIcon() {
   return (
-    <svg viewBox="0 0 56 56" className="h-12 w-12 drop-shadow sm:h-14 sm:w-14" aria-hidden="true">
-      <path d="M8 34 L12 22 Q14 18 19 18 H37 Q42 18 44 22 L48 34 Z" fill="#0891b2" stroke="#0e7490" strokeWidth="2" />
-      <rect x="6" y="32" width="44" height="10" rx="4" fill="#0891b2" stroke="#0e7490" strokeWidth="2" />
+    <svg
+      viewBox="0 0 56 56"
+      className="h-12 w-12 drop-shadow sm:h-14 sm:w-14"
+      aria-hidden="true"
+    >
+      <path
+        d="M8 34 L12 22 Q14 18 19 18 H37 Q42 18 44 22 L48 34 Z"
+        fill="#0891b2"
+        stroke="#0e7490"
+        strokeWidth="2"
+      />
+      <rect
+        x="6"
+        y="32"
+        width="44"
+        height="10"
+        rx="4"
+        fill="#0891b2"
+        stroke="#0e7490"
+        strokeWidth="2"
+      />
       <path d="M16 20 L20 28 H36 L40 20 Z" fill="#bae6fd" opacity="0.85" />
       <circle cx="17" cy="42" r="5" fill="#1e293b" />
       <circle cx="17" cy="42" r="2" fill="#94a3b8" />
@@ -165,12 +297,61 @@ function CarIcon() {
 // stack) so the two read as visually different despite the name clash.
 function FlashcardsIcon() {
   return (
-    <svg viewBox="0 0 56 52" className="h-12 w-12 drop-shadow sm:h-14 sm:w-14" aria-hidden="true">
-      <rect x="10" y="10" width="34" height="24" rx="3" fill="#c7d2fe" stroke="#6366f1" strokeWidth="2" transform="rotate(-8 27 22)" />
-      <rect x="10" y="14" width="34" height="24" rx="3" fill="#e0e7ff" stroke="#6366f1" strokeWidth="2" transform="rotate(4 27 26)" />
-      <rect x="10" y="16" width="34" height="24" rx="3" fill="white" stroke="#6366f1" strokeWidth="2" />
-      <line x1="16" y1="24" x2="38" y2="24" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" />
-      <line x1="16" y1="30" x2="30" y2="30" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" />
+    <svg
+      viewBox="0 0 56 52"
+      className="h-12 w-12 drop-shadow sm:h-14 sm:w-14"
+      aria-hidden="true"
+    >
+      <rect
+        x="10"
+        y="10"
+        width="34"
+        height="24"
+        rx="3"
+        fill="#c7d2fe"
+        stroke="#6366f1"
+        strokeWidth="2"
+        transform="rotate(-8 27 22)"
+      />
+      <rect
+        x="10"
+        y="14"
+        width="34"
+        height="24"
+        rx="3"
+        fill="#e0e7ff"
+        stroke="#6366f1"
+        strokeWidth="2"
+        transform="rotate(4 27 26)"
+      />
+      <rect
+        x="10"
+        y="16"
+        width="34"
+        height="24"
+        rx="3"
+        fill="white"
+        stroke="#6366f1"
+        strokeWidth="2"
+      />
+      <line
+        x1="16"
+        y1="24"
+        x2="38"
+        y2="24"
+        stroke="#818cf8"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <line
+        x1="16"
+        y1="30"
+        x2="30"
+        y2="30"
+        stroke="#818cf8"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -196,7 +377,10 @@ const GAME_ACCENT_RING: Record<PreschoolGameId, string> = {
 // data list instead of repeating a <GameCard .../> per game. `icon` is the
 // SVG fallback GameCoverImage renders when this game's own cover.png/
 // cover.jpeg (see GAME_COVER_FOLDER) hasn't been dropped in yet.
-const GAME_CATALOG: Record<PreschoolGameId, { icon: () => ReactNode; titleKey: string }> = {
+const GAME_CATALOG: Record<
+  PreschoolGameId,
+  { icon: () => ReactNode; titleKey: string }
+> = {
   balloons: { icon: BalloonIcon, titleKey: "balloonsTitle" },
   trains: { icon: TrainIcon, titleKey: "trainsTitle" },
   reading: { icon: ReadingIcon, titleKey: "readingTitle" },
@@ -257,12 +441,23 @@ const GAME_COVER_FOLDER: Record<PreschoolGameId, string> = {
 // this element just covers the box. A still-uncovered game centers its
 // SVG fallback the same full box instead, so every card fills the square
 // one way or the other.
-function GameCoverImage({ folder, fallback }: { folder: string; fallback: ReactNode }) {
-  const [resolvedSrc, setResolvedSrc] = useState<string | "failed" | null>(null);
+export function GameCoverImage({
+  folder,
+  fallback,
+}: {
+  folder: string;
+  fallback: ReactNode;
+}) {
+  const [resolvedSrc, setResolvedSrc] = useState<string | "failed" | null>(
+    null,
+  );
 
   useEffect(() => {
     let cancelled = false;
-    const candidates = [`/static/${folder}/cover.png`, `/static/${folder}/cover.jpeg`];
+    const candidates = [
+      `/static/${folder}/cover.png`,
+      `/static/${folder}/cover.jpeg`,
+    ];
 
     function tryCandidate(index: number) {
       if (cancelled) return;
@@ -285,11 +480,20 @@ function GameCoverImage({ folder, fallback }: { folder: string; fallback: ReactN
   }, [folder]);
 
   if (resolvedSrc === null || resolvedSrc === "failed") {
-    return <div className="absolute inset-0 flex items-center justify-center bg-white">{fallback}</div>;
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-white">
+        {fallback}
+      </div>
+    );
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={resolvedSrc} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
+    <img
+      src={resolvedSrc}
+      alt=""
+      draggable={false}
+      className="absolute inset-0 h-full w-full object-cover"
+    />
   );
 }
 
@@ -299,22 +503,80 @@ function GameCoverImage({ folder, fallback }: { folder: string; fallback: ReactN
 // /games/syllables2) sits under Reading, not Cards — despite the name,
 // it's a reading drill; "flashcards" (the subject study-cards library at
 // /games/cards) is what Cards actually groups alongside Balloons.
-const GAME_CATEGORIES: { key: string; titleKey: string; games: PreschoolGameId[] }[] = [
-  { key: "cards", titleKey: "categoryCardsTitle", games: ["balloons", "flashcards"] },
-  { key: "reading", titleKey: "categoryReadingTitle", games: ["reading", "stories", "jumping-frogs", "cards"] },
-  { key: "math", titleKey: "categoryMathTitle", games: ["math", "cocktail", "cars"] },
+const GAME_CATEGORIES: {
+  key: string;
+  titleKey: string;
+  games: PreschoolGameId[];
+}[] = [
+  {
+    key: "cards",
+    titleKey: "categoryCardsTitle",
+    games: ["balloons", "flashcards"],
+  },
+  {
+    key: "reading",
+    titleKey: "categoryReadingTitle",
+    games: ["reading", "stories", "jumping-frogs", "cards"],
+  },
+  {
+    key: "math",
+    titleKey: "categoryMathTitle",
+    games: ["math", "cocktail", "cars"],
+  },
   { key: "other", titleKey: "categoryOtherTitle", games: ["trains"] },
 ];
 
-function GameCard({
-  game,
+// Where each built-in game lives — games-page.tsx's DB-driven picker
+// matches a DB Game's `url` against this to find the static cover / SVG
+// icon / accent ring to fall back on when no icon was uploaded for it.
+export const GAME_URL: Record<PreschoolGameId, string> = {
+  balloons: "/games/balloons",
+  trains: "/games/trains",
+  reading: "/games/syllables",
+  cards: "/games/syllables2",
+  stories: "/games/stories",
+  math: "/games/math",
+  "jumping-frogs": "/games/jumping-frogs",
+  cocktail: "/games/cocktail",
+  cars: "/games/cars",
+  flashcards: "/games/cards",
+};
+
+// The built-in game a DB Game's `url` points at, if any — see GAME_URL.
+export function builtInGameForUrl(url: string): PreschoolGameId | null {
+  const path = url.replace(/[?#].*$/, "").replace(/\/+$/, "");
+  const match = (Object.keys(GAME_URL) as PreschoolGameId[]).find(
+    (game) => GAME_URL[game] === path,
+  );
+  return match ?? null;
+}
+
+// A built-in game's own cover (static cover.png/.jpeg, else its SVG) and
+// accent ring — what GamePicker below renders, and what the DB-driven
+// picker falls back on for a game with no uploaded icon.
+export function builtInGameVisual(game: PreschoolGameId): {
+  cover: ReactNode;
+  accentRing: string;
+} {
+  const Icon = GAME_CATALOG[game].icon;
+  return {
+    cover: (
+      <GameCoverImage folder={GAME_COVER_FOLDER[game]} fallback={<Icon />} />
+    ),
+    accentRing: GAME_ACCENT_RING[game],
+  };
+}
+
+export function GameCard({
   title,
-  icon,
+  cover,
+  accentRing,
   onSelect,
 }: {
-  game: PreschoolGameId;
   title: string;
-  icon: ReactNode;
+  // Fills the whole card — e.g. GameCoverImage, or an uploaded icon.
+  cover: ReactNode;
+  accentRing: string;
   onSelect: () => void;
 }) {
   return (
@@ -342,9 +604,9 @@ function GameCard({
         type="button"
         onClick={onSelect}
         aria-label={title}
-        className={`group relative aspect-square w-24 origin-bottom cursor-pointer overflow-hidden rounded-2xl shadow-lg ring-4 transition hover:scale-[2] sm:w-28 ${GAME_ACCENT_RING[game]}`}
+        className={`group relative aspect-square w-24 origin-bottom cursor-pointer overflow-hidden rounded-2xl shadow-lg ring-4 transition hover:scale-[2] sm:w-28 ${accentRing}`}
       >
-        <GameCoverImage folder={GAME_COVER_FOLDER[game]} fallback={icon} />
+        {cover}
         <span className="absolute inset-x-1 bottom-1 line-clamp-2 rounded-lg bg-white/90 px-1.5 py-0.5 text-[11px] font-bold leading-tight text-gray-700 opacity-0 shadow transition-opacity group-hover:opacity-100 sm:inset-x-1.5 sm:bottom-1.5 sm:px-2 sm:text-xs">
           {title}
         </span>
@@ -353,9 +615,59 @@ function GameCard({
   );
 }
 
-// Exported so the standalone /games route (components/preschool/
-// games-page.tsx) can reuse the exact same picker UI, wired to navigate to
-// /games/{game} instead of setting local state — see that file.
+// One panel of the picker: a category heading plus its game cards.
+export interface GamePickerCategory {
+  key: string;
+  title: string;
+  cards: ReactNode;
+}
+
+// The picker's layout, shared by GamePicker below (the built-in list, for
+// the dashboard celebration) and games-page.tsx's DB-driven /games page.
+export function GamePickerGrid({
+  title,
+  categories,
+}: {
+  title: string;
+  categories: GamePickerCategory[];
+}) {
+  return (
+    <div className="flex flex-1 flex-col items-center gap-6 overflow-y-auto p-6 text-center">
+      <p className="text-2xl font-bold text-gray-700">{title}</p>
+      {/* The page split into equal quadrants, one per category — a 2-column
+          CSS grid (single column on a phone, so they're equal-width stacked
+          strips there instead) rather than category rows of varying width,
+          per this feature's own request ("лист поділений на 4 частини
+          рівні"). Each category panel stretches to match the tallest one
+          in its row (items-stretch on the grid + h-full on the panel), so
+          same-row panels always read as visually equal regardless of how
+          many games that category has. */}
+      <div className="grid w-full max-w-5xl flex-1 grid-cols-1 items-stretch gap-4 sm:grid-cols-2 sm:gap-6">
+        {categories.map((category) => (
+          <div
+            key={category.key}
+            className="flex h-full flex-col items-center gap-4 rounded-3xl bg-white/70 p-4 shadow-lg ring-2 ring-gray-200 sm:p-6"
+          >
+            <h2 className="text-lg font-bold text-gray-600 sm:text-xl">
+              {category.title}
+            </h2>
+            {/* flex-wrap (not a single fixed row) — however many games a
+                category has, this wraps into as many rows as the panel's
+                own width needs. */}
+            <div className="flex flex-1 flex-wrap items-start justify-center gap-3 sm:gap-4">
+              {category.cards}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// The built-in picker — the dashboard's end-of-lessons celebration
+// (PreschoolCelebration below) plays the chosen game inline via local
+// state. The standalone /games page lists games from the DB instead (see
+// games-page.tsx).
 export function GamePicker({
   title,
   onSelect,
@@ -365,45 +677,21 @@ export function GamePicker({
 }) {
   const t = useTranslations("PreschoolGameChoice");
   return (
-    <div className="flex flex-1 flex-col items-center gap-6 overflow-y-auto p-6 text-center">
-      <p className="text-2xl font-bold text-gray-700">{title}</p>
-      {/* The page split into 4 equal quadrants, one per category — a 2x2
-          CSS grid (single column on a phone, so it's 4 equal-width stacked
-          strips there instead) rather than category rows of varying width,
-          per this feature's own request ("лист поділений на 4 частини
-          рівні"). Each category panel stretches to match the tallest one
-          in its row (items-stretch on the grid + h-full on the panel), so
-          same-row panels always read as visually equal regardless of how
-          many games that category has. */}
-      <div className="grid w-full max-w-5xl flex-1 grid-cols-1 items-stretch gap-4 sm:grid-cols-2 sm:gap-6">
-        {GAME_CATEGORIES.map((category) => (
-          <div
-            key={category.key}
-            className="flex h-full flex-col items-center gap-4 rounded-3xl bg-white/70 p-4 shadow-lg ring-2 ring-gray-200 sm:p-6"
-          >
-            <h2 className="text-lg font-bold text-gray-600 sm:text-xl">{t(category.titleKey)}</h2>
-            {/* flex-wrap (not a single fixed row) — however many games a
-                category has, this wraps into as many rows as the panel's
-                own width needs. */}
-            <div className="flex flex-1 flex-wrap items-start justify-center gap-3 sm:gap-4">
-              {category.games.map((game) => {
-                const entry = GAME_CATALOG[game];
-                const Icon = entry.icon;
-                return (
-                  <GameCard
-                    key={game}
-                    game={game}
-                    title={t(entry.titleKey)}
-                    icon={<Icon />}
-                    onSelect={() => onSelect(game)}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    <GamePickerGrid
+      title={title}
+      categories={GAME_CATEGORIES.map((category) => ({
+        key: category.key,
+        title: t(category.titleKey),
+        cards: category.games.map((game) => (
+          <GameCard
+            key={game}
+            title={t(GAME_CATALOG[game].titleKey)}
+            {...builtInGameVisual(game)}
+            onSelect={() => onSelect(game)}
+          />
+        )),
+      }))}
+    />
   );
 }
 
@@ -414,7 +702,9 @@ export function PreschoolCelebration({
 } = {}) {
   const t = useTranslations("PreschoolGameChoice");
   const tChrome = useTranslations("PreschoolChrome");
-  const [selectedGame, setSelectedGame] = useState<PreschoolGameId | null>(null);
+  const [selectedGame, setSelectedGame] = useState<PreschoolGameId | null>(
+    null,
+  );
 
   if (!selectedGame) {
     // The site header used to be the way out of here; a student in preschool

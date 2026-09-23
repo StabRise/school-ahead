@@ -7,6 +7,10 @@
 
 export interface StorySummary {
   slug: string;
+  // The backend Story id — DB-backed stories only (see /api/stories); a
+  // static public/static/stories/ folder has none. What a tutor's
+  // "make draft" / "edit" controls act on (see stories-game.tsx).
+  id?: number;
   title: string;
   // URL of <slug>/cover.<ext>, resolved server-side (see /api/stories) —
   // null when the story has no cover art yet. Shown on the picker's book
@@ -40,6 +44,9 @@ export type StoryWordSegment =
   | { kind: "youtube"; videoId: string };
 
 export interface Story {
+  // The backend Story id — set by lib/story.ts's useStory for DB-backed
+  // stories only (see StorySummary's `id`), never by parseStory.
+  id?: number;
   title: string;
   // An extra heading line alongside the title, e.g. an adaptation/author
   // credit written as its own "### ..." line before the real "# Title"
@@ -100,9 +107,12 @@ function parseWordSegment(raw: string): StoryWordSegment {
 // something parseStory itself looks for.
 export function parseSyllableGroup(raw: string): StoryWordSegment[] {
   const trimmed = raw.trim();
-  if (IMAGE_FILENAME_RE.test(trimmed)) return [{ kind: "image", filename: trimmed }];
-  if (AUDIO_FILENAME_RE.test(trimmed)) return [{ kind: "audio", filename: trimmed }];
-  if (VIDEO_FILENAME_RE.test(trimmed)) return [{ kind: "video", filename: trimmed }];
+  if (IMAGE_FILENAME_RE.test(trimmed))
+    return [{ kind: "image", filename: trimmed }];
+  if (AUDIO_FILENAME_RE.test(trimmed))
+    return [{ kind: "audio", filename: trimmed }];
+  if (VIDEO_FILENAME_RE.test(trimmed))
+    return [{ kind: "video", filename: trimmed }];
   const youtubeMatch = trimmed.match(YOUTUBE_URL_RE);
   if (youtubeMatch) return [{ kind: "youtube", videoId: youtubeMatch[1] }];
   return trimmed
@@ -142,9 +152,13 @@ export function parseStory(markdown: string): Story {
   let title = "";
   let subtitle: string | undefined;
   if (headings.length > 0) {
-    const titleHeading = headings.reduce((best, heading) => (heading.level < best.level ? heading : best));
+    const titleHeading = headings.reduce((best, heading) =>
+      heading.level < best.level ? heading : best,
+    );
     title = titleHeading.text;
-    const rest = headings.filter((heading) => heading !== titleHeading).map((heading) => heading.text);
+    const rest = headings
+      .filter((heading) => heading !== titleHeading)
+      .map((heading) => heading.text);
     if (rest.length > 0) subtitle = rest.join(" · ");
   }
 

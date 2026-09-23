@@ -2,7 +2,10 @@ import { access, readdir, readFile } from "fs/promises";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { getPreschool } from "@school-ahead/api-client/server/preschool/preschool";
-import { parseStoryTitle, type StorySummary } from "@school-ahead/preschool-games/story-parser";
+import {
+  parseStoryTitle,
+  type StorySummary,
+} from "@school-ahead/preschool-games/story-parser";
 
 // The "Казки" minigame's story list (components/preschool/stories-game.tsx)
 // merges two sources: every subfolder of public/static/stories that has a
@@ -32,6 +35,7 @@ async function listDbStories(): Promise<StorySummary[]> {
   try {
     const rows = await getPreschool().listPreschoolStories();
     return rows.map((row) => ({
+      id: row.id,
       slug: row.slug,
       title: row.title,
       cover: row.cover_image,
@@ -57,7 +61,8 @@ async function findCover(slug: string): Promise<string | null> {
     const exists = await access(path.join(STORIES_DIR, slug, filename))
       .then(() => true)
       .catch(() => false);
-    if (exists) return `/static/stories/${encodeURIComponent(slug)}/${filename}`;
+    if (exists)
+      return `/static/stories/${encodeURIComponent(slug)}/${filename}`;
   }
   return null;
 }
@@ -76,13 +81,20 @@ export async function GET(request: NextRequest) {
 }
 
 async function listStaticStories(): Promise<StorySummary[]> {
-  const entries = await readdir(STORIES_DIR, { withFileTypes: true }).catch(() => []);
-  const folders = entries.filter((entry) => entry.isDirectory() && !entry.name.startsWith("."));
+  const entries = await readdir(STORIES_DIR, { withFileTypes: true }).catch(
+    () => [],
+  );
+  const folders = entries.filter(
+    (entry) => entry.isDirectory() && !entry.name.startsWith("."),
+  );
 
   const staticStories = await Promise.all(
     folders.map(async (entry): Promise<StorySummary | null> => {
       const slug = entry.name;
-      const content = await readFile(path.join(STORIES_DIR, slug, STORY_FILE), "utf-8").catch(() => null);
+      const content = await readFile(
+        path.join(STORIES_DIR, slug, STORY_FILE),
+        "utf-8",
+      ).catch(() => null);
       if (content === null) return null;
       const cover = await findCover(slug);
       return { slug, title: parseStoryTitle(content) || slug, cover };

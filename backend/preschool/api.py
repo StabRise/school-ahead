@@ -1,6 +1,7 @@
 import zipfile
 from pathlib import PurePosixPath
 
+from django.db.models import Prefetch
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from ninja import File, Form, Router
@@ -13,8 +14,8 @@ from common.csrf import require_csrf
 from common.permissions import ensure_is_tutor
 
 from . import services
-from .models import STORY_ASSET_EXTENSIONS, STORY_ASSET_NAME_RE, Story, StoryAsset
-from .schemas import StoryAssetOut, StoryAssetUrlOut, StoryDetailOut, StoryOut
+from .models import STORY_ASSET_EXTENSIONS, STORY_ASSET_NAME_RE, Game, GameCategory, Story, StoryAsset
+from .schemas import GameCategoryOut, StoryAssetOut, StoryAssetUrlOut, StoryDetailOut, StoryOut
 
 # Router-level auth defaults to tutor-only (CookieOrBearerJWTAuth) — the two
 # public read endpoints below override it to auth=None, since the "Казки"
@@ -24,6 +25,18 @@ from .schemas import StoryAssetOut, StoryAssetUrlOut, StoryDetailOut, StoryOut
 # every story regardless of is_published, while the public endpoints only
 # ever see published ones (see models.Story's docstring).
 router = Router(tags=['preschool'], auth=CookieOrBearerJWTAuth())
+
+
+@router.get('/games', response=list[GameCategoryOut], auth=None, operation_id='list_preschool_games')
+def list_games(request: HttpRequest):
+    """The /games picker (frontend's games-page.tsx): every active category
+    with its active games, both in `order`. Categories left with no active
+    game are dropped so the picker never shows an empty panel. Public, like
+    the game routes themselves."""
+    categories = GameCategory.objects.filter(is_active=True).prefetch_related(
+        Prefetch('games', queryset=Game.objects.filter(is_active=True), to_attr='active_games')
+    )
+    return [category for category in categories if category.active_games]
 
 
 @router.get('/stories', response=list[StoryOut], auth=None, operation_id='list_preschool_stories')

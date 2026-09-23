@@ -5,9 +5,9 @@ from django.core.validators import FileExtensionValidator
 from django.db import models
 
 from accounts.models import TutorProfile
-from common.images import STORY_ASSET_THUMBNAIL_SIDE, STORY_COVER_SIDE, thumbnail_field
+from common.images import GAME_ICON_SIDE, STORY_ASSET_THUMBNAIL_SIDE, STORY_COVER_SIDE, icon_thumbnail_field, thumbnail_field
 from common.models import TimeStampedModel
-from common.storage import story_asset_upload_to, story_cover_upload_to
+from common.storage import game_icon_upload_to, story_asset_upload_to, story_cover_upload_to
 
 from .slugs import slugify_title
 
@@ -137,3 +137,42 @@ class StoryAsset(TimeStampedModel):
 
     def __str__(self):
         return self.original_filename or self.file.name
+
+
+class GameCategory(TimeStampedModel):
+    """One panel of the /games picker (frontend's games-page.tsx) — e.g.
+    Читання, Математика. An inactive category hides every game in it."""
+
+    name = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'id']
+        verbose_name_plural = 'game categories'
+
+    def __str__(self):
+        return self.name
+
+
+class Game(TimeStampedModel):
+    """One card on the /games picker. `url` is where the card leads — a
+    site path like "/games/balloons" (navigated to locale-aware) or an
+    absolute http(s) URL. `is_active` hides the card without deleting it.
+    A game with no `icon` falls back to its built-in static cover / SVG on
+    the frontend (matched by `url`, see games-page.tsx)."""
+
+    title = models.CharField(max_length=255)
+    icon = models.FileField(upload_to=game_icon_upload_to, blank=True)
+    # What the API sends in place of `icon` — see common/images.py.
+    icon_thumbnail = icon_thumbnail_field(GAME_ICON_SIDE)
+    url = models.CharField(max_length=500)
+    category = models.ForeignKey(GameCategory, on_delete=models.PROTECT, related_name='games')
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return self.title

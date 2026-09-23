@@ -313,6 +313,9 @@
     "scoreLabel": "Правильних відповідей: {count}"
   },
   "StoriesGame": {
+    "makeDraftButton": "Зробити чернеткою",
+    "editButton": "Редагувати",
+    "makeDraftError": "Не вдалося зробити казку чернеткою. Спробуйте ще раз.",
     "pickerTitle": "Обери казку",
     "pickerSubtitle": "Натисни на назву, щоб почати читати",
     "noStories": "Казок поки що немає",
@@ -1475,6 +1478,12 @@
   },
   "TutorStories": {
     "title": "Казки",
+    "searchPlaceholder": "Пошук за назвою",
+    "statusFilterAll": "Усі",
+    "columnTitle": "Назва",
+    "columnStatus": "Статус",
+    "columnUpdated": "Змінено",
+    "noMatches": "Немає казок, що відповідають фільтру.",
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити казки. Спробуйте ще раз.",
     "empty": "Ще немає жодної казки.",
