@@ -413,3 +413,51 @@ class TestStoryExportImport:
             '/preschool/tutor/stories/import', FILES=MultiValueDict({'file': [upload]}), headers=auth_header(tutor.user),
         )
         assert response.status_code == 400
+
+
+class TestGames:
+    def test_seeded_picker_lists_every_category_in_order(self, api_client):
+        response = api_client.get('/preschool/games')
+
+        assert response.status_code == 200
+        assert [category['name'] for category in response.data] == ['Картки', 'Читання', 'Математика', 'Інше']
+        assert response.data[1]['games'][0] == {
+            'id': response.data[1]['games'][0]['id'],
+            'title': 'Склади',
+            'url': '/games/syllables',
+            'icon_url': None,
+        }
+
+    def test_hides_inactive_games_and_categories(self, api_client):
+        from preschool.models import Game, GameCategory
+
+        Game.objects.filter(url='/games/balloons').update(is_active=False)
+        GameCategory.objects.filter(name='Інше').update(is_active=False)
+
+        response = api_client.get('/preschool/games')
+
+        urls = [game['url'] for category in response.data for game in category['games']]
+        assert '/games/balloons' not in urls
+        assert '/games/cards' in urls
+        assert '/games/trains' not in urls
+
+    def test_drops_category_with_no_active_games(self, api_client):
+        from preschool.models import Game
+
+        Game.objects.filter(category__name='Інше').update(is_active=False)
+
+        response = api_client.get('/preschool/games')
+
+        assert 'Інше' not in [category['name'] for category in response.data]
+
+    def test_icon_is_served_as_thumbnail(self, api_client, settings, tmp_path):
+        from preschool.models import Game
+
+        settings.MEDIA_ROOT = tmp_path
+        game = Game.objects.get(url='/games/trains')
+        game.icon.save('train.png', _real_png('train.png', (1000, 1000)))
+
+        response = api_client.get('/preschool/games')
+
+        trains = next(g for c in response.data for g in c['games'] if g['url'] == '/games/trains')
+        assert '/CACHE/' in trains['icon_url']

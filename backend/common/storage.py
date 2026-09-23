@@ -113,3 +113,7 @@ def syllable_audio_upload_to(instance, filename: str) -> str:
 
 def word_audio_upload_to(instance, filename: str) -> str:
     return _unique_path('word_audio', filename)
+
+
+def game_icon_upload_to(instance, filename: str) -> str:
+    return _unique_path('game_icons', filename)
