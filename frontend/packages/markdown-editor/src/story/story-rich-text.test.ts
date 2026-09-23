@@ -18,6 +18,11 @@ describe("splitIntoSegments", () => {
     ]);
   });
 
+  it("extracts an uploaded asset's host-relative ref", () => {
+    const ref = "/api/story-asset/2aac0192c93840f2b097c3cc7fdd5ec7.jpeg";
+    expect(splitIntoSegments(`{ ${ref} }`)).toEqual([{ type: "image", url: ref }]);
+  });
+
   it("leaves non-image card groups (audio, syllables) as plain text", () => {
     const value = "{ дід } слухай { koza.mp3 }";
     expect(splitIntoSegments(value)).toEqual([{ type: "text", text: value }]);

@@ -65,11 +65,11 @@ import { useLocaleAwareGamesRouter } from "./kit/use-locale-aware-router";
 const DIAMOND_MILESTONE_STARS = 5;
 
 // A DB-backed story's content (see docs/preschool/games/reading/Stories.md)
-// embeds asset references as absolute URLs already (the tutor editor's
-// "insert image" button splices in the uploaded file's full media URL, and
-// the backend's cover/story responses do the same), since those files don't
-// live under this story's own public/static/stories/<slug>/ folder — pass
-// those straight through instead of re-prefixing them.
+// references each uploaded asset as a host-relative "/api/story-asset/
+// <name>" path (see apps/web's app/api/story-asset/[name]/route.ts, which
+// redirects it to the file's current URL), since those files don't live
+// under this story's own public/static/stories/<slug>/ folder — pass those
+// (and any absolute URL) straight through instead of re-prefixing them.
 function isAbsoluteUrl(value: string): boolean {
   return /^https?:\/\//i.test(value) || value.startsWith("/");
 }
