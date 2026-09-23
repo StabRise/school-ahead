@@ -79,7 +79,9 @@
     "avatarEditor": "Редактор аватарів",
     "furnitureEditor": "Редактор фурнітури",
     "storiesEditor": "Казки",
-    "syllablesEditor": "Склади"
+    "syllablesEditor": "Склади",
+    "avatarMenu": "Аватар",
+    "allGames": "Усі ігри"
   },
   "Home": {
     "welcomeBack": "З поверненням, {name}!"
