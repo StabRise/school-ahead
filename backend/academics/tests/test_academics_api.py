@@ -559,3 +559,75 @@ class TestImportClassPlan:
 
         subject = Subject.objects.get(school_class=school_class, name='Math')
         assert subject.blocks.get(index=1).description == 'New content.'
+
+
+class TestSubjectNotes:
+    @pytest.fixture
+    def student(self, student_user, school_class):
+        StudentProfile.objects.create(user=student_user, school_class=school_class)
+        return student_user
+
+    def test_student_adds_and_lists_own_notes_newest_first(self, api_client, auth_header, student, subject):
+        headers = auth_header(student)
+        api_client.post(
+            f'/academics/subjects/{subject.id}/notes',
+            json={'date': '2026-09-01', 'content': '# Старша'},
+            headers=headers,
+        )
+        created = api_client.post(
+            f'/academics/subjects/{subject.id}/notes', json={'content': '**Нова**'}, headers=headers
+        )
+        assert created.status_code == 200
+        assert created.data['date'] == datetime.date.today().isoformat()
+
+        response = api_client.get(f'/academics/subjects/{subject.id}/notes', headers=headers)
+
+        assert [note['content'] for note in response.data] == ['**Нова**', '# Старша']
+
+    def test_notes_are_private_to_their_author(self, api_client, auth_header, student, subject, school_class):
+        from academics.models import SubjectNote
+
+        classmate = User.objects.create_user(email='other@example.com', role=Role.STUDENT)
+        StudentProfile.objects.create(user=classmate, school_class=school_class)
+        note = SubjectNote.objects.create(user=classmate, subject=subject, content='секрет')
+
+        listed = api_client.get(f'/academics/subjects/{subject.id}/notes', headers=auth_header(student))
+        edited = api_client.patch(f'/academics/notes/{note.id}', json={'content': 'x'}, headers=auth_header(student))
+        deleted = api_client.delete(f'/academics/notes/{note.id}', headers=auth_header(student))
+
+        assert listed.data == []
+        assert edited.status_code == 404
+        assert deleted.status_code == 404
+        note.refresh_from_db()
+        assert note.content == 'секрет'
+
+    def test_edit_and_delete_own_note(self, api_client, auth_header, student, subject):
+        headers = auth_header(student)
+        note_id = api_client.post(
+            f'/academics/subjects/{subject.id}/notes', json={'content': 'a'}, headers=headers
+        ).data['id']
+
+        edited = api_client.patch(
+            f'/academics/notes/{note_id}', json={'content': 'b', 'date': '2026-01-02'}, headers=headers
+        )
+        assert edited.data['content'] == 'b'
+        assert edited.data['date'] == '2026-01-02'
+
+        assert api_client.delete(f'/academics/notes/{note_id}', headers=headers).status_code == 204
+        assert api_client.get(f'/academics/subjects/{subject.id}/notes', headers=headers).data == []
+
+    def test_subject_of_another_class_is_forbidden(self, api_client, auth_header, student, school):
+        other_class = Class.objects.create(school=school, name='6', order_index=6, academic_year='2025/2026')
+        other_subject = Subject.objects.create(school_class=other_class, name='History')
+
+        response = api_client.post(
+            f'/academics/subjects/{other_subject.id}/notes', json={'content': 'x'}, headers=auth_header(student)
+        )
+
+        assert response.status_code == 403
+
+    def test_empty_note_is_rejected(self, api_client, auth_header, student, subject):
+        response = api_client.post(
+            f'/academics/subjects/{subject.id}/notes', json={'content': '   '}, headers=auth_header(student)
+        )
+        assert response.status_code == 400
