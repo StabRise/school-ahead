@@ -461,3 +461,22 @@ class TestGames:
 
         trains = next(g for c in response.data for g in c['games'] if g['url'] == '/games/trains')
         assert '/CACHE/' in trains['icon_url']
+
+
+class TestBackgroundMusic:
+    def test_lists_only_active_tracks_in_order(self, api_client, settings, tmp_path):
+        from preschool.models import BackgroundMusic
+
+        settings.MEDIA_ROOT = tmp_path
+        later = BackgroundMusic(title='Пізніше', order=2)
+        later.file.save('b.mp3', SimpleUploadedFile('b.mp3', b'ID3'), save=True)
+        first = BackgroundMusic(title='Перша', order=1)
+        first.file.save('a.mp3', SimpleUploadedFile('a.mp3', b'ID3'), save=True)
+        hidden = BackgroundMusic(title='Вимкнена', order=0, is_active=False)
+        hidden.file.save('c.mp3', SimpleUploadedFile('c.mp3', b'ID3'), save=True)
+
+        response = api_client.get('/preschool/background-music')
+
+        assert response.status_code == 200
+        assert [track['title'] for track in response.data] == ['Перша', 'Пізніше']
+        assert response.data[0]['url'].endswith('.mp3')

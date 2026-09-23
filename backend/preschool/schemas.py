@@ -91,3 +91,13 @@ class GameCategoryOut(Schema):
     def resolve_games(obj, context):
         # Prefetched with only the active games — see api.list_games.
         return obj.active_games
+
+
+class BackgroundMusicOut(Schema):
+    id: int
+    title: str
+    url: str
+
+    @staticmethod
+    def resolve_url(obj, context):
+        return _absolute_file_url(obj.file, context)

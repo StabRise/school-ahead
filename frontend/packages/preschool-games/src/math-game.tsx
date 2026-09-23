@@ -16,11 +16,10 @@ import {
   type GameQuestion,
   type Operation,
 } from "./lib/math-game";
-import { useBackgroundMusic } from "./lib/use-background-music";
+import { usePauseBackgroundMusic } from "./lib/use-background-music";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { playBuildSound, playCelebrationChime, playFallSound, playMissSound, playVictoryFanfare } from "./kit/sound-effects";
-import { GAME_MUSIC_BUTTON_POSITION, GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
-import { MusicToggleButton } from "./kit/music-toggle-button";
+import { GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
 import { NumberTileButton, type NumberTileStatus } from "./kit/number-tile";
 import { useMathGameStore } from "./stores/math-game-store";
 
@@ -548,7 +547,7 @@ function MathRun({
   }, [stage]);
 
   // Lets MathGame duck the background music while paused (see its
-  // useBackgroundMusic call) without this component needing to know
+  // usePauseBackgroundMusic call) without this component needing to know
   // anything about audio itself.
   useEffect(() => {
     onPauseChange(paused);
@@ -941,7 +940,7 @@ export function MathGame() {
   // MathRun reports its pause state up via onPauseChange since it owns the
   // pause/resume logic itself.
   const [gamePaused, setGamePaused] = useState(false);
-  useBackgroundMusic(gamePaused);
+  usePauseBackgroundMusic(gamePaused);
   const t = useTranslations("MathGame");
   const speed = useMathGameStore((s) => s.speed);
   const setSpeed = useMathGameStore((s) => s.setSpeed);
@@ -993,7 +992,6 @@ export function MathGame() {
       >
         ⚙️
       </button>
-      <MusicToggleButton className={GAME_MUSIC_BUTTON_POSITION} />
 
       {settingsOpen && (
         <div

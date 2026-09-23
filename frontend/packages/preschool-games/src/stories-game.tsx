@@ -20,6 +20,7 @@ import {
 import { remarkStoryCards, STORY_CARD_TAG } from "./lib/story-markdown";
 import { parseSyllableGroup } from "./lib/story-parser";
 import { useStoryBackgroundMusic } from "./lib/use-story-background-music";
+import { usePauseBackgroundMusic } from "./lib/use-background-music";
 import { WordCardRow, lgCardSizeRem } from "./lib/syllable-card";
 import { StoryBook } from "./story-book";
 import { GAME_ROW_TOP } from "./kit/game-controls";
@@ -341,7 +342,7 @@ function StoryAudioButton({
     }
     setPlaying(true);
     onDuck();
-    // Best-effort, same as useBackgroundMusic — a blocked/failed play()
+    // Best-effort, same as useBackgroundMusicPlayer — a blocked/failed play()
     // shouldn't leave the button stuck showing "playing" (or the
     // background track stuck ducked for a clip that never actually played).
     void audio.play().catch(() => {
@@ -740,7 +741,7 @@ function StoryTutorControls({
     "flex items-center gap-1.5 rounded-full bg-white px-3 py-2 text-sm font-bold text-gray-700 shadow-lg ring-2 disabled:opacity-50";
   return (
     <div
-      className={`fixed right-4 z-20 flex flex-col items-end gap-1 ${GAME_ROW_TOP}`}
+      className={`fixed right-16 z-20 flex flex-col items-end gap-1 ${GAME_ROW_TOP}`}
     >
       <div className="flex gap-2">
         <button
@@ -862,6 +863,7 @@ function StoryPage({
   const backgroundMusic = useStoryBackgroundMusic(
     storyAssetUrl(slug, "background.mp3"),
   );
+  usePauseBackgroundMusic(backgroundMusic.available || backgroundMusic.ducked);
 
   // Only a logged-in student earns stars/Diamonds here — the public /games
   // route renders this same StoryPage with no session, so `user` stays null
@@ -932,28 +934,11 @@ function StoryPage({
         className={`fixed left-15 ${GAME_ROW_TOP}`}
       />
 
-      {/* Only this story's own background.mp3 gets this button — most
-          stories have none, so it only appears once useStoryBackgroundMusic
-          confirms the file actually loaded (see that hook's `available`).
-          Same fixed-corner treatment, next in the row after 🏠/📚 above.
-          Icon reflects `playing` (actually audible right now), not just
-          the reader's last on/off choice — it shows 🔇 while temporarily
-          ducked for a word's own audio/video clip too, even though tapping
-          it in that moment still toggles the underlying preference (so a
-          reader who taps it mid-duck gets what they asked for once the
-          duck lifts, not silently ignored). */}
-      {backgroundMusic.available && (
-        <PreschoolButton
-          icon={backgroundMusic.playing ? "🎵" : "🔇"}
-          label={
-            backgroundMusic.playing ? t("musicOnLabel") : t("musicOffLabel")
-          }
-          onClick={backgroundMusic.toggle}
-          ringColorClassName="ring-sky-400"
-          position="static"
-          className={`fixed left-26 ${GAME_ROW_TOP}`}
-        />
-      )}
+      {/* A story's own background.mp3 follows the shared music on/off
+          switch (the 🎵 settings, top-right — kit/game-music-config.tsx)
+          and, while it plays, stands in for the shared background music:
+          the latter is held paused so the two never overlap, and so is it
+          during a word's own audio/video clip. */}
 
       {isTutor && story.id != null && (
         <StoryTutorControls storyId={story.id} onDrafted={onBack} />
@@ -970,7 +955,8 @@ function StoryPage({
           })}
           // Fixed (not absolute within this card) for the same reason as
           // the 📚 button above — always visible regardless of page scroll.
-          className="fixed right-4 top-20 z-10 flex items-center gap-1 rounded-full bg-white px-3 py-2 shadow-lg ring-2 ring-amber-200"
+          // Sits under the top-right 🎵 music settings.
+          className="fixed right-4 top-32 z-10 flex items-center gap-1 rounded-full bg-white px-3 py-2 shadow-lg ring-2 ring-amber-200 [html[data-headerless]_&]:top-16"
           style={{
             animation: starBump > 0 ? "score-pop 0.3s ease-out" : undefined,
           }}

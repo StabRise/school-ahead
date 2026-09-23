@@ -17,12 +17,10 @@ import {
 } from "./lib/jumping-frogs-game";
 import { WordCardRow } from "./lib/syllable-card";
 import { useJumpingFrogsStore, type JumpingFrogsDifficulty } from "./stores/jumping-frogs-store";
-import { useBackgroundMusic } from "./lib/use-background-music";
 import { useAlphabeticalConsonants } from "./kit/use-alphabetical-consonants";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { playCelebrationChime, playFrogJumpSound, playFrogMissSound } from "./kit/sound-effects";
-import { GAME_MUSIC_BUTTON_POSITION, GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
-import { MusicToggleButton } from "./kit/music-toggle-button";
+import { GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
 
 // Preschool "Jumping Frogs" reading minigame — see docs/preschool/games/
 // jumping-frogs.md for the design brief. A frog crosses a river by hopping
@@ -1076,8 +1074,6 @@ export function JumpingFrogsGame() {
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [settingsOpen]);
 
-  useBackgroundMusic();
-
   return (
     <div className="relative flex min-h-[32rem] flex-1 flex-col overflow-hidden rounded-3xl bg-gradient-to-b from-sky-100 via-emerald-50 to-lime-100 ring-4 ring-inset ring-white/90 shadow-lg">
       <button
@@ -1089,8 +1085,6 @@ export function JumpingFrogsGame() {
       >
         ⚙️
       </button>
-
-      <MusicToggleButton className={GAME_MUSIC_BUTTON_POSITION} />
 
       {settingsOpen && (
         <div
@@ -1144,7 +1138,7 @@ export function JumpingFrogsGame() {
         key={levelsCompleted}
         role="status"
         aria-label={t("levelsClearedLabel", { count: levelsCompleted })}
-        className="pointer-events-none absolute right-4 top-4 z-10 flex items-center gap-1 rounded-full bg-white px-3 py-2 shadow-lg ring-2 ring-amber-200"
+        className="pointer-events-none absolute right-4 top-14 z-10 flex items-center gap-1 rounded-full bg-white px-3 py-2 shadow-lg ring-2 ring-amber-200"
         style={{ animation: levelsCompleted > 0 ? "score-pop 0.3s ease-out" : undefined }}
       >
         <span aria-hidden="true" className="text-lg">

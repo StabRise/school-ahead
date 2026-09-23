@@ -198,8 +198,10 @@
     "cancelError": "Не вдалося прибрати урок. Спробуй ще раз."
   },
   "GameMusic": {
-    "musicOnLabel": "Вимкнути музику",
-    "musicOffLabel": "Увімкнути музику"
+    "settingsLabel": "Налаштування музики",
+    "musicLabel": "Музика",
+    "trackLabel": "Мелодія",
+    "randomTrack": "Випадкова"
   },
   "BalloonPopGame": {
     "score": "{count, plural, one {Лопнуто # кульку} few {Лопнуто # кульки} many {Лопнуто # кульок} other {Лопнуто # кульки}}",
@@ -325,9 +327,7 @@
     "closeImageLabel": "Закрити",
     "removeImageLabel": "Видалити зображення",
     "playAudioLabel": "Слухати",
-    "starsLabel": "Зірочок: {count} з {total}",
-    "musicOnLabel": "Вимкнути музику",
-    "musicOffLabel": "Увімкнути музику"
+    "starsLabel": "Зірочок: {count} з {total}"
   },
   "MathGame": {
     "progress": "Питання {current}/{total}",

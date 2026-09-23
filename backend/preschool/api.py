@@ -14,8 +14,8 @@ from common.csrf import require_csrf
 from common.permissions import ensure_is_tutor
 
 from . import services
-from .models import STORY_ASSET_EXTENSIONS, STORY_ASSET_NAME_RE, Game, GameCategory, Story, StoryAsset
-from .schemas import GameCategoryOut, StoryAssetOut, StoryAssetUrlOut, StoryDetailOut, StoryOut
+from .models import STORY_ASSET_EXTENSIONS, STORY_ASSET_NAME_RE, BackgroundMusic, Game, GameCategory, Story, StoryAsset
+from .schemas import BackgroundMusicOut, GameCategoryOut, StoryAssetOut, StoryAssetUrlOut, StoryDetailOut, StoryOut
 
 # Router-level auth defaults to tutor-only (CookieOrBearerJWTAuth) — the two
 # public read endpoints below override it to auth=None, since the "Казки"
@@ -37,6 +37,19 @@ def list_games(request: HttpRequest):
         Prefetch('games', queryset=Game.objects.filter(is_active=True), to_attr='active_games')
     )
     return [category for category in categories if category.active_games]
+
+
+@router.get(
+    '/background-music',
+    response=list[BackgroundMusicOut],
+    auth=None,
+    operation_id='list_preschool_background_music',
+)
+def list_background_music(request: HttpRequest):
+    """Every active background track, in `order` — the /games music
+    settings' track picker and the player's random pool. Public, like the
+    game routes themselves."""
+    return BackgroundMusic.objects.filter(is_active=True)
 
 
 @router.get('/stories', response=list[StoryOut], auth=None, operation_id='list_preschool_stories')

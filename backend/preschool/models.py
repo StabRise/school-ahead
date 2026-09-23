@@ -7,7 +7,7 @@ from django.db import models
 from accounts.models import TutorProfile
 from common.images import GAME_ICON_SIDE, STORY_ASSET_THUMBNAIL_SIDE, STORY_COVER_SIDE, icon_thumbnail_field, thumbnail_field
 from common.models import TimeStampedModel
-from common.storage import game_icon_upload_to, story_asset_upload_to, story_cover_upload_to
+from common.storage import background_music_upload_to, game_icon_upload_to, story_asset_upload_to, story_cover_upload_to
 
 from .slugs import slugify_title
 
@@ -173,6 +173,31 @@ class Game(TimeStampedModel):
 
     class Meta:
         ordering = ['order', 'id']
+
+    def __str__(self):
+        return self.title
+
+
+BACKGROUND_MUSIC_EXTENSIONS = ['mp3', 'ogg', 'wav', 'm4a']
+
+
+class BackgroundMusic(TimeStampedModel):
+    """One looping track the /games minigames can play behind the game —
+    the player's music settings (frontend's kit/game-music-config.tsx) let
+    a child pick one of the active tracks or "random". `order` is the
+    order they're listed in that picker."""
+
+    title = models.CharField(max_length=255)
+    file = models.FileField(
+        upload_to=background_music_upload_to,
+        validators=[FileExtensionValidator(BACKGROUND_MUSIC_EXTENSIONS)],
+    )
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'id']
+        verbose_name_plural = 'background music'
 
     def __str__(self):
         return self.title

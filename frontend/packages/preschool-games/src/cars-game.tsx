@@ -17,10 +17,8 @@ import {
   type TurnKind,
   waypointsToPathD,
 } from "./lib/cars-game";
-import { useBackgroundMusic } from "./lib/use-background-music";
 import { playCocktailBounceSound, playVictoryFanfare } from "./kit/sound-effects";
-import { GAME_MUSIC_BUTTON_POSITION, GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
-import { MusicToggleButton } from "./kit/music-toggle-button";
+import { GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import {
   NUMBER_TILE_CLASS,
@@ -822,7 +820,6 @@ export function CarsGame() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsPanelRef = useRef<HTMLDivElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
-  useBackgroundMusic();
 
   // Warms up the small, fixed vocabulary of turn/arrival phrases once up
   // front so the first prompt doesn't stall on synthesizing it live — same
@@ -877,8 +874,6 @@ export function CarsGame() {
           </label>
         </div>
       )}
-
-      <MusicToggleButton className={GAME_MUSIC_BUTTON_POSITION} />
 
       <CarsRound key={roundToken} muted={muted} onlyEquations={onlyEquations} onWin={() => setRoundToken((n) => n + 1)} />
     </div>
