@@ -1475,6 +1475,12 @@
   },
   "TutorStories": {
     "title": "Казки",
+    "searchPlaceholder": "Пошук за назвою",
+    "statusFilterAll": "Усі",
+    "columnTitle": "Назва",
+    "columnStatus": "Статус",
+    "columnUpdated": "Змінено",
+    "noMatches": "Немає казок, що відповідають фільтру.",
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити казки. Спробуйте ще раз.",
     "empty": "Ще немає жодної казки.",
