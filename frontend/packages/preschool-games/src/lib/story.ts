@@ -7,6 +7,29 @@ export type { Story, StorySummary, StoryWordSegment } from "./story-parser";
 
 const storiesCache = new Map<string, Promise<StorySummary[]>>();
 
+// Bumped by invalidateStories() — every mounted useStories/useStory
+// refetches, e.g. once a tutor makes a story a draft (stories-game.tsx), so
+// it disappears from the picker without a page reload.
+const invalidationListeners = new Set<() => void>();
+
+export function invalidateStories(): void {
+  storiesCache.clear();
+  storyCache.clear();
+  invalidationListeners.forEach((listener) => listener());
+}
+
+function useInvalidationVersion(): number {
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    const listener = () => setVersion((current) => current + 1);
+    invalidationListeners.add(listener);
+    return () => {
+      invalidationListeners.delete(listener);
+    };
+  }, []);
+  return version;
+}
+
 function fetchStories(dbOnly: boolean): Promise<StorySummary[]> {
   const cacheKey = dbOnly ? "db" : "all";
   let cached = storiesCache.get(cacheKey);
@@ -29,6 +52,7 @@ function fetchStories(dbOnly: boolean): Promise<StorySummary[]> {
 // set, listing only tutor-authored DB stories.
 export function useStories(dbOnly = false): StorySummary[] {
   const [stories, setStories] = useState<StorySummary[]>([]);
+  const version = useInvalidationVersion();
 
   useEffect(() => {
     let cancelled = false;
@@ -38,7 +62,7 @@ export function useStories(dbOnly = false): StorySummary[] {
     return () => {
       cancelled = true;
     };
-  }, [dbOnly]);
+  }, [dbOnly, version]);
 
   return stories;
 }
@@ -52,7 +76,14 @@ function fetchStory(slug: string, dbOnly: boolean): Promise<Story | null> {
     const url = `/api/story?slug=${encodeURIComponent(slug)}${dbOnly ? "&source=db" : ""}`;
     cached = fetch(url)
       .then((res) => res.json())
-      .then((data: { content: string | null }) => (data.content ? parseStory(data.content) : null))
+      .then((data: { id?: number | null; content: string | null }) =>
+        data.content
+          ? {
+              ...parseStory(data.content),
+              ...(data.id != null ? { id: data.id } : {}),
+            }
+          : null,
+      )
       .catch(() => null);
     storyCache.set(cacheKey, cached);
   }
@@ -69,7 +100,11 @@ function fetchStory(slug: string, dbOnly: boolean): Promise<Story | null> {
 // (public/static/stories/<slug>/<filename>) — there's no separate lookup
 // to fetch for it.
 export function useStory(slug: string | null, dbOnly = false): Story | null {
-  const [loaded, setLoaded] = useState<{ slug: string | null; story: Story | null }>({ slug: null, story: null });
+  const [loaded, setLoaded] = useState<{
+    slug: string | null;
+    story: Story | null;
+  }>({ slug: null, story: null });
+  const version = useInvalidationVersion();
 
   useEffect(() => {
     if (!slug) return;
@@ -80,7 +115,7 @@ export function useStory(slug: string | null, dbOnly = false): Story | null {
     return () => {
       cancelled = true;
     };
-  }, [slug, dbOnly]);
+  }, [slug, dbOnly, version]);
 
   return loaded.slug === slug ? loaded.story : null;
 }

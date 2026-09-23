@@ -2,12 +2,21 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { usePathname } from "next/navigation";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import { useRewardStoriesGame } from "@school-ahead/api-client/browser/auth/auth";
+import { useUpdateTutorPreschoolStory } from "@school-ahead/api-client/browser/preschool/preschool";
 import { useAuthStore } from "@school-ahead/api-client";
 import { PreschoolButton } from "@school-ahead/preschool-ui";
-import { useStories, useStory, type Story, type StoryWordSegment, type StorySummary } from "./lib/story";
+import {
+  invalidateStories,
+  useStories,
+  useStory,
+  type Story,
+  type StoryWordSegment,
+  type StorySummary,
+} from "./lib/story";
 import { remarkStoryCards, STORY_CARD_TAG } from "./lib/story-markdown";
 import { parseSyllableGroup } from "./lib/story-parser";
 import { useStoryBackgroundMusic } from "./lib/use-story-background-music";
@@ -83,7 +92,9 @@ function storyAssetUrl(storySlug: string, filename: string): string {
 // "{ img1.jpeg }") is a full illustration for the story, not a syllable
 // breakdown — rendered as a plain rectangular picture (StoryIllustration
 // below), not a bordered letter-card (WordCardRow/WordSegmentCard).
-function isIllustration(segments: StoryWordSegment[]): segments is [{ kind: "image"; filename: string }] {
+function isIllustration(
+  segments: StoryWordSegment[],
+): segments is [{ kind: "image"; filename: string }] {
   return segments.length === 1 && segments[0].kind === "image";
 }
 
@@ -91,7 +102,9 @@ function isIllustration(segments: StoryWordSegment[]): segments is [{ kind: "ima
 // "{ koza.mp3 }") is a read-aloud clip, not a syllable breakdown or an
 // illustration — rendered as a small inline play button (StoryAudioButton
 // below) instead of a picture or letter-card.
-function isAudio(segments: StoryWordSegment[]): segments is [{ kind: "audio"; filename: string }] {
+function isAudio(
+  segments: StoryWordSegment[],
+): segments is [{ kind: "audio"; filename: string }] {
   return segments.length === 1 && segments[0].kind === "audio";
 }
 
@@ -99,14 +112,18 @@ function isAudio(segments: StoryWordSegment[]): segments is [{ kind: "audio"; fi
 // "{ 1.avi }") is a full-story video clip, same standing as
 // isIllustration's still picture — rendered as StoryVideo instead of a
 // bordered letter-card.
-function isVideo(segments: StoryWordSegment[]): segments is [{ kind: "video"; filename: string }] {
+function isVideo(
+  segments: StoryWordSegment[],
+): segments is [{ kind: "video"; filename: string }] {
   return segments.length === 1 && segments[0].kind === "video";
 }
 
 // A {...} group with exactly one YouTube segment and nothing else (e.g.
 // "{ https://www.youtube.com/watch?v=... }") — same standing as isVideo's
 // local clip, rendered as StoryYoutube instead of a bordered letter-card.
-function isYouTube(segments: StoryWordSegment[]): segments is [{ kind: "youtube"; videoId: string }] {
+function isYouTube(
+  segments: StoryWordSegment[],
+): segments is [{ kind: "youtube"; videoId: string }] {
   return segments.length === 1 && segments[0].kind === "youtube";
 }
 
@@ -231,7 +248,13 @@ function StoryVideo({ url, size }: { url: string; size: "sm" | "lg" }) {
 // "lg", which is the only size that actually mounts the live <iframe>
 // (autoplay=1 in youtubeEmbedUrl then works because opening it is itself a
 // user gesture).
-function StoryYoutube({ videoId, size }: { videoId: string; size: "sm" | "lg" }) {
+function StoryYoutube({
+  videoId,
+  size,
+}: {
+  videoId: string;
+  size: "sm" | "lg";
+}) {
   if (size === "lg") {
     return (
       <iframe
@@ -247,7 +270,12 @@ function StoryYoutube({ videoId, size }: { videoId: string; size: "sm" | "lg" })
   return (
     <span className="relative block max-h-64 w-auto overflow-hidden rounded-lg shadow-md sm:max-h-80">
       {/* eslint-disable-next-line @next/next/no-img-element -- external, YouTube-hosted thumbnail */}
-      <img src={youtubeThumbnailUrl(videoId)} alt="" draggable={false} className="max-h-64 w-auto object-contain sm:max-h-80" />
+      <img
+        src={youtubeThumbnailUrl(videoId)}
+        alt=""
+        draggable={false}
+        className="max-h-64 w-auto object-contain sm:max-h-80"
+      />
       <span
         aria-hidden="true"
         className="absolute inset-0 flex items-center justify-center bg-black/20 text-4xl text-white"
@@ -381,8 +409,15 @@ function StoryCard({
       // this whole subtree back out of that (see Tailwind Typography's
       // docs), which is what keeps the card row from ballooning in height.
       <span className="not-prose relative mx-auto block w-fit">
-        <button type="button" onClick={() => onOpen(segments)} className="block cursor-pointer">
-          <StoryIllustration url={storyAssetUrl(storySlug, segments[0].filename)} size="sm" />
+        <button
+          type="button"
+          onClick={() => onOpen(segments)}
+          className="block cursor-pointer"
+        >
+          <StoryIllustration
+            url={storyAssetUrl(storySlug, segments[0].filename)}
+            size="sm"
+          />
         </button>
         {onRemove && (
           <button
@@ -405,8 +440,15 @@ function StoryCard({
   if (isVideo(segments)) {
     return (
       // Same not-prose rationale as the illustration button above.
-      <button type="button" onClick={() => onOpen(segments)} className="not-prose mx-auto block cursor-pointer">
-        <StoryVideo url={storyAssetUrl(storySlug, segments[0].filename)} size="sm" />
+      <button
+        type="button"
+        onClick={() => onOpen(segments)}
+        className="not-prose mx-auto block cursor-pointer"
+      >
+        <StoryVideo
+          url={storyAssetUrl(storySlug, segments[0].filename)}
+          size="sm"
+        />
       </button>
     );
   }
@@ -414,14 +456,22 @@ function StoryCard({
   if (isYouTube(segments)) {
     return (
       // Same not-prose rationale as the illustration button above.
-      <button type="button" onClick={() => onOpen(segments)} className="not-prose mx-auto block cursor-pointer">
+      <button
+        type="button"
+        onClick={() => onOpen(segments)}
+        className="not-prose mx-auto block cursor-pointer"
+      >
         <StoryYoutube videoId={segments[0].videoId} size="sm" />
       </button>
     );
   }
 
   return (
-    <button type="button" onClick={() => onOpen(segments)} className="not-prose mx-0.5 cursor-pointer align-middle">
+    <button
+      type="button"
+      onClick={() => onOpen(segments)}
+      className="not-prose mx-0.5 cursor-pointer align-middle"
+    >
       <WordCardRow segments={segments} storySlug={storySlug} size="sm" />
     </button>
   );
@@ -433,7 +483,13 @@ function StoryCard({
 // onKeyDown on the div below, since nothing here auto-focuses that div on
 // open — a keydown handler tied to its own focus would otherwise never
 // fire from a plain mouse/tap click).
-function FullscreenOverlay({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+function FullscreenOverlay({
+  onClose,
+  children,
+}: {
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
   const t = useTranslations("StoriesGame");
 
   useEffect(() => {
@@ -496,12 +552,18 @@ export function StoryBody({
   // real game) never passes it, so students never see it.
   onRemoveCard?: (raw: string) => void;
 }) {
-  const [fullscreenSegments, setFullscreenSegments] = useState<StoryWordSegment[] | null>(null);
+  const [fullscreenSegments, setFullscreenSegments] = useState<
+    StoryWordSegment[] | null
+  >(null);
 
   // Same "a fullscreen video/YouTube embed has its own sound, duck the
   // background track while it's open" reasoning as StoryAudioButton.
   useEffect(() => {
-    if (!fullscreenSegments || (!isVideo(fullscreenSegments) && !isYouTube(fullscreenSegments))) return;
+    if (
+      !fullscreenSegments ||
+      (!isVideo(fullscreenSegments) && !isYouTube(fullscreenSegments))
+    )
+      return;
     onDuckMusic();
     return () => onUnduckMusic();
     // onDuckMusic/onUnduckMusic are expected to be stable (useCallback or
@@ -538,7 +600,10 @@ export function StoryBody({
       {/* prose-lg for the fairy-tale-sized body text; max-w-none since the
           mx-auto max-w-2xl wrapper already constrains width. */}
       <div className="prose prose-lg mx-auto max-w-2xl text-gray-700 prose-p:leading-loose">
-        <ReactMarkdown remarkPlugins={[remarkStoryCards, remarkBreaks]} components={markdownComponents}>
+        <ReactMarkdown
+          remarkPlugins={[remarkStoryCards, remarkBreaks]}
+          components={markdownComponents}
+        >
           {markdown}
         </ReactMarkdown>
       </div>
@@ -546,9 +611,15 @@ export function StoryBody({
       {fullscreenSegments && (
         <FullscreenOverlay onClose={() => setFullscreenSegments(null)}>
           {isIllustration(fullscreenSegments) ? (
-            <StoryIllustration url={storyAssetUrl(slug, fullscreenSegments[0].filename)} size="lg" />
+            <StoryIllustration
+              url={storyAssetUrl(slug, fullscreenSegments[0].filename)}
+              size="lg"
+            />
           ) : isVideo(fullscreenSegments) ? (
-            <StoryVideo url={storyAssetUrl(slug, fullscreenSegments[0].filename)} size="lg" />
+            <StoryVideo
+              url={storyAssetUrl(slug, fullscreenSegments[0].filename)}
+              size="lg"
+            />
           ) : isYouTube(fullscreenSegments) ? (
             <StoryYoutube videoId={fullscreenSegments[0].videoId} size="lg" />
           ) : (
@@ -572,8 +643,129 @@ const BOOKS_PER_SHELF = 4;
 
 function chunkIntoShelves<T>(items: T[], size: number): T[][] {
   const shelves: T[][] = [];
-  for (let i = 0; i < items.length; i += size) shelves.push(items.slice(i, i + size));
+  for (let i = 0; i < items.length; i += size)
+    shelves.push(items.slice(i, i + size));
   return shelves;
+}
+
+// A signed-in tutor gets editing shortcuts right in the game — the picker's
+// per-book "make draft" icon and the story page's "make draft" / "edit"
+// buttons below. Only for DB stories (`id` set, see lib/story.ts): a static
+// public/static/stories/ folder isn't editable.
+function useIsTutor(): boolean {
+  return useAuthStore((s) => s.user?.role === "tutor");
+}
+
+// Unpublishes a story (backend's update_tutor_story with is_published=false)
+// — the public game only lists published stories, so it drops off the
+// picker once invalidateStories() refetches.
+function useMakeStoryDraft() {
+  const updateStory = useUpdateTutorPreschoolStory();
+  const makeDraft = (storyId: number, onDone?: () => void) =>
+    updateStory.mutate(
+      { storyId, data: { is_published: false } },
+      {
+        onSuccess: () => {
+          invalidateStories();
+          onDone?.();
+        },
+      },
+    );
+  return {
+    makeDraft,
+    isPending: updateStory.isPending,
+    isError: updateStory.isError,
+  };
+}
+
+// Crossed-out eye — "hide from students". Inline (this package has no icon
+// library) and sized by the caller's font size.
+function EyeOffIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <path d="M10.7 5.1A10.4 10.4 0 0 1 12 5c5 0 9 4.5 10 7a13.2 13.2 0 0 1-2.2 3.3" />
+      <path d="M6.6 6.6C4.3 8 2.7 10.2 2 12c1 2.5 5 7 10 7 1.9 0 3.6-.6 5.1-1.5" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+      <path d="m2 2 20 20" />
+    </svg>
+  );
+}
+
+// The picker's per-book tutor shortcut — a sibling of StoryBook (not inside
+// it: StoryBook is itself a <button>), pinned to the book's top-right.
+function MakeDraftIconButton({ storyId }: { storyId: number }) {
+  const t = useTranslations("StoriesGame");
+  const { makeDraft, isPending } = useMakeStoryDraft();
+  return (
+    <button
+      type="button"
+      title={t("makeDraftButton")}
+      aria-label={t("makeDraftButton")}
+      onClick={() => makeDraft(storyId)}
+      disabled={isPending}
+      className="absolute -right-2 -top-2 z-30 flex h-8 w-8 items-center justify-center rounded-full bg-white text-gray-600 shadow-md ring-2 ring-gray-200 hover:text-red-600 hover:ring-red-200 disabled:opacity-50"
+    >
+      <EyeOffIcon />
+    </button>
+  );
+}
+
+// The story page's tutor controls, top-right: unpublish (then back to the
+// picker, since a draft isn't reachable from the public game) and a link
+// to the story's editor.
+function StoryTutorControls({
+  storyId,
+  onDrafted,
+}: {
+  storyId: number;
+  onDrafted: () => void;
+}) {
+  const t = useTranslations("StoriesGame");
+  const { makeDraft, isPending, isError } = useMakeStoryDraft();
+  // Same "locale is the URL's first segment" trick as
+  // useLocaleAwareGamesRouter — this package can't reach the app's
+  // i18n-aware Link.
+  const locale = usePathname().split("/")[1] ?? "";
+  const editHref = `${locale ? `/${locale}` : ""}/tutor/stories/${storyId}`;
+  const buttonClass =
+    "flex items-center gap-1.5 rounded-full bg-white px-3 py-2 text-sm font-bold text-gray-700 shadow-lg ring-2 disabled:opacity-50";
+  return (
+    <div
+      className={`fixed right-4 z-20 flex flex-col items-end gap-1 ${GAME_ROW_TOP}`}
+    >
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => makeDraft(storyId, onDrafted)}
+          disabled={isPending}
+          className={`${buttonClass} ring-gray-200 hover:text-red-600 hover:ring-red-200`}
+        >
+          <EyeOffIcon />
+          {t("makeDraftButton")}
+        </button>
+        <a
+          href={editHref}
+          className={`${buttonClass} ring-sky-200 hover:text-sky-700`}
+        >
+          ✏️ {t("editButton")}
+        </a>
+      </div>
+      {isError && (
+        <p className="rounded bg-white/90 px-2 py-1 text-xs text-red-600">
+          {t("makeDraftError")}
+        </p>
+      )}
+    </div>
+  );
 }
 
 // One wooden shelf: a row of book covers sitting on a plank, itself sized
@@ -585,12 +777,20 @@ function BookShelf({
   stories: StorySummary[];
   onSelect: (slug: string) => void;
 }) {
+  const isTutor = useIsTutor();
   return (
     <div className="inline-flex flex-col items-stretch">
       <ul className="z-10 flex flex-wrap items-end justify-center gap-x-6 gap-y-6 px-3 pb-2">
         {stories.map((story) => (
-          <li key={story.slug}>
-            <StoryBook title={story.title} coverUrl={story.cover} onClick={() => onSelect(story.slug)} />
+          <li key={story.slug} className="relative">
+            <StoryBook
+              title={story.title}
+              coverUrl={story.cover}
+              onClick={() => onSelect(story.slug)}
+            />
+            {isTutor && story.id != null && (
+              <MakeDraftIconButton storyId={story.id} />
+            )}
           </li>
         ))}
       </ul>
@@ -600,12 +800,21 @@ function BookShelf({
         aria-hidden="true"
         className="h-4 rounded-b-lg bg-gradient-to-b from-amber-600 to-amber-800 shadow-[0_6px_8px_rgba(0,0,0,0.25)]"
       />
-      <div aria-hidden="true" className="mx-2 h-2 rounded-full bg-black/15 blur-[2px]" />
+      <div
+        aria-hidden="true"
+        className="mx-2 h-2 rounded-full bg-black/15 blur-[2px]"
+      />
     </div>
   );
 }
 
-function StoryPicker({ stories, onSelect }: { stories: StorySummary[]; onSelect: (slug: string) => void }) {
+function StoryPicker({
+  stories,
+  onSelect,
+}: {
+  stories: StorySummary[];
+  onSelect: (slug: string) => void;
+}) {
   const t = useTranslations("StoriesGame");
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
@@ -622,21 +831,37 @@ function StoryPicker({ stories, onSelect }: { stories: StorySummary[]; onSelect:
         // directly on StoriesShell's own gradient background, same
         // one-frame convention as game-choice.tsx's GamePicker.
         <div className="flex flex-col items-center gap-10">
-          {chunkIntoShelves(stories, BOOKS_PER_SHELF).map((shelfStories, shelfIndex) => (
-            <BookShelf key={shelfIndex} stories={shelfStories} onSelect={onSelect} />
-          ))}
+          {chunkIntoShelves(stories, BOOKS_PER_SHELF).map(
+            (shelfStories, shelfIndex) => (
+              <BookShelf
+                key={shelfIndex}
+                stories={shelfStories}
+                onSelect={onSelect}
+              />
+            ),
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack: () => void }) {
+function StoryPage({
+  slug,
+  story,
+  onBack,
+}: {
+  slug: string;
+  story: Story;
+  onBack: () => void;
+}) {
   const t = useTranslations("StoriesGame");
   const [stars, setStars] = useState(0);
   const [starBump, setStarBump] = useState(0);
   const starBadgeRef = useRef<HTMLDivElement>(null);
-  const backgroundMusic = useStoryBackgroundMusic(storyAssetUrl(slug, "background.mp3"));
+  const backgroundMusic = useStoryBackgroundMusic(
+    storyAssetUrl(slug, "background.mp3"),
+  );
 
   // Only a logged-in student earns stars/Diamonds here — the public /games
   // route renders this same StoryPage with no session, so `user` stays null
@@ -648,6 +873,7 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
   // in", to avoid a spurious network error and a misleading star/diamond
   // animation during a preview.
   const isStudent = useAuthStore((s) => s.user?.role === "student");
+  const isTutor = useIsTutor();
   const rewardStoriesGame = useRewardStoriesGame();
 
   // Every DIAMOND_MILESTONE_STARS stars awards 1 Diamond for a signed-in
@@ -666,7 +892,12 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
     // A plain illustration, video, or YouTube embed isn't a "word" (see
     // DIAMOND_MILESTONE_STARS above) — only a syllable/letter breakdown
     // earns a star.
-    if (isStudent && !isIllustration(segments) && !isVideo(segments) && !isYouTube(segments)) {
+    if (
+      isStudent &&
+      !isIllustration(segments) &&
+      !isVideo(segments) &&
+      !isYouTube(segments)
+    ) {
       setStars((current) => current + 1);
       setStarBump((current) => current + 1);
     }
@@ -674,7 +905,8 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
 
   // Stars this round, 1-5, wrapping right after a Diamond is awarded —
   // e.g. stars=6 shows "1/5", not "6/5".
-  const starsThisRound = stars === 0 ? 0 : ((stars - 1) % DIAMOND_MILESTONE_STARS) + 1;
+  const starsThisRound =
+    stars === 0 ? 0 : ((stars - 1) % DIAMOND_MILESTONE_STARS) + 1;
 
   return (
     // rounded-3xl (matching StoriesShell's own rounding) + a plain
@@ -713,7 +945,9 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
       {backgroundMusic.available && (
         <PreschoolButton
           icon={backgroundMusic.playing ? "🎵" : "🔇"}
-          label={backgroundMusic.playing ? t("musicOnLabel") : t("musicOffLabel")}
+          label={
+            backgroundMusic.playing ? t("musicOnLabel") : t("musicOffLabel")
+          }
           onClick={backgroundMusic.toggle}
           ringColorClassName="ring-sky-400"
           position="static"
@@ -721,16 +955,25 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
         />
       )}
 
+      {isTutor && story.id != null && (
+        <StoryTutorControls storyId={story.id} onDrafted={onBack} />
+      )}
+
       {isStudent && (
         <div
           ref={starBadgeRef}
           key={starBump}
           role="status"
-          aria-label={t("starsLabel", { count: starsThisRound, total: DIAMOND_MILESTONE_STARS })}
+          aria-label={t("starsLabel", {
+            count: starsThisRound,
+            total: DIAMOND_MILESTONE_STARS,
+          })}
           // Fixed (not absolute within this card) for the same reason as
           // the 📚 button above — always visible regardless of page scroll.
           className="fixed right-4 top-20 z-10 flex items-center gap-1 rounded-full bg-white px-3 py-2 shadow-lg ring-2 ring-amber-200"
-          style={{ animation: starBump > 0 ? "score-pop 0.3s ease-out" : undefined }}
+          style={{
+            animation: starBump > 0 ? "score-pop 0.3s ease-out" : undefined,
+          }}
         >
           <span aria-hidden="true" className="text-lg">
             ⭐
@@ -743,8 +986,12 @@ function StoryPage({ slug, story, onBack }: { slug: string; story: Story; onBack
 
       <div className="flex-1 overflow-y-auto p-4 pt-20 sm:p-8 sm:pt-24">
         <div className="mb-6 text-center">
-          {story.subtitle && <p className="text-sm italic text-gray-400">{story.subtitle}</p>}
-          <h2 className="text-3xl font-extrabold text-gray-800">{story.title}</h2>
+          {story.subtitle && (
+            <p className="text-sm italic text-gray-400">{story.subtitle}</p>
+          )}
+          <h2 className="text-3xl font-extrabold text-gray-800">
+            {story.title}
+          </h2>
         </div>
 
         <StoryBody
@@ -836,7 +1083,9 @@ export function StoriesGamePage({
       slug={slug}
       story={story}
       stories={stories}
-      onSelect={(selectedSlug) => router.push(`${basePath}/${encodeURIComponent(selectedSlug)}`)}
+      onSelect={(selectedSlug) =>
+        router.push(`${basePath}/${encodeURIComponent(selectedSlug)}`)
+      }
       onBack={() => router.push(basePath)}
     />
   );

@@ -313,6 +313,9 @@
     "scoreLabel": "Правильних відповідей: {count}"
   },
   "StoriesGame": {
+    "makeDraftButton": "Зробити чернеткою",
+    "editButton": "Редагувати",
+    "makeDraftError": "Не вдалося зробити казку чернеткою. Спробуйте ще раз.",
     "pickerTitle": "Обери казку",
     "pickerSubtitle": "Натисни на назву, щоб почати читати",
     "noStories": "Казок поки що немає",

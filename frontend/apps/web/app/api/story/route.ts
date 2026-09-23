@@ -43,14 +43,28 @@ const STORIES_DIR = path.join(process.cwd(), "public", "static", "stories");
 const STORY_FILE = "story.md";
 
 function isValidSlug(slug: string): boolean {
-  return slug.length > 0 && slug.length <= 200 && !INVALID_SLUG_RE.test(slug) && slug !== "." && slug !== "..";
+  return (
+    slug.length > 0 &&
+    slug.length <= 200 &&
+    !INVALID_SLUG_RE.test(slug) &&
+    slug !== "." &&
+    slug !== ".."
+  );
 }
 
-async function fetchDbStoryContent(slug: string): Promise<string | null> {
+async function fetchDbStory(
+  slug: string,
+): Promise<{ id: number; content: string } | null> {
   try {
     const story = await getPreschool().getPreschoolStory(slug);
-    const headingLines = [`# ${story.title}`, ...(story.subtitle ? [`### ${story.subtitle}`] : [])];
-    return `${headingLines.join("\n\n")}\n\n${story.content}`;
+    const headingLines = [
+      `# ${story.title}`,
+      ...(story.subtitle ? [`### ${story.subtitle}`] : []),
+    ];
+    return {
+      id: story.id,
+      content: `${headingLines.join("\n\n")}\n\n${story.content}`,
+    };
   } catch (err) {
     // A 404 here just means "not a DB story" (or not published) and is the
     // expected shape of the static-folder fallback below — but every other
@@ -58,8 +72,10 @@ async function fetchDbStoryContent(slug: string): Promise<string | null> {
     // previously silently swallowed the same way, making a DB story that
     // mysteriously falls back to "not found" impossible to diagnose from
     // the frontend container's own logs. Log everything but the routine 404.
-    const status = (err as { response?: { status?: number } })?.response?.status;
-    if (status !== 404) console.error(`/api/story: DB lookup failed for slug "${slug}"`, err);
+    const status = (err as { response?: { status?: number } })?.response
+      ?.status;
+    if (status !== 404)
+      console.error(`/api/story: DB lookup failed for slug "${slug}"`, err);
     return null;
   }
 }
@@ -69,8 +85,14 @@ export async function GET(request: NextRequest) {
   if (!slug || !isValidSlug(slug)) return NextResponse.json({ content: null });
   const dbOnly = request.nextUrl.searchParams.get("source") === "db";
 
-  const dbContent = await fetchDbStoryContent(slug);
-  const content =
-    dbContent ?? (dbOnly ? null : await readFile(path.join(STORIES_DIR, slug, STORY_FILE), "utf-8").catch(() => null));
-  return NextResponse.json({ content });
+  // `id` is only set for a DB story — what a tutor's "make draft" / "edit"
+  // controls act on (see stories-game.tsx); a static story has none.
+  const dbStory = await fetchDbStory(slug);
+  if (dbStory) return NextResponse.json(dbStory);
+  const content = dbOnly
+    ? null
+    : await readFile(path.join(STORIES_DIR, slug, STORY_FILE), "utf-8").catch(
+        () => null,
+      );
+  return NextResponse.json({ id: null, content });
 }
