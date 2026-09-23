@@ -15,12 +15,13 @@ import { FileDropzone } from "@/components/file-dropzone";
 // as — see frontend's lib/story-parser.ts for the exact grammar (a lone
 // image/audio/video reference in a "{...}" group). Set as the drag payload
 // so the textarea drop handler (story-markdown-editor.tsx) can splice it in
-// verbatim.
-export function assetCardText(url: string): string {
-  return `{ ${url} }`;
+// verbatim. Always the asset's stable `ref` ("/api/story-asset/<name>",
+// see app/api/story-asset/[name]/route.ts), never its `url` — that's a
+// presigned link that stops working an hour later.
+export function assetCardText(ref: string): string {
+  return `{ ${ref} }`;
 }
 
-const IMAGE_RE = /\.(jpe?g|png|webp|gif)$/i;
 const AUDIO_RE = /\.(mp3|wav|ogg|m4a)$/i;
 
 // The little corner badge is the only "used?" signal that doesn't depend on
@@ -41,12 +42,13 @@ function UsedBadge({ isUsed, label }: { isUsed: boolean; label: string }) {
 }
 
 function AssetThumb({ asset, isUsed, usedLabel }: { asset: StoryAssetOut; isUsed: boolean; usedLabel: string }) {
-  if (IMAGE_RE.test(asset.url)) {
+  // Only images get a thumbnail (see backend's StoryAssetOut).
+  if (asset.thumbnail_url) {
     return (
       <span className="relative z-0 inline-flex shrink-0 hover:z-20">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={asset.url}
+          src={asset.thumbnail_url}
           alt=""
           className="h-10 w-10 origin-left rounded object-cover shadow-none transition-transform duration-150 hover:scale-[3] hover:shadow-xl"
         />
@@ -54,7 +56,7 @@ function AssetThumb({ asset, isUsed, usedLabel }: { asset: StoryAssetOut; isUsed
       </span>
     );
   }
-  const Icon = AUDIO_RE.test(asset.url) ? FileAudio : FileVideo;
+  const Icon = AUDIO_RE.test(asset.ref) ? FileAudio : FileVideo;
   return (
     <span className="relative inline-flex shrink-0">
       <span className="flex h-10 w-10 items-center justify-center rounded bg-gray-100">
@@ -96,7 +98,7 @@ function AssetRow({
     <li
       draggable
       onDragStart={(e) => {
-        e.dataTransfer.setData("text/plain", assetCardText(asset.url));
+        e.dataTransfer.setData("text/plain", assetCardText(asset.ref));
         e.dataTransfer.effectAllowed = "copy";
       }}
       title={t("dragIntoText")}
@@ -184,7 +186,7 @@ export function StoryAssetSidebar({
               key={asset.id}
               storyId={storyId}
               asset={asset}
-              isUsed={content.includes(asset.url)}
+              isUsed={content.includes(asset.ref)}
               onDeleted={(assetId) => onAssetsChange(assets.filter((a) => a.id !== assetId))}
             />
           ))}
