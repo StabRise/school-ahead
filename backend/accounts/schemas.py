@@ -94,6 +94,21 @@ class UserOut(Schema):
     # Only set for role=student — StudentProfile.can_do_any_lesson, see
     # lessons.api.preview_lesson/start_lesson_today.
     can_do_any_lesson: bool | None = None
+    # Only set for role=student with a class — StudentProfile.school_class.
+    # None means the student hasn't joined a class yet, which is when the
+    # dashboard suggests one they can join themselves (see join_class).
+    school_class_id: int | None = None
+    school_class_name: str | None = None
+
+
+class JoinableClassOut(Schema):
+    id: int
+    name: str
+    academic_year: str
+
+
+class JoinClassIn(Schema):
+    class_id: int
 
 
 class MeOut(Schema):

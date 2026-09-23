@@ -1025,3 +1025,69 @@ def test_reward_cars_game_can_be_awarded_repeatedly(api_client, auth_header):
     assert response.data['user']['diamond_balance'] == 2
     student.refresh_from_db()
     assert student.diamond_balance_cache == 2
+
+
+class TestJoinClass:
+    @pytest.fixture
+    def classes(self):
+        from academics.models import Class, School
+
+        school = School.objects.create(name='Ahead School')
+        pre = Class.objects.create(
+            school=school, name='Pre', order_index=0, academic_year='2026/2027', is_self_enrollable=True
+        )
+        fifth = Class.objects.create(school=school, name='5', order_index=5, academic_year='2026/2027')
+        return pre, fifth
+
+    def test_lists_only_self_enrollable_classes(self, api_client, auth_header, classes):
+        pre, fifth = classes
+        user = User.objects.create_user(email='new@example.com', role=Role.STUDENT)
+
+        response = api_client.get('/auth/joinable-classes', headers=auth_header(user))
+
+        assert response.status_code == 200
+        ids = [c['id'] for c in response.data]
+        assert pre.id in ids
+        assert fifth.id not in ids
+
+    def test_new_user_joins_and_gets_a_student_profile(self, api_client, auth_header, classes):
+        pre, _ = classes
+        user = User.objects.create_user(email='new@example.com', role=Role.STUDENT)
+        me = api_client.get('/auth/me', headers=auth_header(user))
+        assert me.data['user']['school_class_id'] is None
+
+        response = api_client.post('/auth/me/join-class', json={'class_id': pre.id}, headers=auth_header(user))
+
+        assert response.status_code == 200
+        assert response.data['user']['school_class_id'] == pre.id
+        assert response.data['user']['school_class_name'] == 'Pre'
+        profile = StudentProfile.objects.get(user=user)
+        assert profile.school_class_id == pre.id
+        assert profile.enrolled_at is not None
+
+    def test_cannot_join_a_class_that_is_not_self_enrollable(self, api_client, auth_header, classes):
+        _, fifth = classes
+        user = User.objects.create_user(email='new@example.com', role=Role.STUDENT)
+
+        response = api_client.post('/auth/me/join-class', json={'class_id': fifth.id}, headers=auth_header(user))
+
+        assert response.status_code == 404
+        assert not StudentProfile.objects.filter(user=user).exists()
+
+    def test_student_already_in_a_class_cannot_switch(self, api_client, auth_header, classes):
+        pre, fifth = classes
+        user = User.objects.create_user(email='s@example.com', role=Role.STUDENT)
+        StudentProfile.objects.create(user=user, school_class=fifth)
+
+        response = api_client.post('/auth/me/join-class', json={'class_id': pre.id}, headers=auth_header(user))
+
+        assert response.status_code == 409
+        assert StudentProfile.objects.get(user=user).school_class_id == fifth.id
+
+    def test_tutor_cannot_join(self, api_client, auth_header, classes):
+        pre, _ = classes
+        user = User.objects.create_user(email='t@example.com', role=Role.TUTOR)
+
+        response = api_client.post('/auth/me/join-class', json={'class_id': pre.id}, headers=auth_header(user))
+
+        assert response.status_code == 403

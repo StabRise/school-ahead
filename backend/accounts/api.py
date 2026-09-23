@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from ninja import Router
 from ninja.errors import HttpError
 
@@ -10,11 +11,15 @@ from common.permissions import get_own_student_profile
 
 from . import services
 from .cookies import clear_auth_cookies, set_auth_cookies
-from .models import Avatar, AvatarItem, InterfaceMode, TranslationScope
+from academics.models import Class
+
+from .models import Avatar, AvatarItem, InterfaceMode, Role, StudentProfile, TranslationScope
 from .schemas import (
     AvatarOut,
     GoogleLoginIn,
     GoogleLoginOut,
+    JoinableClassOut,
+    JoinClassIn,
     MeOut,
     UpdateAvatarIn,
     UpdateAvatarItemOrderIn,
@@ -59,6 +64,10 @@ def _user_out(request: HttpRequest, user) -> UserOut:
         equipped_accessory_items=equipped['accessory'],
         diamond_balance=student_profile.diamond_balance_cache if student_profile else None,
         can_do_any_lesson=student_profile.can_do_any_lesson if student_profile else None,
+        school_class_id=student_profile.school_class_id if student_profile else None,
+        school_class_name=student_profile.school_class.name
+        if student_profile and student_profile.school_class
+        else None,
     )
 
 
@@ -119,6 +128,42 @@ def logout(request: HttpRequest, response: HttpResponse):
 @router.get('/me', response=MeOut, auth=CookieOrBearerJWTAuth(), operation_id='me')
 def me(request: HttpRequest):
     return MeOut(user=_user_out(request, request.auth))
+
+
+@router.get(
+    '/joinable-classes',
+    response=list[JoinableClassOut],
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='list_joinable_classes',
+)
+def list_joinable_classes(request: HttpRequest):
+    """Classes a student can join themselves (Class.is_self_enrollable, e.g.
+    "Pre") — offered on the dashboard to a student with no class yet."""
+    return Class.objects.filter(is_self_enrollable=True).order_by('order_index', 'name')
+
+
+@router.post('/me/join-class', response=MeOut, auth=CookieOrBearerJWTAuth(), operation_id='join_class')
+def join_class(request: HttpRequest, payload: JoinClassIn):
+    """Puts the signed-in student into a self-enrollable class, creating
+    their StudentProfile first if they don't have one yet (a brand-new
+    Google sign-up has none). Only for role=student, and only while they
+    have no class — moving a student between classes stays with tutors and
+    the admin. Doesn't schedule lessons: a tutor plans those for the whole
+    class (scheduling.services)."""
+    require_csrf(request)
+    user = request.auth
+    if user.role != Role.STUDENT:
+        raise HttpError(403, 'Only students can join a class')
+    school_class = get_object_or_404(Class, id=payload.class_id, is_self_enrollable=True)
+    profile, _ = StudentProfile.objects.get_or_create(user=user)
+    if profile.school_class_id is not None and profile.school_class_id != school_class.id:
+        raise HttpError(409, 'Already in a class')
+    if profile.school_class_id is None:
+        profile.school_class = school_class
+        profile.enrolled_at = timezone.localdate()
+        profile.save(update_fields=['school_class', 'enrolled_at'])
+    user.refresh_from_db()
+    return MeOut(user=_user_out(request, user))
 
 
 @router.patch(

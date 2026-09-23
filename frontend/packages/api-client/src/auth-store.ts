@@ -90,6 +90,11 @@ export interface AuthUser {
   // just ones a tutor assigned them. See components/subjects/
   // simple-subject-detail-page.tsx and lessons.api.preview_lesson.
   canDoAnyLesson: boolean | null;
+  // Only meaningful for role="student" — StudentProfile.school_class. null
+  // until the student has a class, which is when the dashboard suggests one
+  // they can join themselves (components/join-class-prompt.tsx).
+  schoolClassId: number | null;
+  schoolClassName: string | null;
 }
 
 interface AuthState {
