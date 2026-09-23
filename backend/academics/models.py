@@ -2,6 +2,7 @@ import datetime
 
 from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
+from django.conf import settings
 from django.db import models
 
 from common.images import SUBJECT_GROUP_ICON_SIDE, SUBJECT_ICON_SIDE, icon_thumbnail_field
@@ -259,3 +260,22 @@ class Topic(models.Model):
 
     def __str__(self):
         return f"{self.title} — {self.subject}"
+
+
+class SubjectNote(TimeStampedModel):
+    """A student's own Markdown note on a subject — the subject page's
+    "Нотатки" tab (frontend's subject-notes-tab.tsx). Private to the user
+    who wrote it; `date` is the day it's about (defaults to the day it was
+    written, editable)."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='subject_notes')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='notes')
+    date = models.DateField(default=datetime.date.today)
+    content = models.TextField()
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+        indexes = [models.Index(fields=['user', 'subject'])]
+
+    def __str__(self):
+        return f'{self.subject} — {self.date}'

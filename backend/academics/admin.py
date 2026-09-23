@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from . import services
-from .models import Class, Plan, School, Subject, SubjectBlock, SubjectGroup, SubjectMaterial, Topic
+from .models import Class, Plan, School, Subject, SubjectBlock, SubjectGroup, SubjectMaterial, SubjectNote, Topic
 
 
 @admin.register(SubjectGroup)
@@ -205,3 +205,11 @@ class PlanAdmin(admin.ModelAdmin):
     list_select_related = ("school_class", "school_class__school")
     date_hierarchy = "created_at"
     readonly_fields = ("school_class", "semester_name", "text", "created_at", "updated_at")
+
+
+@admin.register(SubjectNote)
+class SubjectNoteAdmin(admin.ModelAdmin):
+    list_display = ("subject", "user", "date", "updated_at")
+    list_filter = ("subject",)
+    search_fields = ("content", "user__email")
+    autocomplete_fields = ("user",)
