@@ -2,7 +2,7 @@ import datetime
 
 from ninja import Schema
 
-from common.images import thumbnail_url
+from common.images import icon_url, thumbnail_url
 
 
 def _absolute_file_url(file_field, context: dict) -> str | None:
@@ -69,3 +69,25 @@ class StoryDetailOut(StoryOut):
         # create_tutor_story_assets), so feeding it anything else fails to
         # find `url`.
         return list(obj.assets.all())
+
+
+class GameOut(Schema):
+    id: int
+    title: str
+    url: str
+    icon_url: str | None
+
+    @staticmethod
+    def resolve_icon_url(obj, context):
+        return icon_url(obj, context.get('request'))
+
+
+class GameCategoryOut(Schema):
+    id: int
+    name: str
+    games: list[GameOut]
+
+    @staticmethod
+    def resolve_games(obj, context):
+        # Prefetched with only the active games — see api.list_games.
+        return obj.active_games

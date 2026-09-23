@@ -35,6 +35,9 @@ SYLLABLE_ICON_SIDE = 320
 # and the editor's cover preview; a story asset's thumbnail is the editor
 # sidebar's 40px preview (enlarged 3x on hover) — see preschool/models.py.
 STORY_COVER_SIDE = 640
+# A game's card on the /games picker — up to 112px, enlarged 2x on hover
+# (game-choice.tsx's GameCard).
+GAME_ICON_SIDE = 448
 STORY_ASSET_THUMBNAIL_SIDE = 320
 
 THUMBNAIL_QUALITY = 85
