@@ -7,12 +7,10 @@ import { BalloonLearningCards, type LearningCard } from "./balloon-learning-card
 import { prefetchVoice, speakSequence, warmupSpeech } from "@school-ahead/api-client";
 import { useCardsGameLevel, type CardsGameCard } from "./lib/cards-game";
 import { useCardsGameStore } from "./stores/cards-game-store";
-import { useBackgroundMusic } from "./lib/use-background-music";
 import { useAlphabeticalConsonants } from "./kit/use-alphabetical-consonants";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { playCelebrationChime, playMatchSound, playMissSound } from "./kit/sound-effects";
-import { GAME_MUSIC_BUTTON_POSITION, GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
-import { MusicToggleButton } from "./kit/music-toggle-button";
+import { GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
 
 // Preschool "Cards" reading minigame — see docs/preschool/games/reading/
 // Cards.md for the design brief. Unlike the syllable drag-and-drop game
@@ -432,7 +430,7 @@ function CardsFallingGame({ cards, muted }: { cards: CardsGameCard[]; muted: boo
         key={scoreBump}
         role="status"
         aria-label={t("scoreLabel", { count: score })}
-        className="pointer-events-none absolute right-4 top-4 z-10 flex items-center gap-1 rounded-full bg-white px-3 py-2 shadow-lg ring-2 ring-emerald-200"
+        className="pointer-events-none absolute right-4 top-14 z-10 flex items-center gap-1 rounded-full bg-white px-3 py-2 shadow-lg ring-2 ring-emerald-200"
         style={{ animation: scoreBump > 0 ? "score-pop 0.3s ease-out" : undefined }}
       >
         <span aria-hidden="true" className="text-lg">
@@ -515,8 +513,6 @@ export function CardsGame() {
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [settingsOpen]);
 
-  useBackgroundMusic();
-
   const nextConsonant = consonants[consonants.indexOf(consonant) + 1];
 
   // "Play again" replays the same consonant level — bump a token so the
@@ -540,8 +536,6 @@ export function CardsGame() {
       >
         ⚙️
       </button>
-
-      <MusicToggleButton className={GAME_MUSIC_BUTTON_POSITION} />
 
       {settingsOpen && (
         <div

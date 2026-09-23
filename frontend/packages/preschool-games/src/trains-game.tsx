@@ -4,13 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRewardTrainsGame } from "@school-ahead/api-client/browser/auth/auth";
 import { prefetchVoice, speak, type SpeechLanguage } from "@school-ahead/api-client";
-import { useBackgroundMusic } from "./lib/use-background-music";
 import { useTrainsGameStore, type KeyboardZone } from "./stores/trains-game-store";
 import { useGameMusicStore } from "./stores/game-music-store";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { playChime, playTone } from "./kit/sound-effects";
-import { GAME_MUSIC_BUTTON_POSITION, GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
-import { MusicToggleButton } from "./kit/music-toggle-button";
+import { GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
 
 // Celebration reward minigame, alternative to BalloonPopGame — same trigger
 // (every one of today's lessons, tails included, is Completed, Pending
@@ -221,8 +219,6 @@ export function TrainsGame() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const rewardTrainsGame = useRewardTrainsGame();
 
-  useBackgroundMusic();
-
   // Every DIAMOND_MILESTONE_LETTERS collected letters awards 1 Diamond for a
   // signed-in student — an anonymous visitor still sees the collected count
   // go up, they just don't earn anything (see useDiamondMilestoneReward).
@@ -372,7 +368,7 @@ export function TrainsGame() {
         ref={collectedPanelRef}
         role="status"
         aria-label={t("collected", { count: collected.length })}
-        className="absolute right-4 top-4 z-10 flex max-h-[70%] w-40 flex-col gap-2 rounded-2xl bg-white p-3 text-sm shadow-lg ring-2 ring-sky-200"
+        className="absolute right-4 top-14 z-10 flex max-h-[70%] w-40 flex-col gap-2 rounded-2xl bg-white p-3 text-sm shadow-lg ring-2 ring-sky-200"
       >
         <div className="flex items-center justify-between">
           <span className="font-medium text-gray-700">{t("collectedLabel")}</span>
@@ -405,8 +401,6 @@ export function TrainsGame() {
       >
         ⚙️
       </button>
-
-      <MusicToggleButton className={GAME_MUSIC_BUTTON_POSITION} />
 
       {settingsOpen && (
         <div

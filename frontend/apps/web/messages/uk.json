@@ -79,7 +79,10 @@
     "avatarEditor": "Редактор аватарів",
     "furnitureEditor": "Редактор фурнітури",
     "storiesEditor": "Казки",
-    "syllablesEditor": "Склади"
+    "syllablesEditor": "Склади",
+    "avatarMenu": "Аватар",
+    "allGames": "Усі ігри",
+    "utilsMenu": "Інструменти"
   },
   "Home": {
     "welcomeBack": "З поверненням, {name}!"
@@ -196,8 +199,10 @@
     "cancelError": "Не вдалося прибрати урок. Спробуй ще раз."
   },
   "GameMusic": {
-    "musicOnLabel": "Вимкнути музику",
-    "musicOffLabel": "Увімкнути музику"
+    "settingsLabel": "Налаштування музики",
+    "musicLabel": "Музика",
+    "trackLabel": "Мелодія",
+    "randomTrack": "Випадкова"
   },
   "BalloonPopGame": {
     "score": "{count, plural, one {Лопнуто # кульку} few {Лопнуто # кульки} many {Лопнуто # кульок} other {Лопнуто # кульки}}",
@@ -323,9 +328,7 @@
     "closeImageLabel": "Закрити",
     "removeImageLabel": "Видалити зображення",
     "playAudioLabel": "Слухати",
-    "starsLabel": "Зірочок: {count} з {total}",
-    "musicOnLabel": "Вимкнути музику",
-    "musicOffLabel": "Увімкнути музику"
+    "starsLabel": "Зірочок: {count} з {total}"
   },
   "MathGame": {
     "progress": "Питання {current}/{total}",
@@ -1476,6 +1479,14 @@
     "uploadInvalidFile": "Невірний формат файлу.",
     "uploadFailed": "Не вдалося завантажити предмет. Спробуйте ще раз."
   },
+  "JoinClass": {
+    "title": "Вітаємо!",
+    "description": "Щоб почати навчання, доєднайся до класу. Уроки, предмети й ігри з'являться одразу після цього.",
+    "loading": "Завантаження...",
+    "noClasses": "Зараз немає класів, до яких можна доєднатися самостійно. Попроси тьютора додати тебе до класу.",
+    "joinButton": "Доєднатися до класу {name}",
+    "joinError": "Не вдалося доєднатися до класу. Спробуй ще раз."
+  },
   "TutorStories": {
     "title": "Казки",
     "searchPlaceholder": "Пошук за назвою",
@@ -1531,6 +1542,12 @@
     "viewInGameRequiresPublish": "Спочатку опублікуйте казку, щоб переглянути її в грі"
   },
   "TutorSyllables": {
+    "searchPlaceholder": "Пошук за складом або словом",
+    "filterAll": "Усі",
+    "filterNotDefault": "Інші",
+    "filterFirstLetter": "Перша літера",
+    "filterFirstLetterAll": "Усі літери",
+    "noMatches": "Немає складів, що відповідають фільтру.",
     "title": "Склади",
     "loading": "Завантаження...",
     "error": "Не вдалося завантажити склади. Спробуйте ще раз.",

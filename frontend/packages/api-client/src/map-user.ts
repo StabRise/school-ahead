@@ -46,6 +46,8 @@ export function mapApiUserToAuthUser(user: UserOut): AuthUser {
     translateOnSelect: user.translate_on_select ?? null,
     diamondBalance: user.diamond_balance ?? null,
     canDoAnyLesson: user.can_do_any_lesson ?? null,
+    schoolClassId: user.school_class_id ?? null,
+    schoolClassName: user.school_class_name ?? null,
     equippedAvatar: user.equipped_avatar ? mapAvatar(user.equipped_avatar) : null,
     equippedClothingItems: (user.equipped_clothing_items ?? []).map(mapAvatarItem),
     equippedHeadwearItems: (user.equipped_headwear_items ?? []).map(mapAvatarItem),

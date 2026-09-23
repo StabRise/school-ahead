@@ -13,12 +13,10 @@ import {
   type ReadingGameSyllableSounds,
 } from "./lib/reading-game";
 import { MAX_SYLLABLE_COUNT, MIN_SYLLABLE_COUNT, useReadingGameStore } from "./stores/reading-game-store";
-import { useBackgroundMusic } from "./lib/use-background-music";
 import { useAlphabeticalConsonants } from "./kit/use-alphabetical-consonants";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { playCelebrationChime, playMatchSound, playMissSound } from "./kit/sound-effects";
-import { GAME_MUSIC_BUTTON_POSITION, GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
-import { MusicToggleButton } from "./kit/music-toggle-button";
+import { GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
 
 // Preschool "syllable drag-and-drop" reading minigame — see
 // docs/preschool/games/reading/README.md for the design brief and
@@ -440,8 +438,6 @@ export function ReadingGame() {
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [settingsOpen]);
 
-  useBackgroundMusic();
-
   const nextConsonant = consonants[consonants.indexOf(consonant) + 1];
 
   // "Play again" replays the same consonant+syllableCount level — bump a
@@ -463,8 +459,6 @@ export function ReadingGame() {
       >
         ⚙️
       </button>
-
-      <MusicToggleButton className={GAME_MUSIC_BUTTON_POSITION} />
 
       {settingsOpen && (
         <div

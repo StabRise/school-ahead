@@ -26,7 +26,16 @@ class SchoolAdmin(admin.ModelAdmin):
 @admin.register(Class)
 class ClassAdmin(admin.ModelAdmin):
     """Admin configuration for Class model."""
-    list_display = ("name", "school", "academic_year", "order_index", "is_public", "class_teacher", "created_at")
+    list_display = (
+        "name",
+        "school",
+        "academic_year",
+        "order_index",
+        "is_public",
+        "is_self_enrollable",
+        "class_teacher",
+        "created_at",
+    )
     list_filter = (
         "school",
         "academic_year",

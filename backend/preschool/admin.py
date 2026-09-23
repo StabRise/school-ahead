@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Game, GameCategory, Story, StoryAsset
+from .models import BackgroundMusic, Game, GameCategory, Story, StoryAsset
 
 
 class StoryAssetInline(admin.TabularInline):
@@ -37,3 +37,11 @@ class GameAdmin(admin.ModelAdmin):
     list_editable = ('is_active', 'order')
     list_filter = ('category', 'is_active')
     search_fields = ('title', 'url')
+
+
+@admin.register(BackgroundMusic)
+class BackgroundMusicAdmin(admin.ModelAdmin):
+    list_display = ('title', 'is_active', 'order', 'updated_at')
+    list_editable = ('is_active', 'order')
+    list_filter = ('is_active',)
+    search_fields = ('title',)

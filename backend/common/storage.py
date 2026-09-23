@@ -117,3 +117,7 @@ def word_audio_upload_to(instance, filename: str) -> str:
 
 def game_icon_upload_to(instance, filename: str) -> str:
     return _unique_path('game_icons', filename)
+
+
+def background_music_upload_to(instance, filename: str) -> str:
+    return _unique_path('background_music', filename)

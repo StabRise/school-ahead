@@ -231,6 +231,14 @@ export function Header() {
                     </DropdownMenu.Item>
                     <DropdownMenu.Item asChild>
                       <Link
+                        href="/house"
+                        className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
+                      >
+                        {t("house")}
+                      </Link>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item asChild>
+                      <Link
                         href="/settings"
                         className="block cursor-pointer rounded-sm px-3 py-2 text-sm text-gray-700 outline-none data-[highlighted]:bg-gray-100"
                       >

@@ -2,7 +2,8 @@
 // fixed to the viewport like the 🏠 (kit/home-button.tsx, `fixed left-4
 // top-20` — below the app's own header), so every game has them in the same
 // place, next to the 🏠, whatever the play frame around the game is doing. The
-// buttons are 36px with 8px between them: 🏠, then ⚙️, then the music toggle.
+// buttons are 36px with 8px between them: 🏠, then ⚙️. The music settings
+// (kit/game-music-config.tsx) sit alone in the top-right corner, same row.
 //
 // A student in preschool mode has no site header, so for them the row moves up
 // to the top of the screen (16px) — the app marks the page `<html
@@ -11,9 +12,16 @@
 //
 // Full class strings, not built from pieces, so Tailwind's source scan finds
 // them.
-export const GAME_SETTINGS_BUTTON_POSITION = "fixed left-15 top-20 z-10 [html[data-headerless]_&]:top-4";
-export const GAME_MUSIC_BUTTON_POSITION = "fixed left-26 top-20 z-10 [html[data-headerless]_&]:top-4";
+export const GAME_SETTINGS_BUTTON_POSITION =
+  "fixed left-15 top-20 z-10 [html[data-headerless]_&]:top-4";
 // The ⚙️'s floating panel, just under the row.
-export const GAME_SETTINGS_PANEL_POSITION = "fixed left-15 top-32 z-10 [html[data-headerless]_&]:top-16";
+export const GAME_SETTINGS_PANEL_POSITION =
+  "fixed left-15 top-32 z-10 [html[data-headerless]_&]:top-16";
+// The 🎵 music settings button, top-right, and its dropdown just under it.
+// z-30 keeps them above each game's own top-right badges and panels.
+export const GAME_MUSIC_CONFIG_POSITION =
+  "fixed right-4 top-20 z-30 [html[data-headerless]_&]:top-4";
+export const GAME_MUSIC_CONFIG_PANEL_POSITION =
+  "fixed right-4 top-32 z-30 [html[data-headerless]_&]:top-16";
 // The row's other members (the 🏠 itself, the stories game's 📚 and music).
 export const GAME_ROW_TOP = "top-20 [html[data-headerless]_&]:top-4";

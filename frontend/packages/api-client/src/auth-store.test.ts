@@ -35,6 +35,8 @@ describe("useAuthStore", () => {
       equippedAccessoryItems: [],
       diamondBalance: null,
       canDoAnyLesson: null,
+      schoolClassId: null,
+      schoolClassName: null,
     };
 
     useAuthStore.getState().setUser(user);

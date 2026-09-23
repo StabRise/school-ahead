@@ -17,10 +17,8 @@ import {
   type CocktailTablePiece,
 } from "./lib/cocktail-game";
 import { describeRecipeForSpeech } from "./lib/cocktail-speech-pl";
-import { useBackgroundMusic } from "./lib/use-background-music";
 import { playCocktailBounceSound, playCocktailFailSound, playCocktailSplashSound, playVictoryFanfare } from "./kit/sound-effects";
-import { GAME_MUSIC_BUTTON_POSITION, GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
-import { MusicToggleButton } from "./kit/music-toggle-button";
+import { GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import {
   NUMBER_TILE_CLASS,
@@ -702,7 +700,6 @@ export function CocktailGame() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsPanelRef = useRef<HTMLDivElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
-  useBackgroundMusic();
 
   // Closes the settings panel on a click/tap anywhere outside it — same
   // pattern as cars-game.tsx's own settings panel.
@@ -772,22 +769,19 @@ export function CocktailGame() {
         </button>
       </div>
 
-      {/* Narration mute — same small-icon-corner-toggle pattern as
-          MusicToggleButton (h-9 w-9, white circle, ring-2), but its own
-          per-game persisted setting rather than that shared cross-game
-          store, matching every other narrated game's own muted/setMuted
+      {/* Narration mute — same small white-circle corner button as the
+          music settings (kit/game-music-config.tsx), but its own per-game
+          persisted setting rather than that shared cross-game store, matching every other narrated game's own muted/setMuted
           (see stores/cocktail-game-store.ts) since this game's Polish
           speech is independent of background music. */}
       <button
         type="button"
         aria-label={muted ? t("narrationOffLabel") : t("narrationOnLabel")}
         onClick={() => setMuted(!muted)}
-        className="absolute right-4 top-4 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
+        className="absolute right-4 top-14 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white text-lg shadow-lg ring-2 ring-gray-200"
       >
         {muted ? "🔇" : "🗣️"}
       </button>
-
-      <MusicToggleButton className={GAME_MUSIC_BUTTON_POSITION} />
 
       <CocktailRound
         key={`${mode}-${roundToken}`}

@@ -6,6 +6,7 @@ import { PreschoolDashboard } from "@/components/preschool/dashboard";
 import { SimpleDashboard } from "@/components/simple-dashboard";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { useAuthStore } from "@school-ahead/api-client";
+import { JoinClassPrompt } from "@/components/join-class-prompt";
 
 // Local (not UTC) YYYY-MM-DD — avoids toISOString() shifting the date near
 // midnight in timezones behind UTC.
@@ -24,6 +25,10 @@ function toLocalIsoDate(date: Date): string {
 // used to be this page — see components/preschool/lessons-road.tsx.
 export function StudentDashboard() {
   const isPreschool = useAuthStore((state) => state.user?.interfaceMode === "preschool");
+  // No class yet (e.g. a brand-new sign-up) — nothing to show on either
+  // dashboard, so suggest joining one first.
+  const hasClass = useAuthStore((state) => state.user?.schoolClassId != null);
+  if (!hasClass) return <JoinClassPrompt />;
   return isPreschool ? <PreschoolDashboard /> : <ClassicStudentDashboard />;
 }
 
