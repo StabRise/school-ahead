@@ -1534,6 +1534,8 @@
     "searchPlaceholder": "Пошук за складом або словом",
     "filterAll": "Усі",
     "filterNotDefault": "Інші",
+    "filterFirstLetter": "Перша літера",
+    "filterFirstLetterAll": "Усі літери",
     "noMatches": "Немає складів, що відповідають фільтру.",
     "title": "Склади",
     "loading": "Завантаження...",
