@@ -14,6 +14,7 @@ import type { PreschoolGameId } from "./game-choice";
 import { usePreschoolGamesGuard } from "./game-shell";
 import { GamePageContainer } from "./kit/game-page-container";
 import { HomeButton } from "./kit/home-button";
+import { GameMusic } from "./kit/game-music-config";
 
 // Full-screen player for one preschool minigame at its own URL
 // (/games/balloons, /games/trains, /games/syllables (game id still
@@ -29,7 +30,13 @@ import { HomeButton } from "./kit/home-button";
 // reached via /games/stories/[storySlug]/page.tsx, so a specific story
 // opens directly (and stays open across a reload, since it's part of the
 // URL rather than component state — see stories-game.tsx's StoriesGamePage).
-export function GamePlayPage({ game, storySlug }: { game: PreschoolGameId; storySlug?: string }) {
+export function GamePlayPage({
+  game,
+  storySlug,
+}: {
+  game: PreschoolGameId;
+  storySlug?: string;
+}) {
   const t = useTranslations("PreschoolChrome");
   const allowed = usePreschoolGamesGuard();
 
@@ -75,7 +82,13 @@ export function GamePlayPage({ game, storySlug }: { game: PreschoolGameId; story
       {/* Every game's 🏠 goes back to the picker it was opened from — except the
           stories, which the dashboard opens directly (its "Казки" card), so
           there the 🏠 goes back to the dashboard. */}
-      {game === "stories" ? <HomeButton href="/" label={t("homeLabel")} /> : <HomeButton href="/games" />}
+      {game === "stories" ? (
+        <HomeButton href="/" label={t("homeLabel")} />
+      ) : (
+        <HomeButton href="/games" />
+      )}
+      {/* Background music + its 🎵 settings, top-right — the same for every game. */}
+      <GameMusic />
     </GamePageContainer>
   );
 }
@@ -100,9 +113,14 @@ export function StorybookGamePage({ storySlug }: { storySlug?: string }) {
   return (
     <GamePageContainer>
       <div className="mx-auto flex w-full flex-1 flex-col p-2 xl:max-w-5xl sm:p-4">
-        <StoriesGamePage slug={storySlug ?? null} basePath="/games/storybook" dbOnly />
+        <StoriesGamePage
+          slug={storySlug ?? null}
+          basePath="/games/storybook"
+          dbOnly
+        />
       </div>
       <HomeButton href="/" label={t("homeLabel")} />
+      <GameMusic />
     </GamePageContainer>
   );
 }

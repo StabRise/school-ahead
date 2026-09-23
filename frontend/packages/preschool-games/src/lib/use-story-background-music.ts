@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useGameMusicStore } from "../stores/game-music-store";
 
 // Kept low so it stays "background" under the story text — started from
 // the same number as stores/game-music-store.ts's DEFAULT_VOLUME, then
@@ -9,16 +10,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const VOLUME = 0.4 / 1.5;
 
 // Loops <slug>/background.mp3 behind a story's own page — a fixed,
-// story-specific track, unlike lib/use-background-music.ts's shared random
-// pool from public/music (which the other preschool minigames use, and
-// which excludes Stories by design — see kit/music-toggle-button.tsx).
+// story-specific track that stands in for the shared background music
+// (lib/use-background-music.ts) while it plays; the story page holds that
+// one paused meanwhile. On/off is the same shared setting, from the 🎵
+// music settings (kit/game-music-config.tsx).
 // Optional per story: most stories have no background.mp3, so there's no
 // server check for whether one exists (same "a missing file just 404s"
 // philosophy as the story's own image/audio/video assets, see
 // lib/story-parser.ts) — `available` only flips true once the browser
-// confirms it actually loaded the file, and the caller's corner toggle
-// button (see StoryPage) stays hidden until then, same as a story with no
-// cover.<ext> just shows no cover.
+// confirms it actually loaded the file.
 //
 // `duck`/`unduck` pause the track while a *different* sound is playing
 // (a per-word `{ dido.mp3 }` clip, or a fullscreen `{ 1.avi }` video) —
@@ -30,13 +30,8 @@ const VOLUME = 0.4 / 1.5;
 // this game can trigger that today.
 export function useStoryBackgroundMusic(url: string): {
   available: boolean;
-  // Effective on-air state for the corner button's icon — false while
-  // merely toggled off by the reader *or* while ducked, so the icon always
-  // reflects "is this actually audible right now", not just the reader's
-  // last preference (see the bug this was fixed for: the icon looked "on"
-  // while a word's own clip was actually the only thing playing).
-  playing: boolean;
-  toggle: () => void;
+  // A word's own clip is playing (see duck/unduck).
+  ducked: boolean;
   duck: () => void;
   unduck: () => void;
 } {
@@ -44,8 +39,11 @@ export function useStoryBackgroundMusic(url: string): {
   // plain boolean reset inside the effect below — avoids calling setState
   // synchronously in the effect body just to flip `available` back to
   // false while a new URL's "canplaythrough" hasn't fired yet.
-  const [loaded, setLoaded] = useState<{ url: string; available: boolean }>({ url, available: false });
-  const [enabled, setEnabled] = useState(true);
+  const [loaded, setLoaded] = useState<{ url: string; available: boolean }>({
+    url,
+    available: false,
+  });
+  const enabled = useGameMusicStore((s) => s.musicEnabled);
   const [ducked, setDucked] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -78,7 +76,8 @@ export function useStoryBackgroundMusic(url: string): {
     // tap/keypress anywhere in the story, but only if the track is still
     // actually supposed to be playing at that moment.
     const resumeIfBlocked = () => {
-      if (shouldPlayRef.current && audio.paused) void audio.play().catch(() => {});
+      if (shouldPlayRef.current && audio.paused)
+        void audio.play().catch(() => {});
     };
     document.addEventListener("pointerdown", resumeIfBlocked);
     document.addEventListener("keydown", resumeIfBlocked);
@@ -114,8 +113,7 @@ export function useStoryBackgroundMusic(url: string): {
 
   return {
     available: loaded.url === url && loaded.available,
-    playing: loaded.url === url && loaded.available && enabled && !ducked,
-    toggle: useCallback(() => setEnabled((current) => !current), []),
+    ducked,
     duck: useCallback(() => setDucked(true), []),
     unduck: useCallback(() => setDucked(false), []),
   };

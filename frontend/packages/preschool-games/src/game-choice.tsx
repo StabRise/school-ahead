@@ -10,6 +10,7 @@ import { CardsGame } from "./cards-game";
 import { StoriesGame } from "./stories-game";
 import { MathGame } from "./math-game";
 import { HomeButton } from "./kit/home-button";
+import { GameMusic } from "./kit/game-music-config";
 
 // Celebration screen shown once every one of today's lessons (tails
 // included) is Completed, Pending Review, or Need Help — see
@@ -744,6 +745,7 @@ export function PreschoolCelebration({
         <TrainsGame />
       )}
       <HomeButton onClick={() => setSelectedGame(null)} />
+      <GameMusic />
     </div>
   );
 }

@@ -45,16 +45,19 @@ function compareSyllables(
   return primary !== 0 ? sign * primary : bySyllable;
 }
 
-// Case-insensitive match on the syllable or its word, then the language
-// and Основна filters.
+// Case-insensitive match on the syllable or its word, then the first
+// letter, language and Основна filters.
 function filterSyllables(
   syllables: SyllableOut[],
   query: string,
+  firstLetter: string,
   language: string,
   defaultFilter: DefaultFilter,
 ): SyllableOut[] {
   const needle = query.trim().toLocaleLowerCase("uk");
   return syllables.filter((syllable) => {
+    if (firstLetter !== "all" && syllable.first_letter !== firstLetter)
+      return false;
     if (language !== "all" && syllable.language !== language) return false;
     if (defaultFilter === "default" && !syllable.is_default) return false;
     if (defaultFilter === "other" && syllable.is_default) return false;
@@ -202,6 +205,7 @@ export function TutorSyllablesPage() {
     isError,
   } = useListTutorReadingSyllables();
   const [query, setQuery] = useState("");
+  const [firstLetter, setFirstLetter] = useState("all");
   const [language, setLanguage] = useState("all");
   const [defaultFilter, setDefaultFilter] = useState<DefaultFilter>("all");
   const { sort, toggleSort } = useSortState<SortKey>("syllable");
@@ -213,12 +217,24 @@ export function TutorSyllablesPage() {
       ).sort(),
     [syllables],
   );
+  // Only the letters that actually have cards, in alphabet order.
+  const firstLetters = useMemo(
+    () =>
+      Array.from(
+        new Set((syllables ?? []).map((syllable) => syllable.first_letter)),
+      ).sort((a, b) => a.localeCompare(b, "uk")),
+    [syllables],
+  );
   const visibleSyllables = useMemo(
     () =>
-      filterSyllables(syllables ?? [], query, language, defaultFilter).sort(
-        (a, b) => compareSyllables(a, b, sort.key, sort.direction),
-      ),
-    [syllables, query, language, defaultFilter, sort],
+      filterSyllables(
+        syllables ?? [],
+        query,
+        firstLetter,
+        language,
+        defaultFilter,
+      ).sort((a, b) => compareSyllables(a, b, sort.key, sort.direction)),
+    [syllables, query, firstLetter, language, defaultFilter, sort],
   );
 
   const header = (key: SortKey, label: string) => (
@@ -257,6 +273,23 @@ export function TutorSyllablesPage() {
               aria-label={t("searchPlaceholder")}
               className="w-full rounded-md border border-gray-300 py-1.5 pl-7 pr-2 text-sm focus:border-gray-500 focus:outline-none"
             />
+          </label>
+          {/* Its own labelled filter — a dropdown of every first letter that
+              has cards. */}
+          <label className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-gray-600">
+            {t("filterFirstLetter")}
+            <select
+              value={firstLetter}
+              onChange={(e) => setFirstLetter(e.target.value)}
+              className="rounded-md border border-gray-300 bg-white py-1.5 pl-2 pr-7 text-sm font-bold text-gray-800 focus:border-gray-500 focus:outline-none"
+            >
+              <option value="all">{t("filterFirstLetterAll")}</option>
+              {firstLetters.map((letter) => (
+                <option key={letter} value={letter}>
+                  {letter}
+                </option>
+              ))}
+            </select>
           </label>
           {/* Only worth a filter once there's more than one language. */}
           {languages.length > 1 && (

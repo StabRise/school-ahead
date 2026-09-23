@@ -1,90 +1,71 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useGameMusicStore } from "../stores/game-music-store";
+import { RANDOM_TRACK, useGameMusicStore } from "../stores/game-music-store";
+import type { BackgroundMusicTrack } from "./background-music-tracks";
 
-// Cached module-wide so every game mounting the hook shares one fetch
-// instead of hitting the API route per game. The route (app/api/music-tracks)
-// reads public/music fresh on every request, so dropping a new .mp3 there
-// picks it up with no code change on either side.
-let tracksPromise: Promise<string[]> | null = null;
-
-function fetchTracks(): Promise<string[]> {
-  if (!tracksPromise) {
-    tracksPromise = fetch("/api/music-tracks")
-      .then((res) => res.json())
-      .then((data: { tracks: string[] }) => data.tracks)
-      .catch(() => []);
-  }
-  return tracksPromise;
-}
-
-function pickTrack(tracks: string[], exclude?: string): string | undefined {
+function pickRandomTrack(
+  tracks: BackgroundMusicTrack[],
+  excludeKey?: string,
+): BackgroundMusicTrack | undefined {
   if (tracks.length === 0) return undefined;
   if (tracks.length === 1) return tracks[0];
-  let track = tracks[Math.floor(Math.random() * tracks.length)];
-  while (track === exclude) {
-    track = tracks[Math.floor(Math.random() * tracks.length)];
-  }
-  return track;
+  const candidates = tracks.filter((track) => track.key !== excludeKey);
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
-// Loops a random track from public/music behind a preschool minigame,
-// picking a new random one (never repeating the one that just finished)
-// whenever the current one ends. Purely a side effect — the corner on/off
-// button lives in each game and reads/writes useGameMusicStore directly.
-// `paused` (only the math game passes it today, for its pause screen) mutes
-// the track without touching the musicEnabled store, so it comes back on
-// its own on resume instead of looking like the player turned music off.
-export function useBackgroundMusic(paused = false) {
+// The one background-music player behind a /games minigame — mounted once
+// per game page by GameMusic (kit/game-music-config.tsx), never by a game
+// itself. Plays the track picked in its settings on a loop, or with
+// RANDOM_TRACK a random one, then another random one (never the one that
+// just finished) each time a track ends. Silent while music is turned off
+// or while anything holds a pause request (usePauseBackgroundMusic).
+export function useBackgroundMusicPlayer(tracks: BackgroundMusicTrack[]) {
   const enabled = useGameMusicStore((s) => s.musicEnabled);
+  const selectedTrack = useGameMusicStore((s) => s.selectedTrack);
+  const paused = useGameMusicStore((s) => s.pauseRequests > 0);
   const volume = useGameMusicStore((s) => s.volume);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const tracksRef = useRef<string[]>([]);
-  const currentTrackRef = useRef<string | undefined>(undefined);
+  const currentKeyRef = useRef<string | undefined>(undefined);
+  const tracksRef = useRef(tracks);
+  const shouldPlayRef = useRef(false);
 
   useEffect(() => {
-    let cancelled = false;
+    tracksRef.current = tracks;
+  }, [tracks]);
+  useEffect(() => {
+    shouldPlayRef.current = enabled && !paused;
+  }, [enabled, paused]);
+
+  // One <audio> for the page's lifetime.
+  useEffect(() => {
     const audio = new Audio();
     audio.volume = useGameMusicStore.getState().volume;
     audioRef.current = audio;
 
-    const playNextTrack = () => {
-      const track = pickTrack(tracksRef.current, currentTrackRef.current);
-      if (!track) return;
-      currentTrackRef.current = track;
-      audio.src = encodeURI(track);
-      void audio.play().catch(() => {
-        // Best-effort only — autoplay may be blocked until a user gesture,
-        // resumed below by resumeIfBlocked.
-      });
+    // Random mode moves on to another track when one ends; a picked track
+    // has `loop` set instead and never fires "ended".
+    const playNextRandom = () => {
+      const next = pickRandomTrack(tracksRef.current, currentKeyRef.current);
+      if (!next) return;
+      currentKeyRef.current = next.key;
+      audio.src = next.url;
+      if (shouldPlayRef.current) void audio.play().catch(() => {});
     };
-    audio.addEventListener("ended", playNextTrack);
+    audio.addEventListener("ended", playNextRandom);
 
-    // The very first play() call usually happens without a user gesture
-    // (music defaults to on, and the effect below fires on mount), so
-    // browsers block it. Retry on the child's first tap/keypress in the
-    // game — that's a real gesture and satisfies the autoplay policy.
+    // The first play() usually happens without a user gesture (music
+    // defaults to on), so browsers block it — retried on the child's first
+    // tap/keypress, but only while music is actually supposed to play.
     const resumeIfBlocked = () => {
-      if (!useGameMusicStore.getState().musicEnabled || !audio.paused) return;
-      if (!currentTrackRef.current) {
-        playNextTrack();
-      } else {
+      if (shouldPlayRef.current && audio.paused && audio.src)
         void audio.play().catch(() => {});
-      }
     };
     document.addEventListener("pointerdown", resumeIfBlocked);
     document.addEventListener("keydown", resumeIfBlocked);
 
-    void fetchTracks().then((tracks) => {
-      if (cancelled) return;
-      tracksRef.current = tracks;
-      if (useGameMusicStore.getState().musicEnabled) playNextTrack();
-    });
-
     return () => {
-      cancelled = true;
-      audio.removeEventListener("ended", playNextTrack);
+      audio.removeEventListener("ended", playNextRandom);
       document.removeEventListener("pointerdown", resumeIfBlocked);
       document.removeEventListener("keydown", resumeIfBlocked);
       audio.pause();
@@ -92,28 +73,57 @@ export function useBackgroundMusic(paused = false) {
     };
   }, []);
 
+  // Which track is loaded: switches right away when the choice changes (or
+  // once the track list arrives).
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || tracks.length === 0) return;
+    const picked =
+      selectedTrack === RANDOM_TRACK
+        ? undefined
+        : tracks.find((track) => track.key === selectedTrack);
+    audio.loop = picked !== undefined;
+    if (picked) {
+      if (currentKeyRef.current === picked.key) return;
+      currentKeyRef.current = picked.key;
+      audio.src = picked.url;
+    } else {
+      // Random: keep whatever is already playing (loop is now off, so a
+      // random one follows once it ends).
+      if (tracks.some((track) => track.key === currentKeyRef.current)) return;
+      const next = pickRandomTrack(tracks);
+      if (!next) return;
+      currentKeyRef.current = next.key;
+      audio.src = next.url;
+    }
+    if (shouldPlayRef.current) void audio.play().catch(() => {});
+  }, [tracks, selectedTrack]);
+
+  // Play / pause.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (paused || !enabled) {
+    if (enabled && !paused) {
+      if (audio.src) void audio.play().catch(() => {});
+    } else {
       audio.pause();
-      return;
-    }
-    if (!currentTrackRef.current) {
-      const track = pickTrack(tracksRef.current);
-      if (track) {
-        currentTrackRef.current = track;
-        audio.src = encodeURI(track);
-      }
-    }
-    if (currentTrackRef.current) {
-      void audio.play().catch(() => {
-        // Best-effort only — autoplay may be blocked until a user gesture.
-      });
     }
   }, [enabled, paused]);
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume;
   }, [volume]);
+}
+
+// Silences the background music while `active` is true, without turning it
+// off — e.g. the math game's pause screen, or a story that has its own
+// soundtrack or is playing a read-aloud clip.
+export function usePauseBackgroundMusic(active: boolean) {
+  const addPauseRequest = useGameMusicStore((s) => s.addPauseRequest);
+  const removePauseRequest = useGameMusicStore((s) => s.removePauseRequest);
+  useEffect(() => {
+    if (!active) return;
+    addPauseRequest();
+    return () => removePauseRequest();
+  }, [active, addPauseRequest, removePauseRequest]);
 }

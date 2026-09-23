@@ -15,7 +15,6 @@ import {
   type PreschoolCard,
   type PreschoolModeData,
 } from "./lib/preschool-sounds";
-import { useBackgroundMusic } from "./lib/use-background-music";
 import { useAuthStore } from "@school-ahead/api-client";
 import { useBalloonPopGameStore, type BalloonMode } from "./stores/balloon-pop-game-store";
 import { useDiamondRewardStore } from "@school-ahead/preschool-ui";
@@ -24,8 +23,7 @@ import { BalloonQuiz, buildBalloonQuizQuestions, type BalloonQuizQuestion } from
 import { BalloonLearningCards, type LearningCard } from "./balloon-learning-cards";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { playCelebrationChime, playPopSound } from "./kit/sound-effects";
-import { GAME_MUSIC_BUTTON_POSITION, GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
-import { MusicToggleButton } from "./kit/music-toggle-button";
+import { GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
 
 // Every DIAMOND_MILESTONE ruby balloons popped converts into 1 Diamond,
 // awarded via POST /auth/me/balloon-pop-reward and animated flying to the
@@ -580,8 +578,6 @@ export function BalloonPopGame() {
     if (!hasCards && screenMode === "learning") setScreenMode("game");
   }, [hasCards, screenMode, setScreenMode]);
 
-  useBackgroundMusic();
-
   useEffect(() => {
     // Paused while the bonus quiz overlay is open, while showing the static
     // "learning" card grid instead of falling balloons, or while the
@@ -748,7 +744,7 @@ export function BalloonPopGame() {
         key={scoreBump}
         role="status"
         aria-label={t("score", { count: score })}
-        className="pointer-events-none absolute right-4 top-4 z-10 flex items-center gap-1 rounded-full bg-white px-3 py-2 shadow-lg ring-2 ring-rose-200"
+        className="pointer-events-none absolute right-4 top-14 z-10 flex items-center gap-1 rounded-full bg-white px-3 py-2 shadow-lg ring-2 ring-rose-200"
         style={{ animation: scoreBump > 0 ? "score-pop 0.3s ease-out" : undefined }}
       >
         <RubyIcon />
@@ -766,8 +762,6 @@ export function BalloonPopGame() {
       >
         ⚙️
       </button>
-
-      <MusicToggleButton className={GAME_MUSIC_BUTTON_POSITION} />
 
       {settingsOpen && (
         <div

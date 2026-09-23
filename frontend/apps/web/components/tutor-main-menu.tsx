@@ -1,23 +1,75 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Menu } from "lucide-react";
+import { ChevronDown, Menu } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 
-const MENU_ITEMS = [
+type MenuLink = { href: string; labelKey: string };
+// A top-level entry is either a plain link or a named group that opens as
+// a dropdown (Аватар, Ігри).
+type MenuEntry = MenuLink | { labelKey: string; items: MenuLink[] };
+
+const MENU: MenuEntry[] = [
   { href: "/", labelKey: "tutorDashboard" },
   { href: "/tutor/subjects", labelKey: "mySubjects" },
   { href: "/tutor/classes", labelKey: "myClasses" },
-  { href: "/tutor/avatars", labelKey: "avatarEditor" },
-  { href: "/tutor/furniture", labelKey: "furnitureEditor" },
-  { href: "/tutor/stories", labelKey: "storiesEditor" },
-  { href: "/tutor/syllables", labelKey: "syllablesEditor" },
-] as const;
+  {
+    labelKey: "avatarMenu",
+    items: [
+      { href: "/tutor/avatars", labelKey: "avatarEditor" },
+      { href: "/tutor/furniture", labelKey: "furnitureEditor" },
+    ],
+  },
+  {
+    labelKey: "games",
+    items: [
+      { href: "/games", labelKey: "allGames" },
+      { href: "/tutor/stories", labelKey: "storiesEditor" },
+      { href: "/tutor/syllables", labelKey: "syllablesEditor" },
+    ],
+  },
+];
 
-// Below `md` this collapses into a ☰ dropdown instead of the plain inline
-// nav — same pattern as MainMenu (components/main-menu.tsx), see its
-// comment for why.
+function isGroup(
+  entry: MenuEntry,
+): entry is { labelKey: string; items: MenuLink[] } {
+  return "items" in entry;
+}
+
+const INLINE_LINK_CLASS =
+  "rounded-md text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600";
+
+function DropdownLink({
+  item,
+  isActive,
+  label,
+}: {
+  item: MenuLink;
+  isActive: boolean;
+  label: string;
+}) {
+  return (
+    <DropdownMenu.Item asChild>
+      <Link
+        href={item.href}
+        aria-current={isActive ? "page" : undefined}
+        className={`block cursor-pointer rounded-sm px-3 py-2 text-sm outline-none data-[highlighted]:bg-gray-100 ${
+          isActive ? "font-medium text-gray-900" : "text-gray-700"
+        }`}
+      >
+        {label}
+      </Link>
+    </DropdownMenu.Item>
+  );
+}
+
+const DROPDOWN_CONTENT_CLASS =
+  "z-50 min-w-48 rounded-md border border-gray-200 bg-white p-1 shadow-lg";
+
+// Below `md` the whole menu collapses into a ☰ dropdown instead of the
+// plain inline nav — same pattern as MainMenu (components/main-menu.tsx),
+// see its comment for why. There each group shows as a labelled section.
 export function TutorMainMenu() {
   const t = useTranslations("Header");
   const pathname = usePathname();
@@ -25,19 +77,55 @@ export function TutorMainMenu() {
   return (
     <>
       <nav className="hidden items-center gap-4 md:flex">
-        {MENU_ITEMS.map((item) => {
-          const isActive = pathname === item.href;
+        {MENU.map((entry) => {
+          if (!isGroup(entry)) {
+            const isActive = pathname === entry.href;
+            return (
+              <Link
+                key={entry.href}
+                href={entry.href}
+                aria-current={isActive ? "page" : undefined}
+                className={`${INLINE_LINK_CLASS} ${isActive ? "text-gray-900" : "text-gray-500 hover:text-gray-900"}`}
+              >
+                {t(entry.labelKey)}
+              </Link>
+            );
+          }
+          const groupActive = entry.items.some(
+            (item) => pathname === item.href,
+          );
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={isActive ? "page" : undefined}
-              className={`rounded-md text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
-                isActive ? "text-gray-900" : "text-gray-500 hover:text-gray-900"
-              }`}
-            >
-              {t(item.labelKey)}
-            </Link>
+            <DropdownMenu.Root key={entry.labelKey}>
+              <DropdownMenu.Trigger asChild>
+                <button
+                  type="button"
+                  className={`${INLINE_LINK_CLASS} flex items-center gap-0.5 ${
+                    groupActive
+                      ? "text-gray-900"
+                      : "text-gray-500 hover:text-gray-900"
+                  }`}
+                >
+                  {t(entry.labelKey)}
+                  <ChevronDown className="size-3.5" aria-hidden="true" />
+                </button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  align="start"
+                  sideOffset={8}
+                  className={DROPDOWN_CONTENT_CLASS}
+                >
+                  {entry.items.map((item) => (
+                    <DropdownLink
+                      key={item.href}
+                      item={item}
+                      isActive={pathname === item.href}
+                      label={t(item.labelKey)}
+                    />
+                  ))}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
           );
         })}
       </nav>
@@ -56,24 +144,33 @@ export function TutorMainMenu() {
           <DropdownMenu.Content
             align="start"
             sideOffset={8}
-            className="z-50 min-w-48 rounded-md border border-gray-200 bg-white p-1 shadow-lg"
+            className={DROPDOWN_CONTENT_CLASS}
           >
-            {MENU_ITEMS.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <DropdownMenu.Item key={item.href} asChild>
-                  <Link
-                    href={item.href}
-                    aria-current={isActive ? "page" : undefined}
-                    className={`block cursor-pointer rounded-sm px-3 py-2 text-sm outline-none data-[highlighted]:bg-gray-100 ${
-                      isActive ? "font-medium text-gray-900" : "text-gray-700"
-                    }`}
-                  >
-                    {t(item.labelKey)}
-                  </Link>
-                </DropdownMenu.Item>
-              );
-            })}
+            {MENU.map((entry) =>
+              isGroup(entry) ? (
+                <DropdownMenu.Group key={entry.labelKey}>
+                  <DropdownMenu.Separator className="my-1 h-px bg-gray-100" />
+                  <DropdownMenu.Label className="px-3 pb-1 pt-2 text-xs font-medium text-gray-400">
+                    {t(entry.labelKey)}
+                  </DropdownMenu.Label>
+                  {entry.items.map((item) => (
+                    <DropdownLink
+                      key={item.href}
+                      item={item}
+                      isActive={pathname === item.href}
+                      label={t(item.labelKey)}
+                    />
+                  ))}
+                </DropdownMenu.Group>
+              ) : (
+                <DropdownLink
+                  key={entry.href}
+                  item={entry}
+                  isActive={pathname === entry.href}
+                  label={t(entry.labelKey)}
+                />
+              ),
+            )}
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
