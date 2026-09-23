@@ -16,6 +16,7 @@ import { subjectGroupLabel } from "@/lib/subject-group-label";
 import { useTabQueryParam } from "@/lib/use-tab-query-param";
 import { useSubjectsGroupedViewStore } from "@/stores/subjects-grouped-view-store";
 import type { SubjectOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import { subjectsForDisplay, unmarkedGroupIdsOf } from "@school-ahead/preschool-ui";
 
 // Shared by the header row and every body row so columns line up like a
 // real table: icon / subject name (flexible) / group / attestation type /
@@ -86,8 +87,17 @@ export function SimpleSubjectsPage({ colorful }: { colorful?: boolean } = {}) {
   // available tab is used (see effectiveTabKey below).
   const [activeTabKey, setActiveTabKey] = useTabQueryParam("", "group");
 
-  const subjects = useMemo(() => data ?? [], [data]);
-  const groups = useMemo(() => subjectGroups ?? [], [subjectGroups]);
+  // Only what a tutor marked (the eye on the class page — Subject.is_marked /
+  // SubjectGroup.is_marked): a subject shows when it's marked and its group,
+  // if it has one, is marked too — the same rule as the preschool
+  // bookshelf's default view (@school-ahead/preschool-ui's
+  // subjectsForDisplay).
+  const unmarkedGroupIds = useMemo(() => unmarkedGroupIdsOf(subjectGroups ?? []), [subjectGroups]);
+  const subjects = useMemo(
+    () => subjectsForDisplay("marked", data ?? [], { favoriteIds: new Set(), unmarkedGroupIds }),
+    [data, unmarkedGroupIds],
+  );
+  const groups = useMemo(() => (subjectGroups ?? []).filter((group) => group.is_marked), [subjectGroups]);
 
   // Progress is fetched once here (rather than per-row, like SubjectCard
   // does) so every subject's percent is available up front to sort by —
