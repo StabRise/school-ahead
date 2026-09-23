@@ -4,6 +4,7 @@ from django.shortcuts import get_object_or_404
 from ninja import File, Form, Router
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
+from ninja.responses import Status
 
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
@@ -11,8 +12,11 @@ from common.permissions import get_own_student_profile
 from tutoring.services import ensure_is_tutor_for_subject
 
 from . import services
-from .models import Class, School, Subject, SubjectGroup, SubjectMaterial, Topic
+from .models import Class, School, Subject, SubjectGroup, SubjectMaterial, SubjectNote, Topic
 from .schemas import (
+    SubjectNoteIn,
+    SubjectNoteOut,
+    SubjectNoteUpdateIn,
     ClassIn,
     ClassOut,
     SchoolIn,
@@ -286,3 +290,58 @@ def delete_topic(request: HttpRequest, topic_id: int, response: HttpResponse):
     services.assign_topics_to_blocks(subject)
     response.status_code = 204
     return response
+
+
+# The subject page's "Нотатки" tab — a student's own Markdown notes per
+# subject (SubjectNote). Only for a student whose class has that subject,
+# and every note is private to its author.
+def _get_student_subject(request: HttpRequest, subject_id: int) -> Subject:
+    student = get_own_student_profile(request)
+    subject = get_object_or_404(Subject, id=subject_id)
+    if subject.school_class_id != student.school_class_id:
+        raise HttpError(403, 'Not your subject')
+    return subject
+
+
+def _get_own_note(request: HttpRequest, note_id: int) -> SubjectNote:
+    return get_object_or_404(SubjectNote, id=note_id, user=request.auth)
+
+
+@router.get('/subjects/{subject_id}/notes', response=list[SubjectNoteOut], operation_id='list_subject_notes')
+def list_subject_notes(request: HttpRequest, subject_id: int):
+    subject = _get_student_subject(request, subject_id)
+    return SubjectNote.objects.filter(user=request.auth, subject=subject)
+
+
+@router.post('/subjects/{subject_id}/notes', response=SubjectNoteOut, operation_id='create_subject_note')
+def create_subject_note(request: HttpRequest, subject_id: int, payload: SubjectNoteIn):
+    require_csrf(request)
+    subject = _get_student_subject(request, subject_id)
+    if not payload.content.strip():
+        raise HttpError(400, 'Note is empty')
+    note = SubjectNote(user=request.auth, subject=subject, content=payload.content)
+    if payload.date:
+        note.date = payload.date
+    note.save()
+    return note
+
+
+@router.patch('/notes/{note_id}', response=SubjectNoteOut, operation_id='update_subject_note')
+def update_subject_note(request: HttpRequest, note_id: int, payload: SubjectNoteUpdateIn):
+    require_csrf(request)
+    note = _get_own_note(request, note_id)
+    if payload.content is not None:
+        if not payload.content.strip():
+            raise HttpError(400, 'Note is empty')
+        note.content = payload.content
+    if payload.date is not None:
+        note.date = payload.date
+    note.save()
+    return note
+
+
+@router.delete('/notes/{note_id}', response={204: None}, operation_id='delete_subject_note')
+def delete_subject_note(request: HttpRequest, note_id: int):
+    require_csrf(request)
+    _get_own_note(request, note_id).delete()
+    return Status(204, None)

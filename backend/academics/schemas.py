@@ -234,3 +234,20 @@ class TopicIn(Schema):
     title: str
     description: str = ''
     order_index: int
+
+
+class SubjectNoteOut(Schema):
+    id: int
+    date: datetime.date
+    content: str
+    updated_at: datetime.datetime
+
+
+class SubjectNoteIn(Schema):
+    date: datetime.date | None = None
+    content: str
+
+
+class SubjectNoteUpdateIn(Schema):
+    date: datetime.date | None = None
+    content: str | None = None

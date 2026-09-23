@@ -34,6 +34,7 @@ import { SimplePageContainer } from "@/components/simple/page-container";
 import { StatusBadge } from "@/components/status-badge";
 import { useTabQueryParam } from "@/lib/use-tab-query-param";
 import type { SubjectLessonOut, TopicOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import { SubjectNotesTab } from "./subject-notes-tab";
 
 // The Tasks tab's content — topic-grouped optional practice work a tutor
 // attached to the subject, available to every student immediately (no
@@ -548,6 +549,11 @@ export function SimpleSubjectDetailPage({ subjectId, colorful }: { subjectId: nu
               value: "cards",
               label: t("cardsTab"),
               content: <CardsTabContent subjectId={subjectId} subjectName={subject.name} />,
+            },
+            {
+              value: "notes",
+              label: t("notesTab"),
+              content: <SubjectNotesTab subjectId={subjectId} />,
             },
           ]}
         />
