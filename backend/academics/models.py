@@ -36,6 +36,11 @@ class Class(models.Model):
     # or favourites. Served by academics.public_api; only settable from the
     # Django admin. See docs/core/public_access.md.
     is_public = models.BooleanField(default=False)
+    # Whether a signed-in student with no class yet can join this class
+    # themselves (e.g. "Pre", the preschool class) — offered to new users on
+    # the dashboard, see accounts.api.join_class. Only settable from the
+    # Django admin.
+    is_self_enrollable = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
