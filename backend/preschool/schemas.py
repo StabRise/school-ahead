@@ -2,6 +2,8 @@ import datetime
 
 from ninja import Schema
 
+from common.images import thumbnail_url
+
 
 def _absolute_file_url(file_field, context: dict) -> str | None:
     """See academics/schemas.py's identical helper — file URLs are
@@ -14,12 +16,29 @@ def _absolute_file_url(file_field, context: dict) -> str | None:
 
 class StoryAssetOut(Schema):
     id: int
+    # The file's current URL — with S3 querystring auth a presigned link
+    # that expires, so never store it; Story.content references the asset
+    # by `ref` instead (see models.STORY_ASSET_REF_PREFIX).
     url: str
+    ref: str
+    # A scaled-down copy for the editor sidebar's preview — None for
+    # audio/video.
+    thumbnail_url: str | None
     original_filename: str
 
     @staticmethod
     def resolve_url(obj, context):
         return _absolute_file_url(obj.file, context)
+
+    @staticmethod
+    def resolve_thumbnail_url(obj, context):
+        if not obj.is_image:
+            return None
+        return thumbnail_url(obj.file, obj.thumbnail, context.get('request'))
+
+
+class StoryAssetUrlOut(Schema):
+    url: str
 
 
 class StoryOut(Schema):
@@ -33,7 +52,8 @@ class StoryOut(Schema):
 
     @staticmethod
     def resolve_cover_image(obj, context):
-        return _absolute_file_url(obj.cover_image, context)
+        # The thumbnail, not the original — see common/images.py.
+        return thumbnail_url(obj.cover_image, obj.cover_thumbnail, context.get('request'))
 
 
 class StoryDetailOut(StoryOut):

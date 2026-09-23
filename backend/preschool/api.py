@@ -13,8 +13,8 @@ from common.csrf import require_csrf
 from common.permissions import ensure_is_tutor
 
 from . import services
-from .models import STORY_ASSET_EXTENSIONS, Story, StoryAsset
-from .schemas import StoryAssetOut, StoryDetailOut, StoryOut
+from .models import STORY_ASSET_EXTENSIONS, STORY_ASSET_NAME_RE, Story, StoryAsset
+from .schemas import StoryAssetOut, StoryAssetUrlOut, StoryDetailOut, StoryOut
 
 # Router-level auth defaults to tutor-only (CookieOrBearerJWTAuth) — the two
 # public read endpoints below override it to auth=None, since the "Казки"
@@ -37,6 +37,25 @@ def list_stories(request: HttpRequest):
 @router.get('/stories/{story_slug}', response=StoryDetailOut, auth=None, operation_id='get_preschool_story')
 def get_story(request: HttpRequest, story_slug: str):
     return get_object_or_404(Story, slug=story_slug, is_published=True)
+
+
+@router.get(
+    '/story-assets/{name}',
+    response=StoryAssetUrlOut,
+    auth=None,
+    operation_id='get_preschool_story_asset_url',
+)
+def get_story_asset_url(request: HttpRequest, name: str):
+    """The current URL of the asset a story's content references as
+    `{ /api/story-asset/<name> }` (see models.STORY_ASSET_REF_PREFIX) —
+    what frontend's app/api/story-asset/[name]/route.ts redirects to. Not
+    gated on is_published: the editor's preview of a draft story resolves
+    its assets the same way, and a stored name is 128 random bits, no
+    easier to guess than the file's own URL."""
+    if not STORY_ASSET_NAME_RE.match(name):
+        raise HttpError(404, 'Not found')
+    asset = get_object_or_404(StoryAsset, file=f'story_assets/{name}')
+    return {'url': request.build_absolute_uri(asset.file.url)}
 
 
 @router.get('/tutor/stories', response=list[StoryOut], operation_id='list_tutor_preschool_stories')
@@ -101,7 +120,12 @@ def create_tutor_story(
     is_published)."""
     require_csrf(request)
     ensure_is_tutor(request)
-    story = Story(title=title, subtitle=subtitle, content=content, created_by=request.auth.tutor_profile)
+    story = Story(
+        title=title,
+        subtitle=subtitle,
+        content=services.normalize_asset_refs(content),
+        created_by=request.auth.tutor_profile,
+    )
     if cover_image is not None:
         story.cover_image.save(cover_image.name, cover_image, save=False)
     story.save()
@@ -127,7 +151,7 @@ def update_tutor_story(
     if subtitle is not None:
         story.subtitle = subtitle
     if content is not None:
-        story.content = content
+        story.content = services.normalize_asset_refs(content)
     if is_published is not None:
         story.is_published = is_published
     if cover_image is not None:

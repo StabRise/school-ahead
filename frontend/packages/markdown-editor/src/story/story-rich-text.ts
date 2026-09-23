@@ -5,8 +5,11 @@
 // Story.content in the DB still stores the plain "{ <url> }" text (see
 // serializeContainer, which turns the chip back into that text).
 // Only ever matches an image extension — audio/video/syllable "{...}"
-// groups stay as plain visible text in that editor, unaffected.
-export const IMAGE_CARD_RE = /\{\s*(https?:\/\/[^\s{}]+\.(?:jpe?g|png|webp|gif))\s*\}/gi;
+// groups stay as plain visible text in that editor, unaffected. Matches an
+// absolute URL or a host-relative path — the latter is how an uploaded
+// asset is referenced ("/api/story-asset/<name>", see the story asset
+// sidebar's assetCardText).
+export const IMAGE_CARD_RE = /\{\s*((?:https?:\/\/|\/)[^\s{}]+\.(?:jpe?g|png|webp|gif))\s*\}/gi;
 
 export interface TextSegment {
   type: "text";

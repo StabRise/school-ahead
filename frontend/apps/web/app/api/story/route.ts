@@ -19,9 +19,10 @@ import { getPreschool } from "@school-ahead/api-client/server/preschool/preschoo
 // that's a single indexed lookup; a 404/unreachable backend falls through
 // to the filesystem. DB content is re-assembled with its title/subtitle
 // into the same leading-"#"-heading-line(s) shape parseStory expects, so it
-// parses identically to a static story.md, and already embeds any inserted
-// image as an absolute URL (see stories-game.tsx's storyAssetUrl), not a
-// bare filename, so no further path resolution is needed for it here. Not
+// parses identically to a static story.md, and already references any
+// inserted asset as a "/api/story-asset/<name>" path (see that route and
+// stories-game.tsx's storyAssetUrl), not a bare filename, so no further
+// path resolution is needed for it here. Not
 // prefixed/namespaced against static folder names (see /api/stories's note
 // on the same trade-off) — a DB slug that happens to match a static folder
 // name would resolve to the DB story, since that's checked first.

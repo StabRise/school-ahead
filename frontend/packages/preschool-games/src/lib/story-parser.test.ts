@@ -25,6 +25,11 @@ describe("parseSyllableGroup", () => {
     expect(parseSyllableGroup(" img-1.png ")).toEqual([img("img-1.png")]);
   });
 
+  it("treats an uploaded asset's /api/story-asset/ ref as one image card, despite the dash in it", () => {
+    const ref = "/api/story-asset/2aac0192c93840f2b097c3cc7fdd5ec7.jpeg";
+    expect(parseSyllableGroup(` ${ref} `)).toEqual([img(ref)]);
+  });
+
   it("treats a word-breakdown segment written as an image filename as its own card image, not text", () => {
     expect(parseSyllableGroup("К - img1.jpeg - Т - КА")).toEqual([text("К"), img("img1.jpeg"), text("Т"), text("КА")]);
   });

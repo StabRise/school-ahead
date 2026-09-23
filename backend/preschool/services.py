@@ -7,16 +7,31 @@ from django.core.files.base import ContentFile
 from django.http import HttpRequest
 from ninja.files import UploadedFile
 
-from .models import STORY_ASSET_EXTENSIONS, Story, StoryAsset
+from .models import STORY_ASSET_EXTENSIONS, STORY_ASSET_REF_PREFIX, Story, StoryAsset
 
-# Matches the same "{ <url-or-filename> }" card-group syntax the frontend's
+# Matches the same "{ <ref-or-filename> }" card-group syntax the frontend's
 # lib/story-parser.ts / lib/story-rich-text.ts use — an asset filename in an
-# imported story.md gets rewritten to an absolute URL (import_story_zip),
-# and an absolute URL in an exported one gets rewritten back to a plain
-# filename (build_story_zip), so a story round-trips between the DB and a
+# imported story.md gets rewritten to the asset's ref (import_story_zip),
+# and a ref in an exported one gets rewritten back to a plain filename
+# (build_story_zip), so a story round-trips between the DB and a
 # hand-authored static story.md folder (frontend's public/static/stories/
 # <title>/, see docs/preschool/games/reading/Stories.md).
 CARD_GROUP_RE = re.compile(r'\{([^{}]*)\}')
+
+# A card group holding a raw storage URL of an asset — how the editor used
+# to embed one, e.g. "{ https://s3.../story_assets/<hex>.jpeg?AWSAccessKeyId
+# =...&Expires=... }" (a presigned link, dead an hour later) or
+# "{ http://host/media/story_assets/<hex>.jpeg }".
+_ASSET_URL_CARD_RE = re.compile(r'\{\s*[^\s{}]*/story_assets/([0-9a-f]{32}\.[A-Za-z0-9]{1,5})(?:\?[^\s{}]*)?\s*\}')
+
+
+def normalize_asset_refs(content: str) -> str:
+    """Rewrites every card group holding an asset's raw storage URL into
+    that asset's stable ref (see models.STORY_ASSET_REF_PREFIX) — run on
+    every save, so a URL pasted from an old story (or an old tab of the
+    editor) still resolves once its signature has expired."""
+    return _ASSET_URL_CARD_RE.sub(lambda match: f'{{ {STORY_ASSET_REF_PREFIX}{match.group(1)} }}', content)
+
 
 STORY_FILE = 'story.md'
 COVER_STEM = 'cover'
@@ -44,10 +59,9 @@ def build_story_zip(story: Story, request: HttpRequest) -> bytes:
         asset.id: unique_filename(asset.original_filename or PurePosixPath(asset.file.name).name) for asset in assets
     }
 
-    body = story.content
+    body = normalize_asset_refs(story.content)
     for asset in assets:
-        absolute_url = request.build_absolute_uri(asset.file.url)
-        body = body.replace(absolute_url, asset_filenames[asset.id])
+        body = body.replace(asset.ref, asset_filenames[asset.id])
 
     headings = [f'# {story.title}']
     if story.subtitle:
@@ -148,8 +162,8 @@ def import_story_zip(uploaded: UploadedFile, tutor_profile, request: HttpRequest
         # import. Separately, any "{...}" group naming one of them
         # (case-insensitively, matching how the frontend resolves a static
         # story's local asset filenames) gets the body rewritten to
-        # reference its new absolute URL instead, same shape as any other
-        # DB story's content.
+        # reference its ref instead, same shape as any other DB story's
+        # content.
         created_assets: dict[str, StoryAsset] = {}
         for entry in siblings.values():
             if entry == cover_entry:
@@ -166,8 +180,7 @@ def import_story_zip(uploaded: UploadedFile, tutor_profile, request: HttpRequest
             asset = created_assets.get(reference)
             if not asset:
                 continue
-            absolute_url = request.build_absolute_uri(asset.file.url)
-            story.content = story.content.replace(match.group(0), f'{{ {absolute_url} }}')
+            story.content = story.content.replace(match.group(0), f'{{ {asset.ref} }}')
 
         story.save(update_fields=['content'])
     return story

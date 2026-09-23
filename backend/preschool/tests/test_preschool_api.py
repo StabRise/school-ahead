@@ -43,6 +43,14 @@ def _audio(name='clip.mp3'):
     return SimpleUploadedFile(name, b'ID3fake', content_type='audio/mpeg')
 
 
+def _real_png(name='big.png', size=(1200, 900)):
+    from PIL import Image
+
+    out = io.BytesIO()
+    Image.new('RGB', size, (10, 120, 200)).save(out, 'PNG')
+    return SimpleUploadedFile(name, out.getvalue(), content_type='image/png')
+
+
 def _story_zip(markdown: str, files: dict[str, bytes]) -> SimpleUploadedFile:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, 'w') as archive:
@@ -258,6 +266,74 @@ class TestStoryAssets:
         assert not StoryAsset.objects.filter(id=asset_id).exists()
 
 
+class TestStoryAssetRefs:
+    """Story.content references an asset by its stable ref, never by its
+    storage URL — with S3 querystring auth that URL is a presigned link
+    that expires an hour later (see models.STORY_ASSET_REF_PREFIX)."""
+
+    def _upload(self, api_client, auth_header, tutor, story, *files):
+        return api_client.post(
+            f'/preschool/tutor/stories/{story.id}/assets',
+            FILES=MultiValueDict({'files': list(files)}),
+            headers=auth_header(tutor.user),
+        ).data
+
+    def test_upload_returns_ref_and_image_thumbnail(self, api_client, auth_header, tutor, draft_story, settings, tmp_path):
+        settings.MEDIA_ROOT = tmp_path
+        image, audio = self._upload(api_client, auth_header, tutor, draft_story, _real_png(), _audio('koza.mp3'))
+
+        asset = StoryAsset.objects.get(id=image['id'])
+        assert image['ref'] == f'/api/story-asset/{asset.stored_name}'
+        assert '/CACHE/' in image['thumbnail_url']
+        assert audio['thumbnail_url'] is None
+        (thumbnail,) = (tmp_path / 'CACHE').rglob('*.png')
+        from PIL import Image
+
+        assert max(Image.open(thumbnail).size) == 320
+
+    def test_saving_content_rewrites_storage_urls_to_refs(self, api_client, auth_header, tutor, draft_story):
+        (uploaded,) = self._upload(api_client, auth_header, tutor, draft_story, _image('page1.png'))
+        name = StoryAsset.objects.get(id=uploaded['id']).stored_name
+        signed = f'https://s3.example.com/bucket/story_assets/{name}?AWSAccessKeyId=abc&Signature=x%3D&Expires=1790145517'
+
+        response = api_client.patch(
+            f'/preschool/tutor/stories/{draft_story.id}',
+            data={'content': f'Текст\n\n{{ {signed} }}\n\n{{ {uploaded["url"]} }} і {{ба-ба}}'},
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.data['content'] == (
+            f'Текст\n\n{{ /api/story-asset/{name} }}\n\n{{ /api/story-asset/{name} }} і {{ба-ба}}'
+        )
+
+    def test_asset_url_endpoint_resolves_ref_publicly(self, api_client, auth_header, tutor, draft_story):
+        (uploaded,) = self._upload(api_client, auth_header, tutor, draft_story, _image('page1.png'))
+        name = uploaded['ref'].rsplit('/', 1)[1]
+
+        response = api_client.get(f'/preschool/story-assets/{name}')
+
+        assert response.status_code == 200
+        assert response.data['url'] == uploaded['url']
+
+    def test_asset_url_endpoint_404s_unknown_or_malformed_names(self, api_client):
+        assert api_client.get(f'/preschool/story-assets/{"0" * 32}.png').status_code == 404
+        assert api_client.get('/preschool/story-assets/..%2Fsecret.png').status_code == 404
+
+    def test_cover_is_served_as_thumbnail(self, api_client, auth_header, tutor, draft_story, settings, tmp_path):
+        settings.MEDIA_ROOT = tmp_path
+        response = api_client.patch(
+            f'/preschool/tutor/stories/{draft_story.id}',
+            FILES=MultiValueDict({'cover_image': [_real_png('cover.png', (2000, 1500))]}),
+            headers=auth_header(tutor.user),
+        )
+
+        assert '/CACHE/' in response.data['cover_image']
+        (thumbnail,) = (tmp_path / 'CACHE').rglob('*.png')
+        from PIL import Image
+
+        assert Image.open(thumbnail).size == (640, 480)
+
+
 class TestStoryExportImport:
     def test_export_produces_zip_with_story_md_and_referenced_asset(self, api_client, auth_header, tutor, draft_story):
         upload_response = api_client.post(
@@ -307,7 +383,7 @@ class TestStoryExportImport:
         filenames = {asset['original_filename'] for asset in response.data['assets']}
         assert filenames == {'1.png', 'background.mp3'}
         referenced_asset = next(a for a in response.data['assets'] if a['original_filename'] == '1.png')
-        assert f'{{ {referenced_asset["url"]} }}' in response.data['content']
+        assert f'{{ {referenced_asset["ref"]} }}' in response.data['content']
         assert '{ ріпку }' in response.data['content']  # non-file card group left untouched
         story = Story.objects.get(title='Ріпка')
         assert story.created_by_id == tutor.id
