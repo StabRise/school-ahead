@@ -10,7 +10,8 @@ import {
   useListTutorReadingSyllables,
   useSetDefaultReadingSyllable,
 } from "@school-ahead/api-client/browser/reading/reading";
-import type { SyllableOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import type { QuizLanguage, SyllableOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import { ContentLanguageSelect } from "@/components/tutor/content-language-select";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { useDialogs } from "@/components/dialogs/app-dialogs";
 import {
@@ -98,20 +99,23 @@ function FilterPills<T extends string>({
 // {words.json,<syllable>.png} asset folder (see backend's reading/
 // services.py::import_syllables_archive) — the tutor "Syllables" table's
 // bulk-loading button. Same "hidden <input type=file>, click to trigger"
-// pattern as tutor-stories-page.tsx's ImportStoryButton.
+// pattern as tutor-stories-page.tsx's ImportStoryButton. The language
+// picker beside it sets every imported card's language (Ukrainian by
+// default).
 function ImportSyllablesButton() {
   const t = useTranslations("TutorSyllables");
   const dialogs = useDialogs();
   const queryClient = useQueryClient();
   const importSyllables = useImportTutorReadingSyllables();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [language, setLanguage] = useState<QuizLanguage>("uk");
 
   const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-selecting the exact same file later
     if (!file) return;
     importSyllables.mutate(
-      { data: { file } },
+      { data: { file, language } },
       {
         onSuccess: (result) => {
           queryClient.invalidateQueries({
@@ -138,6 +142,12 @@ function ImportSyllablesButton() {
         accept=".zip,application/zip"
         className="hidden"
         onChange={handleFileSelected}
+      />
+      <ContentLanguageSelect
+        value={language}
+        onChange={setLanguage}
+        ariaLabel={t("importLanguageLabel")}
+        disabled={importSyllables.isPending}
       />
       <button
         type="button"

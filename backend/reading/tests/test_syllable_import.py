@@ -125,6 +125,35 @@ class TestLettersShapeSyllableImport:
 
 
 class TestSyllableImport:
+    def test_import_uses_picked_language(self, api_client, auth_header, tutor):
+        upload = _syllables_zip({'б': {'ба': 'баран'}})
+
+        response = api_client.post(
+            '/reading/tutor/syllables/import',
+            data={'language': 'pl'},
+            FILES=MultiValueDict({'file': [upload]}),
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        syllable = Syllable.objects.get()
+        assert syllable.language == 'pl'
+        # Its own language's group had no default card yet.
+        assert syllable.is_default is True
+
+    def test_import_rejects_unknown_language(self, api_client, auth_header, tutor):
+        upload = _syllables_zip({'б': {'ба': 'баран'}})
+
+        response = api_client.post(
+            '/reading/tutor/syllables/import',
+            data={'language': 'xx'},
+            FILES=MultiValueDict({'file': [upload]}),
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 422
+        assert not Syllable.objects.exists()
+
     def test_import_creates_syllables_with_icons(self, api_client, auth_header, tutor):
         upload = _syllables_zip({'б': {'ба': 'баран', 'бо': 'бобер'}})
 
@@ -137,6 +166,7 @@ class TestSyllableImport:
         rows = {(s.first_letter, s.second_part): s for s in Syllable.objects.all()}
         assert rows[('Б', 'А')].word == 'Баран'
         assert rows[('Б', 'А')].is_default is True
+        assert rows[('Б', 'А')].language == 'uk'
         assert bool(rows[('Б', 'А')].icon)
         assert rows[('Б', 'О')].word == 'Бобер'
 

@@ -1,6 +1,9 @@
 import { readdir } from "fs/promises";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
+import { getReading } from "@school-ahead/api-client/server/reading/reading";
+import type { QuizLanguage } from "@school-ahead/api-client/server/schoolAheadAPI.schemas";
+import { readingGameLanguage } from "@/lib/reading-game-language";
 
 // Everything the reading minigame (components/preschool/reading-game.tsx)
 // needs for one consonant level, read straight from its folder under
@@ -31,7 +34,17 @@ import { NextRequest, NextResponse } from "next/server";
 // interpolated straight into a filesystem path below, and every level
 // folder name in this app matches that shape, so anything else (path
 // separators, "..", ...) is rejected outright.
+//
+// `?language=` (the game's language setting, Ukrainian by default) also
+// pulls that language's reading.Syllable cards from the DB (Django's
+// public GET /api/reading/syllables — what the tutor /tutor/syllables ZIP
+// import fills), with its word_audio/syllable_audio as the recordings. The
+// static folders are all Ukrainian, so they're only read for "uk", and a
+// DB card replaces a folder card for the same word.
 const VALID_CONSONANT = /^[А-ЩЬЮЯЄІЇҐа-щьюяєіїґ]{1,3}$/u;
+// A DB level's consonant never reaches the filesystem, so any letters do
+// (Latin ones for the English/Polish/Spanish cards).
+const VALID_DB_CONSONANT = /^\p{L}{1,3}$/u;
 const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 const AUDIO_EXTENSIONS = new Set([".mp3"]);
 const LETTERS_DIR = path.join(process.cwd(), "public", "static", "letters");
@@ -63,8 +76,50 @@ function syllableOf(word: string): string {
 
 export async function GET(request: NextRequest) {
   const consonant = request.nextUrl.searchParams.get("folder");
-  if (!consonant || !VALID_CONSONANT.test(consonant)) return NextResponse.json(EMPTY_RESPONSE);
+  if (!consonant || !VALID_DB_CONSONANT.test(consonant)) return NextResponse.json(EMPTY_RESPONSE);
+  const language = readingGameLanguage(request);
 
+  const [folderLevel, dbLevel] = await Promise.all([
+    language === "uk" && VALID_CONSONANT.test(consonant) ? folderLevelData(consonant) : Promise.resolve(EMPTY_RESPONSE),
+    dbLevelData(consonant, language),
+  ]);
+
+  // A DB card replaces the folder card for the same word, keeping the
+  // folder's recording when the DB row has none of its own.
+  const folderByWord = new Map(folderLevel.cards.map((card) => [card.key.toLocaleLowerCase(language), card]));
+  const dbCards = dbLevel.cards.map((card) => ({
+    ...card,
+    sound: card.sound ?? folderByWord.get(card.key.toLocaleLowerCase(language))?.sound ?? null,
+  }));
+  const dbWords = new Set(dbCards.map((card) => card.key.toLocaleLowerCase(language)));
+  const cards = [
+    ...folderLevel.cards.filter((card) => !dbWords.has(card.key.toLocaleLowerCase(language))),
+    ...dbCards,
+  ].sort((a, b) => a.key.localeCompare(b.key, language));
+
+  return NextResponse.json({
+    cards,
+    syllableSounds: { ...folderLevel.syllableSounds, ...dbLevel.syllableSounds },
+  } satisfies ReadingGameModeResponse);
+}
+
+async function dbLevelData(consonant: string, language: QuizLanguage): Promise<ReadingGameModeResponse> {
+  const rows = await getReading()
+    .listReadingSyllables({ consonant, language })
+    .catch(() => []);
+  const cards: ReadingGameCard[] = [];
+  const syllableSounds: Record<string, string> = {};
+  for (const row of rows) {
+    // Nothing to show without a picture — same skip as the Cards game.
+    if (!row.icon) continue;
+    const syllable = `${row.first_letter}${row.second_part}`.toLocaleUpperCase(language);
+    cards.push({ key: row.word, image: row.icon, syllable, sound: row.word_audio });
+    if (row.syllable_audio) syllableSounds[syllable] = row.syllable_audio;
+  }
+  return { cards, syllableSounds };
+}
+
+async function folderLevelData(consonant: string): Promise<ReadingGameModeResponse> {
   const folderDir = path.join(LETTERS_DIR, consonant);
   const entries = await readdir(folderDir, { withFileTypes: true }).catch(() => []);
 
@@ -96,7 +151,5 @@ export async function GET(request: NextRequest) {
       sound: soundFile ? `/static/letters/${consonant}/${soundFile}` : null,
     });
   }
-  cards.sort((a, b) => a.key.localeCompare(b.key, "uk"));
-
-  return NextResponse.json({ cards, syllableSounds });
+  return { cards, syllableSounds };
 }

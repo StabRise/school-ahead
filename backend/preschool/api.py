@@ -12,6 +12,7 @@ from ninja.responses import Status
 from common.auth import CookieOrBearerJWTAuth
 from common.csrf import require_csrf
 from common.permissions import ensure_is_tutor
+from lessons.models import QuizLanguage
 
 from . import services
 from .models import STORY_ASSET_EXTENSIONS, STORY_ASSET_NAME_RE, BackgroundMusic, Game, GameCategory, Story, StoryAsset
@@ -104,18 +105,21 @@ def list_tutor_stories(request: HttpRequest):
 # after {story_id}'s first use would 405 by false-matching that route
 # (wrong method) before ever trying this one.
 @router.post('/tutor/stories/import', response=StoryDetailOut, operation_id='import_tutor_preschool_story')
-def import_tutor_story(request: HttpRequest, file: UploadedFile = File(...)):
+def import_tutor_story(
+    request: HttpRequest, file: UploadedFile = File(...), language: QuizLanguage = Form(QuizLanguage.UK)
+):
     """Imports a story.md + cover + asset-files ZIP (see
     services.build_story_zip) as a new, unpublished story — the tutor
     stories list's "Import" action. Also accepts an existing hand-authored
-    public/static/stories/<title>/ folder, zipped up."""
+    public/static/stories/<title>/ folder, zipped up. `language` is the
+    import dialog's pick (Ukrainian by default)."""
     require_csrf(request)
     ensure_is_tutor(request)
     if not zipfile.is_zipfile(file):
         raise HttpError(400, 'Not a valid ZIP file')
     file.seek(0)  # is_zipfile above consumed the stream
     try:
-        return services.import_story_zip(file, request.auth.tutor_profile, request)
+        return services.import_story_zip(file, request.auth.tutor_profile, request, language)
     except (zipfile.BadZipFile, ValueError) as exc:
         raise HttpError(400, str(exc)) from exc
 
@@ -132,6 +136,7 @@ def create_tutor_story(
     title: str = Form(...),
     subtitle: str = Form(''),
     content: str = Form(''),
+    language: QuizLanguage = Form(QuizLanguage.UK),
     cover_image: UploadedFile | None = File(None),
 ):
     """Creates a new, unpublished story — the tutor stories list's "Add
@@ -150,6 +155,7 @@ def create_tutor_story(
         title=title,
         subtitle=subtitle,
         content=services.normalize_asset_refs(content),
+        language=language,
         created_by=request.auth.tutor_profile,
     )
     if cover_image is not None:
@@ -165,6 +171,7 @@ def update_tutor_story(
     title: str | None = Form(None),
     subtitle: str | None = Form(None),
     content: str | None = Form(None),
+    language: QuizLanguage | None = Form(None),
     is_published: bool | None = Form(None),
     cover_image: UploadedFile | None = File(None),
 ):
@@ -178,6 +185,8 @@ def update_tutor_story(
         story.subtitle = subtitle
     if content is not None:
         story.content = services.normalize_asset_refs(content)
+    if language is not None:
+        story.language = language
     if is_published is not None:
         story.is_published = is_published
     if cover_image is not None:
