@@ -54,7 +54,8 @@ export function playSyllableSound(syllableSounds: ReadingGameSyllableSounds, syl
 // порядку голосної"). A syllable whose vowel isn't in this list (shouldn't
 // happen for real Ukrainian consonant+vowel syllables) sorts after every
 // listed one.
-const VOWEL_ORDER = ["А", "О", "У", "Е", "И", "І", "Я", "Ю", "Є"];
+// Latin vowels follow for the English/Polish/Spanish cards.
+const VOWEL_ORDER = ["А", "О", "У", "Е", "И", "І", "Я", "Ю", "Є", "A", "O", "U", "E", "I", "Y"];
 
 function vowelRank(syllable: string): number {
   const vowel = syllable[1];
@@ -75,13 +76,16 @@ const EMPTY_LEVEL_DATA: ReadingGameLevelData = { cards: [], syllableSounds: {} }
 
 const levelDataCache = new Map<string, Promise<ReadingGameLevelData>>();
 
-function fetchLevelData(consonant: string): Promise<ReadingGameLevelData> {
-  let cached = levelDataCache.get(consonant);
+function fetchLevelData(consonant: string, language: string): Promise<ReadingGameLevelData> {
+  const key = `${language}:${consonant}`;
+  let cached = levelDataCache.get(key);
   if (!cached) {
-    cached = fetch(`/api/reading-game-mode?folder=${encodeURIComponent(consonant)}`)
+    cached = fetch(
+      `/api/reading-game-mode?folder=${encodeURIComponent(consonant)}&language=${encodeURIComponent(language)}`,
+    )
       .then((res) => res.json())
       .catch(() => EMPTY_LEVEL_DATA);
-    levelDataCache.set(consonant, cached);
+    levelDataCache.set(key, cached);
   }
   return cached;
 }
@@ -91,23 +95,24 @@ function fetchLevelData(consonant: string): Promise<ReadingGameLevelData> {
 // wide. Returns the empty defaults while `consonant` itself is still
 // loading (including right after it changes) rather than briefly returning
 // the previous consonant's data.
-export function useReadingGameLevel(consonant: string): ReadingGameLevelData {
-  const [loaded, setLoaded] = useState<{ consonant: string; data: ReadingGameLevelData }>({
-    consonant: "",
+export function useReadingGameLevel(consonant: string, language = "uk"): ReadingGameLevelData {
+  const key = `${language}:${consonant}`;
+  const [loaded, setLoaded] = useState<{ key: string; data: ReadingGameLevelData }>({
+    key: "",
     data: EMPTY_LEVEL_DATA,
   });
 
   useEffect(() => {
     let cancelled = false;
-    void fetchLevelData(consonant).then((result) => {
-      if (!cancelled) setLoaded({ consonant, data: result });
+    void fetchLevelData(consonant, language).then((result) => {
+      if (!cancelled) setLoaded({ key: `${language}:${consonant}`, data: result });
     });
     return () => {
       cancelled = true;
     };
-  }, [consonant]);
+  }, [consonant, language]);
 
-  return loaded.consonant === consonant ? loaded.data : EMPTY_LEVEL_DATA;
+  return loaded.key === key ? loaded.data : EMPTY_LEVEL_DATA;
 }
 
 function shuffle<T>(items: T[]): T[] {

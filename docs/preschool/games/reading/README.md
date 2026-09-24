@@ -23,6 +23,13 @@ cards than syllable slots. No hardcoded vocabulary — adding a word is a
 filesystem change (drop an image in the right consonant folder), same
 folder-driven convention the Cards and Stories games use.
 
+Cards also come from the DB (`reading.Syllable`, filled by the tutor
+`/tutor/syllables` "Імпортувати ZIP" import, which asks for the cards'
+language), filtered by the game's **Language** setting. The static folders
+are Ukrainian-only, so they're only used for `uk`; a DB card replaces a
+folder card for the same word (keeping the folder's recording if the DB
+row has none). See `app/api/reading-game-mode(s)/route.ts`.
+
 ## 3. Interface
 
 The play area splits into two zones:
@@ -61,9 +68,12 @@ use.
 
 - **Syllable count** — `3`–`9` (`MIN_SYLLABLE_COUNT`/`MAX_SYLLABLE_COUNT`),
   default `4`. Vowels are added in a fixed order: А О У Е И І Я Ю Є.
+- **Language** — `uk` (default), `en`, `pl`, `es`; chosen before the
+  consonant. Also the TTS voice for syllables/words without a recording.
 - **Consonant** — default `М`; the picker list is alphabetically ordered
-  and limited to consonants that actually have a folder under
-  `public/static/letters/`.
+  (in the chosen language) and limited to consonants that actually have
+  cards in that language (a DB card, or for `uk` a folder under
+  `public/static/letters/`).
 - **Show captions** — whether picture cards display their word caption
   (default on).
 - **Uppercase** — write syllables/captions in uppercase vs. lowercase

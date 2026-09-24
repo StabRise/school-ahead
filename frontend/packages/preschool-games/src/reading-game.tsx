@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useRewardReadingGame } from "@school-ahead/api-client/browser/auth/auth";
-import { prefetchVoice, speak, speakSequence, warmupSpeech } from "@school-ahead/api-client";
+import { prefetchVoice, speak, speakSequence, warmupSpeech, type SpeechLanguage } from "@school-ahead/api-client";
 import {
   playCardSound,
   playSyllableSound,
@@ -239,6 +239,7 @@ function DraggableCard({
 // remounting fresh instead of an effect syncing it to the level, per
 // https://react.dev/learn/you-might-not-need-an-effect#resetting-all-state-when-a-prop-changes.
 function ReadingLevel({
+  language,
   consonant,
   syllables,
   cards,
@@ -249,6 +250,7 @@ function ReadingLevel({
   nextConsonant,
   onConsonantChange,
 }: {
+  language: SpeechLanguage;
   consonant: string;
   syllables: string[];
   cards: ReadingGameCard[];
@@ -276,13 +278,13 @@ function ReadingLevel({
     const vocabulary = Array.from(
       new Set([...syllables.filter((s) => !syllableSounds[s]), ...cards.filter((c) => !c.sound).map((c) => c.key)]),
     );
-    void prefetchVoice("uk", "short").then(() => {
-      if (!cancelled) warmupSpeech(vocabulary, "uk", "short");
+    void prefetchVoice(language, "short").then(() => {
+      if (!cancelled) warmupSpeech(vocabulary, language, "short");
     });
     return () => {
       cancelled = true;
     };
-  }, [syllables, cards, syllableSounds, muted]);
+  }, [syllables, cards, syllableSounds, muted, language]);
 
   const trayCards = cards.filter((card) => !placedKeys.has(card.key));
   const levelComplete = cards.length > 0 && trayCards.length === 0;
@@ -310,11 +312,11 @@ function ReadingLevel({
   // (docs/preschool/games/reading/README.md §5) and only fall back to TTS
   // when the level has none for them.
   const playSyllable = (syllable: string): Promise<void> =>
-    syllableSounds[syllable] ? playSyllableSound(syllableSounds, syllable) : speakSequence([syllable], "uk", undefined, "short");
+    syllableSounds[syllable] ? playSyllableSound(syllableSounds, syllable) : speakSequence([syllable], language, undefined, "short");
 
   const playWord = (card: ReadingGameCard): void => {
     if (card.sound) void playCardSound(card);
-    else speak(card.key, "uk", "short");
+    else speak(card.key, language, "short");
   };
 
   const handleMatch = (card: ReadingGameCard) => {
@@ -393,13 +395,21 @@ function ReadingLevel({
   );
 }
 
+// The settings panel's language picker — backend lessons.models.QuizLanguage,
+// the languages a reading.Syllable card can be in (and Piper has voices
+// for). Ukrainian first: it's the default.
+const GAME_LANGUAGES: readonly SpeechLanguage[] = ["uk", "en", "pl", "es"];
+
 export function ReadingGame() {
   const t = useTranslations("ReadingGame");
+  const locale = useLocale();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [replayToken, setReplayToken] = useState(0);
   const settingsPanelRef = useRef<HTMLDivElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
+  const language = useReadingGameStore((s) => s.language);
+  const setLanguage = useReadingGameStore((s) => s.setLanguage);
   const consonant = useReadingGameStore((s) => s.consonant);
   const setConsonant = useReadingGameStore((s) => s.setConsonant);
   const syllableCount = useReadingGameStore((s) => s.syllableCount);
@@ -411,12 +421,12 @@ export function ReadingGame() {
   const muted = useReadingGameStore((s) => s.muted);
   const setMuted = useReadingGameStore((s) => s.setMuted);
 
-  const consonants = useAlphabeticalConsonants("/api/reading-game-modes");
-  const { cards: levelCards, syllableSounds } = useReadingGameLevel(consonant);
+  const consonants = useAlphabeticalConsonants(`/api/reading-game-modes?language=${language}`, language);
+  const { cards: levelCards, syllableSounds } = useReadingGameLevel(consonant, language);
   const { syllables, cards } = useMemo(() => selectLevel(levelCards, syllableCount), [levelCards, syllableCount]);
 
-  // A consonant persisted from an earlier session might no longer exist as
-  // a folder — fall back to the first available one, same self-heal as
+  // A consonant persisted from an earlier session (or picked in another
+  // language) might not exist in this list — fall back to the first available one, same self-heal as
   // balloon-pop-game.tsx's mode fallback. Setting state here (not in an
   // effect elsewhere) is fine since it only fires once the real list loads
   // and only when the persisted value doesn't match it.
@@ -439,6 +449,15 @@ export function ReadingGame() {
   }, [settingsOpen]);
 
   const nextConsonant = consonants[consonants.indexOf(consonant) + 1];
+
+  const languageName = (code: string) => {
+    try {
+      const name = new Intl.DisplayNames([locale], { type: "language" }).of(code) ?? code;
+      return name.charAt(0).toUpperCase() + name.slice(1);
+    } catch {
+      return code;
+    }
+  };
 
   // "Play again" replays the same consonant+syllableCount level — bump a
   // token so the ReadingLevel key changes (and its state resets) even
@@ -465,6 +484,20 @@ export function ReadingGame() {
           ref={settingsPanelRef}
           className={`${GAME_SETTINGS_PANEL_POSITION} flex w-60 flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-lg ring-2 ring-gray-200`}
         >
+          <label className="flex flex-col gap-1">
+            <span className="font-medium text-gray-700">{t("languageLabel")}</span>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as SpeechLanguage)}
+              className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
+            >
+              {GAME_LANGUAGES.map((code) => (
+                <option key={code} value={code}>
+                  {languageName(code)}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">{t("consonantLabel")}</span>
             <select
@@ -507,7 +540,8 @@ export function ReadingGame() {
       )}
 
       <ReadingLevel
-        key={`${consonant}:${syllableCount}:${replayToken}`}
+        key={`${language}:${consonant}:${syllableCount}:${replayToken}`}
+        language={language}
         consonant={consonant}
         syllables={syllables}
         cards={cards}
