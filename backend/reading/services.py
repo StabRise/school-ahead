@@ -1,5 +1,6 @@
 import io
 import json
+import unicodedata
 import zipfile
 from dataclasses import dataclass
 from pathlib import PurePosixPath
@@ -14,6 +15,9 @@ from .models import Syllable
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp'}
 AUDIO_EXTENSIONS = {'.mp3'}
 WORDS_FILE = 'words.json'
+# Polish consonants spelled with two letters — each one is the card's
+# blue first letter (Chata -> CH + A), not C + H.
+POLISH_DIGRAPHS = ('RZ', 'CH', 'CZ', 'SZ')
 
 
 @dataclass
@@ -31,13 +35,29 @@ def _decode_name(info: zipfile.ZipInfo) -> str:
     `zip` on macOS, depending on locale) never set that flag even for a
     UTF-8-encoded name — re-decode via cp437's own encoder to recover the
     original bytes, then UTF-8-decode those. A name that was genuinely
-    cp437/ASCII to begin with round-trips through this unchanged."""
+    cp437/ASCII to begin with round-trips through this unchanged.
+
+    macOS (Finder's "Compress") also stores names decomposed (NFD), e.g.
+    `ą` as `a` + a combining ogonek — NFC-normalize so a word's second
+    letter is `ą`, not a bare `a` followed by a stray combining mark."""
     if info.flag_bits & 0x800:
-        return info.filename
-    try:
-        return info.filename.encode('cp437').decode('utf-8')
-    except UnicodeError:
-        return info.filename
+        name = info.filename
+    else:
+        try:
+            name = info.filename.encode('cp437').decode('utf-8')
+        except UnicodeError:
+            name = info.filename
+    return unicodedata.normalize('NFC', name)
+
+
+def _split_syllable(word: str, language: str) -> tuple[str, str] | None:
+    """(first_letter, second_part) for a word's opening syllable, uppercase,
+    or None when the word is too short to have one."""
+    upper = word.upper()
+    consonant_length = 2 if language == QuizLanguage.PL and upper.startswith(POLISH_DIGRAPHS) else 1
+    if len(upper) <= consonant_length:
+        return None
+    return upper[:consonant_length], upper[consonant_length]
 
 
 def _group_has_default(language: str, first_letter: str, second_part: str) -> bool:
@@ -90,12 +110,12 @@ def import_syllables_archive(uploaded: UploadedFile, language: str = QuizLanguag
         updated = 0
         skipped = 0
 
-        for directory, entries in entries_by_dir.items():
+        for entries in entries_by_dir.values():
             words_info = next((info for name, info in entries if PurePosixPath(name).name.lower() == WORDS_FILE), None)
             if words_info is not None:
                 c, u, s = _import_words_json_folder(archive, entries, words_info, language)
             else:
-                c, u, s = _import_letters_folder(archive, directory, entries, language)
+                c, u, s = _import_letters_folder(archive, entries, language)
             created += c
             updated += u
             skipped += s
@@ -123,12 +143,12 @@ def _import_words_json_folder(
     for syllable_key, word in words.items():
         normalized = syllable_key.strip()
         image_info = images_by_stem.get(normalized.lower())
-        if len(normalized) < 2 or image_info is None:
+        split = _split_syllable(normalized, language)
+        if split is None or image_info is None:
             skipped += 1
             continue
 
-        first_letter = normalized[0].upper()
-        second_part = normalized[1].upper()
+        first_letter, second_part = split
         display_word = word.strip()
         display_word = (display_word[:1].upper() + display_word[1:]) if display_word else normalized.upper()
 
@@ -147,19 +167,15 @@ def _import_words_json_folder(
 
 
 def _import_letters_folder(
-    archive: zipfile.ZipFile, directory: PurePosixPath, entries: list[tuple[str, zipfile.ZipInfo]], language: str
+    archive: zipfile.ZipFile, entries: list[tuple[str, zipfile.ZipInfo]], language: str
 ) -> tuple[int, int, int]:
     """No words.json — every image directly inside the directory is one
-    card, its filename (minus extension) the word. A directory named with a
-    single letter (e.g. `Б/`) is that consonant's folder: an image whose
-    word doesn't start with it (a leftover, not-yet-renamed file) is
-    skipped. Any other directory (e.g. a `litery/` of mixed words) or the
-    archive root just takes each card's letter from its own word. A same-named
-    `.mp3` becomes that card's word_audio; an exactly-2-letter one is
-    shared as syllable_audio by every card whose word starts with it —
-    same rules as reading.management.commands.import_reading_syllables."""
-    consonant = directory.name.upper() if len(directory.name) == 1 else None
-
+    card, its filename (minus extension) the word and its first two letters
+    the syllable, whatever the folder is called (`Б/`, `litery/`, `1/`, the
+    archive root). A same-named `.mp3` becomes that card's word_audio; one
+    named as a bare syllable (`ба.mp3`, Polish `cza.mp3`) is shared as
+    syllable_audio by every card whose word starts with it — same rules as reading.management.commands.
+    import_reading_syllables."""
     images: list[tuple[str, zipfile.ZipInfo]] = []
     audio_by_lower_word: dict[str, zipfile.ZipInfo] = {}
     syllable_audio_by_syllable: dict[str, zipfile.ZipInfo] = {}
@@ -170,7 +186,8 @@ def _import_letters_folder(
             images.append((stem, info))
         elif ext in AUDIO_EXTENSIONS:
             audio_by_lower_word[stem.lower()] = info
-            if len(stem) == 2:
+            split = _split_syllable(stem, language)
+            if split is not None and len(stem) == len(''.join(split)):
                 syllable_audio_by_syllable[stem.upper()] = info
 
     created = 0
@@ -180,12 +197,12 @@ def _import_letters_folder(
         # A few filenames use a straight double quote where Ukrainian uses
         # an apostrophe (e.g. хом"як -> хом'як).
         normalized = word.replace('"', "'")
-        if len(normalized) < 2 or (consonant is not None and normalized[0].upper() != consonant):
+        split = _split_syllable(normalized, language)
+        if split is None:
             skipped += 1
             continue
 
-        first_letter = normalized[0].upper()
-        second_part = normalized[1].upper()
+        first_letter, second_part = split
         display_word = normalized[:1].upper() + normalized[1:]
 
         syllable, was_created = Syllable.objects.get_or_create(
