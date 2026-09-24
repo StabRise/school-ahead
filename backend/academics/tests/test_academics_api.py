@@ -287,6 +287,18 @@ def test_get_topic(api_client, auth_header, student_user, subject):
     assert response.data['subject_id'] == subject.id
 
 
+def test_list_subject_topics_ordered_by_order_index(api_client, auth_header, student_user, subject):
+    # Created out of order, so the rows' physical order differs from
+    # order_index — the lesson_total Count's GROUP BY drops Meta.ordering.
+    late = Topic.objects.create(subject=subject, title='Songs', order_index=6)
+    first = Topic.objects.create(subject=subject, title='Block 1', order_index=1)
+    second = Topic.objects.create(subject=subject, title='Block 2', order_index=2)
+
+    response = api_client.get(f'/academics/subjects/{subject.id}/topics', headers=auth_header(student_user))
+    assert response.status_code == 200
+    assert [t['id'] for t in response.data] == [first.id, second.id, late.id]
+
+
 def test_reorder_topics_as_admin(api_client, auth_header, admin_user, subject):
     t1 = Topic.objects.create(subject=subject, title='Intro', order_index=1)
     t2 = Topic.objects.create(subject=subject, title='Advanced', order_index=2)
