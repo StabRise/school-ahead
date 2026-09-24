@@ -595,8 +595,6 @@
     "dragGroupHandleLabel": "Перетягнути групу",
     "ungroupedLabel": "Без групи",
     "emptyGroupHint": "Перетягніть сюди предмет",
-    "expandGroupButton": "Розгорнути групу",
-    "collapseGroupButton": "Згорнути групу",
     "subjectReorderError": "Не вдалося змінити порядок предметів. Спробуйте ще раз.",
     "groupReorderError": "Не вдалося змінити порядок груп. Спробуйте ще раз.",
     "shownOnShelfLabel": "Показується на полиці учнів за замовчуванням (натисніть, щоб прибрати)",
@@ -653,7 +651,7 @@
   },
   "LoadLessonsJson": {
     "triggerButton": "Імпортувати уроки з JSON",
-    "title": "Завантажити уроки з JSON",
+    "title": "Імпортувати уроки з JSON",
     "stepOfTotal": "Крок {step} з 2",
     "nameLabel": "Назва",
     "descriptionLabel": "Опис (необов'язково)",
@@ -777,6 +775,8 @@
     "deleteLessonDisabledTitle": "Урок призначено учням — спершу видаліть призначення",
     "duplicateLessonButton": "Дублювати урок",
     "duplicateLessonError": "Не вдалося дублювати урок. Спробуйте ще раз.",
+    "exportLessonsJsonButton": "Експортувати уроки в JSON",
+    "exportLessonsJsonError": "Не вдалося експортувати уроки. Спробуйте ще раз.",
     "updateLessonIconsButton": "Оновити іконки уроків з YouTube",
     "updateLessonIconsConfirm": "Додати іконки (мініатюри YouTube) урокам, які ще не мають іконки? Уроки, що вже мають іконку, не змінюються.",
     "updateLessonIconsResult": "Додано іконок: {updated}. Вже мали іконку: {kept}. Без посилання на YouTube: {skipped}.",
@@ -806,6 +806,20 @@
     "deleteTaskConfirm": "Видалити завдання «{title}»? Цю дію не можна скасувати.",
     "deleteTaskError": "Не вдалося видалити завдання. Спробуйте ще раз.",
     "tasksCount": "Завдань: {count}"
+  },
+  "VideoSubtitles": {
+    "showButton": "Показати субтитри",
+    "hideButton": "Сховати субтитри",
+    "panelLabel": "Субтитри",
+    "loading": "Завантаження субтитрів...",
+    "error": "Не вдалося завантажити субтитри. Спробуйте ще раз.",
+    "noVideos": "У цьому уроці немає відео з YouTube.",
+    "unavailable": "У цього відео немає субтитрів на YouTube.",
+    "fetchError": "YouTube зараз не віддав субтитри — спробуйте пізніше.",
+    "languageLabel": "Мова субтитрів",
+    "originalLanguage": "{language} (оригінал)",
+    "sourceYoutubeAuto": "Автоматичні субтитри YouTube",
+    "untitledVideo": "Відео {index}"
   },
   "TutorLessonDetail": {
     "loading": "Завантаження...",

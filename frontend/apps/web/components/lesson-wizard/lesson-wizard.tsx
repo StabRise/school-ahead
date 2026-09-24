@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ChevronRight, NotebookText, X } from "lucide-react";
+import { Captions, ChevronRight, NotebookText, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetStudentLessonQueryKey,
@@ -22,7 +22,9 @@ import { Card } from "@/components/card";
 import { useAuthStore } from "@school-ahead/api-client";
 import { formatGradeLabel, resolveStatusLabel } from "@/components/simple/format";
 import { LessonContent } from "./lesson-content";
-import { LessonSynopsisSplit } from "./lesson-synopsis-split";
+import { LessonPanels } from "./lesson-panels";
+import { LessonSynopsisPanel } from "./lesson-synopsis-panel";
+import { StudentVideoSubtitles } from "./student-video-subtitles";
 import { MaterialsStep } from "./materials-step";
 import { QuizStep } from "./quiz-step";
 import { TheoryStep } from "./theory-step";
@@ -194,17 +196,20 @@ function initialStepForStatus(status: string): WizardStep | null {
 
 export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   const t = useTranslations("LessonWizard");
+  const tSubtitles = useTranslations("VideoSubtitles");
   const dialogs = useDialogs();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const stepFromUrl = parseStepParam(searchParams.get("step"));
   const isSimple = useAuthStore((state) => state.user?.interfaceMode === "simple");
-  // The конспект split view is a "default" interface-mode feature only —
-  // resets to hidden on every visit rather than persisting, unlike the
-  // wizard step above (no strong reason a student would want it to survive
-  // a reload/navigation away and back).
+  // The конспект (right) and subtitles (left) side panels are a "default"
+  // interface-mode feature only — each toggled on its own, and reset to
+  // hidden on every visit rather than persisting, unlike the wizard step
+  // above (no strong reason a student would want them to survive a
+  // reload/navigation away and back).
   const [showSynopsis, setShowSynopsis] = useState(false);
+  const [showSubtitles, setShowSubtitles] = useState(false);
   const queryClient = useQueryClient();
   const updateSynopsis = useUpdateStudentLessonSynopsis();
   const cancelLesson = useCancelSelfSelectedLesson();
@@ -271,7 +276,7 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
     { label: data.lesson.title },
   ];
   const effectiveStep: WizardStep = step ?? "materials";
-  // The toggle (and the split view it opens) only makes sense on the
+  // The toggles (and the side panels they open) only make sense on the
   // "Теорія" tab — that's the only place `content` is shown — and is a
   // "default" interface-mode feature only (see isSimple/showSynopsis above).
   // Available even when the teacher hasn't written a конспект — a student
@@ -281,7 +286,7 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
   const canShowSynopsisToggle = !isSimple && effectiveStep === "materials";
   // The mutation's own cache isn't this page's useGetStudentLesson query —
   // without this, toggling the split view closed and back open would
-  // re-seed LessonSynopsisSplit's draft from the stale pre-edit `synopsis`
+  // re-seed LessonSynopsisPanel's draft from the stale pre-edit `synopsis`
   // value, making the student's last save look reverted.
   const saveSynopsis = (value: string) => {
     updateSynopsis.mutate(
@@ -335,6 +340,22 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
             {canShowSynopsisToggle && (
               <button
                 type="button"
+                onClick={() => setShowSubtitles((value) => !value)}
+                aria-pressed={showSubtitles}
+                title={showSubtitles ? tSubtitles("hideButton") : tSubtitles("showButton")}
+                aria-label={showSubtitles ? tSubtitles("hideButton") : tSubtitles("showButton")}
+                className={`flex h-8 w-8 items-center justify-center rounded-md border ${
+                  showSubtitles
+                    ? "border-gray-900 bg-gray-900 text-white"
+                    : "border-gray-300 text-gray-500 hover:bg-gray-50"
+                }`}
+              >
+                <Captions className="size-4" />
+              </button>
+            )}
+            {canShowSynopsisToggle && (
+              <button
+                type="button"
                 onClick={() => setShowSynopsis((value) => !value)}
                 aria-pressed={showSynopsis}
                 title={showSynopsis ? t("hideSynopsisButton") : t("showSynopsisButton")}
@@ -372,14 +393,26 @@ export function LessonWizard({ studentLessonId }: { studentLessonId: number }) {
 
       {effectiveStep === "materials" ? (
         <div className="flex flex-col gap-4">
-          {canShowSynopsisToggle && showSynopsis ? (
-            <LessonSynopsisSplit
-              studentLessonId={studentLessonId}
-              content={data.lesson.content}
-              materials={data.lesson.materials}
-              synopsis={data.synopsis}
-              onSave={saveSynopsis}
-              isSaving={updateSynopsis.isPending}
+          {canShowSynopsisToggle && (showSubtitles || showSynopsis) ? (
+            <LessonPanels
+              left={showSubtitles && <StudentVideoSubtitles studentLessonId={studentLessonId} />}
+              center={
+                <LessonContent
+                  content={data.lesson.content}
+                  materials={data.lesson.materials}
+                  studentLessonId={studentLessonId}
+                />
+              }
+              right={
+                showSynopsis && (
+                  <LessonSynopsisPanel
+                    studentLessonId={studentLessonId}
+                    synopsis={data.synopsis}
+                    onSave={saveSynopsis}
+                    isSaving={updateSynopsis.isPending}
+                  />
+                )
+              }
             />
           ) : (
             <LessonContent content={data.lesson.content} materials={data.lesson.materials} studentLessonId={studentLessonId} />

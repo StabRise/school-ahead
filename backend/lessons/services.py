@@ -13,7 +13,7 @@ from academics.services import SubjectMarkdownPlan
 from accounts.models import StudentProfile, User
 from django.core.files.base import ContentFile
 from django.db import transaction
-from django.db.models import Count, F, OuterRef, Q, QuerySet, Subquery
+from django.db.models import Count, F, OuterRef, Prefetch, Q, QuerySet, Subquery
 from django.utils import timezone
 
 from . import youtube_scrape
@@ -979,6 +979,56 @@ def process_lessons_json(lessons_json: LessonsJson) -> LessonImportSummary:
         lessons_json.save(update_fields=['status'])
 
     return summary
+
+
+def export_topics_and_lessons(subject: Subject) -> list[dict]:
+    """The reverse of import_topics_and_lessons — every Topic/Lesson (and
+    quiz) under `subject`, in curriculum order, shaped so the file can be
+    fed straight back into the "Import lessons from JSON" dialog.
+    build_lesson_content appends task_content onto content on import, so
+    it's stripped back off here — otherwise a round trip would duplicate
+    it."""
+    topics = Topic.objects.filter(subject=subject).order_by('order_index', 'id').prefetch_related(
+        Prefetch('lessons', queryset=Lesson.objects.order_by('order_index', 'id')),
+        'lessons__quiz_questions__choices',
+    )
+
+    topics_data = []
+    for topic in topics:
+        lessons_data = []
+        for lesson in topic.lessons.all():
+            content = lesson.content
+            if lesson.task_content and content.endswith(lesson.task_content):
+                content = content[: -len(lesson.task_content)].rstrip()
+
+            lesson_data = {
+                'title': lesson.title,
+                'lesson_type': lesson.lesson_type,
+                'grading_type': lesson.grading_type,
+                'content': content,
+            }
+            if lesson.task_content:
+                lesson_data['task_content'] = lesson.task_content
+
+            questions = sorted(lesson.quiz_questions.all(), key=lambda q: (q.order_index, q.id))
+            if questions:
+                lesson_data['quiz'] = [
+                    {
+                        'prompt': question.prompt,
+                        'order_index': question.order_index,
+                        'language': question.language,
+                        'choices': [
+                            {'text': choice.text, 'is_correct': choice.is_correct}
+                            for choice in sorted(question.choices.all(), key=lambda c: c.id)
+                        ],
+                    }
+                    for question in questions
+                ]
+            lessons_data.append(lesson_data)
+
+        topics_data.append({'title': topic.title, 'description': topic.description, 'lessons': lessons_data})
+
+    return topics_data
 
 
 # --- Subject markdown import (tutor's "Завантажити предмет з Markdown"

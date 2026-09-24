@@ -642,3 +642,28 @@ class UpdateLessonIconsOut(Schema):
     skipped: int
     # Left untouched because they already had an icon (bulk endpoints only).
     already_had_icon: int = 0
+
+
+
+class VideoSubtitlesOut(Schema):
+    """One YouTube video linked from a Lesson, with its YouTube subtitles —
+    see lessons.video_subtitles. `language_code` is the language shown (the
+    tutor's pick, else the original one, else YouTube's first track);
+    `languages` fills the language dropdown, original first when known.
+    `source` is 'youtube' or 'youtube_auto'. `status` is 'ok',
+    'unavailable' (no subtitles on YouTube) or 'error' (YouTube couldn't be
+    reached right now — worth retrying)."""
+
+    video_id: str
+    title: str
+    original_language: str
+    language_code: str
+    languages: list[str]
+    text: str
+    source: str
+    status: str
+
+
+class VideoSubtitlesLanguageIn(Schema):
+    # '' = the default language (original when known).
+    language_code: str

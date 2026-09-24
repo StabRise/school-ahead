@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { Calendar, ChevronDown, ChevronRight, Crown, Eye, EyeOff, GripVertical, RefreshCw } from "lucide-react";
+import { Calendar, Crown, Eye, EyeOff, GripVertical, RefreshCw } from "lucide-react";
 import type {
   AssignmentOut,
   SubjectGroupOut,
@@ -201,6 +201,10 @@ function RecalculateWorkloadButton({ classId }: { classId: number }) {
   );
 }
 
+// Not a real SubjectGroup id — the `?group=` value for the tab of subjects
+// with group_id === null.
+const UNGROUPED_TAB_KEY = "ungrouped";
+
 interface SubjectSection {
   groupId: number | null;
   label: string | null;
@@ -221,20 +225,10 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
   const setGroupMarked = useSetSubjectGroupMarked();
   const [draggedSubjectId, setDraggedSubjectId] = useState<number | null>(null);
   const [draggedGroupId, setDraggedGroupId] = useState<number | null>(null);
-  const [collapsedSectionKeys, setCollapsedSectionKeys] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useTabQueryParam("subjects");
-
-  const toggleSectionCollapsed = (key: string) => {
-    setCollapsedSectionKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
+  // Mirrored into `?group=<id>` (or `?group=ungrouped`), same as the
+  // student subjects list's group tabs (simple-subjects-page.tsx).
+  const [activeGroupKey, setActiveGroupKey] = useTabQueryParam("", "group");
 
   // One section per global SubjectGroup (in its own order_index order) plus
   // a trailing "ungrouped" section for subjects with no group set yet —
@@ -271,6 +265,12 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
       },
     ];
   }, [data?.subjects, groupsQuery.data, t]);
+
+  // Every group gets a tab, even an empty one — it's still a drop target for
+  // moving a subject into that group. "Ungrouped" only while it has subjects.
+  const visibleSections = sections.filter((section) => section.subjects.length > 0 || section.groupId !== null);
+  const sectionKeyOf = (section: SubjectSection) => (section.groupId === null ? UNGROUPED_TAB_KEY : String(section.groupId));
+  const activeSection = visibleSections.find((section) => sectionKeyOf(section) === activeGroupKey) ?? visibleSections[0];
 
   const findSection = (subjectId: number) => sections.find((s) => s.subjects.some((sub) => sub.subject_id === subjectId));
 
@@ -427,15 +427,17 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
                   {data.subjects.length === 0 ? (
                     <p className="text-sm text-gray-500">{t("noSubjects")}</p>
                   ) : (
-                    <div className="flex flex-col gap-5">
-                      {sections
-                        .filter((section) => section.subjects.length > 0 || section.groupId !== null)
-                        .map((section) => {
-                          const sectionKey = String(section.groupId ?? "ungrouped");
-                          const collapsed = collapsedSectionKeys.has(sectionKey);
+                    <div className="flex flex-col gap-2">
+                      <div role="tablist" className="flex flex-wrap gap-1 border-b border-gray-200">
+                        {visibleSections.map((section) => {
+                          const sectionKey = sectionKeyOf(section);
+                          const isActive = activeSection === section;
+                          const label = section.label ?? t("ungroupedLabel");
                           return (
                             <div
                               key={sectionKey}
+                              // A tab is a drop target: a subject dropped on it moves to the
+                              // end of that group, a group dropped on it takes its place.
                               onDragOver={(e) => {
                                 if (draggedSubjectId !== null || draggedGroupId !== null) e.preventDefault();
                               }}
@@ -449,78 +451,87 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
                                 e.preventDefault();
                                 handleSubjectDrop(section.groupId, null);
                               }}
-                              className={`flex flex-col gap-1 ${draggedGroupId !== null && draggedGroupId === section.groupId ? "opacity-40" : ""}`}
+                              className={`-mb-px flex items-center gap-0.5 border-b-2 ${
+                                isActive ? "border-gray-900" : "border-transparent"
+                              } ${draggedGroupId !== null && draggedGroupId === section.groupId ? "opacity-40" : ""}`}
                             >
-                              {section.label && (
-                                <div className="flex items-center gap-0.5">
-                                  {/* A group can be dragged by its handle, outside the collapse
-                                      button for the same reason as the subject row's handle. Not
-                                      the "ungrouped" section, and pointless with a single group. */}
-                                  {section.groupId !== null && (groupsQuery.data?.length ?? 0) > 1 && (
-                                    <span
-                                      draggable
-                                      onDragStart={(e) => {
-                                        e.dataTransfer.effectAllowed = "move";
-                                        setDraggedGroupId(section.groupId);
-                                      }}
-                                      onDragEnd={() => setDraggedGroupId(null)}
-                                      title={t("dragGroupHandleLabel")}
-                                      aria-label={t("dragGroupHandleLabel")}
-                                      className="shrink-0 cursor-grab rounded p-1 text-gray-300 hover:text-gray-500 active:cursor-grabbing"
-                                    >
-                                      <GripVertical className="size-3.5" aria-hidden="true" />
-                                    </span>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleSectionCollapsed(sectionKey)}
-                                    aria-expanded={!collapsed}
-                                    title={collapsed ? t("expandGroupButton") : t("collapseGroupButton")}
-                                    className="flex items-center gap-1 rounded px-1.5 py-1 text-left hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-                                  >
-                                    {collapsed ? (
-                                      <ChevronRight className="size-3.5 shrink-0 text-gray-400" aria-hidden="true" />
-                                    ) : (
-                                      <ChevronDown className="size-3.5 shrink-0 text-gray-400" aria-hidden="true" />
-                                    )}
-                                    <h3 className="text-xs font-semibold text-gray-500">
-                                      {subjectGroupLabel(section.label, section.subjects.length)}
-                                    </h3>
-                                  </button>
-                                  {section.groupId !== null && section.isMarked !== null && (
-                                    <ShelfMarkButton
-                                      marked={section.isMarked}
-                                      disabled={setGroupMarked.isPending}
-                                      onToggle={() => toggleGroupMarked(section.groupId!, section.isMarked!)}
-                                    />
-                                  )}
-                                </div>
+                              {/* A group can be dragged by its handle, outside the tab button for
+                                  the same reason as the subject row's handle. Not the "ungrouped"
+                                  tab, and pointless with a single group. */}
+                              {section.groupId !== null && (groupsQuery.data?.length ?? 0) > 1 && (
+                                <span
+                                  draggable
+                                  onDragStart={(e) => {
+                                    e.dataTransfer.effectAllowed = "move";
+                                    setDraggedGroupId(section.groupId);
+                                  }}
+                                  onDragEnd={() => setDraggedGroupId(null)}
+                                  title={t("dragGroupHandleLabel")}
+                                  aria-label={t("dragGroupHandleLabel")}
+                                  className="shrink-0 cursor-grab rounded p-0.5 text-gray-300 hover:text-gray-500 active:cursor-grabbing"
+                                >
+                                  <GripVertical className="size-3.5" aria-hidden="true" />
+                                </span>
                               )}
-                              {!collapsed &&
-                                (section.subjects.length === 0 ? (
-                                  <p className="px-2 text-xs text-gray-400">{t("emptyGroupHint")}</p>
-                                ) : (
-                                  <ul className="divide-y divide-gray-100">
-                                    {section.subjects.map((subject) => (
-                                      <SubjectRow
-                                        key={subject.subject_id}
-                                        subject={subject}
-                                        isDragging={draggedSubjectId === subject.subject_id}
-                                        draggedSubjectId={draggedSubjectId}
-                                        onDragStart={() => setDraggedSubjectId(subject.subject_id)}
-                                        onDragEnd={() => setDraggedSubjectId(null)}
-                                        onDropOnThisSubject={() =>
-                                          handleSubjectDrop(section.groupId, subject.subject_id)
-                                        }
-                                        onToggleMarked={() => toggleSubjectMarked(subject)}
-                                        markPending={setSubjectMarked.isPending}
-                                      />
-                                    ))}
-                                  </ul>
-                                ))}
+                              <button
+                                type="button"
+                                role="tab"
+                                aria-selected={isActive}
+                                onClick={() => setActiveGroupKey(sectionKey)}
+                                className={`px-2 py-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
+                                  isActive ? "text-gray-900" : "text-gray-500 hover:text-gray-900"
+                                }`}
+                              >
+                                {subjectGroupLabel(label, section.subjects.length)}
+                              </button>
+                              {section.groupId !== null && section.isMarked !== null && (
+                                <ShelfMarkButton
+                                  marked={section.isMarked}
+                                  disabled={setGroupMarked.isPending}
+                                  onToggle={() => toggleGroupMarked(section.groupId!, section.isMarked!)}
+                                />
+                              )}
                             </div>
                           );
                         })}
+                      </div>
+                      {activeSection && (
+                        <div
+                          role="tabpanel"
+                          onDragOver={(e) => {
+                            if (draggedSubjectId !== null) e.preventDefault();
+                          }}
+                          onDrop={(e) => {
+                            // Already handled by a SubjectRow (dropped onto a subject).
+                            if (draggedSubjectId === null || e.defaultPrevented) return;
+                            e.preventDefault();
+                            handleSubjectDrop(activeSection.groupId, null);
+                          }}
+                          className="min-h-16"
+                        >
+                          {activeSection.subjects.length === 0 ? (
+                            <p className="px-2 py-2 text-xs text-gray-400">{t("emptyGroupHint")}</p>
+                          ) : (
+                            <ul className="divide-y divide-gray-100">
+                              {activeSection.subjects.map((subject) => (
+                                <SubjectRow
+                                  key={subject.subject_id}
+                                  subject={subject}
+                                  isDragging={draggedSubjectId === subject.subject_id}
+                                  draggedSubjectId={draggedSubjectId}
+                                  onDragStart={() => setDraggedSubjectId(subject.subject_id)}
+                                  onDragEnd={() => setDraggedSubjectId(null)}
+                                  onDropOnThisSubject={() =>
+                                    handleSubjectDrop(activeSection.groupId, subject.subject_id)
+                                  }
+                                  onToggleMarked={() => toggleSubjectMarked(subject)}
+                                  markPending={setSubjectMarked.isPending}
+                                />
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

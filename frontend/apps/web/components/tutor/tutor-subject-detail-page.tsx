@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
+  FileDown,
   GripVertical,
   Image as ImageIcon,
   Monitor,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { getGetSubjectQueryKey, getListSubjectTopicsQueryKey, useGetSubject, useListSubjectTopics } from "@school-ahead/api-client/browser/academics/academics";
 import {
+  exportTutorSubjectLessonsJson,
   getListTutorSubjectLessonsQueryKey,
   getListTutorSubjectLessonStudentsQueryKey,
   useDeleteTutorLesson,
@@ -249,6 +251,47 @@ function UpdateLessonIconsButton({ subjectId, onUpdated }: { subjectId: number; 
       className="shrink-0 rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
     >
       <ImageIcon className="h-4 w-4" />
+    </button>
+  );
+}
+
+// The Lessons toolbar's icon button next to LoadLessonsJsonDialog — downloads
+// every topic/lesson/quiz in the subject as a JSON file in the same shape the
+// import dialog accepts (see lesson_services.export_topics_and_lessons), so
+// a subject can be backed up or copied into another subject.
+function ExportLessonsJsonButton({ subjectId, subjectName }: { subjectId: number; subjectName: string }) {
+  const t = useTranslations("TutorSubjectDetail");
+  const dialogs = useDialogs();
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleClick = async () => {
+    setIsExporting(true);
+    try {
+      const data = await exportTutorSubjectLessonsJson(subjectId);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${subjectName || "lessons"}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      dialogs.error(t("exportLessonsJsonError"));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      title={t("exportLessonsJsonButton")}
+      aria-label={t("exportLessonsJsonButton")}
+      onClick={handleClick}
+      disabled={isExporting}
+      className="shrink-0 rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+    >
+      <FileDown className="h-4 w-4" />
     </button>
   );
 }
@@ -1096,6 +1139,7 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
               subjectName={subject.name}
             />
             <LoadLessonsJsonDialog subjectId={subjectId} />
+            <ExportLessonsJsonButton subjectId={subjectId} subjectName={subject.name} />
             <LoadYoutubePlaylistDialog subjectId={subjectId} />
             <UpdateLessonIconsButton subjectId={subjectId} onUpdated={handleLessonListChanged} />
           </div>

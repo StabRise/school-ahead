@@ -14,9 +14,9 @@ import { useSynopsisLanguageStore } from "@/stores/synopsis-language-store";
 // plus a raw-markdown textarea toggled via a small icon button (Перегляд
 // ⇄ Редагувати), and a source-language picker for the preview's translate
 // feature. Used both by the student wizard's split view
-// (lesson-wizard/lesson-synopsis-split.tsx, editing their own copy of a
+// (lesson-wizard/lesson-synopsis-panel.tsx, editing their own copy of a
 // lesson's конспект) and the tutor's Lesson detail page
-// (tutor/lesson-synopsis-panel.tsx, editing the lesson's original) —
+// (tutor/tutor-lesson-detail-page.tsx, editing the lesson's original) —
 // `onChange` fires on every keystroke; each caller owns its own
 // debounced-autosave mutation, since the two save to different places.
 export function SynopsisEditor({
@@ -31,7 +31,7 @@ export function SynopsisEditor({
   isSaving?: boolean;
   enableDictionary?: boolean;
   // Enables the sibling "add to cards" button — omitted by the tutor's own
-  // panel (tutor/lesson-synopsis-panel.tsx), which has no StudentProfile.
+  // panel (tutor/tutor-lesson-detail-page.tsx), which has no StudentProfile.
   studentLessonId?: number;
 }) {
   const t = useTranslations("LessonWizard");
