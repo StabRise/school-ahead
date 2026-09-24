@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useDefaultSyllables } from "./default-syllables";
 import type { StoryWordSegment } from "./story-parser";
+import { isVowel } from "./letters";
 
 // Shared syllable/letter "card" rendering — originally built for the
 // "Казки" (Stories) minigame (docs/preschool/games/reading/Stories.md §3)
@@ -160,11 +161,12 @@ export function WordSegmentCard({
   const syllableCard = upper.length === 2 && !preferPlainText ? defaultSyllables.get(upper) : undefined;
   const showIcon = syllableCard && !imageFailed;
 
-  // Big colored letters (vowel red, consonant blue) fill the card, same as
-  // the plain-letter fallback below always drew — a known two-letter
-  // syllable additionally gets its default reading.Syllable card's picture
-  // as a small badge in the bottom-right corner, matching how the old
-  // hand-drawn public/static/syllables cards were laid out.
+  // Big colored letters (vowel red, consonant blue — Latin vowels too,
+  // see letters.ts's isVowel) fill the card, same as the plain-letter
+  // fallback below always drew — a known two-letter syllable additionally
+  // gets its default reading.Syllable card's picture as a small badge in
+  // the bottom-right corner, matching how the old hand-drawn
+  // public/static/syllables cards were laid out.
   return (
     <span
       style={{ ...boxStyle, fontSize: `${fontSizeRem}rem` }}
@@ -178,7 +180,7 @@ export function WordSegmentCard({
           it overlaps. */}
       <span className="relative z-10">
         {[...upper].map((letter, index) => (
-          <span key={index} style={{ color: isVowelUk(letter) ? "#dc2626" : "#0369a1" }}>
+          <span key={index} style={{ color: isVowel(letter) ? "#dc2626" : "#0369a1" }}>
             {letter}
           </span>
         ))}
@@ -245,8 +247,8 @@ export function WordCardRow({
 
   return (
     <span
-      className={`inline-flex items-center border-gray-700 bg-white shadow ${
-        size === "lg" ? "gap-5 rounded-[1.875rem] border-[10px] p-5" : "gap-1 rounded-xl border-2 p-1"
+      className={`inline-flex items-center border-gray-700 bg-white shadow border-1 rounded-xl ${
+        size === "lg" ? "gap-5 p-5" : "gap-1 p-1"
       }`}
     >
       {cards}

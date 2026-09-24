@@ -47,6 +47,7 @@ class StoryOut(Schema):
     subtitle: str
     slug: str
     cover_image: str | None
+    language: str
     is_published: bool
     updated_at: datetime.datetime
 

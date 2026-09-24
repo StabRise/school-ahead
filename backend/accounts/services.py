@@ -247,6 +247,23 @@ def award_cards_game_diamond(student: StudentProfile) -> None:
     student.refresh_from_db(fields=['diamond_balance_cache'])
 
 
+# Diamond reward for the "Слова" (Words) minigame's 30-card milestone (see
+# frontend/packages/preschool-games/src/words-game.tsx) — every card a
+# student looks at counts, and every 30 award a Diamond. Same trust model
+# as BALLOON_POP_MILESTONE_DIAMONDS above: no server-side tracking of cards
+# viewed, the frontend calls this once per milestone reached in a play
+# session.
+WORDS_GAME_MILESTONE_DIAMONDS = 1
+
+
+def award_words_game_diamond(student: StudentProfile) -> None:
+    """Same atomic F() update as award_balloon_pop_diamond."""
+    StudentProfile.objects.filter(pk=student.pk).update(
+        diamond_balance_cache=F('diamond_balance_cache') + WORDS_GAME_MILESTONE_DIAMONDS
+    )
+    student.refresh_from_db(fields=['diamond_balance_cache'])
+
+
 # Diamond reward for the multiplication-table minigame (see
 # frontend/packages/preschool-games/src/multiplication-game.tsx) — awarded
 # once for successfully finishing every question of a session with at

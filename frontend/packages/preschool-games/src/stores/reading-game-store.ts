@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { SpeechLanguage } from "@school-ahead/api-client";
 
 // Client-side settings for the preschool reading (syllable drag-and-drop)
 // minigame (see components/preschool/reading-game.tsx). Persisted to
@@ -17,6 +18,10 @@ const MIN_SYLLABLE_COUNT = 3;
 const MAX_SYLLABLE_COUNT = 9;
 
 interface ReadingGameState {
+  // The cards' language (backend reading.Syllable.language) — picked before
+  // the consonant, since each language has its own letters.
+  language: SpeechLanguage;
+  setLanguage: (language: SpeechLanguage) => void;
   consonant: ReadingGameConsonant;
   setConsonant: (consonant: ReadingGameConsonant) => void;
   syllableCount: number;
@@ -36,6 +41,8 @@ export { MIN_SYLLABLE_COUNT, MAX_SYLLABLE_COUNT };
 export const useReadingGameStore = create<ReadingGameState>()(
   persist(
     (set) => ({
+      language: "uk",
+      setLanguage: (language) => set({ language }),
       consonant: DEFAULT_CONSONANT,
       setConsonant: (consonant) => set({ consonant }),
       syllableCount: DEFAULT_SYLLABLE_COUNT,

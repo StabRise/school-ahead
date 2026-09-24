@@ -28,6 +28,14 @@ describe("splitUkrainianSyllables", () => {
     expect(splitUkrainianSyllables("Мідь")).toEqual(["Мі", "дь"]);
     expect(splitUkrainianSyllables("Кінь")).toEqual(["Кі", "нь"]);
   });
+
+  it("splits Polish words, keeping rz/sz/cz/ch together as one consonant", () => {
+    expect(splitUkrainianSyllables("morze")).toEqual(["mo", "rze"]);
+    expect(splitUkrainianSyllables("Szafa")).toEqual(["Sza", "fa"]);
+    expect(splitUkrainianSyllables("chleb")).toEqual(["ch", "le", "b"]);
+    expect(splitUkrainianSyllables("czapka")).toEqual(["cza", "p", "ka"]);
+    expect(splitUkrainianSyllables("dom")).toEqual(["do", "m"]);
+  });
 });
 
 const CARDS: ReadingGameCard[] = [

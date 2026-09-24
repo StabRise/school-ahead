@@ -37,3 +37,19 @@ def test_list_consonants_is_public(api_client, syllable_group):
     response = api_client.get('/reading/consonants')
     assert response.status_code == 200
     assert response.data == ['Б', 'М']
+
+
+def test_list_syllables_filters_by_language(api_client, syllable_group):
+    Syllable.objects.create(first_letter='B', second_part='A', word='Banana', language='en', is_default=True)
+
+    response = api_client.get('/reading/syllables', query_params={'language': 'en'})
+
+    assert response.status_code == 200
+    assert [row['word'] for row in response.data] == ['Banana']
+
+
+def test_list_consonants_filters_by_language(api_client, syllable_group):
+    Syllable.objects.create(first_letter='B', second_part='A', word='Banana', language='en', is_default=True)
+
+    assert api_client.get('/reading/consonants', query_params={'language': 'en'}).data == ['B']
+    assert api_client.get('/reading/consonants', query_params={'language': 'uk'}).data == ['Б', 'М']

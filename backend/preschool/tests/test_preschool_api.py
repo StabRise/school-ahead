@@ -139,6 +139,14 @@ class TestCreateStory:
         story = Story.objects.get(title='Ріпка')
         assert story.created_by_id == tutor.id
         assert story.is_published is False
+        assert story.language == 'uk'
+
+    def test_tutor_creates_story_in_another_language(self, api_client, auth_header, tutor):
+        response = api_client.post(
+            '/preschool/tutor/stories', data={'title': 'Turnip', 'language': 'en'}, headers=auth_header(tutor.user),
+        )
+        assert response.status_code == 200
+        assert response.data['language'] == 'en'
 
     def test_forbidden_for_non_tutor(self, api_client, auth_header, student):
         response = api_client.post('/preschool/tutor/stories', data={'title': 'Ріпка'}, headers=auth_header(student))
@@ -158,6 +166,15 @@ class TestUpdateStory:
         draft_story.refresh_from_db()
         assert draft_story.content == 'Новий текст.'
         assert draft_story.title == 'Чернетка'  # untouched fields stay as-is
+        assert draft_story.language == 'uk'
+
+    def test_tutor_changes_language(self, api_client, auth_header, tutor, draft_story):
+        response = api_client.patch(
+            f'/preschool/tutor/stories/{draft_story.id}', data={'language': 'pl'}, headers=auth_header(tutor.user),
+        )
+        assert response.status_code == 200
+        draft_story.refresh_from_db()
+        assert draft_story.language == 'pl'
 
     def test_tutor_publishes_story(self, api_client, auth_header, tutor, draft_story):
         response = api_client.patch(
@@ -387,6 +404,20 @@ class TestStoryExportImport:
         assert '{ ріпку }' in response.data['content']  # non-file card group left untouched
         story = Story.objects.get(title='Ріпка')
         assert story.created_by_id == tutor.id
+        assert story.language == 'uk'
+
+    def test_import_uses_picked_language(self, api_client, auth_header, tutor):
+        upload = _story_zip('# Turnip\n\ntext', {})
+
+        response = api_client.post(
+            '/preschool/tutor/stories/import',
+            data={'language': 'en'},
+            FILES=MultiValueDict({'file': [upload]}),
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data['language'] == 'en'
 
     def test_import_forbidden_for_non_tutor(self, api_client, auth_header, student):
         upload = _story_zip('# Ріпка\n\nтекст', {})
@@ -427,6 +458,12 @@ class TestGames:
             'url': '/games/syllables',
             'icon_url': None,
         }
+
+    def test_seeded_picker_ends_reading_with_words_game(self, api_client):
+        response = api_client.get('/preschool/games')
+
+        reading = next(category for category in response.data if category['name'] == 'Читання')
+        assert (reading['games'][-1]['title'], reading['games'][-1]['url']) == ('Слова', '/games/words')
 
     def test_hides_inactive_games_and_categories(self, api_client):
         from preschool.models import Game, GameCategory
