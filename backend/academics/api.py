@@ -84,7 +84,14 @@ def get_subject(request: HttpRequest, subject_id: int):
 
 @router.get('/subjects/{subject_id}/topics', response=list[TopicOut], operation_id='list_subject_topics')
 def list_subject_topics(request: HttpRequest, subject_id: int):
-    return Topic.objects.filter(subject_id=subject_id).select_related('subject_block').annotate(lesson_total=Count('lessons'))
+    # Explicit order_by: Django drops Topic.Meta.ordering from a GROUP BY
+    # query, so the Count annotation alone leaves the order up to Postgres.
+    return (
+        Topic.objects.filter(subject_id=subject_id)
+        .select_related('subject_block')
+        .annotate(lesson_total=Count('lessons'))
+        .order_by('order_index', 'id')
+    )
 
 
 @router.get('/topics/{topic_id}', response=TopicOut, operation_id='get_topic')
