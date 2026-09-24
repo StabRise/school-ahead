@@ -262,7 +262,7 @@ function WordsDeck({
             src={card.image}
             alt=""
             draggable={false}
-            className="h-40 w-40 rounded-3xl bg-white object-contain p-2 shadow-lg ring-4 ring-amber-200 sm:h-56 sm:w-56"
+            className="h-60 w-60 rounded-3xl bg-white object-contain shadow-lg ring-4 ring-amber-200 sm:h-80 sm:w-80"
           />
         </button>
 
