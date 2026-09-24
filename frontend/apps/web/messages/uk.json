@@ -595,8 +595,6 @@
     "dragGroupHandleLabel": "Перетягнути групу",
     "ungroupedLabel": "Без групи",
     "emptyGroupHint": "Перетягніть сюди предмет",
-    "expandGroupButton": "Розгорнути групу",
-    "collapseGroupButton": "Згорнути групу",
     "subjectReorderError": "Не вдалося змінити порядок предметів. Спробуйте ще раз.",
     "groupReorderError": "Не вдалося змінити порядок груп. Спробуйте ще раз.",
     "shownOnShelfLabel": "Показується на полиці учнів за замовчуванням (натисніть, щоб прибрати)",
