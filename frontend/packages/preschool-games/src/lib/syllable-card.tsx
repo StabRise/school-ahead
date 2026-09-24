@@ -247,8 +247,8 @@ export function WordCardRow({
 
   return (
     <span
-      className={`inline-flex items-center border-gray-700 bg-white shadow ${
-        size === "lg" ? "gap-5 rounded-[1.875rem] border-[1px] p-5" : "gap-1 rounded-xl border-2 p-1"
+      className={`inline-flex items-center border-gray-700 bg-white shadow border-1 rounded-xl ${
+        size === "lg" ? "gap-5 p-5" : "gap-1 p-1"
       }`}
     >
       {cards}

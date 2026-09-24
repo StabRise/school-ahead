@@ -16,6 +16,16 @@ interface WordsGameState {
   setConsonant: (consonant: string) => void;
   muted: boolean;
   setMuted: (muted: boolean) => void;
+  // Which parts of a card are on screen — each can be hidden (e.g. hide
+  // the picture so the child can't guess the word from it).
+  show: WordsGameShow;
+  setShow: (part: keyof WordsGameShow, visible: boolean) => void;
+}
+
+export interface WordsGameShow {
+  syllable: boolean;
+  icon: boolean;
+  word: boolean;
 }
 
 export const useWordsGameStore = create<WordsGameState>()(
@@ -27,6 +37,8 @@ export const useWordsGameStore = create<WordsGameState>()(
       setConsonant: (consonant) => set({ consonant }),
       muted: false,
       setMuted: (muted) => set({ muted }),
+      show: { syllable: true, icon: true, word: true },
+      setShow: (part, visible) => set((state) => ({ show: { ...state.show, [part]: visible } })),
     }),
     { name: "words-game-store" },
   ),

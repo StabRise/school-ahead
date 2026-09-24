@@ -20,7 +20,7 @@ import {
   WORDS_GAME_DIAMOND_THRESHOLD,
   type WordsGameCard,
 } from "./lib/words-game";
-import { useWordsGameStore } from "./stores/words-game-store";
+import { useWordsGameStore, type WordsGameShow } from "./stores/words-game-store";
 
 // The "Слова" (Words) minigame at /games/words — see docs/preschool/games/
 // words.md. One reading.Syllable card at a time: its syllable in big
@@ -50,6 +50,8 @@ export function WordsGame() {
   const setConsonant = useWordsGameStore((s) => s.setConsonant);
   const muted = useWordsGameStore((s) => s.muted);
   const setMuted = useWordsGameStore((s) => s.setMuted);
+  const show = useWordsGameStore((s) => s.show);
+  const setShow = useWordsGameStore((s) => s.setShow);
 
   const consonantsQuery = useListReadingConsonants({ language }, { query: { staleTime: Infinity } });
   const consonants = useMemo(
@@ -146,6 +148,15 @@ export function WordsGame() {
               ))}
             </select>
           </label>
+          <fieldset className="flex flex-col gap-1">
+            <legend className="mb-1 font-medium text-gray-700">{t("showLabel")}</legend>
+            {(["syllable", "icon", "word"] as const).map((part) => (
+              <label key={part} className="flex items-center gap-2">
+                <input type="checkbox" checked={show[part]} onChange={(e) => setShow(part, e.target.checked)} />
+                <span className="text-gray-700">{t(`show.${part}`)}</span>
+              </label>
+            ))}
+          </fieldset>
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={muted} onChange={(e) => setMuted(e.target.checked)} />
             <span className="font-medium text-gray-700">{t("mutedLabel")}</span>
@@ -175,6 +186,7 @@ export function WordsGame() {
           cards={cards}
           language={language}
           muted={muted}
+          show={show}
           onCardShown={() => setSeen((current) => current + 1)}
         />
       )}
@@ -188,11 +200,13 @@ function WordsDeck({
   cards,
   language,
   muted,
+  show,
   onCardShown,
 }: {
   cards: WordsGameCard[];
   language: SpeechLanguage;
   muted: boolean;
+  show: WordsGameShow;
   onCardShown: () => void;
 }) {
   const t = useTranslations("WordsGame");
@@ -243,36 +257,42 @@ function WordsDeck({
   return (
     <>
       <div className="flex flex-1 flex-col items-center justify-center gap-4 px-16 pb-28 pt-6 sm:gap-6">
-        <button
-          type="button"
-          onClick={() => void playSyllable()}
-          aria-label={t("syllableLabel", { syllable: card.syllable })}
-          className="cursor-pointer text-[6rem] font-extrabold leading-none tracking-wider sm:text-[9rem]"
-        >
-          {[...card.syllable].map((letter, letterIndex) => (
-            <span key={letterIndex} style={{ color: isVowel(letter) ? "#dc2626" : "#0369a1" }}>
-              {letter}
-            </span>
-          ))}
-        </button>
+        {show.syllable && (
+          <button
+            type="button"
+            onClick={() => void playSyllable()}
+            aria-label={t("syllableLabel", { syllable: card.syllable })}
+            className="cursor-pointer text-[6rem] font-extrabold leading-none tracking-wider sm:text-[9rem]"
+          >
+            {[...card.syllable].map((letter, letterIndex) => (
+              <span key={letterIndex} style={{ color: isVowel(letter) ? "#dc2626" : "#0369a1" }}>
+                {letter}
+              </span>
+            ))}
+          </button>
+        )}
 
-        <button type="button" onClick={playWord} aria-label={card.word} className="cursor-pointer">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={card.image}
-            alt=""
-            draggable={false}
-            className="h-60 w-60 rounded-3xl bg-white object-contain shadow-lg ring-4 ring-amber-200 sm:h-80 sm:w-80"
-          />
-        </button>
+        {show.icon && (
+          <button type="button" onClick={playWord} aria-label={card.word} className="cursor-pointer">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={card.image}
+              alt=""
+              draggable={false}
+              className="h-28 w-28 rounded-2xl bg-white object-contain shadow-lg ring-4 ring-amber-200 sm:h-40 sm:w-40"
+            />
+          </button>
+        )}
 
-        <button type="button" onClick={playWord} aria-label={card.word} className="cursor-pointer">
-          <WordCardRow
-            segments={splitIntoReadingSegments(card.word).map((text) => ({ kind: "text", text }))}
-            size="lg"
-            cardSizeRem={wordCardSizeRem(card.word)}
-          />
-        </button>
+        {show.word && (
+          <button type="button" onClick={playWord} aria-label={card.word} className="cursor-pointer">
+            <WordCardRow
+              segments={splitIntoReadingSegments(card.word).map((text) => ({ kind: "text", text }))}
+              size="lg"
+              cardSizeRem={wordCardSizeRem(card.word)}
+            />
+          </button>
+        )}
       </div>
 
       <div className="fixed inset-y-0 left-4 z-30 flex items-center">

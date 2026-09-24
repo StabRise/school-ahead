@@ -309,6 +309,12 @@
     "settingsButton": "Налаштування",
     "languageLabel": "Мова",
     "letterLabel": "Літера",
+    "showLabel": "Показувати",
+    "show": {
+      "syllable": "Склад",
+      "icon": "Малюнок",
+      "word": "Слово"
+    },
     "mutedLabel": "Без звуку",
     "counterLabel": "Переглянуто карток: {count}",
     "empty": "Для цієї літери ще немає карток.",
