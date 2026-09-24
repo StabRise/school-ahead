@@ -16,6 +16,10 @@ export interface StorySummary {
   // null when the story has no cover art yet. Shown on the picker's book
   // (components/preschool/story-book.tsx).
   cover: string | null;
+  // The story's language (backend lessons.models.QuizLanguage) — a DB
+  // story's own Story.language; every static folder story is Ukrainian.
+  // What the picker's language filter matches on.
+  language: string;
 }
 
 // One card within a {...} word breakdown — most segments are just a
