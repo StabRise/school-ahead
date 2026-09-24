@@ -16,6 +16,8 @@ from .models import (
     StudentLessonMaterial,
     StudentLessonStatusEvent,
     TopicCompletionBonus,
+    VideoTranscript,
+    YoutubeVideo,
 )
 
 
@@ -293,3 +295,21 @@ class StudentLessonStatusEventAdmin(admin.ModelAdmin):
     list_select_related = ("student_lesson__student__user", "student_lesson__lesson", "actor")
     ordering = ("-created_at",)
     date_hierarchy = "created_at"
+
+
+
+class VideoTranscriptInline(admin.TabularInline):
+    model = VideoTranscript
+    extra = 0
+    fields = ('language_code', 'source', 'text')
+
+
+@admin.register(YoutubeVideo)
+class YoutubeVideoAdmin(admin.ModelAdmin):
+    """YouTube videos the tutor's "Показати субтитри" panel has seen (see
+    lessons.video_subtitles) — delete a transcript (or the whole row) to
+    make the panel fetch it again."""
+
+    list_display = ('video_id', 'title', 'original_language', 'selected_language', 'created_at')
+    search_fields = ('video_id', 'title')
+    inlines = [VideoTranscriptInline]

@@ -17,11 +17,13 @@ import { Card } from "@/components/card";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { Markdown, MarkdownEditor } from "@school-ahead/markdown-editor";
 import { LessonContent } from "@/components/lesson-wizard/lesson-content";
-import { LessonSynopsisSplit } from "@/components/lesson-wizard/lesson-synopsis-split";
+import { LessonPanels } from "@/components/lesson-wizard/lesson-panels";
+import { LessonSynopsisPanel } from "@/components/lesson-wizard/lesson-synopsis-panel";
 import { LESSON_TYPE_ICON } from "@/components/simple/lesson-type-icon";
 import { formatShortDate, resolveStatusLabel } from "@/components/simple/format";
-import { Monitor, NotebookText } from "lucide-react";
+import { Captions, Monitor, NotebookText } from "lucide-react";
 import { AssignStudentDialog } from "./assign-student-dialog";
+import { LessonVideoSubtitles } from "./lesson-video-subtitles";
 
 const LESSON_TYPE_OPTIONS = [
   { value: "theory", labelKey: "contentTheory" },
@@ -192,6 +194,10 @@ export function TutorLessonDetailPage({ lessonId }: { lessonId: number }) {
   // tContentType above.
   const tSynopsis = useTranslations("LessonWizard");
   const [isEditing, setIsEditing] = useState(false);
+  const tSubtitles = useTranslations("VideoSubtitles");
+  // Side panels around the lesson content, each toggled on its own:
+  // subtitles on the left, конспект on the right (see LessonPanels).
+  const [showSubtitles, setShowSubtitles] = useState(false);
   const [showSynopsis, setShowSynopsis] = useState(false);
   const queryClient = useQueryClient();
   const updateSynopsis = useUpdateTutorLesson();
@@ -280,6 +286,20 @@ export function TutorLessonDetailPage({ lessonId }: { lessonId: number }) {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
+                onClick={() => setShowSubtitles((value) => !value)}
+                aria-pressed={showSubtitles}
+                title={showSubtitles ? tSubtitles("hideButton") : tSubtitles("showButton")}
+                aria-label={showSubtitles ? tSubtitles("hideButton") : tSubtitles("showButton")}
+                className={`flex h-9 w-9 items-center justify-center rounded-md border ${
+                  showSubtitles
+                    ? "border-gray-900 bg-gray-900 text-white"
+                    : "border-gray-300 text-gray-500 hover:bg-gray-50"
+                }`}
+              >
+                <Captions className="size-4" />
+              </button>
+              <button
+                type="button"
                 onClick={() => setShowSynopsis((value) => !value)}
                 aria-pressed={showSynopsis}
                 title={showSynopsis ? tSynopsis("hideSynopsisButton") : tSynopsis("showSynopsisButton")}
@@ -305,15 +325,21 @@ export function TutorLessonDetailPage({ lessonId }: { lessonId: number }) {
         </div>
 
         <Card className="flex flex-col gap-4">
-          {showSynopsis ? (
-            <LessonSynopsisSplit
-              key={lesson.id}
-              content={lesson.content}
-              materials={lesson.materials}
-              synopsis={lesson.synopsis}
-              onSave={saveSynopsis}
-              isSaving={updateSynopsis.isPending}
-              enableDictionary={false}
+          {showSubtitles || showSynopsis ? (
+            <LessonPanels
+              left={showSubtitles && <LessonVideoSubtitles lessonId={lesson.id} />}
+              center={<LessonContent content={lesson.content} materials={lesson.materials} />}
+              right={
+                showSynopsis && (
+                  <LessonSynopsisPanel
+                    key={lesson.id}
+                    synopsis={lesson.synopsis}
+                    onSave={saveSynopsis}
+                    isSaving={updateSynopsis.isPending}
+                    enableDictionary={false}
+                  />
+                )
+              }
             />
           ) : (
             <LessonContent content={lesson.content} materials={lesson.materials} />
