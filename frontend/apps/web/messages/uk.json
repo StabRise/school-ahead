@@ -819,7 +819,10 @@
     "languageLabel": "Мова субтитрів",
     "originalLanguage": "{language} (оригінал)",
     "sourceYoutubeAuto": "Автоматичні субтитри YouTube",
-    "untitledVideo": "Відео {index}"
+    "untitledVideo": "Відео {index}",
+    "translateButton": "Перекласти",
+    "hideTranslationButton": "Сховати переклад",
+    "translateError": "Не вдалося перекласти субтитри"
   },
   "TutorLessonDetail": {
     "loading": "Завантаження...",

@@ -1,9 +1,13 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { Languages } from "lucide-react";
 import type { SpeechLanguage } from "@school-ahead/api-client";
 import type { VideoSubtitlesOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { TranslatableContent } from "@/components/translatable-content";
+import { isTranslatorSupported, translateText } from "@/lib/chrome-translator";
+import { splitIntoSentences } from "@/lib/sentence-split";
 import { useSynopsisLanguageStore } from "@/stores/synopsis-language-store";
 
 // The languages translate-on-select and the dictionary support
@@ -20,7 +24,10 @@ const TRANSLATABLE_LANGUAGES: readonly string[] = ["en", "uk", "pl", "es"];
 // changes their own view). The text is wrapped in TranslatableContent like
 // the конспект: translate-on-select everywhere, plus "add to dictionary" /
 // "add to cards" only when `studentLessonId` is given (tutors have no
-// dictionary or cards of their own).
+// dictionary or cards of their own). The "Перекласти" button translates the
+// whole text sentence by sentence (Chrome's on-device Translator, like
+// translate-on-select) into the interface language, showing each
+// translation in small grey type under its sentence.
 export function VideoSubtitlesPanel({
   videos,
   isLoading,
@@ -93,6 +100,46 @@ function VideoSubtitles({
     TRANSLATABLE_LANGUAGES.includes(baseLanguage) ? baseLanguage : storedLanguage
   ) as SpeechLanguage;
 
+  const canTranslate = video.status === "ok" && sourceLanguage !== locale && isTranslatorSupported();
+  const paragraphs = video.text.split("\n\n").map(splitIntoSentences);
+  // Keyed by the text it was made for, so switching the subtitles language
+  // drops back to the untranslated view instead of showing stale lines.
+  const [translation, setTranslation] = useState<{
+    text: string;
+    sentences: (string | null)[][];
+    error: boolean;
+  } | null>(null);
+  const runId = useRef(0);
+  const shownTranslation = translation?.text === video.text ? translation : null;
+
+  const translate = async () => {
+    const id = ++runId.current;
+    const text = video.text;
+    const sentences = paragraphs.map((paragraph) => paragraph.map((): string | null => null));
+    setTranslation({ text, sentences, error: false });
+    try {
+      for (const [paragraphIndex, paragraph] of paragraphs.entries()) {
+        for (const [sentenceIndex, sentence] of paragraph.entries()) {
+          const translated = await translateText(sentence, sourceLanguage, locale as SpeechLanguage);
+          if (runId.current !== id) return;
+          sentences[paragraphIndex][sentenceIndex] = translated;
+          setTranslation({ text, sentences: sentences.map((row) => [...row]), error: false });
+        }
+      }
+    } catch {
+      if (runId.current === id) setTranslation({ text, sentences, error: true });
+    }
+  };
+
+  const toggleTranslation = () => {
+    if (shownTranslation) {
+      runId.current++;
+      setTranslation(null);
+    } else {
+      void translate();
+    }
+  };
+
   const languageName = (code: string) => {
     try {
       return new Intl.DisplayNames([locale], { type: "language" }).of(code) ?? code;
@@ -125,6 +172,17 @@ function VideoSubtitles({
             ))}
           </select>
           {video.status === "ok" && video.source === "youtube_auto" && <span>{t("sourceYoutubeAuto")}</span>}
+          {canTranslate && (
+            <button
+              type="button"
+              onClick={toggleTranslation}
+              aria-pressed={shownTranslation !== null}
+              className="inline-flex items-center gap-1 rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+            >
+              <Languages className="size-3.5" aria-hidden />
+              {shownTranslation ? t("hideTranslationButton") : t("translateButton")}
+            </button>
+          )}
         </div>
       )}
 
@@ -134,11 +192,38 @@ function VideoSubtitles({
           enableDictionary={studentLessonId !== undefined}
           studentLessonId={studentLessonId}
         >
-          <div lang={video.language_code || undefined} className="flex flex-col gap-3 text-sm text-gray-700">
-            {video.text.split("\n\n").map((paragraph, paragraphIndex) => (
-              <p key={paragraphIndex}>{paragraph}</p>
-            ))}
-          </div>
+          {shownTranslation ? (
+            <div className="flex flex-col gap-3 text-sm">
+              {paragraphs.map((paragraph, paragraphIndex) => (
+                <div key={paragraphIndex} className="flex flex-col gap-2">
+                  {paragraph.map((sentence, sentenceIndex) => {
+                    const translated = shownTranslation.sentences[paragraphIndex]?.[sentenceIndex];
+                    return (
+                      <p key={sentenceIndex} className="flex flex-col">
+                        <span lang={video.language_code || undefined} className="text-gray-900">
+                          {sentence}
+                        </span>
+                        {translated ? (
+                          <span lang={locale} className="text-xs text-gray-500">
+                            {translated}
+                          </span>
+                        ) : (
+                          !shownTranslation.error && <span className="text-xs text-gray-400">…</span>
+                        )}
+                      </p>
+                    );
+                  })}
+                </div>
+              ))}
+              {shownTranslation.error && <p className="text-xs text-red-600">{t("translateError")}</p>}
+            </div>
+          ) : (
+            <div lang={video.language_code || undefined} className="flex flex-col gap-3 text-sm text-gray-700">
+              {paragraphs.map((paragraph, paragraphIndex) => (
+                <p key={paragraphIndex}>{paragraph.join(" ")}</p>
+              ))}
+            </div>
+          )}
         </TranslatableContent>
       ) : (
         <p className="text-sm text-gray-500">{t(video.status === "unavailable" ? "unavailable" : "fetchError")}</p>
