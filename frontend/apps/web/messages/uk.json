@@ -653,7 +653,7 @@
   },
   "LoadLessonsJson": {
     "triggerButton": "Імпортувати уроки з JSON",
-    "title": "Завантажити уроки з JSON",
+    "title": "Імпортувати уроки з JSON",
     "stepOfTotal": "Крок {step} з 2",
     "nameLabel": "Назва",
     "descriptionLabel": "Опис (необов'язково)",
@@ -777,6 +777,8 @@
     "deleteLessonDisabledTitle": "Урок призначено учням — спершу видаліть призначення",
     "duplicateLessonButton": "Дублювати урок",
     "duplicateLessonError": "Не вдалося дублювати урок. Спробуйте ще раз.",
+    "exportLessonsJsonButton": "Експортувати уроки в JSON",
+    "exportLessonsJsonError": "Не вдалося експортувати уроки. Спробуйте ще раз.",
     "updateLessonIconsButton": "Оновити іконки уроків з YouTube",
     "updateLessonIconsConfirm": "Додати іконки (мініатюри YouTube) урокам, які ще не мають іконки? Уроки, що вже мають іконку, не змінюються.",
     "updateLessonIconsResult": "Додано іконок: {updated}. Вже мали іконку: {kept}. Без посилання на YouTube: {skipped}.",
