@@ -290,7 +290,8 @@
     "carsSubtitle": "Розв'яжи приклад і довези машинки до міста",
     "flashcardsTitle": "Картки для навчання",
     "flashcardsSubtitle": "Обери предмет і вчи картки",
-    "switchGame": "Обрати іншу гру"
+    "switchGame": "Обрати іншу гру",
+    "wordsTitle": "Слова"
   },
   "ReadingGame": {
     "settingsButton": "Налаштування",
@@ -303,6 +304,19 @@
     "levelCompleteTitle": "Молодець! Усі картки на місці!",
     "playAgainButton": "Ще раз",
     "nextLetterButton": "Далі: {letter}"
+  },
+  "WordsGame": {
+    "settingsButton": "Налаштування",
+    "languageLabel": "Мова",
+    "letterLabel": "Літера",
+    "mutedLabel": "Без звуку",
+    "counterLabel": "Переглянуто карток: {count}",
+    "empty": "Для цієї літери ще немає карток.",
+    "syllableLabel": "Склад {syllable}",
+    "previousButton": "Попередня картка",
+    "nextButton": "Наступна картка",
+    "rightButton": "Правильно",
+    "wrongButton": "Помилка"
   },
   "CardsGame": {
     "settingsButton": "Налаштування",

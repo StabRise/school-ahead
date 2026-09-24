@@ -482,6 +482,22 @@ def reward_cards_game(request: HttpRequest):
 
 
 @router.post(
+    '/me/words-game-reward',
+    response=MeOut,
+    auth=CookieOrBearerJWTAuth(),
+    operation_id='reward_words_game',
+)
+def reward_words_game(request: HttpRequest):
+    """Awards a Diamond for the "Слова" minigame's 30-card milestone
+    (frontend/packages/preschool-games/src/words-game.tsx). See
+    accounts.services.award_words_game_diamond for the trust model."""
+    require_csrf(request)
+    student = get_own_student_profile(request)
+    services.award_words_game_diamond(student)
+    return MeOut(user=_user_out(request, request.auth))
+
+
+@router.post(
     '/me/multiplication-game-reward',
     response=MeOut,
     auth=CookieOrBearerJWTAuth(),

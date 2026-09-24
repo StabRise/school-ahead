@@ -1091,3 +1091,20 @@ class TestJoinClass:
         response = api_client.post('/auth/me/join-class', json={'class_id': pre.id}, headers=auth_header(user))
 
         assert response.status_code == 403
+
+
+def test_reward_words_game_awards_one_diamond(api_client, auth_header):
+    user, student, _avatar = _make_student_with_avatar(diamonds=5)
+
+    response = api_client.post('/auth/me/words-game-reward', headers=auth_header(user))
+
+    assert response.status_code == 200
+    assert response.data['user']['diamond_balance'] == 6
+    student.refresh_from_db()
+    assert student.diamond_balance_cache == 6
+
+
+def test_reward_words_game_requires_auth(api_client):
+    response = api_client.post('/auth/me/words-game-reward')
+
+    assert response.status_code == 401

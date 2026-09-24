@@ -85,6 +85,7 @@ github actions
 - [Magic Cocktail Game](docs/preschool/games/cocktail.md)
 - [Jumping Frogs Game](docs/preschool/games/jumping-frogs.md)
 - [Math Runner Game](docs/preschool/games/multiplication.md)
+- [Words Game — "Слова"](docs/preschool/games/words.md)
 - [Reading Game — "Склади" (Syllables)](docs/preschool/games/reading/README.md)
 - [Reading Game — "Картки" (Cards)](docs/preschool/games/reading/Cards.md)
 - [Reading Game — "Казки" (Stories)](docs/preschool/games/reading/Stories.md)

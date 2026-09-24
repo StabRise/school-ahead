@@ -32,7 +32,8 @@ export type PreschoolGameId =
   | "jumping-frogs"
   | "cocktail"
   | "cars"
-  | "flashcards";
+  | "flashcards"
+  | "words";
 
 function BalloonIcon() {
   return (
@@ -63,6 +64,27 @@ function TrainIcon() {
       <rect x="6" y="18" width="42" height="28" rx="6" fill="#38bdf8" />
       <rect x="12" y="4" width="14" height="14" rx="2" fill="#38bdf8" />
       <rect x="52" y="14" width="42" height="32" rx="6" fill="#fbbf24" />
+    </svg>
+  );
+}
+
+// "Слова": a big "МА" over a picture tile.
+function WordsIcon() {
+  return (
+    <svg
+      viewBox="0 0 64 52"
+      className="h-12 w-12 drop-shadow sm:h-14 sm:w-14"
+      aria-hidden="true"
+    >
+      <rect x="4" y="4" width="56" height="44" rx="8" fill="#e0f2fe" />
+      <text x="22" y="24" textAnchor="middle" fontSize="18" fontWeight="bold" fill="#0369a1">
+        М
+      </text>
+      <text x="40" y="24" textAnchor="middle" fontSize="18" fontWeight="bold" fill="#dc2626">
+        А
+      </text>
+      <rect x="14" y="30" width="16" height="12" rx="3" fill="#fbbf24" />
+      <rect x="34" y="30" width="16" height="12" rx="3" fill="#fbbf24" />
     </svg>
   );
 }
@@ -371,6 +393,7 @@ const GAME_ACCENT_RING: Record<PreschoolGameId, string> = {
   cocktail: "ring-amber-300",
   cars: "ring-cyan-300",
   flashcards: "ring-indigo-300",
+  words: "ring-sky-300",
 };
 
 // Per-game icon + title translation-key pair, keyed off PreschoolGameId —
@@ -392,6 +415,7 @@ const GAME_CATALOG: Record<
   cocktail: { icon: CocktailIcon, titleKey: "cocktailTitle" },
   cars: { icon: CarIcon, titleKey: "carsTitle" },
   flashcards: { icon: FlashcardsIcon, titleKey: "flashcardsTitle" },
+  words: { icon: WordsIcon, titleKey: "wordsTitle" },
 };
 
 // Where each game's own /static/<folder>/cover.png (or .jpeg) lives — per
@@ -423,6 +447,7 @@ const GAME_COVER_FOLDER: Record<PreschoolGameId, string> = {
   cocktail: "cocktail",
   cars: "cars",
   flashcards: "cards",
+  words: "words",
 };
 
 // Tries <folder>/cover.png, then <folder>/cover.jpeg, then falls back to
@@ -517,7 +542,7 @@ const GAME_CATEGORIES: {
   {
     key: "reading",
     titleKey: "categoryReadingTitle",
-    games: ["reading", "stories", "jumping-frogs", "cards"],
+    games: ["reading", "stories", "jumping-frogs", "cards", "words"],
   },
   {
     key: "math",
@@ -541,6 +566,7 @@ export const GAME_URL: Record<PreschoolGameId, string> = {
   cocktail: "/games/cocktail",
   cars: "/games/cars",
   flashcards: "/games/cards",
+  words: "/games/words",
 };
 
 // The built-in game a DB Game's `url` points at, if any — see GAME_URL.

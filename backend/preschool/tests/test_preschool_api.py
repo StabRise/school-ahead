@@ -459,6 +459,12 @@ class TestGames:
             'icon_url': None,
         }
 
+    def test_seeded_picker_ends_reading_with_words_game(self, api_client):
+        response = api_client.get('/preschool/games')
+
+        reading = next(category for category in response.data if category['name'] == 'Читання')
+        assert (reading['games'][-1]['title'], reading['games'][-1]['url']) == ('Слова', '/games/words')
+
     def test_hides_inactive_games_and_categories(self, api_client):
         from preschool.models import Game, GameCategory
 
