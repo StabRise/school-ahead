@@ -1,5 +1,6 @@
 import io
 import json
+import unicodedata
 import zipfile
 
 import pytest
@@ -82,18 +83,18 @@ class TestLettersShapeSyllableImport:
         assert bool(rows[('Б', 'И')].icon)
         assert rows[('Б', 'А')].word == 'Баба'
 
-    def test_import_skips_word_not_matching_folder_consonant(self, api_client, auth_header, tutor):
+    def test_import_makes_a_card_for_every_image_regardless_of_folder(self, api_client, auth_header, tutor):
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, 'w') as archive:
             archive.writestr('Б/Бик.png', FAKE_PNG)
-            archive.writestr('Б/leftover_generated_image.jpeg', FAKE_PNG)
+            archive.writestr('Б/Мак.jpeg', FAKE_PNG)
         upload = SimpleUploadedFile('letters.zip', buffer.getvalue(), content_type='application/zip')
 
         response = api_client.post(
             '/reading/tutor/syllables/import', FILES=MultiValueDict({'file': [upload]}), headers=auth_header(tutor.user),
         )
 
-        assert response.data == {'created': 1, 'updated': 0, 'skipped': 1}
+        assert response.data == {'created': 2, 'updated': 0, 'skipped': 0}
 
     def test_import_takes_letter_from_each_word_in_a_mixed_folder(self, api_client, auth_header, tutor):
         upload = _letters_zip({'litery': ['namiot', 'balon', 'rak']})
@@ -109,6 +110,73 @@ class TestLettersShapeSyllableImport:
         assert response.data == {'created': 3, 'updated': 0, 'skipped': 0}
         rows = {(s.first_letter, s.second_part): s.word for s in Syllable.objects.filter(language='pl')}
         assert rows == {('N', 'A'): 'Namiot', ('B', 'A'): 'Balon', ('R', 'A'): 'Rak'}
+
+    def test_import_treats_a_numbered_folder_as_mixed_words(self, api_client, auth_header, tutor):
+        # A zipped-up `1/` folder (macOS Finder's "Compress").
+        upload = _letters_zip({'1': ['cebula', 'byk']})
+
+        response = api_client.post(
+            '/reading/tutor/syllables/import',
+            data={'language': 'pl'},
+            FILES=MultiValueDict({'file': [upload]}),
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.data == {'created': 2, 'updated': 0, 'skipped': 0}
+        assert set(Syllable.objects.values_list('word', flat=True)) == {'Cebula', 'Byk'}
+
+    def test_import_normalizes_decomposed_macos_names(self, api_client, auth_header, tutor):
+        # Finder's "Compress" stores names NFD-decomposed (`ą` as `a` + a
+        # combining ogonek).
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w') as archive:
+            archive.writestr(unicodedata.normalize('NFD', '1/ąkier.png'), FAKE_PNG)
+        upload = SimpleUploadedFile('mac.zip', buffer.getvalue(), content_type='application/zip')
+
+        response = api_client.post(
+            '/reading/tutor/syllables/import',
+            data={'language': 'pl'},
+            FILES=MultiValueDict({'file': [upload]}),
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.data == {'created': 1, 'updated': 0, 'skipped': 0}
+        syllable = Syllable.objects.get()
+        assert (syllable.first_letter, syllable.second_part, syllable.word) == ('Ą', 'K', 'Ąkier')
+
+    def test_import_keeps_polish_digraphs_as_one_consonant(self, api_client, auth_header, tutor):
+        upload = _letters_zip({'1': ['chata', 'czapla', 'rzeka', 'szafa', 'cebula']}, audio={'1/cza.mp3': b'mp3'})
+
+        response = api_client.post(
+            '/reading/tutor/syllables/import',
+            data={'language': 'pl'},
+            FILES=MultiValueDict({'file': [upload]}),
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.data == {'created': 5, 'updated': 0, 'skipped': 0}
+        rows = {s.word: (s.first_letter, s.second_part) for s in Syllable.objects.all()}
+        assert rows == {
+            'Chata': ('CH', 'A'),
+            'Czapla': ('CZ', 'A'),
+            'Rzeka': ('RZ', 'E'),
+            'Szafa': ('SZ', 'A'),
+            'Cebula': ('C', 'E'),
+        }
+        assert Syllable.objects.get(word='Czapla').syllable_audio
+
+    def test_import_does_not_split_digraphs_outside_polish(self, api_client, auth_header, tutor):
+        upload = _letters_zip({'litery': ['chata']})
+
+        api_client.post(
+            '/reading/tutor/syllables/import',
+            data={'language': 'en'},
+            FILES=MultiValueDict({'file': [upload]}),
+            headers=auth_header(tutor.user),
+        )
+
+        syllable = Syllable.objects.get()
+        assert (syllable.first_letter, syllable.second_part) == ('C', 'H')
 
     def test_import_reads_images_at_the_archive_root(self, api_client, auth_header, tutor):
         buffer = io.BytesIO()
