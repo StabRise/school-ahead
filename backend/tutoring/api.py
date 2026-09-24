@@ -40,7 +40,7 @@ from house import services as house_services
 from house.models import FurnitureItem, FurnitureSurface, FurnitureTexture
 from house.schemas import FurnitureTextureOut
 from lessons import services as lesson_services
-from lessons import youtube_scrape
+from lessons import video_subtitles, youtube_scrape
 from lessons.models import (
     GradingType,
     Lesson,
@@ -59,6 +59,8 @@ from lessons.schemas import (
     LessonUpdateIn,
     ProcessLessonsJsonOut,
     UpdateLessonIconsOut,
+    VideoSubtitlesLanguageIn,
+    VideoSubtitlesOut,
     YoutubeImportIn,
     YoutubeImportOut,
 )
@@ -745,6 +747,44 @@ def get_lesson(request: HttpRequest, lesson_id: int):
     )
     services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
     return lesson
+
+
+@router.get(
+    '/lessons/{lesson_id}/video-subtitles',
+    response=list[VideoSubtitlesOut],
+    operation_id='get_tutor_lesson_video_subtitles',
+)
+def get_lesson_video_subtitles(request: HttpRequest, lesson_id: int):
+    """Subtitles of every YouTube video the lesson links to, in link order —
+    the tutor Lesson detail page's "Показати субтитри" side panel. Each in
+    the tutor's picked language, else the video's original one."""
+    lesson = get_object_or_404(Lesson.objects.select_related('topic'), id=lesson_id)
+    services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
+    return [video_subtitles.video_subtitles(video_id) for video_id in video_subtitles.lesson_video_ids(lesson)]
+
+
+@router.put(
+    '/lessons/{lesson_id}/video-subtitles/{video_id}/language',
+    response=VideoSubtitlesOut,
+    operation_id='select_tutor_lesson_video_subtitles_language',
+)
+def select_lesson_video_subtitles_language(
+    request: HttpRequest, lesson_id: int, video_id: str, payload: VideoSubtitlesLanguageIn
+):
+    """The panel's per-video language dropdown. Saved on the video, so it
+    sticks for every lesson linking it."""
+    require_csrf(request)
+    lesson = get_object_or_404(Lesson.objects.select_related('topic'), id=lesson_id)
+    services.ensure_is_tutor_for_subject(request, lesson.topic.subject_id)
+    if video_id not in video_subtitles.lesson_video_ids(lesson):
+        raise HttpError(404, 'This lesson does not link that video')
+    video = video_subtitles.load_video(video_id)
+    if video is None:
+        raise HttpError(502, 'Could not reach YouTube')
+    if payload.language_code and payload.language_code not in video_subtitles.video_languages(video):
+        raise HttpError(400, f'No subtitles in {payload.language_code!r} for this video')
+    video_subtitles.select_language(video, payload.language_code)
+    return video_subtitles.video_subtitles(video_id)
 
 
 @router.patch('/lessons/{lesson_id}', response=LessonOut, operation_id='update_tutor_lesson')

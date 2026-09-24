@@ -408,3 +408,48 @@ class LessonsJson(TimeStampedModel):
 
     def __str__(self):
         return f'{self.name} — {self.subject} ({self.status})'
+
+
+
+
+class YoutubeVideo(TimeStampedModel):
+    """One YouTube video linked from lesson content, as the tutor Lesson
+    detail page's "Показати субтитри" panel knows it — see
+    lessons.video_subtitles. Filled lazily the first time the panel lists
+    it, so YouTube is asked once per video, not once per page view.
+
+    `tracks` is the subtitle tracks YouTube has ([{code, generated}]).
+    `original_language` is the spoken language — known only when YouTube
+    has an auto-generated track, which is always in it. `selected_language`
+    is the tutor's pick in the panel's language dropdown ('' = default)."""
+
+    video_id = models.CharField(max_length=11, unique=True)
+    title = models.CharField(max_length=255, blank=True)
+    original_language = models.CharField(max_length=20, blank=True)
+    tracks = models.JSONField(default=list, blank=True)
+    selected_language = models.CharField(max_length=20, blank=True)
+
+    def __str__(self):
+        return f'{self.video_id} — {self.title}'
+
+
+class TranscriptSource(models.TextChoices):
+    YOUTUBE = 'youtube', 'YouTube subtitles'
+    YOUTUBE_AUTO = 'youtube_auto', 'YouTube auto-generated subtitles'
+
+
+class VideoTranscript(models.Model):
+    """Cached subtitle text of a YoutubeVideo in one language — delete a row
+    to make the panel fetch it again."""
+
+    video = models.ForeignKey(YoutubeVideo, on_delete=models.CASCADE, related_name='transcripts')
+    language_code = models.CharField(max_length=20)
+    source = models.CharField(max_length=20, choices=TranscriptSource.choices)
+    text = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('video', 'language_code')]
+
+    def __str__(self):
+        return f'{self.video.video_id} [{self.language_code}]'

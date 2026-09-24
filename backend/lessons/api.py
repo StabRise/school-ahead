@@ -18,7 +18,7 @@ from ninja.files import UploadedFile
 from ninja.pagination import LimitOffsetPagination, paginate
 from ninja.responses import Status
 
-from . import services
+from . import services, video_subtitles
 from .models import (
     FavoriteSubject,
     Lesson,
@@ -55,6 +55,7 @@ from .schemas import (
     SubmitQuizOut,
     TopicLessonOut,
     UpdateSynopsisIn,
+    VideoSubtitlesOut,
 )
 
 router = Router(tags=['student-lessons'], auth=CookieOrBearerJWTAuth())
@@ -145,6 +146,42 @@ def cancel_self_selected_lesson(request: HttpRequest, student_lesson_id: int):
         raise HttpError(409, 'Cannot cancel a lesson that already has a submission or a comment')
     student_lesson.delete()
     return Status(204, None)
+
+
+@router.get(
+    '/{student_lesson_id}/video-subtitles',
+    response=list[VideoSubtitlesOut],
+    operation_id='get_student_lesson_video_subtitles',
+)
+def get_video_subtitles(request: HttpRequest, student_lesson_id: int):
+    """The student side of the "Показати субтитри" panel — subtitles of
+    every YouTube video the lesson links to, each in the language the tutor
+    picked for it (else the video's original). See lessons.video_subtitles."""
+    student_lesson = _get_owned(request, student_lesson_id)
+    return [
+        video_subtitles.video_subtitles(video_id)
+        for video_id in video_subtitles.lesson_video_ids(student_lesson.lesson)
+    ]
+
+
+@router.get(
+    '/{student_lesson_id}/video-subtitles/{video_id}',
+    response=VideoSubtitlesOut,
+    operation_id='get_student_lesson_video_subtitles_in_language',
+)
+def get_video_subtitles_in_language(request: HttpRequest, student_lesson_id: int, video_id: str, language: str):
+    """One video's subtitles in another language from the panel's dropdown.
+    Not saved — unlike the tutor's pick, a student's only changes their own
+    view."""
+    student_lesson = _get_owned(request, student_lesson_id)
+    if video_id not in video_subtitles.lesson_video_ids(student_lesson.lesson):
+        raise HttpError(404, 'This lesson does not link that video')
+    video = video_subtitles.load_video(video_id)
+    if video is None:
+        raise HttpError(502, 'Could not reach YouTube')
+    if language not in video_subtitles.video_languages(video):
+        raise HttpError(400, f'No subtitles in {language!r} for this video')
+    return video_subtitles.video_subtitles(video_id, language)
 
 
 @router.patch(
