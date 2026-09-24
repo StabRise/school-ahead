@@ -8,6 +8,7 @@ from accounts.models import TutorProfile
 from common.images import GAME_ICON_SIDE, STORY_ASSET_THUMBNAIL_SIDE, STORY_COVER_SIDE, icon_thumbnail_field, thumbnail_field
 from common.models import TimeStampedModel
 from common.storage import background_music_upload_to, game_icon_upload_to, story_asset_upload_to, story_cover_upload_to
+from lessons.models import QuizLanguage
 
 from .slugs import slugify_title
 
@@ -59,6 +60,9 @@ class Story(TimeStampedModel):
     # What the API sends in place of `cover_image` — see common/images.py.
     cover_thumbnail = thumbnail_field('cover_image', STORY_COVER_SIDE)
     content = models.TextField(blank=True)
+    # The language the story is written in — picked in the editor and on
+    # import, Ukrainian by default.
+    language = models.CharField(max_length=2, choices=QuizLanguage.choices, default=QuizLanguage.UK)
     is_published = models.BooleanField(default=False)
     created_by = models.ForeignKey(TutorProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name='stories')
     # Auto-generated from `title` once, at creation, and left untouched by

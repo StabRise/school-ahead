@@ -7,6 +7,8 @@ from django.core.files.base import ContentFile
 from django.http import HttpRequest
 from ninja.files import UploadedFile
 
+from lessons.models import QuizLanguage
+
 from .models import STORY_ASSET_EXTENSIONS, STORY_ASSET_REF_PREFIX, Story, StoryAsset
 
 # Matches the same "{ <ref-or-filename> }" card-group syntax the frontend's
@@ -113,7 +115,7 @@ def _parse_story_markdown(markdown: str) -> tuple[str, str, str]:
     return title, subtitle, body
 
 
-def import_story_zip(uploaded: UploadedFile, tutor_profile, request: HttpRequest) -> Story:
+def import_story_zip(uploaded: UploadedFile, tutor_profile, request: HttpRequest, language: str = QuizLanguage.UK) -> Story:
     """Imports a story.md + cover + asset-files ZIP (see build_story_zip)
     as a new, unpublished Story — the inverse of exporting one, and also a
     way to bring an existing hand-authored public/static/stories/<title>/
@@ -142,7 +144,9 @@ def import_story_zip(uploaded: UploadedFile, tutor_profile, request: HttpRequest
         if not title:
             title = PurePosixPath(story_md_name).parent.name or PurePosixPath(story_md_name).stem
 
-        story = Story.objects.create(title=title, subtitle=subtitle, content=body, created_by=tutor_profile)
+        story = Story.objects.create(
+            title=title, subtitle=subtitle, content=body, language=language, created_by=tutor_profile
+        )
 
         cover_entry = next(
             (

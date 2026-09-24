@@ -40,13 +40,13 @@ def _decode_name(info: zipfile.ZipInfo) -> str:
         return info.filename
 
 
-def _group_has_default(first_letter: str, second_part: str) -> bool:
+def _group_has_default(language: str, first_letter: str, second_part: str) -> bool:
     return Syllable.objects.filter(
-        language=QuizLanguage.UK, first_letter=first_letter, second_part=second_part, is_default=True
+        language=language, first_letter=first_letter, second_part=second_part, is_default=True
     ).exists()
 
 
-def import_syllables_archive(uploaded: UploadedFile) -> SyllableImportSummary:
+def import_syllables_archive(uploaded: UploadedFile, language: str = QuizLanguage.UK) -> SyllableImportSummary:
     """Imports Syllable rows from a ZIP — the tutor "Syllables" page's
     (/tutor/syllables) upload button. Auto-detects, per folder anywhere in
     the archive, which of two legacy asset-folder shapes it's looking at
@@ -72,7 +72,10 @@ def import_syllables_archive(uploaded: UploadedFile) -> SyllableImportSummary:
     row has its icon/audio replaced (counted as `updated`) rather than
     duplicated. A newly created row only gets `is_default=True` when its
     syllable group doesn't already have a default card (see Syllable.
-    Meta's constraint) — e.g. one already imported from the other shape."""
+    Meta's constraint) — e.g. one already imported from the other shape.
+
+    Every row is created in `language` — the tutor's pick next to the
+    upload button (Ukrainian by default)."""
     entries_by_dir: dict[PurePosixPath, list[tuple[str, zipfile.ZipInfo]]] = {}
     with zipfile.ZipFile(io.BytesIO(uploaded.read())) as archive:
         for info in archive.infolist():
@@ -90,9 +93,9 @@ def import_syllables_archive(uploaded: UploadedFile) -> SyllableImportSummary:
         for directory, entries in entries_by_dir.items():
             words_info = next((info for name, info in entries if PurePosixPath(name).name.lower() == WORDS_FILE), None)
             if words_info is not None:
-                c, u, s = _import_words_json_folder(archive, entries, words_info)
+                c, u, s = _import_words_json_folder(archive, entries, words_info, language)
             else:
-                c, u, s = _import_letters_folder(archive, directory, entries)
+                c, u, s = _import_letters_folder(archive, directory, entries, language)
             created += c
             updated += u
             skipped += s
@@ -101,7 +104,7 @@ def import_syllables_archive(uploaded: UploadedFile) -> SyllableImportSummary:
 
 
 def _import_words_json_folder(
-    archive: zipfile.ZipFile, entries: list[tuple[str, zipfile.ZipInfo]], words_info: zipfile.ZipInfo
+    archive: zipfile.ZipFile, entries: list[tuple[str, zipfile.ZipInfo]], words_info: zipfile.ZipInfo, language: str
 ) -> tuple[int, int, int]:
     """`words.json` maps a 2-letter syllable to a word; each key's sibling
     image (filename minus extension matching the key) becomes that card's
@@ -133,8 +136,8 @@ def _import_words_json_folder(
             first_letter=first_letter,
             second_part=second_part,
             word=display_word,
-            language=QuizLanguage.UK,
-            defaults={'is_default': not _group_has_default(first_letter, second_part)},
+            language=language,
+            defaults={'is_default': not _group_has_default(language, first_letter, second_part)},
         )
         icon_name = PurePosixPath(_decode_name(image_info)).name
         syllable.icon.save(icon_name, ContentFile(archive.read(image_info)), save=True)
@@ -144,7 +147,7 @@ def _import_words_json_folder(
 
 
 def _import_letters_folder(
-    archive: zipfile.ZipFile, directory: PurePosixPath, entries: list[tuple[str, zipfile.ZipInfo]]
+    archive: zipfile.ZipFile, directory: PurePosixPath, entries: list[tuple[str, zipfile.ZipInfo]], language: str
 ) -> tuple[int, int, int]:
     """No words.json — the directory's own name is the consonant, and every
     image directly inside it is one card, its filename (minus extension)
@@ -189,8 +192,8 @@ def _import_letters_folder(
             first_letter=first_letter,
             second_part=second_part,
             word=display_word,
-            language=QuizLanguage.UK,
-            defaults={'is_default': not _group_has_default(first_letter, second_part)},
+            language=language,
+            defaults={'is_default': not _group_has_default(language, first_letter, second_part)},
         )
         syllable.icon.save(PurePosixPath(_decode_name(image_info)).name, ContentFile(archive.read(image_info)), save=False)
 

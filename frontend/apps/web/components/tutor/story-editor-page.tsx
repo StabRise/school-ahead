@@ -12,7 +12,8 @@ import {
   useGetTutorPreschoolStory,
   useUpdateTutorPreschoolStory,
 } from "@school-ahead/api-client/browser/preschool/preschool";
-import type { StoryDetailOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import type { QuizLanguage, StoryDetailOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import { ContentLanguageSelect } from "@/components/tutor/content-language-select";
 import { Link, useRouter } from "@/i18n/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SimplePageContainer } from "@/components/simple/page-container";
@@ -60,6 +61,7 @@ function StoryForm({ story, onDeleted }: { story: StoryDetailOut | null; onDelet
 
   const [title, setTitle] = useState(story?.title ?? NEW_STORY_TITLE);
   const [subtitle, setSubtitle] = useState(story?.subtitle ?? "");
+  const [language, setLanguage] = useState<QuizLanguage>((story?.language as QuizLanguage | undefined) ?? "uk");
   const [content, setContent] = useState(story?.content ?? "");
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [isDirty, setIsDirty] = useState(story === null);
@@ -84,7 +86,7 @@ function StoryForm({ story, onDeleted }: { story: StoryDetailOut | null; onDelet
   const markDirty = () => setIsDirty(true);
 
   const performSave = () => {
-    const data = { title, subtitle, content, ...(coverFile ? { cover_image: coverFile } : {}) };
+    const data = { title, subtitle, content, language, ...(coverFile ? { cover_image: coverFile } : {}) };
 
     if (savedStory === null) {
       createStory.mutate(
@@ -290,6 +292,21 @@ function StoryForm({ story, onDeleted }: { story: StoryDetailOut | null; onDelet
                 markDirty();
               }}
               className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="story-language" className="text-xs font-medium text-gray-700">
+              {t("language")}
+            </label>
+            <ContentLanguageSelect
+              id="story-language"
+              value={language}
+              onChange={(value) => {
+                setLanguage(value);
+                markDirty();
+              }}
+              className="w-fit rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
             />
           </div>
 

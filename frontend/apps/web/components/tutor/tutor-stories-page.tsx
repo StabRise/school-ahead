@@ -18,7 +18,8 @@ import {
   useImportTutorPreschoolStory,
   useListTutorPreschoolStories,
 } from "@school-ahead/api-client/browser/preschool/preschool";
-import type { StoryOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import type { QuizLanguage, StoryOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import { ContentLanguageSelect } from "@/components/tutor/content-language-select";
 import { Link, useRouter } from "@/i18n/navigation";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { SimpleEntityIcon } from "@/components/simple/entity-icon";
@@ -265,7 +266,8 @@ function StoryRow({ story }: { story: StoryOut }) {
 // import_tutor_story / services.build_story_zip) as a new, unpublished
 // story — the inverse of DownloadStoryButton above, and also a way to bring
 // an existing hand-authored public/static/stories/<title>/ folder (zipped
-// up) into the DB.
+// up) into the DB. The language picker beside it is the imported story's
+// language (Ukrainian by default).
 function ImportStoryButton() {
   const t = useTranslations("TutorStories");
   const dialogs = useDialogs();
@@ -273,13 +275,14 @@ function ImportStoryButton() {
   const queryClient = useQueryClient();
   const importStory = useImportTutorPreschoolStory();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [language, setLanguage] = useState<QuizLanguage>("uk");
 
   const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-selecting the exact same file later
     if (!file) return;
     importStory.mutate(
-      { data: { file } },
+      { data: { file, language } },
       {
         onSuccess: (story) => {
           queryClient.invalidateQueries({
@@ -300,6 +303,12 @@ function ImportStoryButton() {
         accept=".zip,application/zip"
         className="hidden"
         onChange={handleFileSelected}
+      />
+      <ContentLanguageSelect
+        value={language}
+        onChange={setLanguage}
+        ariaLabel={t("importLanguageLabel")}
+        disabled={importStory.isPending}
       />
       <button
         type="button"
