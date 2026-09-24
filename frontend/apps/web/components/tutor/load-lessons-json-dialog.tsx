@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import * as Dialog from "@radix-ui/react-dialog";
-import { FileJson } from "lucide-react";
+import { FileUp } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListSubjectTopicsQueryKey } from "@school-ahead/api-client/browser/academics/academics";
 import {
@@ -109,7 +109,7 @@ export function LoadLessonsJsonDialog({ subjectId }: { subjectId: number }) {
           aria-label={t("triggerButton")}
           className="shrink-0 rounded-md border border-gray-300 p-1.5 text-gray-700 hover:bg-gray-50"
         >
-          <FileJson className="h-4 w-4" />
+          <FileUp className="h-4 w-4" />
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>

@@ -408,6 +408,21 @@ def upload_subject_lessons_json(
     ]
 
 
+@router.get(
+    '/subjects/{subject_id}/lessons-json/export',
+    response=list[dict],
+    operation_id='export_tutor_subject_lessons_json',
+)
+def export_subject_lessons_json(request: HttpRequest, subject_id: int):
+    """Powers the Subject detail page's "Export lessons to JSON" button —
+    every topic/lesson/quiz in the subject, in the same shape the "Import
+    lessons from JSON" dialog accepts. See
+    lessons.services.export_topics_and_lessons."""
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    subject = get_object_or_404(Subject, id=subject_id)
+    return lesson_services.export_topics_and_lessons(subject)
+
+
 @router.post(
     '/lessons-json/{lessons_json_id}/process',
     response=ProcessLessonsJsonOut,

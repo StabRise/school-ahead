@@ -9,6 +9,7 @@ from academics import services as academics_services
 from academics.models import Class, School, Subject, Topic
 from accounts.models import Role, StudentProfile, TutorProfile, User
 from house.models import FurnitureItem, FurnitureTexture
+from lessons import services as lesson_services
 from lessons.models import (
     Lesson,
     LessonSubmission,
@@ -1040,6 +1041,66 @@ class TestLessonsJsonUpload:
         assert process_response.status_code == 200
         assert process_response.data['topics_created'] == 1
         assert process_response.data['lessons_created'] == 1
+
+
+class TestExportSubjectLessonsJson:
+    _topics = [
+        {
+            'title': 'Fractions',
+            'description': 'Parts of a whole',
+            'lessons': [
+                {'title': 'Intro', 'lesson_type': 'theory', 'content': 'Hi'},
+                {'title': 'Practice', 'lesson_type': 'with_task', 'content': 'Read', 'task_content': 'Solve 1/2 + 1/4'},
+                {
+                    'title': 'Check',
+                    'lesson_type': 'quiz',
+                    'content': '',
+                    'quiz': [{'prompt': '1/2 = ?', 'choices': [{'text': '0.5'}, {'text': '2'}]}],
+                },
+            ],
+        }
+    ]
+
+    def test_export_matches_import_shape(self, api_client, auth_header, tutor, subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        lesson_services.import_topics_and_lessons(subject, self._topics)
+
+        response = api_client.get(f'/tutor/subjects/{subject.id}/lessons-json/export', headers=auth_header(tutor.user))
+
+        assert response.status_code == 200
+        [topic] = response.data
+        assert topic['title'] == 'Fractions'
+        assert topic['description'] == 'Parts of a whole'
+        intro, practice, check = topic['lessons']
+        assert intro == {'title': 'Intro', 'lesson_type': 'theory', 'grading_type': 'binary', 'content': 'Hi'}
+        # task_content is appended onto content on import — stripped back off
+        # on export so a round trip doesn't duplicate it.
+        assert practice['content'] == 'Read'
+        assert practice['task_content'] == 'Solve 1/2 + 1/4'
+        assert check['lesson_type'] == LessonType.WITH_QUIZ
+        assert check['quiz'][0]['prompt'] == '1/2 = ?'
+        assert check['quiz'][0]['choices'] == [{'text': '0.5', 'is_correct': True}, {'text': '2', 'is_correct': False}]
+
+    def test_export_round_trips_into_another_subject(self, api_client, auth_header, tutor, subject, other_subject):
+        TutorSubjectAssignment.objects.create(tutor=tutor, subject=subject)
+        lesson_services.import_topics_and_lessons(subject, self._topics)
+        exported = api_client.get(
+            f'/tutor/subjects/{subject.id}/lessons-json/export', headers=auth_header(tutor.user)
+        ).data
+
+        lesson_services.import_topics_and_lessons(other_subject, exported)
+
+        original = {lesson.title: lesson for lesson in Lesson.objects.filter(topic__subject=subject)}
+        for copy in Lesson.objects.filter(topic__subject=other_subject):
+            assert copy.content == original[copy.title].content
+            assert copy.task_content == original[copy.title].task_content
+            assert copy.grading_type == original[copy.title].grading_type
+        assert QuizChoice.objects.filter(question__lesson__topic__subject=other_subject, is_correct=True).count() == 1
+
+    def test_export_requires_subject_assignment(self, api_client, auth_header, tutor, subject):
+        response = api_client.get(f'/tutor/subjects/{subject.id}/lessons-json/export', headers=auth_header(tutor.user))
+
+        assert response.status_code == 403
 
 
 class TestImportSubjectYoutubePlaylist:
