@@ -4,7 +4,7 @@
 
 import type { ReadingGameCard } from "./reading-game";
 
-import { isConsonant, isSoftSign, isVowel, toLetterUnits } from "./letters";
+import { isConsonant, isSofteningI, isSoftSign, isVowel, toLetterUnits } from "./letters";
 
 // Automatically groups a word into syllable "cards" the same way the brief's
 // own worked examples do: a consonant immediately followed by a vowel
@@ -22,7 +22,9 @@ import { isConsonant, isSoftSign, isVowel, toLetterUnits } from "./letters";
 //   "Місяць" -> ["Мі", "ся", "ць"]
 // Works for Latin-letter (English/Polish/Spanish) words too, with a Polish
 // digraph (rz, sz, cz, ch — see letters.ts) as one consonant:
-//   "morze" -> ["mo", "rze"] · "szafa" -> ["sza", "fa"]
+// and a Polish consonant + "i" + vowel as one card (letters.ts's
+// isSofteningI):
+//   "morze" -> ["mo", "rze"] · "szafa" -> ["sza", "fa"] · "mial" -> ["mia", "l"]
 // This is a simple pedagogical heuristic, not a real linguistic syllable
 // splitter (it doesn't special-case apostrophes or clusters like "ЩО").
 export function splitUkrainianSyllables(word: string): string[] {
@@ -37,7 +39,10 @@ export function splitUkrainianSyllables(word: string): string[] {
       continue;
     }
     const next = letters[i + 1];
-    if (next && isConsonant(letter) && isVowel(next)) {
+    if (next && isConsonant(letter) && isSofteningI(next, letters[i + 2])) {
+      groups.push(letter + next + letters[i + 2]);
+      i += 3;
+    } else if (next && isConsonant(letter) && isVowel(next)) {
       groups.push(letter + next);
       i += 2;
     } else {
