@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import * as Dialog from "@radix-ui/react-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { Search, Upload } from "lucide-react";
 import {
@@ -10,8 +11,13 @@ import {
   useListTutorReadingSyllables,
   useSetDefaultReadingSyllable,
 } from "@school-ahead/api-client/browser/reading/reading";
-import type { QuizLanguage, SyllableOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
-import { ContentLanguageSelect } from "@/components/tutor/content-language-select";
+import type {
+  QuizLanguage,
+  SyllableImportResultOut,
+  SyllableOut,
+} from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import { FileDropzone } from "@/components/file-dropzone";
+import { CONTENT_LANGUAGES, ContentLanguageSelect } from "@/components/tutor/content-language-select";
 import { SimplePageContainer } from "@/components/simple/page-container";
 import { useDialogs } from "@/components/dialogs/app-dialogs";
 import {
@@ -95,70 +101,137 @@ function FilterPills<T extends string>({
   );
 }
 
-// Uploads a ZIP shaped like the legacy public/static/syllables/<consonant>/
-// {words.json,<syllable>.png} asset folder (see backend's reading/
-// services.py::import_syllables_archive) — the tutor "Syllables" table's
-// bulk-loading button. Same "hidden <input type=file>, click to trigger"
-// pattern as tutor-stories-page.tsx's ImportStoryButton. The language
-// picker beside it sets every imported card's language (Ukrainian by
-// default).
-function ImportSyllablesButton() {
+// "Імпортувати ZIP" — opens a dialog with the cards' language (Ukrainian by
+// default) and a drop area for the ZIP, shaped like the legacy
+// public/static/syllables/<consonant>/{words.json,<syllable>.png} or
+// public/static/letters/<consonant>/<Word>.png asset folders (see backend's
+// reading/services.py::import_syllables_archive). The result counts show
+// in the dialog once the import finishes. Same Radix dialog look as
+// load-lessons-json-dialog.tsx.
+function ImportSyllablesDialog() {
   const t = useTranslations("TutorSyllables");
-  const dialogs = useDialogs();
   const queryClient = useQueryClient();
   const importSyllables = useImportTutorReadingSyllables();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false);
   const [language, setLanguage] = useState<QuizLanguage>("uk");
+  const [file, setFile] = useState<File | null>(null);
+  const [result, setResult] = useState<SyllableImportResultOut | null>(null);
 
-  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // allow re-selecting the exact same file later
+  const handleOpenChange = (next: boolean) => {
+    // Don't drop an import that's still uploading.
+    if (!next && importSyllables.isPending) return;
+    setOpen(next);
+    if (!next) {
+      setLanguage("uk");
+      setFile(null);
+      setResult(null);
+      importSyllables.reset();
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
     if (!file) return;
     importSyllables.mutate(
       { data: { file, language } },
       {
-        onSuccess: (result) => {
+        onSuccess: (data) => {
+          setResult(data);
           queryClient.invalidateQueries({
             queryKey: getListTutorReadingSyllablesQueryKey(),
           });
-          void dialogs.alert(
-            t("importResult", {
-              created: result.created,
-              updated: result.updated,
-              skipped: result.skipped,
-            }),
-          );
         },
-        onError: () => dialogs.error(t("importError")),
       },
     );
   };
 
   return (
-    <>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".zip,application/zip"
-        className="hidden"
-        onChange={handleFileSelected}
-      />
-      <ContentLanguageSelect
-        value={language}
-        onChange={setLanguage}
-        ariaLabel={t("importLanguageLabel")}
-        disabled={importSyllables.isPending}
-      />
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        disabled={importSyllables.isPending}
-        className="flex shrink-0 items-center gap-1 rounded-md border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-      >
-        <Upload className="h-3.5 w-3.5" />
-        {importSyllables.isPending ? t("importingStatus") : t("importButton")}
-      </button>
-    </>
+    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
+      <Dialog.Trigger asChild>
+        <button
+          type="button"
+          className="flex shrink-0 items-center gap-1 rounded-md border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+        >
+          <Upload className="h-3.5 w-3.5" />
+          {t("importButton")}
+        </button>
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-md bg-white p-6 shadow-lg">
+          <Dialog.Title className="text-lg font-semibold text-gray-900">{t("importDialogTitle")}</Dialog.Title>
+          <Dialog.Description className="mt-1 text-xs text-gray-500">{t("importDialogDescription")}</Dialog.Description>
+
+          {result ? (
+            <div className="mt-4 flex flex-col gap-4">
+              <p className="rounded-md bg-gray-50 p-3 text-sm text-gray-700">
+                {t("importResult", {
+                  created: result.created,
+                  updated: result.updated,
+                  skipped: result.skipped,
+                })}
+              </p>
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  className="self-end rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white"
+                >
+                  {t("importCloseButton")}
+                </button>
+              </Dialog.Close>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <label htmlFor="syllables-import-language" className="text-xs font-medium text-gray-700">
+                  {t("importLanguageLabel")}
+                </label>
+                <ContentLanguageSelect
+                  id="syllables-import-language"
+                  value={language}
+                  onChange={setLanguage}
+                  disabled={importSyllables.isPending}
+                  className="w-fit rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 disabled:opacity-50"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-gray-700">{t("importFileLabel")}</span>
+                <FileDropzone
+                  id="syllables-import-file"
+                  hint={t("importFileHint")}
+                  multiple={false}
+                  accept=".zip,application/zip,application/x-zip-compressed"
+                  onFilesSelected={(files) => setFile(files?.[0] ?? null)}
+                />
+                {file && <p className="text-xs text-gray-500">{file.name}</p>}
+              </div>
+
+              {importSyllables.isError && <p className="text-sm text-red-600">{t("importError")}</p>}
+
+              <div className="flex justify-end gap-2">
+                <Dialog.Close asChild>
+                  <button
+                    type="button"
+                    disabled={importSyllables.isPending}
+                    className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {t("importCancelButton")}
+                  </button>
+                </Dialog.Close>
+                <button
+                  type="submit"
+                  disabled={!file || importSyllables.isPending}
+                  className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {importSyllables.isPending ? t("importingStatus") : t("importSubmitButton")}
+                </button>
+              </div>
+            </form>
+          )}
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
@@ -220,13 +293,15 @@ export function TutorSyllablesPage() {
   const [defaultFilter, setDefaultFilter] = useState<DefaultFilter>("all");
   const { sort, toggleSort } = useSortState<SortKey>("syllable");
 
-  const languages = useMemo(
-    () =>
-      Array.from(
-        new Set((syllables ?? []).map((syllable) => syllable.language)),
-      ).sort(),
-    [syllables],
-  );
+  const locale = useLocale();
+  const languageName = (code: string) => {
+    try {
+      const name = new Intl.DisplayNames([locale], { type: "language" }).of(code) ?? code;
+      return name.charAt(0).toUpperCase() + name.slice(1);
+    } catch {
+      return code;
+    }
+  };
   // Only the letters that actually have cards, in alphabet order.
   const firstLetters = useMemo(
     () =>
@@ -259,7 +334,7 @@ export function TutorSyllablesPage() {
   return (
     <SimplePageContainer title={t("title")}>
       <div className="mb-3 flex items-center justify-end gap-2">
-        <ImportSyllablesButton />
+        <ImportSyllablesDialog />
       </div>
 
       {isLoading && <p className="text-sm text-gray-500">{t("loading")}</p>}
@@ -301,17 +376,24 @@ export function TutorSyllablesPage() {
               ))}
             </select>
           </label>
-          {/* Only worth a filter once there's more than one language. */}
-          {languages.length > 1 && (
-            <FilterPills
+          {/* Every language a card can be in (backend QuizLanguage), even
+              before any card uses it — same dropdown look as the letter
+              filter. */}
+          <label className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-gray-600">
+            {t("filterLanguage")}
+            <select
               value={language}
-              options={[
-                { value: "all", label: t("filterAll") },
-                ...languages.map((code) => ({ value: code, label: code })),
-              ]}
-              onChange={setLanguage}
-            />
-          )}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="rounded-md border border-gray-300 bg-white py-1.5 pl-2 pr-7 text-sm text-gray-800 focus:border-gray-500 focus:outline-none"
+            >
+              <option value="all">{t("filterLanguageAll")}</option>
+              {CONTENT_LANGUAGES.map((code) => (
+                <option key={code} value={code}>
+                  {languageName(code)}
+                </option>
+              ))}
+            </select>
+          </label>
           <FilterPills
             value={defaultFilter}
             options={[
