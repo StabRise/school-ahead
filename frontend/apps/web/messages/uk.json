@@ -348,6 +348,8 @@
     "pickerTitle": "Обери казку",
     "pickerSubtitle": "Натисни на назву, щоб почати читати",
     "noStories": "Казок поки що немає",
+    "languageFilterLabel": "Мова казок",
+    "languageFilterAll": "Усі",
     "backToListButton": "До вибору книжок",
     "closeImageLabel": "Закрити",
     "removeImageLabel": "Видалити зображення",
