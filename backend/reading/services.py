@@ -149,16 +149,16 @@ def _import_words_json_folder(
 def _import_letters_folder(
     archive: zipfile.ZipFile, directory: PurePosixPath, entries: list[tuple[str, zipfile.ZipInfo]], language: str
 ) -> tuple[int, int, int]:
-    """No words.json — the directory's own name is the consonant, and every
-    image directly inside it is one card, its filename (minus extension)
-    the word. An image whose word doesn't start with the folder's
-    consonant (a leftover, not-yet-renamed file) is skipped. A same-named
+    """No words.json — every image directly inside the directory is one
+    card, its filename (minus extension) the word. A directory named with a
+    single letter (e.g. `Б/`) is that consonant's folder: an image whose
+    word doesn't start with it (a leftover, not-yet-renamed file) is
+    skipped. Any other directory (e.g. a `litery/` of mixed words) or the
+    archive root just takes each card's letter from its own word. A same-named
     `.mp3` becomes that card's word_audio; an exactly-2-letter one is
     shared as syllable_audio by every card whose word starts with it —
     same rules as reading.management.commands.import_reading_syllables."""
-    consonant = directory.name.upper()
-    if not consonant:
-        return 0, 0, 0
+    consonant = directory.name.upper() if len(directory.name) == 1 else None
 
     images: list[tuple[str, zipfile.ZipInfo]] = []
     audio_by_lower_word: dict[str, zipfile.ZipInfo] = {}
@@ -180,7 +180,7 @@ def _import_letters_folder(
         # A few filenames use a straight double quote where Ukrainian uses
         # an apostrophe (e.g. хом"як -> хом'як).
         normalized = word.replace('"', "'")
-        if len(normalized) < 2 or normalized[0].upper() != consonant:
+        if len(normalized) < 2 or (consonant is not None and normalized[0].upper() != consonant):
             skipped += 1
             continue
 

@@ -95,6 +95,34 @@ class TestLettersShapeSyllableImport:
 
         assert response.data == {'created': 1, 'updated': 0, 'skipped': 1}
 
+    def test_import_takes_letter_from_each_word_in_a_mixed_folder(self, api_client, auth_header, tutor):
+        upload = _letters_zip({'litery': ['namiot', 'balon', 'rak']})
+
+        response = api_client.post(
+            '/reading/tutor/syllables/import',
+            data={'language': 'pl'},
+            FILES=MultiValueDict({'file': [upload]}),
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data == {'created': 3, 'updated': 0, 'skipped': 0}
+        rows = {(s.first_letter, s.second_part): s.word for s in Syllable.objects.filter(language='pl')}
+        assert rows == {('N', 'A'): 'Namiot', ('B', 'A'): 'Balon', ('R', 'A'): 'Rak'}
+
+    def test_import_reads_images_at_the_archive_root(self, api_client, auth_header, tutor):
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w') as archive:
+            archive.writestr('Мак.png', FAKE_PNG)
+        upload = SimpleUploadedFile('root.zip', buffer.getvalue(), content_type='application/zip')
+
+        response = api_client.post(
+            '/reading/tutor/syllables/import', FILES=MultiValueDict({'file': [upload]}), headers=auth_header(tutor.user),
+        )
+
+        assert response.data == {'created': 1, 'updated': 0, 'skipped': 0}
+        assert Syllable.objects.get().word == 'Мак'
+
     def test_import_attaches_word_and_syllable_audio(self, api_client, auth_header, tutor):
         upload = _letters_zip({'Б': ['Бик']}, audio={'Б/бик.mp3': b'ID3wordaudio', 'Б/би.mp3': b'ID3syllableaudio'})
 
