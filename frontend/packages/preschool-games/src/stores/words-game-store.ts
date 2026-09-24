@@ -20,6 +20,10 @@ interface WordsGameState {
   // the picture so the child can't guess the word from it).
   show: WordsGameShow;
   setShow: (part: keyof WordsGameShow, visible: boolean) => void;
+  // The syllable in handwriting ("прописні") instead of print — only for
+  // a language that has a handwriting font (see words-game.tsx).
+  handwriting: boolean;
+  setHandwriting: (handwriting: boolean) => void;
 }
 
 export interface WordsGameShow {
@@ -39,6 +43,8 @@ export const useWordsGameStore = create<WordsGameState>()(
       setMuted: (muted) => set({ muted }),
       show: { syllable: true, icon: true, word: true },
       setShow: (part, visible) => set((state) => ({ show: { ...state.show, [part]: visible } })),
+      handwriting: false,
+      setHandwriting: (handwriting) => set({ handwriting }),
     }),
     { name: "words-game-store" },
   ),

@@ -10,6 +10,21 @@
 @source "../../../packages/preschool-games/src";
 @source "../../../packages/preschool-ui/src";
 @source "../../../packages/house-3d/src";
+
+/* Handwriting ("прописні") fonts for the «Слова» game's syllable
+   (packages/preschool-games/src/words-game.tsx, see its HANDWRITING_FONTS):
+   Ukrainian school cursive and the Polish "Elementarz" primer script. */
+@font-face {
+  font-family: "Propysy";
+  src: url("/fonts/Propysy-Regular.otf") format("opentype");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Elementarz";
+  src: url("/fonts/elementarz1.ttf") format("truetype");
+  font-display: swap;
+}
 @source "../../../packages/flashcards/src";
 @source "../../../packages/avatar/src";
 

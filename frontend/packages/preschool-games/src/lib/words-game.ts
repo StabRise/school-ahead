@@ -70,6 +70,13 @@ export function toWordsGameCards(rows: SyllableOut[], language: string): WordsGa
     .sort((a, b) => compareSyllables(a.syllable, b.syllable) || a.word.localeCompare(b.word, language));
 }
 
+// How a syllable is shown on screen: a capital first letter, the rest
+// lowercase — "МА" -> "Ма", "MO" -> "Mo" — the way primers write them.
+export function syllableForDisplay(syllable: string, language: string): string {
+  const [first = "", ...rest] = [...syllable];
+  return first.toLocaleUpperCase(language) + rest.join("").toLocaleLowerCase(language);
+}
+
 // Every this-many cards looked at award a Diamond (backend accounts.
 // services.award_words_game_diamond).
 export const WORDS_GAME_DIAMOND_THRESHOLD = 30;

@@ -16,6 +16,7 @@ import { WordCardRow } from "./lib/syllable-card";
 import {
   isVowel,
   splitIntoReadingSegments,
+  syllableForDisplay,
   toWordsGameCards,
   WORDS_GAME_DIAMOND_THRESHOLD,
   type WordsGameCard,
@@ -33,6 +34,14 @@ import { useWordsGameStore, type WordsGameShow } from "./stores/words-game-store
 
 // Backend lessons.models.QuizLanguage — also the Piper voices TTS has.
 const GAME_LANGUAGES: readonly SpeechLanguage[] = ["uk", "en", "pl", "es"];
+
+// The handwriting ("прописні") font for the syllable, per language — the
+// @font-face rules live in apps/web's globals.css. A language missing here
+// has print only, and the setting is hidden for it.
+const HANDWRITING_FONTS: Partial<Record<SpeechLanguage, string>> = {
+  uk: '"Propysy", cursive',
+  pl: '"Elementarz", cursive',
+};
 
 export function WordsGame() {
   const t = useTranslations("WordsGame");
@@ -52,6 +61,9 @@ export function WordsGame() {
   const setMuted = useWordsGameStore((s) => s.setMuted);
   const show = useWordsGameStore((s) => s.show);
   const setShow = useWordsGameStore((s) => s.setShow);
+  const handwriting = useWordsGameStore((s) => s.handwriting);
+  const setHandwriting = useWordsGameStore((s) => s.setHandwriting);
+  const handwritingFont = HANDWRITING_FONTS[language];
 
   const consonantsQuery = useListReadingConsonants({ language }, { query: { staleTime: Infinity } });
   const consonants = useMemo(
@@ -148,6 +160,19 @@ export function WordsGame() {
               ))}
             </select>
           </label>
+          {handwritingFont && (
+            <label className="flex flex-col gap-1">
+              <span className="font-medium text-gray-700">{t("letterStyleLabel")}</span>
+              <select
+                value={handwriting ? "handwriting" : "print"}
+                onChange={(e) => setHandwriting(e.target.value === "handwriting")}
+                className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
+              >
+                <option value="print">{t("letterStylePrint")}</option>
+                <option value="handwriting">{t("letterStyleHandwriting")}</option>
+              </select>
+            </label>
+          )}
           <fieldset className="flex flex-col gap-1">
             <legend className="mb-1 font-medium text-gray-700">{t("showLabel")}</legend>
             {(["syllable", "icon", "word"] as const).map((part) => (
@@ -187,6 +212,7 @@ export function WordsGame() {
           language={language}
           muted={muted}
           show={show}
+          syllableFont={handwriting ? handwritingFont : undefined}
           onCardShown={() => setSeen((current) => current + 1)}
         />
       )}
@@ -201,12 +227,15 @@ function WordsDeck({
   language,
   muted,
   show,
+  syllableFont,
   onCardShown,
 }: {
   cards: WordsGameCard[];
   language: SpeechLanguage;
   muted: boolean;
   show: WordsGameShow;
+  // A handwriting font-family for the syllable; print when undefined.
+  syllableFont?: string;
   onCardShown: () => void;
 }) {
   const t = useTranslations("WordsGame");
@@ -262,9 +291,12 @@ function WordsDeck({
             type="button"
             onClick={() => void playSyllable()}
             aria-label={t("syllableLabel", { syllable: card.syllable })}
-            className="cursor-pointer text-[6rem] font-extrabold leading-none tracking-wider sm:text-[9rem]"
+            style={syllableFont ? { fontFamily: syllableFont } : undefined}
+            className={`cursor-pointer text-[6rem] leading-none sm:text-[9rem] ${
+              syllableFont ? "font-normal" : "font-extrabold tracking-wider"
+            }`}
           >
-            {[...card.syllable].map((letter, letterIndex) => (
+            {[...syllableForDisplay(card.syllable, language)].map((letter, letterIndex) => (
               <span key={letterIndex} style={{ color: isVowel(letter) ? "#dc2626" : "#0369a1" }}>
                 {letter}
               </span>

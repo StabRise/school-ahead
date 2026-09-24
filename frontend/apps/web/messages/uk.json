@@ -309,6 +309,9 @@
     "settingsButton": "Налаштування",
     "languageLabel": "Мова",
     "letterLabel": "Літера",
+    "letterStyleLabel": "Літери складу",
+    "letterStylePrint": "Друковані",
+    "letterStyleHandwriting": "Прописні",
     "showLabel": "Показувати",
     "show": {
       "syllable": "Склад",

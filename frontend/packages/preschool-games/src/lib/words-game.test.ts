@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SyllableOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
-import { isVowel, splitIntoReadingSegments, toWordsGameCards } from "./words-game";
+import { isVowel, splitIntoReadingSegments, syllableForDisplay, toWordsGameCards } from "./words-game";
 
 describe("splitIntoReadingSegments", () => {
   it.each([
@@ -52,5 +52,13 @@ describe("toWordsGameCards", () => {
     );
     expect(cards.map((card) => card.word)).toEqual(["Мавпа", "Мак", "Муха"]);
     expect(cards[0].syllable).toBe("МА");
+  });
+});
+
+describe("syllableForDisplay", () => {
+  it("capitalizes the first letter only", () => {
+    expect(syllableForDisplay("МА", "uk")).toBe("Ма");
+    expect(syllableForDisplay("mo", "pl")).toBe("Mo");
+    expect(syllableForDisplay("ЇЖ", "uk")).toBe("Їж");
   });
 });
