@@ -1,23 +1,11 @@
 import type { SyllableOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
+import { isVowel, toLetterUnits } from "./letters";
 import { compareSyllables } from "./reading-game";
 
 // Pure helpers for the "Слова" (Words) minigame — see words-game.tsx and
 // docs/preschool/games/words.md.
 
-// Every vowel across the languages a reading.Syllable card can be in
-// (backend lessons.models.QuizLanguage): Ukrainian, plus the Latin vowels
-// English/Polish/Spanish use (Y counts as one — it is in Polish, and a
-// word-final English/Spanish "y" reads as one for a beginner).
-const VOWELS = new Set([
-  ..."АОУЕИІЯЮЄЇ",
-  ..."AEIOUY",
-  ..."ĄĘÓ",
-  ..."ÁÉÍÚÜ",
-]);
-
-export function isVowel(letter: string): boolean {
-  return VOWELS.has(letter.toLocaleUpperCase());
-}
+export { isVowel };
 
 // Never start or stand as a card of their own — see splitIntoReadingSegments.
 const ATTACHING_MARKS = new Set(["ь", "Ь", "'", "’", "ʼ"]);
@@ -26,12 +14,13 @@ const ATTACHING_MARKS = new Set(["ь", "Ь", "'", "’", "ʼ"]);
 // stories are written with (.claude/skills/stories-game-content/SKILL.md,
 // "The syllable-splitting algorithm"): each vowel pairs with the one
 // consonant right before it; any other consonants stand alone; a soft
-// sign/apostrophe rides along with the consonant before it.
-//   вовк -> во, в, к · лисичка -> ли, си, ч, ка · мама -> ма, ма
+// sign/apostrophe rides along with the consonant before it, and a Polish
+// digraph (rz, sz, cz, ch — see letters.ts) is one consonant.
+//   вовк -> во, в, к · лисичка -> ли, си, ч, ка · morze -> mo, rze
 export function splitIntoReadingSegments(word: string): string[] {
   const segments: string[] = [];
   let buffer: string[] = [];
-  for (const letter of word.trim()) {
+  for (const letter of toLetterUnits(word.trim())) {
     if (ATTACHING_MARKS.has(letter)) {
       if (buffer.length > 0) buffer[buffer.length - 1] += letter;
       else if (segments.length > 0) segments[segments.length - 1] += letter;

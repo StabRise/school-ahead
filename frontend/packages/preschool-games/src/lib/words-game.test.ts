@@ -15,6 +15,11 @@ describe("splitIntoReadingSegments", () => {
     ["м'яч", ["м'я", "ч"]],
     ["banana", ["ba", "na", "na"]],
     ["mleko", ["m", "le", "ko"]],
+    ["morze", ["mo", "rze"]],
+    ["Rzeka", ["Rze", "ka"]],
+    ["szafa", ["sza", "fa"]],
+    ["chleb", ["ch", "le", "b"]],
+    ["kaczka", ["ka", "cz", "ka"]],
   ])("%s", (word, segments) => {
     expect(splitIntoReadingSegments(word)).toEqual(segments);
   });

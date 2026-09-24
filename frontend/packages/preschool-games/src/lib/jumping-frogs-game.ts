@@ -4,43 +4,7 @@
 
 import type { ReadingGameCard } from "./reading-game";
 
-const UK_VOWELS = new Set(["А", "О", "У", "Е", "И", "І", "Я", "Ю", "Є", "Ї"]);
-const UK_CONSONANTS = new Set([
-  "Б",
-  "В",
-  "Г",
-  "Ґ",
-  "Д",
-  "Ж",
-  "З",
-  "Й",
-  "К",
-  "Л",
-  "М",
-  "Н",
-  "П",
-  "Р",
-  "С",
-  "Т",
-  "Ф",
-  "Х",
-  "Ц",
-  "Ч",
-  "Ш",
-  "Щ",
-]);
-
-function isVowelLetter(letter: string): boolean {
-  return UK_VOWELS.has(letter.toLocaleUpperCase("uk"));
-}
-
-function isConsonantLetter(letter: string): boolean {
-  return UK_CONSONANTS.has(letter.toLocaleUpperCase("uk"));
-}
-
-function isSoftSign(letter: string): boolean {
-  return letter.toLocaleUpperCase("uk") === "Ь";
-}
+import { isConsonant, isSoftSign, isVowel, toLetterUnits } from "./letters";
 
 // Automatically groups a word into syllable "cards" the same way the brief's
 // own worked examples do: a consonant immediately followed by a vowel
@@ -56,11 +20,13 @@ function isSoftSign(letter: string): boolean {
 //   "Торт"   -> ["То", "р", "т"]
 //   "Маяк"   -> ["Ма", "я", "к"]
 //   "Місяць" -> ["Мі", "ся", "ць"]
+// Works for Latin-letter (English/Polish/Spanish) words too, with a Polish
+// digraph (rz, sz, cz, ch — see letters.ts) as one consonant:
+//   "morze" -> ["mo", "rze"] · "szafa" -> ["sza", "fa"]
 // This is a simple pedagogical heuristic, not a real linguistic syllable
-// splitter (it doesn't special-case digraphs, apostrophes, or clusters like
-// "ЩО") — no example in the brief needs more than this.
+// splitter (it doesn't special-case apostrophes or clusters like "ЩО").
 export function splitUkrainianSyllables(word: string): string[] {
-  const letters = [...word];
+  const letters = toLetterUnits(word);
   const groups: string[] = [];
   let i = 0;
   while (i < letters.length) {
@@ -71,7 +37,7 @@ export function splitUkrainianSyllables(word: string): string[] {
       continue;
     }
     const next = letters[i + 1];
-    if (next && isConsonantLetter(letter) && isVowelLetter(next)) {
+    if (next && isConsonant(letter) && isVowel(next)) {
       groups.push(letter + next);
       i += 2;
     } else {

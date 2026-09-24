@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useDefaultSyllables } from "./default-syllables";
 import type { StoryWordSegment } from "./story-parser";
-import { isVowel } from "./words-game";
+import { isVowel } from "./letters";
 
 // Shared syllable/letter "card" rendering — originally built for the
 // "Казки" (Stories) minigame (docs/preschool/games/reading/Stories.md §3)
@@ -162,7 +162,7 @@ export function WordSegmentCard({
   const showIcon = syllableCard && !imageFailed;
 
   // Big colored letters (vowel red, consonant blue — Latin vowels too,
-  // see words-game.ts's isVowel) fill the card, same as the plain-letter
+  // see letters.ts's isVowel) fill the card, same as the plain-letter
   // fallback below always drew — a known two-letter syllable additionally
   // gets its default reading.Syllable card's picture as a small badge in
   // the bottom-right corner, matching how the old hand-drawn
@@ -248,7 +248,7 @@ export function WordCardRow({
   return (
     <span
       className={`inline-flex items-center border-gray-700 bg-white shadow ${
-        size === "lg" ? "gap-5 rounded-[1.875rem] border-[10px] p-5" : "gap-1 rounded-xl border-2 p-1"
+        size === "lg" ? "gap-5 rounded-[1.875rem] border-[1px] p-5" : "gap-1 rounded-xl border-2 p-1"
       }`}
     >
       {cards}
