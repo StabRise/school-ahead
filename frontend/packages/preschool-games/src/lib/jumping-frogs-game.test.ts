@@ -36,6 +36,12 @@ describe("splitUkrainianSyllables", () => {
     expect(splitUkrainianSyllables("czapka")).toEqual(["cza", "p", "ka"]);
     expect(splitUkrainianSyllables("dom")).toEqual(["do", "m"]);
   });
+
+  it("keeps a Polish consonant + i + vowel on one card", () => {
+    expect(splitUkrainianSyllables("mial")).toEqual(["mia", "l"]);
+    expect(splitUkrainianSyllables("niebo")).toEqual(["nie", "bo"]);
+    expect(splitUkrainianSyllables("Ліана")).toEqual(["Лі", "а", "на"]);
+  });
 });
 
 const CARDS: ReadingGameCard[] = [

@@ -39,6 +39,7 @@ async function listDbStories(): Promise<StorySummary[]> {
       slug: row.slug,
       title: row.title,
       cover: row.cover_image,
+      language: row.language,
     }));
   } catch (err) {
     // The backend may be genuinely unreachable (e.g. frontend-only local
@@ -97,7 +98,8 @@ async function listStaticStories(): Promise<StorySummary[]> {
       ).catch(() => null);
       if (content === null) return null;
       const cover = await findCover(slug);
-      return { slug, title: parseStoryTitle(content) || slug, cover };
+      // The static folk-tale set is all Ukrainian.
+      return { slug, title: parseStoryTitle(content) || slug, cover, language: "uk" };
     }),
   );
   return staticStories.filter((story): story is StorySummary => story !== null);

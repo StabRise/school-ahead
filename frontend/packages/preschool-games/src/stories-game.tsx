@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
@@ -26,6 +26,7 @@ import { StoryBook } from "./story-book";
 import { GAME_ROW_TOP } from "./kit/game-controls";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
 import { useLocaleAwareGamesRouter } from "./kit/use-locale-aware-router";
+import { useStoriesGameStore } from "./stores/stories-game-store";
 
 // Preschool "Казки" (Stories) reading minigame — see docs/preschool/games/
 // reading/Stories.md for the design brief. Two screens:
@@ -809,20 +810,70 @@ function BookShelf({
   );
 }
 
+// The picker's language filter order (backend lessons.models.QuizLanguage),
+// Ukrainian first; a language only gets a pill once a story is in it.
+const STORY_LANGUAGE_ORDER = ["uk", "en", "pl", "es"];
+
 function StoryPicker({
-  stories,
+  stories: allStories,
   onSelect,
 }: {
   stories: StorySummary[];
   onSelect: (slug: string) => void;
 }) {
   const t = useTranslations("StoriesGame");
+  const locale = useLocale();
+  const storedFilter = useStoriesGameStore((s) => s.languageFilter);
+  const setLanguageFilter = useStoriesGameStore((s) => s.setLanguageFilter);
+
+  const languages = useMemo(() => {
+    const present = new Set(allStories.map((story) => story.language));
+    const rank = (code: string) => {
+      const index = STORY_LANGUAGE_ORDER.indexOf(code);
+      return index === -1 ? STORY_LANGUAGE_ORDER.length : index;
+    };
+    return [...present].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  }, [allStories]);
+  // A remembered language with no stories (any more) shows everything.
+  const languageFilter = languages.includes(storedFilter) ? storedFilter : "all";
+  const stories =
+    languageFilter === "all" ? allStories : allStories.filter((story) => story.language === languageFilter);
+
+  const languageName = (code: string) => {
+    try {
+      const name = new Intl.DisplayNames([locale], { type: "language" }).of(code) ?? code;
+      return name.charAt(0).toUpperCase() + name.slice(1);
+    } catch {
+      return code;
+    }
+  };
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
       <div className="flex flex-col items-center gap-1">
         <p className="text-2xl font-bold text-gray-700">{t("pickerTitle")}</p>
         <p className="text-sm text-gray-500">{t("pickerSubtitle")}</p>
       </div>
+      {languages.length > 0 && (
+        <div role="group" aria-label={t("languageFilterLabel")} className="flex flex-wrap justify-center gap-2">
+          {["all", ...languages].map((code) => {
+            const active = code === languageFilter;
+            return (
+              <button
+                key={code}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setLanguageFilter(code)}
+                className={`preschool-button cursor-pointer rounded-full px-4 py-1.5 text-sm font-bold shadow ring-2 ${
+                  active ? "bg-violet-500 text-white ring-violet-500" : "bg-white text-gray-700 ring-violet-200"
+                }`}
+              >
+                {code === "all" ? t("languageFilterAll") : languageName(code)}
+              </button>
+            );
+          })}
+        </div>
+      )}
       {stories.length === 0 ? (
         <p className="text-gray-500">{t("noStories")}</p>
       ) : (

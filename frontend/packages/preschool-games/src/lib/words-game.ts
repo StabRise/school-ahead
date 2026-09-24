@@ -1,5 +1,5 @@
 import type { SyllableOut } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
-import { isVowel, toLetterUnits } from "./letters";
+import { isSofteningI, isVowel, toLetterUnits } from "./letters";
 import { compareSyllables } from "./reading-game";
 
 // Pure helpers for the "Слова" (Words) minigame — see words-game.tsx and
@@ -15,15 +15,25 @@ const ATTACHING_MARKS = new Set(["ь", "Ь", "'", "’", "ʼ"]);
 // "The syllable-splitting algorithm"): each vowel pairs with the one
 // consonant right before it; any other consonants stand alone; a soft
 // sign/apostrophe rides along with the consonant before it, and a Polish
-// digraph (rz, sz, cz, ch — see letters.ts) is one consonant.
-//   вовк -> во, в, к · лисичка -> ли, си, ч, ка · morze -> mo, rze
+// digraph (rz, sz, cz, ch — see letters.ts) is one consonant, and a Polish
+// consonant + "i" + vowel is one card (isSofteningI).
+//   вовк -> во, в, к · лисичка -> ли, си, ч, ка · morze -> mo, rze · mial -> mia, l
 export function splitIntoReadingSegments(word: string): string[] {
   const segments: string[] = [];
   let buffer: string[] = [];
-  for (const letter of toLetterUnits(word.trim())) {
+  const units = toLetterUnits(word.trim());
+  for (let index = 0; index < units.length; index++) {
+    const letter = units[index];
     if (ATTACHING_MARKS.has(letter)) {
       if (buffer.length > 0) buffer[buffer.length - 1] += letter;
       else if (segments.length > 0) segments[segments.length - 1] += letter;
+      continue;
+    }
+    if (buffer.length > 0 && isSofteningI(letter, units[index + 1])) {
+      const last = buffer.pop();
+      segments.push(...buffer, `${last}${letter}${units[index + 1]}`);
+      buffer = [];
+      index += 1;
       continue;
     }
     if (isVowel(letter)) {

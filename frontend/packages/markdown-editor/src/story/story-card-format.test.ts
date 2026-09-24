@@ -11,6 +11,7 @@ describe("formatSelectionAsCards", () => {
   it("keeps Polish rz/sz/cz/ch together as one consonant", () => {
     expect(formatSelectionAsCards("morze")).toBe("{mo-rze}");
     expect(formatSelectionAsCards("szary kot")).toBe("{sza-ry} {ko-t}");
+    expect(formatSelectionAsCards("mial")).toBe("{mia-l}");
   });
 
   it("wraps each space-separated word in its own group and keeps whitespace", () => {

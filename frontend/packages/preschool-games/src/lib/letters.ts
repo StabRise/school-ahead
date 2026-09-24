@@ -44,3 +44,11 @@ export function toLetterUnits(word: string): string[] {
   }
   return units;
 }
+
+// Polish (Latin) "i" between a consonant and a vowel only softens the
+// consonant — "mia", "nie", "sie" — so the consonant, the "i" and the vowel
+// read (and split) as one card: "mial" -> mia - l. Ukrainian "і" is never
+// this: it's always its own vowel ("ліана" -> лі - а - на).
+export function isSofteningI(unit: string, next: string | undefined): boolean {
+  return (unit === "i" || unit === "I") && next !== undefined && isVowel(next);
+}
