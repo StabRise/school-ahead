@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { Calendar, Crown, Eye, EyeOff, GripVertical, RefreshCw } from "lucide-react";
+import { Calendar, Crown, Eye, EyeOff, GripVertical, RefreshCw, Trash2 } from "lucide-react";
 import type {
   AssignmentOut,
   SubjectGroupOut,
@@ -11,6 +11,7 @@ import type {
 } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import {
   getGetTutorClassQueryKey,
+  useDeleteTutorSubject,
   useGetTutorClass,
   useRecalculateClassWorkload,
   useReorderTutorClassSubjects,
@@ -30,6 +31,7 @@ import { moveGroup } from "@/lib/move-group";
 import { subjectGroupLabel } from "@/lib/subject-group-label";
 import { useTabQueryParam } from "@/lib/use-tab-query-param";
 import { CreateSubjectDialog } from "./create-subject-dialog";
+import { CreateSubjectGroupDialog } from "./create-subject-group-dialog";
 import { LoadSubjectMarkdownDialog } from "./load-subject-markdown-dialog";
 import { PlanLessonsDialog } from "./plan-lessons-dialog";
 import { UploadPlanDialog } from "./upload-plan-dialog";
@@ -83,6 +85,8 @@ function SubjectRow({
   onDropOnThisSubject,
   onToggleMarked,
   markPending,
+  onDelete,
+  deletePending,
 }: {
   subject: AssignmentOut;
   isDragging: boolean;
@@ -92,6 +96,9 @@ function SubjectRow({
   onDropOnThisSubject: () => void;
   onToggleMarked: () => void;
   markPending: boolean;
+  // Only the class teacher can delete a subject — undefined hides the bin.
+  onDelete?: () => void;
+  deletePending: boolean;
 }) {
   const t = useTranslations("TutorClassDetail");
   const workloadValue = subject.block_workloads.map((w) => (w === null ? "—" : w.toFixed(2))).join(" / ");
@@ -142,6 +149,18 @@ function SubjectRow({
         <IsFilledBadge isFilled={subject.is_filled} />
       </Link>
       <ShelfMarkButton marked={subject.is_marked} disabled={markPending} onToggle={onToggleMarked} />
+      {onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={deletePending}
+          title={t("deleteSubjectButton")}
+          aria-label={t("deleteSubjectButton")}
+          className="shrink-0 rounded p-1 text-gray-300 hover:bg-gray-100 hover:text-red-600 disabled:opacity-50"
+        >
+          <Trash2 className="size-4" aria-hidden="true" />
+        </button>
+      )}
     </li>
   );
 }
@@ -223,6 +242,8 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
   const reorderGroups = useReorderTutorSubjectGroups();
   const setSubjectMarked = useSetSubjectMarked();
   const setGroupMarked = useSetSubjectGroupMarked();
+  const deleteSubject = useDeleteTutorSubject();
+  const dialogs = useDialogs();
   const [draggedSubjectId, setDraggedSubjectId] = useState<number | null>(null);
   const [draggedGroupId, setDraggedGroupId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useTabQueryParam("subjects");
@@ -326,6 +347,22 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
       { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetTutorClassQueryKey(classId) }) },
     );
 
+  const handleDeleteSubject = async (subject: AssignmentOut) => {
+    const confirmed = await dialogs.confirm({
+      message: t("deleteSubjectConfirm", { name: subject.subject_name }),
+      confirmLabel: t("deleteSubjectButton"),
+      tone: "danger",
+    });
+    if (!confirmed) return;
+    deleteSubject.mutate(
+      { subjectId: subject.subject_id },
+      {
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetTutorClassQueryKey(classId) }),
+        onError: () => dialogs.error(t("deleteSubjectError")),
+      },
+    );
+  };
+
   const toggleGroupMarked = (groupId: number, isMarked: boolean) =>
     setGroupMarked.mutate(
       { groupId, data: { is_marked: !isMarked } },
@@ -424,8 +461,11 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
                   {(setSubjectMarked.isError || setGroupMarked.isError) && (
                     <p className="text-xs text-red-600">{t("markError")}</p>
                   )}
-                  {data.subjects.length === 0 ? (
-                    <p className="text-sm text-gray-500">{t("noSubjects")}</p>
+                  {visibleSections.length === 0 ? (
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-gray-500">{t("noSubjects")}</p>
+                      <CreateSubjectGroupDialog onCreated={(group) => setActiveGroupKey(String(group.id))} />
+                    </div>
                   ) : (
                     <div className="flex flex-col gap-2">
                       <div role="tablist" className="flex flex-wrap gap-1 border-b border-gray-200">
@@ -494,6 +534,7 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
                             </div>
                           );
                         })}
+                        <CreateSubjectGroupDialog onCreated={(group) => setActiveGroupKey(String(group.id))} />
                       </div>
                       {activeSection && (
                         <div
@@ -526,6 +567,8 @@ export function TutorClassDetailPage({ classId }: { classId: number }) {
                                   }
                                   onToggleMarked={() => toggleSubjectMarked(subject)}
                                   markPending={setSubjectMarked.isPending}
+                                  onDelete={data.is_class_teacher ? () => handleDeleteSubject(subject) : undefined}
+                                  deletePending={deleteSubject.isPending}
                                 />
                               ))}
                             </ul>
