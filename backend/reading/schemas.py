@@ -1,5 +1,7 @@
 from ninja import Schema
 
+from lessons.models import QuizLanguage
+
 from common.images import icon_url
 
 
@@ -40,3 +42,13 @@ class SyllableImportResultOut(Schema):
     created: int
     updated: int
     skipped: int
+
+
+class SyllablePatchIn(Schema):
+    """The /tutor/syllables table's inline edit — every field optional, only
+    the ones sent change."""
+
+    first_letter: str | None = None
+    second_part: str | None = None
+    word: str | None = None
+    language: QuizLanguage | None = None

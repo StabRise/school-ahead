@@ -29,7 +29,8 @@ class Syllable(models.Model):
     representative card for that syllable rather than the full set."""
 
     first_letter = models.CharField(max_length=4)
-    second_part = models.CharField(max_length=4)
+    # Empty for a word starting with a vowel (Арбуз -> А + '').
+    second_part = models.CharField(max_length=4, blank=True)
     icon = models.FileField(upload_to=syllable_icon_upload_to, blank=True)
     # What the API sends in place of `icon` — see common/images.py.
     icon_thumbnail = icon_thumbnail_field(SYLLABLE_ICON_SIDE)
