@@ -68,6 +68,7 @@ from lessons.schemas import (
 from . import services
 from .models import TutorSubjectAssignment
 from .schemas import (
+    CreateSubjectGroupIn,
     AssignableLessonOut,
     AssignDayLessonIn,
     AssignmentOut,
@@ -84,6 +85,7 @@ from .schemas import (
     SetNeedReviewIn,
     SetCanDoAnyLessonIn,
     SetSubjectAttestationTypeIn,
+    SetSubjectGroupIn,
     SetSubjectFilledIn,
     SetTopicBlockIn,
     SubjectLessonStudentOut,
@@ -260,6 +262,23 @@ def update_tutor_subject(request: HttpRequest, subject_id: int, payload: UpdateS
     subject = get_object_or_404(Subject.objects.select_related('school_class', 'group'), id=subject_id)
     subject.name = name
     subject.save(update_fields=['name'])
+    return subject
+
+
+@router.patch('/subjects/{subject_id}/group', response=SubjectOut, operation_id='set_tutor_subject_group')
+def set_tutor_subject_group(request: HttpRequest, subject_id: int, payload: SetSubjectGroupIn):
+    """The "Категорія" dropdown on the tutor's Subject detail page — the
+    same move as dragging the subject onto another category tab on the
+    Class detail page (reorder_class_subjects), so the same tutors may do
+    it. The subject goes to the end of its new category."""
+    require_csrf(request)
+    services.ensure_is_tutor_for_subject(request, subject_id)
+    subject = get_object_or_404(Subject.objects.select_related('school_class', 'group'), id=subject_id)
+    group = get_object_or_404(SubjectGroup, id=payload.group_id) if payload.group_id is not None else None
+    if subject.group_id != (group.id if group else None):
+        subject.group = group
+        subject.order_index = academics_services.assign_subject_order_index(subject)
+        subject.save(update_fields=['group', 'order_index'])
     return subject
 
 
@@ -1229,6 +1248,19 @@ def create_tutor_class_subject(request: HttpRequest, class_id: int, payload: Cre
     return _assignment_out(assignment, request)
 
 
+@router.delete('/subjects/{subject_id}', response={204: None}, operation_id='delete_tutor_subject')
+def delete_tutor_subject(request: HttpRequest, subject_id: int):
+    """The bin on a subject row of the tutor's Class detail page — deletes
+    the subject with everything under it (topics, lessons, students'
+    progress). Restricted to the class's homeroom teacher, the same tutor
+    who can create one (create_tutor_class_subject above)."""
+    require_csrf(request)
+    subject = get_object_or_404(Subject, id=subject_id)
+    services.ensure_is_class_teacher(request, subject.school_class_id)
+    subject.delete()
+    return 204, None
+
+
 @router.patch('/classes/{class_id}/subjects/reorder', operation_id='reorder_tutor_class_subjects')
 def reorder_class_subjects(request: HttpRequest, class_id: int, payload: SubjectsReorderIn):
     """Bulk-updates Subject.order_index (and, for a dragged-across-group
@@ -1257,6 +1289,21 @@ def reorder_class_subjects(request: HttpRequest, class_id: int, payload: Subject
 
     Subject.objects.bulk_update(updated, ['order_index', 'group'])
     return {'updated': len(updated)}
+
+
+@router.post('/subject-groups', response=SubjectGroupOut, operation_id='create_tutor_subject_group')
+def create_subject_group(request: HttpRequest, payload: CreateSubjectGroupIn):
+    """Adds a subject category (SubjectGroup) at the end of the global order —
+    the "+" next to the category tabs on the tutor's Class detail page. A
+    group is global, like its order (reorder_subject_groups below), so any
+    tutor can add one."""
+    require_csrf(request)
+    ensure_is_tutor(request)
+    name = payload.name.strip()
+    if not name:
+        raise HttpError(422, 'Name is required')
+    last = SubjectGroup.objects.order_by('-order_index').values_list('order_index', flat=True).first()
+    return SubjectGroup.objects.create(name=name, order_index=0 if last is None else last + 1)
 
 
 @router.patch('/subject-groups/reorder', operation_id='reorder_tutor_subject_groups')

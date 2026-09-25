@@ -18,7 +18,13 @@ import {
   Trash2,
   UserPlus,
 } from "lucide-react";
-import { getGetSubjectQueryKey, getListSubjectTopicsQueryKey, useGetSubject, useListSubjectTopics } from "@school-ahead/api-client/browser/academics/academics";
+import {
+  getGetSubjectQueryKey,
+  getListSubjectTopicsQueryKey,
+  useGetSubject,
+  useListSubjectGroups,
+  useListSubjectTopics,
+} from "@school-ahead/api-client/browser/academics/academics";
 import {
   exportTutorSubjectLessonsJson,
   getListTutorSubjectLessonsQueryKey,
@@ -33,6 +39,9 @@ import {
   useReorderTutorSubjectLessons,
   useReorderTutorSubjectTopics,
   useSetSubjectAttestationType,
+  useSetTutorSubjectGroup,
+  useSetSubjectMarked,
+  getGetTutorClassQueryKey,
   useSetSubjectFilled,
   useSetTopicBlock,
   useUpdateTutorSubjectLessonIcons,
@@ -693,6 +702,87 @@ function AttestationTypeSelect({ subject, subjectId }: { subject: SubjectOut; su
   );
 }
 
+// Whether the students' preschool bookshelf shows this subject by default
+// (Subject.is_marked) — the same flag as the eye on the subject's row on the
+// Class detail page, whose cached subject list is refreshed to match.
+function IsMarkedToggle({ subject, subjectId }: { subject: SubjectOut; subjectId: number }) {
+  const t = useTranslations("TutorSubjectDetail");
+  const queryClient = useQueryClient();
+  const setSubjectMarked = useSetSubjectMarked();
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSubjectMarked.mutate(
+      { subjectId, data: { is_marked: e.target.checked } },
+      {
+        onSuccess: (data) => {
+          queryClient.setQueryData(getGetSubjectQueryKey(subjectId), data);
+          queryClient.invalidateQueries({ queryKey: getGetTutorClassQueryKey(data.school_class_id) });
+        },
+      },
+    );
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <label className="flex items-center gap-2 text-sm text-gray-700">
+        <input
+          type="checkbox"
+          checked={subject.is_marked}
+          onChange={handleChange}
+          disabled={setSubjectMarked.isPending}
+          className="h-4 w-4 rounded border-gray-300"
+        />
+        {t("isMarkedLabel")}
+      </label>
+      {setSubjectMarked.isError && <span className="text-sm text-red-600">{t("isMarkedError")}</span>}
+    </div>
+  );
+}
+
+// Tutor-editable category (Subject.group) — the same move as dragging the
+// subject onto another category tab on the Class detail page, whose cached
+// subject list is refreshed so it shows up in its new tab there.
+function SubjectGroupSelect({ subject, subjectId }: { subject: SubjectOut; subjectId: number }) {
+  const t = useTranslations("TutorSubjectDetail");
+  const queryClient = useQueryClient();
+  const { data: groups } = useListSubjectGroups();
+  const setGroup = useSetTutorSubjectGroup();
+
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setGroup.mutate(
+      { subjectId, data: { group_id: e.target.value === "" ? null : Number(e.target.value) } },
+      {
+        onSuccess: (data) => {
+          queryClient.setQueryData(getGetSubjectQueryKey(subjectId), data);
+          queryClient.invalidateQueries({ queryKey: getGetTutorClassQueryKey(data.school_class_id) });
+        },
+      },
+    );
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <label className="flex items-center gap-2 text-sm text-gray-700">
+        {t("groupLabel")}:
+        <select
+          value={subject.group_id ?? ""}
+          onChange={handleChange}
+          disabled={setGroup.isPending}
+          className="rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-700"
+        >
+          <option value="">{t("noGroupOption")}</option>
+          {(groups ?? []).map((group) => (
+            <option key={group.id} value={group.id}>
+              {group.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {setGroup.isError && <span className="text-sm text-red-600">{t("groupError")}</span>}
+    </div>
+  );
+}
+
 // Topic drag handle (topic reordering/block-moving) is separate from the
 // title button (collapse toggle) — grabbing one must never trigger the
 // other. The lesson-drop target lives on the header container itself
@@ -1089,8 +1179,10 @@ export function TutorSubjectDetailPage({ subjectId }: { subjectId: number }) {
               <IsFilledBadge isFilled={subject.is_filled} />
             </div>
             <div className="flex flex-wrap items-center gap-4">
+              <SubjectGroupSelect subject={subject} subjectId={subjectId} />
               <AttestationTypeSelect subject={subject} subjectId={subjectId} />
               <IsFilledToggle subject={subject} subjectId={subjectId} />
+              <IsMarkedToggle subject={subject} subjectId={subjectId} />
             </div>
           </div>
           <p className="text-xs text-gray-500">
