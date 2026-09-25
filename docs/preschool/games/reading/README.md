@@ -24,8 +24,8 @@ filesystem change (drop an image in the right consonant folder), same
 folder-driven convention the Cards and Stories games use.
 
 Cards also come from the DB (`reading.Syllable`, filled by the tutor
-`/tutor/syllables` "Імпортувати ZIP" import, which asks for the cards'
-language), filtered by the game's **Language** setting. The static folders
+`/tutor/syllables` "Імпортувати" import — a ZIP, or a single picture named
+after its word, e.g. `Баран.png` — which asks for the cards' language), filtered by the game's **Language** setting. The static folders
 are Ukrainian-only, so they're only used for `uk`; a DB card replaces a
 folder card for the same word (keeping the folder's recording if the DB
 row has none). See `app/api/reading-game-mode(s)/route.ts`.

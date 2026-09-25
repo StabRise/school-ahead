@@ -24,6 +24,10 @@ interface WordsGameState {
   // a language that has a handwriting font (see words-game.tsx).
   handwriting: boolean;
   setHandwriting: (handwriting: boolean) => void;
+  // The word as handwritten text instead of its syllable cards — same
+  // handwriting-font rule as `handwriting` above.
+  wordHandwriting: boolean;
+  setWordHandwriting: (wordHandwriting: boolean) => void;
 }
 
 export interface WordsGameShow {
@@ -45,6 +49,8 @@ export const useWordsGameStore = create<WordsGameState>()(
       setShow: (part, visible) => set((state) => ({ show: { ...state.show, [part]: visible } })),
       handwriting: false,
       setHandwriting: (handwriting) => set({ handwriting }),
+      wordHandwriting: false,
+      setWordHandwriting: (wordHandwriting) => set({ wordHandwriting }),
     }),
     { name: "words-game-store" },
   ),

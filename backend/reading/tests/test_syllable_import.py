@@ -130,7 +130,7 @@ class TestLettersShapeSyllableImport:
         # combining ogonek).
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, 'w') as archive:
-            archive.writestr(unicodedata.normalize('NFD', '1/ąkier.png'), FAKE_PNG)
+            archive.writestr(unicodedata.normalize('NFD', '1/ząb.png'), FAKE_PNG)
         upload = SimpleUploadedFile('mac.zip', buffer.getvalue(), content_type='application/zip')
 
         response = api_client.post(
@@ -142,7 +142,7 @@ class TestLettersShapeSyllableImport:
 
         assert response.data == {'created': 1, 'updated': 0, 'skipped': 0}
         syllable = Syllable.objects.get()
-        assert (syllable.first_letter, syllable.second_part, syllable.word) == ('Ą', 'K', 'Ąkier')
+        assert (syllable.first_letter, syllable.second_part, syllable.word) == ('Z', 'Ą', 'Ząb')
 
     def test_import_keeps_polish_digraphs_as_one_consonant(self, api_client, auth_header, tutor):
         upload = _letters_zip({'1': ['chata', 'czapla', 'rzeka', 'szafa', 'cebula']}, audio={'1/cza.mp3': b'mp3'})
@@ -164,6 +164,61 @@ class TestLettersShapeSyllableImport:
             'Cebula': ('C', 'E'),
         }
         assert Syllable.objects.get(word='Czapla').syllable_audio
+
+    def test_import_keeps_polish_soft_i_with_next_vowel(self, api_client, auth_header, tutor):
+        upload = _letters_zip(
+            {'1': ['niebieski', 'nic', 'siano', 'ciocia', 'miś']}, audio={'1/nie.mp3': b'mp3'}
+        )
+
+        response = api_client.post(
+            '/reading/tutor/syllables/import',
+            data={'language': 'pl'},
+            FILES=MultiValueDict({'file': [upload]}),
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.data == {'created': 5, 'updated': 0, 'skipped': 0}
+        rows = {s.word: (s.first_letter, s.second_part) for s in Syllable.objects.all()}
+        assert rows == {
+            'Niebieski': ('N', 'IE'),
+            'Nic': ('N', 'I'),
+            'Siano': ('S', 'IA'),
+            'Ciocia': ('C', 'IO'),
+            'Miś': ('M', 'I'),
+        }
+        assert Syllable.objects.get(word='Niebieski').syllable_audio
+
+    def test_import_keeps_soft_i_split_polish_only(self, api_client, auth_header, tutor):
+        upload = _letters_zip({'litery': ['niebo']})
+
+        api_client.post(
+            '/reading/tutor/syllables/import', FILES=MultiValueDict({'file': [upload]}), headers=auth_header(tutor.user),
+        )
+
+        syllable = Syllable.objects.get()
+        assert (syllable.first_letter, syllable.second_part) == ('N', 'I')
+
+    @pytest.mark.parametrize(('language', 'words', 'expected'), [
+        ('pl', ['arbuz', 'ekran', 'osa', 'igła'], {'Arbuz': 'A', 'Ekran': 'E', 'Osa': 'O', 'Igła': 'I'}),
+        ('uk', ['Арбуз', 'їжак', 'яблуко'], {'Арбуз': 'А', 'Їжак': 'Ї', 'Яблуко': 'Я'}),
+    ])
+    def test_import_word_starting_with_vowel_has_no_second_part(
+        self, api_client, auth_header, tutor, language, words, expected
+    ):
+        upload = _letters_zip({'1': words}, audio={f'1/{words[0][0]}.mp3': b'mp3'})
+
+        response = api_client.post(
+            '/reading/tutor/syllables/import',
+            data={'language': language},
+            FILES=MultiValueDict({'file': [upload]}),
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.data == {'created': len(words), 'updated': 0, 'skipped': 0}
+        rows = {s.word: (s.first_letter, s.second_part) for s in Syllable.objects.all()}
+        assert rows == {word: (letter, '') for word, letter in expected.items()}
+        first = Syllable.objects.get(word=words[0][:1].upper() + words[0][1:])
+        assert first.syllable_audio
 
     def test_import_does_not_split_digraphs_outside_polish(self, api_client, auth_header, tutor):
         upload = _letters_zip({'litery': ['chata']})
@@ -332,6 +387,45 @@ class TestSyllableImport:
         )
         assert response.status_code == 400
 
+    def test_import_single_image_takes_word_from_filename(self, api_client, auth_header, tutor):
+        image = SimpleUploadedFile('баран.png', FAKE_PNG, content_type='image/png')
+        response = api_client.post(
+            '/reading/tutor/syllables/import',
+            data={'language': 'uk'},
+            FILES=MultiValueDict({'file': [image]}),
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert response.data == {'created': 1, 'updated': 0, 'skipped': 0}
+        syllable = Syllable.objects.get()
+        assert (syllable.first_letter, syllable.second_part, syllable.word) == ('Б', 'А', 'Баран')
+        assert syllable.is_default is True
+        assert bool(syllable.icon)
+
+    def test_reimport_single_image_updates_icon(self, api_client, auth_header, tutor):
+        for _ in range(2):
+            image = SimpleUploadedFile('Баран.jpg', FAKE_PNG, content_type='image/jpeg')
+            response = api_client.post(
+                '/reading/tutor/syllables/import', FILES=MultiValueDict({'file': [image]}), headers=auth_header(tutor.user),
+            )
+
+        assert response.data == {'created': 0, 'updated': 1, 'skipped': 0}
+        assert Syllable.objects.count() == 1
+
+    def test_import_single_image_normalizes_decomposed_name(self, api_client, auth_header, tutor):
+        name = unicodedata.normalize('NFD', 'ząb.png')
+        image = SimpleUploadedFile(name, FAKE_PNG, content_type='image/png')
+        response = api_client.post(
+            '/reading/tutor/syllables/import',
+            data={'language': 'pl'},
+            FILES=MultiValueDict({'file': [image]}),
+            headers=auth_header(tutor.user),
+        )
+
+        assert response.status_code == 200
+        assert Syllable.objects.get().second_part == 'Ą'
+
 
 class TestTutorSyllablesList:
     def test_list_requires_tutor(self, api_client, auth_header, student):
@@ -401,3 +495,81 @@ class TestSetDefaultSyllable:
     def test_404_for_unknown_id(self, api_client, auth_header, tutor):
         response = api_client.post('/reading/tutor/syllables/999999/set-default', headers=auth_header(tutor.user))
         assert response.status_code == 404
+
+
+class TestTutorSyllableUpdate:
+    def _patch(self, api_client, auth_header, user, syllable_id, payload):
+        return api_client.patch(
+            f'/reading/tutor/syllables/{syllable_id}', json=payload, headers=auth_header(user),
+        )
+
+    def test_updates_word_keeping_group(self, api_client, auth_header, tutor):
+        card = Syllable.objects.create(first_letter='Б', second_part='А', word='Банан', is_default=True)
+
+        response = self._patch(api_client, auth_header, tutor.user, card.id, {'word': '  Баран '})
+
+        assert response.status_code == 200
+        assert response.data['word'] == 'Баран'
+        card.refresh_from_db()
+        assert card.word == 'Баран'
+        assert card.is_default is True
+
+    def test_allows_empty_second_part(self, api_client, auth_header, tutor):
+        card = Syllable.objects.create(first_letter='А', second_part='Р', word='Арбуз', is_default=True)
+
+        response = self._patch(api_client, auth_header, tutor.user, card.id, {'second_part': ''})
+
+        assert response.status_code == 200
+        card.refresh_from_db()
+        assert (card.first_letter, card.second_part) == ('А', '')
+
+    def test_uppercases_letters(self, api_client, auth_header, tutor):
+        card = Syllable.objects.create(first_letter='Б', second_part='А', word='Банан', is_default=True)
+
+        response = self._patch(api_client, auth_header, tutor.user, card.id, {'first_letter': 'в', 'second_part': 'о'})
+
+        assert response.status_code == 200
+        card.refresh_from_db()
+        assert (card.first_letter, card.second_part) == ('В', 'О')
+
+    def test_moving_default_hands_it_over_and_respects_new_group(self, api_client, auth_header, tutor):
+        moving = Syllable.objects.create(first_letter='М', second_part='О', word='Морква', is_default=True)
+        heir = Syllable.objects.create(first_letter='М', second_part='О', word='Морозиво', is_default=False)
+        target_default = Syllable.objects.create(first_letter='М', second_part='А', word='Мак', is_default=True)
+
+        response = self._patch(api_client, auth_header, tutor.user, moving.id, {'second_part': 'А'})
+
+        assert response.status_code == 200
+        moving.refresh_from_db()
+        heir.refresh_from_db()
+        target_default.refresh_from_db()
+        assert moving.is_default is False
+        assert heir.is_default is True
+        assert target_default.is_default is True
+
+    def test_moving_into_empty_group_makes_default(self, api_client, auth_header, tutor):
+        card = Syllable.objects.create(first_letter='М', second_part='О', word='Морква', is_default=False)
+        Syllable.objects.create(first_letter='М', second_part='О', word='Морозиво', is_default=True)
+
+        response = self._patch(api_client, auth_header, tutor.user, card.id, {'language': 'pl'})
+
+        assert response.status_code == 200
+        assert response.data['is_default'] is True
+        assert response.data['language'] == 'pl'
+
+    @pytest.mark.parametrize('payload', [{'word': '   '}, {'first_letter': ''}, {'second_part': 'АБВГД'}, {'language': 'xx'}])
+    def test_rejects_invalid_values(self, api_client, auth_header, tutor, payload):
+        card = Syllable.objects.create(first_letter='Б', second_part='А', word='Банан', is_default=True)
+
+        response = self._patch(api_client, auth_header, tutor.user, card.id, payload)
+
+        assert response.status_code in (400, 422)
+        card.refresh_from_db()
+        assert card.word == 'Банан'
+
+    def test_requires_tutor(self, api_client, auth_header, student):
+        card = Syllable.objects.create(first_letter='Б', second_part='А', word='Банан', is_default=True)
+
+        response = self._patch(api_client, auth_header, student.user, card.id, {'word': 'Баран'})
+
+        assert response.status_code == 403

@@ -26,7 +26,10 @@ Order: by vowel (МА, МО, МУ, … — same as «Склади»), then by wo
 - **Word** — split into syllable cards like the «Казки» stories write them
   (`{ ма - ма }`, `{ во - в - к }`; see `lib/words-game.ts`'s
   `splitIntoReadingSegments`, the stories skill's splitting algorithm),
-  rendered with the stories' `WordCardRow`.
+  rendered with the stories' `WordCardRow`. Tap: reads the word (like the
+  picture) and opens the row full-screen, the same popup as a tapped «Казки»
+  story card (`kit/fullscreen-overlay.tsx`); tap anywhere, ✕, Esc or Space
+  closes it.
 - **◀ / ▶** on the sides — previous / next card (wraps around).
 - **✅ / ❌** bottom center — ✅ plays the success chime and moves on; ❌ plays
   the miss sound and reads the syllable, then the word, aloud.
@@ -45,4 +48,12 @@ visitors hear the celebration chime but earn nothing.
 - **Language** — `uk` (default), `en`, `pl`, `es`.
 - **Letter** — the letters that language has cards for; a remembered letter
   the language doesn't have falls back to its first one.
+- **Показувати** — a checkbox per part (syllable / picture / word) to hide
+  it. For a language with a handwriting font (`uk` — Propysy, `pl` —
+  Elementarz) each text part also picks its own style:
+  - **Склад** — «Друковані» (print, colored letters) or «Прописні»
+    (handwriting).
+  - **Слово** — «Картки» (the syllable cards above) or «Прописні» (the
+    word written out in handwriting, one color so the letters stay joined;
+    the tap popup shows it the same way, bigger).
 - **Muted** — no syllable/word voice (chimes still play).

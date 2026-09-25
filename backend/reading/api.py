@@ -14,7 +14,7 @@ from lessons.models import QuizLanguage
 
 from . import services
 from .models import Syllable
-from .schemas import SyllableImportResultOut, SyllableOut
+from .schemas import SyllableImportResultOut, SyllableOut, SyllablePatchIn
 
 # Router-level auth defaults to tutor-only (CookieOrBearerJWTAuth) — the two
 # public read endpoints below override it to auth=None, since every /games
@@ -91,6 +91,59 @@ def set_default_syllable(request: HttpRequest, syllable_id: int):
     return syllable
 
 
+@router.patch('/tutor/syllables/{int:syllable_id}', response=SyllableOut, operation_id='update_tutor_reading_syllable')
+def update_syllable(request: HttpRequest, syllable_id: int, payload: SyllablePatchIn):
+    """The /tutor/syllables table's inline edit of a card's syllable
+    (first_letter + second_part), word and language. Letters are stored
+    uppercase, word keeps the tutor's casing. Moving a card to another
+    (language, first_letter, second_part) group keeps Syllable.Meta's
+    one-default-per-group constraint: the card becomes its new group's
+    default only if that group has none, and when it was its old group's
+    default another card there (if any) takes over."""
+    require_csrf(request)
+    ensure_is_tutor(request)
+    syllable = get_object_or_404(Syllable, id=syllable_id)
+    changes = payload.dict(exclude_unset=True)
+
+    for field in ('first_letter', 'second_part'):
+        if field in changes:
+            value = (changes[field] or '').strip().upper()
+            # second_part may be empty — a card for a word starting with a vowel.
+            min_length = 1 if field == 'first_letter' else 0
+            if not min_length <= len(value) <= Syllable._meta.get_field(field).max_length:
+                raise HttpError(400, f'{field} must be {min_length}-4 characters')
+            changes[field] = value
+    if 'word' in changes:
+        word = (changes['word'] or '').strip()
+        if not word or len(word) > Syllable._meta.get_field('word').max_length:
+            raise HttpError(400, 'word must be 1-64 characters')
+        changes['word'] = word
+    if 'language' in changes and changes['language'] is None:
+        raise HttpError(400, 'language must not be empty')
+
+    old_group = (syllable.language, syllable.first_letter, syllable.second_part)
+    for field, value in changes.items():
+        setattr(syllable, field, value)
+    new_group = (syllable.language, syllable.first_letter, syllable.second_part)
+
+    with transaction.atomic():
+        if new_group != old_group:
+            was_default = syllable.is_default
+            syllable.is_default = not services.group_has_default(*new_group)
+            syllable.save()
+            if was_default:
+                language, first_letter, second_part = old_group
+                heir = Syllable.objects.filter(
+                    language=language, first_letter=first_letter, second_part=second_part
+                ).first()
+                if heir:
+                    heir.is_default = True
+                    heir.save(update_fields=['is_default'])
+        else:
+            syllable.save()
+    return syllable
+
+
 @router.post(
     '/tutor/syllables/import',
     response=SyllableImportResultOut,
@@ -101,16 +154,20 @@ def import_tutor_syllables(
 ):
     """Imports Syllable rows from an uploaded ZIP shaped like the legacy
     public/static/syllables/<consonant>/{words.json,<syllable>.png} asset
-    folder — the /tutor/syllables page's "Import ZIP" button. See
-    services.import_syllables_archive. `language` is what every imported
-    row gets (the page's language picker, Ukrainian by default)."""
+    folder, or a single picture named after its word (`Баран.png`) — the
+    /tutor/syllables page's "Import" button. See services.
+    import_syllables_archive / import_syllable_image. `language` is what
+    every imported row gets (the page's language picker, Ukrainian by
+    default)."""
     require_csrf(request)
     ensure_is_tutor(request)
-    if not zipfile.is_zipfile(file):
-        raise HttpError(400, 'Not a valid ZIP file')
+    is_zip = zipfile.is_zipfile(file)
     file.seek(0)
     try:
-        summary = services.import_syllables_archive(file, language)
+        if is_zip:
+            summary = services.import_syllables_archive(file, language)
+        else:
+            summary = services.import_syllable_image(file, language)
     except (zipfile.BadZipFile, ValueError) as exc:
         raise HttpError(400, str(exc)) from exc
     return SyllableImportResultOut(created=summary.created, updated=summary.updated, skipped=summary.skipped)

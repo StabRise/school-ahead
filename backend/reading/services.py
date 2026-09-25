@@ -18,6 +18,14 @@ WORDS_FILE = 'words.json'
 # Polish consonants spelled with two letters — each one is the card's
 # blue first letter (Chata -> CH + A), not C + H.
 POLISH_DIGRAPHS = ('RZ', 'CH', 'CZ', 'SZ')
+# In Polish an `i` between a consonant and a vowel only softens the
+# consonant, so it belongs to the red second part with that vowel
+# (Niebieski -> N + IE), while a bare `i` is the vowel itself (Nic -> N + I).
+POLISH_VOWELS_AFTER_SOFT_I = frozenset('AĄEĘOÓUY')
+# A word starting with one of these (any language) is its own one-letter
+# syllable — Arbuz -> A with an empty second part. `Y` is left out: English
+# `y` usually starts a word as a consonant (Yellow).
+WORD_INITIAL_VOWELS = frozenset('AĄEĘIOÓUÁÉÍÚАЕЄИІЇОУЮЯ')
 
 
 @dataclass
@@ -52,15 +60,25 @@ def _decode_name(info: zipfile.ZipInfo) -> str:
 
 def _split_syllable(word: str, language: str) -> tuple[str, str] | None:
     """(first_letter, second_part) for a word's opening syllable, uppercase,
-    or None when the word is too short to have one."""
+    or None when the word is too short to have one. A word starting with a
+    vowel gets that vowel alone and an empty second_part."""
     upper = word.upper()
+    if upper[:1] in WORD_INITIAL_VOWELS:
+        return upper[0], ''
     consonant_length = 2 if language == QuizLanguage.PL and upper.startswith(POLISH_DIGRAPHS) else 1
     if len(upper) <= consonant_length:
         return None
-    return upper[:consonant_length], upper[consonant_length]
+    second_part = upper[consonant_length]
+    if (
+        language == QuizLanguage.PL
+        and second_part == 'I'
+        and upper[consonant_length + 1 : consonant_length + 2] in POLISH_VOWELS_AFTER_SOFT_I
+    ):
+        second_part = upper[consonant_length : consonant_length + 2]
+    return upper[:consonant_length], second_part
 
 
-def _group_has_default(language: str, first_letter: str, second_part: str) -> bool:
+def group_has_default(language: str, first_letter: str, second_part: str) -> bool:
     return Syllable.objects.filter(
         language=language, first_letter=first_letter, second_part=second_part, is_default=True
     ).exists()
@@ -123,6 +141,32 @@ def import_syllables_archive(uploaded: UploadedFile, language: str = QuizLanguag
     return SyllableImportSummary(created=created, updated=updated, skipped=skipped)
 
 
+def import_syllable_image(uploaded: UploadedFile, language: str = QuizLanguage.UK) -> SyllableImportSummary:
+    """Imports one card from a single uploaded picture — the same rule as a
+    ZIP's words.json-less folder (see _import_letters_folder): the filename
+    minus extension is the word, its first letters the syllable. Re-uploading
+    the same word replaces the icon (counted as `updated`)."""
+    name = unicodedata.normalize('NFC', PurePosixPath(uploaded.name or '').name)
+    path = PurePosixPath(name)
+    if path.suffix.lower() not in IMAGE_EXTENSIONS:
+        raise ValueError('Not a supported image file')
+    normalized = path.stem.strip().replace('"', "'")
+    split = _split_syllable(normalized, language)
+    if split is None:
+        return SyllableImportSummary(created=0, updated=0, skipped=1)
+
+    first_letter, second_part = split
+    syllable, was_created = Syllable.objects.get_or_create(
+        first_letter=first_letter,
+        second_part=second_part,
+        word=normalized[:1].upper() + normalized[1:],
+        language=language,
+        defaults={'is_default': not group_has_default(language, first_letter, second_part)},
+    )
+    syllable.icon.save(name, ContentFile(uploaded.read()), save=True)
+    return SyllableImportSummary(created=int(was_created), updated=int(not was_created), skipped=0)
+
+
 def _import_words_json_folder(
     archive: zipfile.ZipFile, entries: list[tuple[str, zipfile.ZipInfo]], words_info: zipfile.ZipInfo, language: str
 ) -> tuple[int, int, int]:
@@ -157,7 +201,7 @@ def _import_words_json_folder(
             second_part=second_part,
             word=display_word,
             language=language,
-            defaults={'is_default': not _group_has_default(language, first_letter, second_part)},
+            defaults={'is_default': not group_has_default(language, first_letter, second_part)},
         )
         icon_name = PurePosixPath(_decode_name(image_info)).name
         syllable.icon.save(icon_name, ContentFile(archive.read(image_info)), save=True)
@@ -210,7 +254,7 @@ def _import_letters_folder(
             second_part=second_part,
             word=display_word,
             language=language,
-            defaults={'is_default': not _group_has_default(language, first_letter, second_part)},
+            defaults={'is_default': not group_has_default(language, first_letter, second_part)},
         )
         syllable.icon.save(PurePosixPath(_decode_name(image_info)).name, ContentFile(archive.read(image_info)), save=False)
 

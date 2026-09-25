@@ -11,8 +11,9 @@ import {
 import { PreschoolButton } from "@school-ahead/preschool-ui";
 import { GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
 import { playCelebrationChime, playMatchSound, playMissSound } from "./kit/sound-effects";
+import { FullscreenOverlay } from "./kit/fullscreen-overlay";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
-import { WordCardRow } from "./lib/syllable-card";
+import { WordCardRow, lgCardSizeRem } from "./lib/syllable-card";
 import {
   isVowel,
   splitIntoReadingSegments,
@@ -63,6 +64,8 @@ export function WordsGame() {
   const setShow = useWordsGameStore((s) => s.setShow);
   const handwriting = useWordsGameStore((s) => s.handwriting);
   const setHandwriting = useWordsGameStore((s) => s.setHandwriting);
+  const wordHandwriting = useWordsGameStore((s) => s.wordHandwriting);
+  const setWordHandwriting = useWordsGameStore((s) => s.setWordHandwriting);
   const handwritingFont = HANDWRITING_FONTS[language];
 
   const consonantsQuery = useListReadingConsonants({ language }, { query: { staleTime: Infinity } });
@@ -160,26 +163,41 @@ export function WordsGame() {
               ))}
             </select>
           </label>
-          {handwritingFont && (
-            <label className="flex flex-col gap-1">
-              <span className="font-medium text-gray-700">{t("letterStyleLabel")}</span>
-              <select
-                value={handwriting ? "handwriting" : "print"}
-                onChange={(e) => setHandwriting(e.target.value === "handwriting")}
-                className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
-              >
-                <option value="print">{t("letterStylePrint")}</option>
-                <option value="handwriting">{t("letterStyleHandwriting")}</option>
-              </select>
-            </label>
-          )}
           <fieldset className="flex flex-col gap-1">
             <legend className="mb-1 font-medium text-gray-700">{t("showLabel")}</legend>
             {(["syllable", "icon", "word"] as const).map((part) => (
-              <label key={part} className="flex items-center gap-2">
-                <input type="checkbox" checked={show[part]} onChange={(e) => setShow(part, e.target.checked)} />
-                <span className="text-gray-700">{t(`show.${part}`)}</span>
-              </label>
+              <div key={part} className="flex items-center justify-between gap-2">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={show[part]} onChange={(e) => setShow(part, e.target.checked)} />
+                  <span className="text-gray-700">{t(`show.${part}`)}</span>
+                </label>
+                {/* How the syllable / word is written — only for a language
+                    with a handwriting font. */}
+                {handwritingFont && part === "syllable" && (
+                  <select
+                    value={handwriting ? "handwriting" : "print"}
+                    onChange={(e) => setHandwriting(e.target.value === "handwriting")}
+                    disabled={!show.syllable}
+                    aria-label={t("syllableStyleLabel")}
+                    className={STYLE_SELECT_CLASS}
+                  >
+                    <option value="print">{t("letterStylePrint")}</option>
+                    <option value="handwriting">{t("letterStyleHandwriting")}</option>
+                  </select>
+                )}
+                {handwritingFont && part === "word" && (
+                  <select
+                    value={wordHandwriting ? "handwriting" : "cards"}
+                    onChange={(e) => setWordHandwriting(e.target.value === "handwriting")}
+                    disabled={!show.word}
+                    aria-label={t("wordStyleLabel")}
+                    className={STYLE_SELECT_CLASS}
+                  >
+                    <option value="cards">{t("wordStyleCards")}</option>
+                    <option value="handwriting">{t("letterStyleHandwriting")}</option>
+                  </select>
+                )}
+              </div>
             ))}
           </fieldset>
           <label className="flex items-center gap-2">
@@ -213,6 +231,7 @@ export function WordsGame() {
           muted={muted}
           show={show}
           syllableFont={handwriting ? handwritingFont : undefined}
+          wordFont={wordHandwriting ? handwritingFont : undefined}
           onCardShown={() => setSeen((current) => current + 1)}
         />
       )}
@@ -228,6 +247,7 @@ function WordsDeck({
   muted,
   show,
   syllableFont,
+  wordFont,
   onCardShown,
 }: {
   cards: WordsGameCard[];
@@ -236,11 +256,21 @@ function WordsDeck({
   show: WordsGameShow;
   // A handwriting font-family for the syllable; print when undefined.
   syllableFont?: string;
+  // A handwriting font-family for the word, written out as text in place
+  // of its syllable cards; cards when undefined.
+  wordFont?: string;
   onCardShown: () => void;
 }) {
   const t = useTranslations("WordsGame");
   const [index, setIndex] = useState(0);
+  // The word's syllable-card row blown up full-screen, like a tapped
+  // "Казки" story card (stories-game.tsx's StoryBody).
+  const [wordOpen, setWordOpen] = useState(false);
   const card = cards[index];
+  const wordSegments = useMemo(
+    () => splitIntoReadingSegments(card.word).map((text) => ({ kind: "text" as const, text })),
+    [card.word],
+  );
 
   // The first card counts as looked at the moment the deck appears; every
   // flip after that counts in `go` below. The ref keeps React's dev-mode
@@ -317,15 +347,38 @@ function WordsDeck({
         )}
 
         {show.word && (
-          <button type="button" onClick={playWord} aria-label={card.word} className="cursor-pointer">
-            <WordCardRow
-              segments={splitIntoReadingSegments(card.word).map((text) => ({ kind: "text", text }))}
-              size="lg"
-              cardSizeRem={wordCardSizeRem(card.word)}
-            />
+          <button
+            type="button"
+            onClick={() => {
+              playWord();
+              setWordOpen(true);
+            }}
+            aria-label={card.word}
+            className="cursor-pointer"
+          >
+            {wordFont ? (
+              <HandwrittenWord word={card.word} font={wordFont} sizeRem={handwrittenWordSizeRem(card.word)} />
+            ) : (
+              <WordCardRow segments={wordSegments} size="lg" cardSizeRem={wordCardSizeRem(card.word)} />
+            )}
           </button>
         )}
       </div>
+
+      {wordOpen && (
+        <FullscreenOverlay onClose={() => setWordOpen(false)} closeLabel={t("closeWordLabel")}>
+          {wordFont ? (
+            <HandwrittenWord
+              word={card.word}
+              font={wordFont}
+              sizeRem={handwrittenWordSizeRem(card.word) * 2}
+              className="rounded-3xl bg-white px-8 py-4 shadow-lg"
+            />
+          ) : (
+            <WordCardRow segments={wordSegments} size="lg" cardSizeRem={lgCardSizeRem(wordSegments.length)} />
+          )}
+        </FullscreenOverlay>
+      )}
 
       <div className="fixed inset-y-0 left-4 z-30 flex items-center">
         <PreschoolButton
@@ -374,6 +427,38 @@ function WordsDeck({
       </div>
     </>
   );
+}
+
+const STYLE_SELECT_CLASS =
+  "rounded-lg border border-gray-300 bg-white px-1.5 py-0.5 text-xs text-gray-700 disabled:opacity-50";
+
+// The word written out in a handwriting font, one color so the cursive
+// letters stay joined — the "Прописні" word style.
+function HandwrittenWord({
+  word,
+  font,
+  sizeRem,
+  className = "",
+}: {
+  word: string;
+  font: string;
+  sizeRem: number;
+  className?: string;
+}) {
+  return (
+    <span
+      style={{ fontFamily: font, fontSize: `${sizeRem}rem` }}
+      className={`block whitespace-nowrap leading-tight text-gray-800 ${className}`}
+    >
+      {word}
+    </span>
+  );
+}
+
+// Handwritten words shrink with length like the word cards below, so a long
+// word still fits a phone screen.
+function handwrittenWordSizeRem(word: string): number {
+  return Math.max(2.5, Math.min(5, 30 / Math.max(word.length, 1)));
 }
 
 // Word cards shrink as the word gets longer so the row always fits a phone
