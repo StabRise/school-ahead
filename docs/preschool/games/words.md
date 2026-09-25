@@ -48,4 +48,12 @@ visitors hear the celebration chime but earn nothing.
 - **Language** — `uk` (default), `en`, `pl`, `es`.
 - **Letter** — the letters that language has cards for; a remembered letter
   the language doesn't have falls back to its first one.
+- **Показувати** — a checkbox per part (syllable / picture / word) to hide
+  it. For a language with a handwriting font (`uk` — Propysy, `pl` —
+  Elementarz) each text part also picks its own style:
+  - **Склад** — «Друковані» (print, colored letters) or «Прописні»
+    (handwriting).
+  - **Слово** — «Картки» (the syllable cards above) or «Прописні» (the
+    word written out in handwriting, one color so the letters stay joined;
+    the tap popup shows it the same way, bigger).
 - **Muted** — no syllable/word voice (chimes still play).
