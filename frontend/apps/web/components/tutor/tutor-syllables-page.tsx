@@ -104,48 +104,64 @@ function FilterPills<T extends string>({
 }
 
 // "Імпортувати" — opens a dialog with the cards' language (Ukrainian by
-// default) and a drop area for either a single picture named after its word
-// (`Баран.png` -> one БА card) or a ZIP shaped like the legacy
-// public/static/syllables/<consonant>/{words.json,<syllable>.png} or
+// default) and a drop area for any number of files, each either a picture
+// named after its word (`Баран.png` -> one БА card) or a ZIP shaped like the
+// legacy public/static/syllables/<consonant>/{words.json,<syllable>.png} or
 // public/static/letters/<consonant>/<Word>.png asset folders (see backend's
-// reading/services.py::import_syllables_archive / import_syllable_image). The result counts show
-// in the dialog once the import finishes. Same Radix dialog look as
-// load-lessons-json-dialog.tsx.
+// reading/services.py::import_syllables_archive / import_syllable_image).
+// Files go up one at a time to the same endpoint, and their counts add up
+// into one result; a file the backend rejects is listed by name instead of
+// stopping the rest. Same Radix dialog look as load-lessons-json-dialog.tsx.
 function ImportSyllablesDialog() {
   const t = useTranslations("TutorSyllables");
   const queryClient = useQueryClient();
   const importSyllables = useImportTutorReadingSyllables();
   const [open, setOpen] = useState(false);
   const [language, setLanguage] = useState<QuizLanguage>("uk");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  // How many of `files` have been sent so far, while importing.
+  const [progress, setProgress] = useState<number | null>(null);
   const [result, setResult] = useState<SyllableImportResultOut | null>(null);
+  const [failedFiles, setFailedFiles] = useState<string[]>([]);
+  const isImporting = progress !== null;
 
   const handleOpenChange = (next: boolean) => {
     // Don't drop an import that's still uploading.
-    if (!next && importSyllables.isPending) return;
+    if (!next && isImporting) return;
     setOpen(next);
     if (!next) {
       setLanguage("uk");
-      setFile(null);
+      setFiles([]);
       setResult(null);
-      importSyllables.reset();
+      setFailedFiles([]);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) return;
-    importSyllables.mutate(
-      { data: { file, language } },
-      {
-        onSuccess: (data) => {
-          setResult(data);
-          queryClient.invalidateQueries({
-            queryKey: getListTutorReadingSyllablesQueryKey(),
-          });
-        },
-      },
-    );
+    if (files.length === 0) return;
+    const total: SyllableImportResultOut = { created: 0, updated: 0, skipped: 0 };
+    const failed: string[] = [];
+    setProgress(0);
+    for (const [index, file] of files.entries()) {
+      try {
+        const summary = await importSyllables.mutateAsync({ data: { file, language } });
+        total.created += summary.created;
+        total.updated += summary.updated;
+        total.skipped += summary.skipped;
+      } catch {
+        failed.push(file.name);
+      }
+      setProgress(index + 1);
+    }
+    setProgress(null);
+    setFailedFiles(failed);
+    // Every file failing is an error on the form; otherwise show the counts
+    // (plus which files failed, if any).
+    if (failed.length < files.length) setResult(total);
+    queryClient.invalidateQueries({
+      queryKey: getListTutorReadingSyllablesQueryKey(),
+    });
   };
 
   return (
@@ -174,6 +190,11 @@ function ImportSyllablesDialog() {
                   skipped: result.skipped,
                 })}
               </p>
+              {failedFiles.length > 0 && (
+                <p className="text-sm text-red-600">
+                  {t("importFailedFiles", { files: failedFiles.join(", ") })}
+                </p>
+              )}
               <Dialog.Close asChild>
                 <button
                   type="button"
@@ -193,7 +214,7 @@ function ImportSyllablesDialog() {
                   id="syllables-import-language"
                   value={language}
                   onChange={setLanguage}
-                  disabled={importSyllables.isPending}
+                  disabled={isImporting}
                   className="w-fit rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 disabled:opacity-50"
                 />
               </div>
@@ -203,20 +224,31 @@ function ImportSyllablesDialog() {
                 <FileDropzone
                   id="syllables-import-file"
                   hint={t("importFileHint")}
-                  multiple={false}
                   accept=".zip,application/zip,application/x-zip-compressed,.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
-                  onFilesSelected={(files) => setFile(files?.[0] ?? null)}
+                  onFilesSelected={(picked) => {
+                    if (isImporting) return;
+                    setFiles(Array.from(picked ?? []));
+                    setFailedFiles([]);
+                  }}
                 />
-                {file && <p className="text-xs text-gray-500">{file.name}</p>}
+                {files.length > 0 && (
+                  <ul className="max-h-32 overflow-y-auto text-xs text-gray-500">
+                    {files.map((file, index) => (
+                      <li key={`${index}:${file.name}`}>{file.name}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
-              {importSyllables.isError && <p className="text-sm text-red-600">{t("importError")}</p>}
+              {!isImporting && failedFiles.length > 0 && (
+                <p className="text-sm text-red-600">{t("importError")}</p>
+              )}
 
               <div className="flex justify-end gap-2">
                 <Dialog.Close asChild>
                   <button
                     type="button"
-                    disabled={importSyllables.isPending}
+                    disabled={isImporting}
                     className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                   >
                     {t("importCancelButton")}
@@ -224,10 +256,12 @@ function ImportSyllablesDialog() {
                 </Dialog.Close>
                 <button
                   type="submit"
-                  disabled={!file || importSyllables.isPending}
+                  disabled={files.length === 0 || isImporting}
                   className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                 >
-                  {importSyllables.isPending ? t("importingStatus") : t("importSubmitButton")}
+                  {isImporting
+                    ? t("importingProgress", { done: progress, total: files.length })
+                    : t("importSubmitButton")}
                 </button>
               </div>
             </form>
