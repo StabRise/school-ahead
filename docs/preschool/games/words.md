@@ -26,7 +26,10 @@ Order: by vowel (МА, МО, МУ, … — same as «Склади»), then by wo
 - **Word** — split into syllable cards like the «Казки» stories write them
   (`{ ма - ма }`, `{ во - в - к }`; see `lib/words-game.ts`'s
   `splitIntoReadingSegments`, the stories skill's splitting algorithm),
-  rendered with the stories' `WordCardRow`.
+  rendered with the stories' `WordCardRow`. Tap: reads the word (like the
+  picture) and opens the row full-screen, the same popup as a tapped «Казки»
+  story card (`kit/fullscreen-overlay.tsx`); tap anywhere, ✕, Esc or Space
+  closes it.
 - **◀ / ▶** on the sides — previous / next card (wraps around).
 - **✅ / ❌** bottom center — ✅ plays the success chime and moves on; ❌ plays
   the miss sound and reads the syllable, then the word, aloud.

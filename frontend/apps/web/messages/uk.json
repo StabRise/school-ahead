@@ -325,7 +325,8 @@
     "previousButton": "Попередня картка",
     "nextButton": "Наступна картка",
     "rightButton": "Правильно",
-    "wrongButton": "Помилка"
+    "wrongButton": "Помилка",
+    "closeWordLabel": "Закрити"
   },
   "CardsGame": {
     "settingsButton": "Налаштування",

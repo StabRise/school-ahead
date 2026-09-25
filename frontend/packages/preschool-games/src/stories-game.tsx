@@ -21,6 +21,7 @@ import { remarkStoryCards, STORY_CARD_TAG } from "./lib/story-markdown";
 import { parseSyllableGroup } from "./lib/story-parser";
 import { useStoryBackgroundMusic } from "./lib/use-story-background-music";
 import { usePauseBackgroundMusic } from "./lib/use-background-music";
+import { FullscreenOverlay } from "./kit/fullscreen-overlay";
 import { WordCardRow, lgCardSizeRem } from "./lib/syllable-card";
 import { StoryBook } from "./story-book";
 import { GAME_ROW_TOP } from "./kit/game-controls";
@@ -479,51 +480,6 @@ function StoryCard({
   );
 }
 
-// Shared full-screen chrome — a dark scrim that closes on tap anywhere
-// (including the content itself, since nothing inside stops propagation),
-// the ✕ button, Escape, or Space (a document-level listener rather than an
-// onKeyDown on the div below, since nothing here auto-focuses that div on
-// open — a keydown handler tied to its own focus would otherwise never
-// fire from a plain mouse/tap click).
-function FullscreenOverlay({
-  onClose,
-  children,
-}: {
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  const t = useTranslations("StoriesGame");
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" && e.key !== " ") return;
-      e.preventDefault(); // Space would otherwise also scroll the page behind the overlay
-      onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClose}
-      className="fixed inset-0 z-50 flex cursor-pointer items-center justify-center bg-black/80 p-6"
-    >
-      {children}
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label={t("closeImageLabel")}
-        className="absolute right-4 top-4 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-white text-xl shadow-lg"
-      >
-        ✕
-      </button>
-    </div>
-  );
-}
-
 // The actual story-body renderer — real Markdown (headings/emphasis/lists/
 // blockquotes/...) via react-markdown, plus every "{...}" card
 // (illustration/video/YouTube/audio/syllable-breakdown) via remarkStoryCards
@@ -554,6 +510,7 @@ export function StoryBody({
   // real game) never passes it, so students never see it.
   onRemoveCard?: (raw: string) => void;
 }) {
+  const t = useTranslations("StoriesGame");
   const [fullscreenSegments, setFullscreenSegments] = useState<
     StoryWordSegment[] | null
   >(null);
@@ -611,7 +568,10 @@ export function StoryBody({
       </div>
 
       {fullscreenSegments && (
-        <FullscreenOverlay onClose={() => setFullscreenSegments(null)}>
+        <FullscreenOverlay
+          onClose={() => setFullscreenSegments(null)}
+          closeLabel={t("closeImageLabel")}
+        >
           {isIllustration(fullscreenSegments) ? (
             <StoryIllustration
               url={storyAssetUrl(slug, fullscreenSegments[0].filename)}

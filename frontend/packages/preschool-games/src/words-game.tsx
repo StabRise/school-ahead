@@ -11,8 +11,9 @@ import {
 import { PreschoolButton } from "@school-ahead/preschool-ui";
 import { GAME_SETTINGS_BUTTON_POSITION, GAME_SETTINGS_PANEL_POSITION } from "./kit/game-controls";
 import { playCelebrationChime, playMatchSound, playMissSound } from "./kit/sound-effects";
+import { FullscreenOverlay } from "./kit/fullscreen-overlay";
 import { useDiamondMilestoneReward } from "./kit/use-diamond-milestone-reward";
-import { WordCardRow } from "./lib/syllable-card";
+import { WordCardRow, lgCardSizeRem } from "./lib/syllable-card";
 import {
   isVowel,
   splitIntoReadingSegments,
@@ -240,7 +241,14 @@ function WordsDeck({
 }) {
   const t = useTranslations("WordsGame");
   const [index, setIndex] = useState(0);
+  // The word's syllable-card row blown up full-screen, like a tapped
+  // "Казки" story card (stories-game.tsx's StoryBody).
+  const [wordOpen, setWordOpen] = useState(false);
   const card = cards[index];
+  const wordSegments = useMemo(
+    () => splitIntoReadingSegments(card.word).map((text) => ({ kind: "text" as const, text })),
+    [card.word],
+  );
 
   // The first card counts as looked at the moment the deck appears; every
   // flip after that counts in `go` below. The ref keeps React's dev-mode
@@ -317,15 +325,25 @@ function WordsDeck({
         )}
 
         {show.word && (
-          <button type="button" onClick={playWord} aria-label={card.word} className="cursor-pointer">
-            <WordCardRow
-              segments={splitIntoReadingSegments(card.word).map((text) => ({ kind: "text", text }))}
-              size="lg"
-              cardSizeRem={wordCardSizeRem(card.word)}
-            />
+          <button
+            type="button"
+            onClick={() => {
+              playWord();
+              setWordOpen(true);
+            }}
+            aria-label={card.word}
+            className="cursor-pointer"
+          >
+            <WordCardRow segments={wordSegments} size="lg" cardSizeRem={wordCardSizeRem(card.word)} />
           </button>
         )}
       </div>
+
+      {wordOpen && (
+        <FullscreenOverlay onClose={() => setWordOpen(false)} closeLabel={t("closeWordLabel")}>
+          <WordCardRow segments={wordSegments} size="lg" cardSizeRem={lgCardSizeRem(wordSegments.length)} />
+        </FullscreenOverlay>
+      )}
 
       <div className="fixed inset-y-0 left-4 z-30 flex items-center">
         <PreschoolButton
