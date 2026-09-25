@@ -40,6 +40,13 @@ class CreateSubjectIn(Schema):
     group_id: int | None = None
 
 
+class CreateSubjectGroupIn(Schema):
+    """The "+" next to the category tabs on the tutor's Class detail page —
+    see tutoring.api.create_subject_group."""
+
+    name: str
+
+
 class UpdateSubjectIn(Schema):
     """Inline rename from the tutor's Subject detail page — see
     tutoring.api.update_tutor_subject."""
@@ -238,6 +245,11 @@ class SetMarkedIn(Schema):
 
 class SetSubjectAttestationTypeIn(Schema):
     attestation_type: str
+
+
+class SetSubjectGroupIn(Schema):
+    # null = no category.
+    group_id: int | None
 
 
 class PlanOut(Schema):
