@@ -10,11 +10,13 @@ import {
   useImportTutorReadingSyllables,
   useListTutorReadingSyllables,
   useSetDefaultReadingSyllable,
+  useUpdateTutorReadingSyllable,
 } from "@school-ahead/api-client/browser/reading/reading";
 import type {
   QuizLanguage,
   SyllableImportResultOut,
   SyllableOut,
+  SyllablePatchIn,
 } from "@school-ahead/api-client/browser/schoolAheadAPI.schemas";
 import { FileDropzone } from "@/components/file-dropzone";
 import { CONTENT_LANGUAGES, ContentLanguageSelect } from "@/components/tutor/content-language-select";
@@ -101,11 +103,12 @@ function FilterPills<T extends string>({
   );
 }
 
-// "Імпортувати ZIP" — opens a dialog with the cards' language (Ukrainian by
-// default) and a drop area for the ZIP, shaped like the legacy
+// "Імпортувати" — opens a dialog with the cards' language (Ukrainian by
+// default) and a drop area for either a single picture named after its word
+// (`Баран.png` -> one БА card) or a ZIP shaped like the legacy
 // public/static/syllables/<consonant>/{words.json,<syllable>.png} or
 // public/static/letters/<consonant>/<Word>.png asset folders (see backend's
-// reading/services.py::import_syllables_archive). The result counts show
+// reading/services.py::import_syllables_archive / import_syllable_image). The result counts show
 // in the dialog once the import finishes. Same Radix dialog look as
 // load-lessons-json-dialog.tsx.
 function ImportSyllablesDialog() {
@@ -201,7 +204,7 @@ function ImportSyllablesDialog() {
                   id="syllables-import-file"
                   hint={t("importFileHint")}
                   multiple={false}
-                  accept=".zip,application/zip,application/x-zip-compressed"
+                  accept=".zip,application/zip,application/x-zip-compressed,.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
                   onFilesSelected={(files) => setFile(files?.[0] ?? null)}
                 />
                 {file && <p className="text-xs text-gray-500">{file.name}</p>}
@@ -232,6 +235,178 @@ function ImportSyllablesDialog() {
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+// Saves one row's inline edit (see the cells below) and refetches the
+// table — a syllable/language change can move the "Основна" flag between
+// rows (see backend reading/api.py's update_syllable).
+function useSaveSyllable(syllable: SyllableOut) {
+  const t = useTranslations("TutorSyllables");
+  const dialogs = useDialogs();
+  const queryClient = useQueryClient();
+  const update = useUpdateTutorReadingSyllable();
+
+  const save = (data: SyllablePatchIn, onSuccess?: () => void) => {
+    // Enter, then the blur that follows it, would otherwise save twice.
+    if (update.isPending) return;
+    update.mutate(
+      { syllableId: syllable.id, data },
+      {
+        onSuccess: (updated) => {
+          // Show the saved row right away, before the refetch lands.
+          queryClient.setQueryData<SyllableOut[]>(
+            getListTutorReadingSyllablesQueryKey(),
+            (rows) => rows?.map((row) => (row.id === updated.id ? updated : row)),
+          );
+          onSuccess?.();
+          queryClient.invalidateQueries({
+            queryKey: getListTutorReadingSyllablesQueryKey(),
+          });
+        },
+        onError: () => dialogs.error(t("editError")),
+      },
+    );
+  };
+  return { save, isPending: update.isPending };
+}
+
+const EDIT_INPUT_CLASS =
+  "rounded border border-gray-300 px-1.5 py-0.5 focus:border-gray-500 focus:outline-none disabled:opacity-50";
+
+// Click-to-edit cell for the card's syllable — two inputs, the blue first
+// letter and the red second part. Enter or clicking away saves (only when
+// something changed), Escape cancels.
+function SyllableCell({ syllable }: { syllable: SyllableOut }) {
+  const t = useTranslations("TutorSyllables");
+  const { save, isPending } = useSaveSyllable(syllable);
+  const [editing, setEditing] = useState(false);
+  const [firstLetter, setFirstLetter] = useState(syllable.first_letter);
+  const [secondPart, setSecondPart] = useState(syllable.second_part);
+
+  const startEditing = () => {
+    setFirstLetter(syllable.first_letter);
+    setSecondPart(syllable.second_part);
+    setEditing(true);
+  };
+  const commit = () => {
+    const first = firstLetter.trim().toLocaleUpperCase();
+    const second = secondPart.trim().toLocaleUpperCase();
+    // The second part may be empty — a word starting with a vowel (Арбуз -> А).
+    if (!first) return setEditing(false);
+    if (first === syllable.first_letter && second === syllable.second_part)
+      return setEditing(false);
+    save({ first_letter: first, second_part: second }, () => setEditing(false));
+  };
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={startEditing}
+        title={t("editHint")}
+        className="-mx-1.5 rounded px-1.5 text-base font-extrabold hover:bg-gray-100"
+      >
+        <span style={{ color: "#0369a1" }}>{syllable.first_letter}</span>
+        <span style={{ color: "#dc2626" }}>{syllable.second_part}</span>
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className="flex gap-1"
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) commit();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") commit();
+        if (e.key === "Escape") setEditing(false);
+      }}
+    >
+      <input
+        autoFocus
+        value={firstLetter}
+        onChange={(e) => setFirstLetter(e.target.value)}
+        maxLength={4}
+        disabled={isPending}
+        aria-label={t("editFirstLetter")}
+        className={`${EDIT_INPUT_CLASS} w-10 text-base font-extrabold uppercase text-sky-700`}
+      />
+      <input
+        value={secondPart}
+        onChange={(e) => setSecondPart(e.target.value)}
+        maxLength={4}
+        disabled={isPending}
+        aria-label={t("editSecondPart")}
+        className={`${EDIT_INPUT_CLASS} w-10 text-base font-extrabold uppercase text-red-600`}
+      />
+    </div>
+  );
+}
+
+// Click-to-edit cell for the card's word — same Enter / click-away /
+// Escape rules as SyllableCell.
+function WordCell({ syllable }: { syllable: SyllableOut }) {
+  const t = useTranslations("TutorSyllables");
+  const { save, isPending } = useSaveSyllable(syllable);
+  const [editing, setEditing] = useState(false);
+  const [word, setWord] = useState(syllable.word);
+
+  const commit = () => {
+    const next = word.trim();
+    if (!next || next === syllable.word) return setEditing(false);
+    save({ word: next }, () => setEditing(false));
+  };
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setWord(syllable.word);
+          setEditing(true);
+        }}
+        title={t("editHint")}
+        className="-mx-1.5 rounded px-1.5 text-left text-gray-900 hover:bg-gray-100"
+      >
+        {syllable.word}
+      </button>
+    );
+  }
+
+  return (
+    <input
+      autoFocus
+      value={word}
+      onChange={(e) => setWord(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") commit();
+        if (e.key === "Escape") setEditing(false);
+      }}
+      maxLength={64}
+      disabled={isPending}
+      aria-label={t("columnWord")}
+      className={`${EDIT_INPUT_CLASS} w-40 text-sm`}
+    />
+  );
+}
+
+// The card's language — an always-visible dropdown that saves on change.
+function LanguageCell({ syllable }: { syllable: SyllableOut }) {
+  const t = useTranslations("TutorSyllables");
+  const { save, isPending } = useSaveSyllable(syllable);
+  return (
+    <ContentLanguageSelect
+      value={syllable.language as QuizLanguage}
+      onChange={(language) => {
+        if (language !== syllable.language) save({ language });
+      }}
+      disabled={isPending}
+      ariaLabel={t("columnLanguage")}
+      className="rounded-md border border-transparent bg-transparent py-0.5 pl-1 pr-6 text-sm text-gray-600 hover:border-gray-300 focus:border-gray-500 focus:outline-none disabled:opacity-50"
+    />
   );
 }
 
@@ -302,14 +477,32 @@ export function TutorSyllablesPage() {
       return code;
     }
   };
-  // Only the letters that actually have cards, in alphabet order.
+  // Only the letters that actually have cards in the picked language (or
+  // any language), in alphabet order.
   const firstLetters = useMemo(
     () =>
       Array.from(
-        new Set((syllables ?? []).map((syllable) => syllable.first_letter)),
-      ).sort((a, b) => a.localeCompare(b, "uk")),
-    [syllables],
+        new Set(
+          (syllables ?? [])
+            .filter((syllable) => language === "all" || syllable.language === language)
+            .map((syllable) => syllable.first_letter),
+        ),
+      ).sort((a, b) => a.localeCompare(b, language === "all" ? "uk" : language)),
+    [syllables, language],
   );
+  // A letter picked under another language may not exist in this one —
+  // fall back to every letter instead of an empty table.
+  const handleLanguageChange = (next: string) => {
+    setLanguage(next);
+    if (
+      firstLetter !== "all" &&
+      next !== "all" &&
+      !(syllables ?? []).some(
+        (syllable) => syllable.language === next && syllable.first_letter === firstLetter,
+      )
+    )
+      setFirstLetter("all");
+  };
   const visibleSyllables = useMemo(
     () =>
       filterSyllables(
@@ -359,8 +552,27 @@ export function TutorSyllablesPage() {
               className="w-full rounded-md border border-gray-300 py-1.5 pl-7 pr-2 text-sm focus:border-gray-500 focus:outline-none"
             />
           </label>
+          {/* Every language a card can be in (backend QuizLanguage), even
+              before any card uses it. It comes first since it narrows the
+              letter filter next to it. */}
+          <label className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-gray-600">
+            {t("filterLanguage")}
+            <select
+              value={language}
+              onChange={(e) => handleLanguageChange(e.target.value)}
+              className="rounded-md border border-gray-300 bg-white py-1.5 pl-2 pr-7 text-sm text-gray-800 focus:border-gray-500 focus:outline-none"
+            >
+              <option value="all">{t("filterLanguageAll")}</option>
+              {CONTENT_LANGUAGES.map((code) => (
+                <option key={code} value={code}>
+                  {languageName(code)}
+                </option>
+              ))}
+            </select>
+          </label>
           {/* Its own labelled filter — a dropdown of every first letter that
-              has cards. */}
+              has cards in the picked language — same dropdown look as the
+              language filter. */}
           <label className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-gray-600">
             {t("filterFirstLetter")}
             <select
@@ -372,24 +584,6 @@ export function TutorSyllablesPage() {
               {firstLetters.map((letter) => (
                 <option key={letter} value={letter}>
                   {letter}
-                </option>
-              ))}
-            </select>
-          </label>
-          {/* Every language a card can be in (backend QuizLanguage), even
-              before any card uses it — same dropdown look as the letter
-              filter. */}
-          <label className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-gray-600">
-            {t("filterLanguage")}
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="rounded-md border border-gray-300 bg-white py-1.5 pl-2 pr-7 text-sm text-gray-800 focus:border-gray-500 focus:outline-none"
-            >
-              <option value="all">{t("filterLanguageAll")}</option>
-              {CONTENT_LANGUAGES.map((code) => (
-                <option key={code} value={code}>
-                  {languageName(code)}
                 </option>
               ))}
             </select>
@@ -445,17 +639,14 @@ export function TutorSyllablesPage() {
                       <span className="block h-10 w-10 rounded-md bg-gray-100" />
                     )}
                   </td>
-                  <td className="px-4 py-2 text-base font-extrabold">
-                    <span style={{ color: "#0369a1" }}>
-                      {syllable.first_letter}
-                    </span>
-                    <span style={{ color: "#dc2626" }}>
-                      {syllable.second_part}
-                    </span>
+                  <td className="px-4 py-2">
+                    <SyllableCell syllable={syllable} />
                   </td>
-                  <td className="px-4 py-2 text-gray-900">{syllable.word}</td>
-                  <td className="px-4 py-2 text-gray-600">
-                    {syllable.language}
+                  <td className="px-4 py-2">
+                    <WordCell syllable={syllable} />
+                  </td>
+                  <td className="px-4 py-2">
+                    <LanguageCell syllable={syllable} />
                   </td>
                   <td className="px-4 py-2">
                     <DefaultCell syllable={syllable} />
